@@ -308,6 +308,7 @@ const ProbeWidget = () => {
                 command = {
                     id: 'Z Touch',
                     safe: false,
+                    square: false,
                     tool: false,
                     axes: {
                         x: false,
@@ -323,6 +324,7 @@ const ProbeWidget = () => {
                     command = {
                         id: 'XYZ Touch',
                         safe: true,
+                        square: false,
                         tool: is3D ? false : true,
                         axes: {
                             x: true,
@@ -336,6 +338,7 @@ const ProbeWidget = () => {
                 command = {
                     id: 'XY Touch',
                     safe: true,
+                    square: false,
                     tool: is3D ? false : true,
                     axes: {
                         x: true,
@@ -348,6 +351,7 @@ const ProbeWidget = () => {
                 command = {
                     id: 'X Touch',
                     safe: true,
+                    square: false,
                     tool: is3D ? false : true,
                     axes: {
                         x: true,
@@ -360,6 +364,7 @@ const ProbeWidget = () => {
                 command = {
                     id: 'Y Touch',
                     safe: true,
+                    square: false,
                     tool: is3D ? false : true,
                     axes: {
                         x: false,
@@ -368,6 +373,21 @@ const ProbeWidget = () => {
                     },
                 };
                 commands.push(command);
+
+                if (is3D) {
+                    command = {
+                        id: 'XYSq Touch',
+                        safe: true,
+                        square: true,
+                        tool: false,
+                        axes: {
+                            x: true,
+                            y: true,
+                            z: false,
+                        },
+                    };
+                    commands.push(command);
+                }
             }
             return commands;
         },

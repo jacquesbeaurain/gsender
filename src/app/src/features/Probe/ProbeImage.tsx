@@ -38,6 +38,7 @@ import ZOnlyProbe from './assets/Probe-Z.gif';
 import AutoZProbe from './assets/AutoZero-Z.gif';
 import AutoXYZProbe from './assets/AutoZero-Rem.gif';
 import XY3D from './assets/3D-XY.gif';
+import XYSquare3D from './assets/3D-XY-square.gif';
 import XYZ3D from './assets/3D-XYZ.gif';
 import X3D from './assets/3D-X.gif';
 import Y3D from './assets/3D-Y.gif';
@@ -70,6 +71,8 @@ const ProbeImage: React.FC<Props> = ({
                 return Y3D;
             } else if (id === 'XY Touch') {
                 return XY3D;
+            } else if (id === 'XYSq Touch') {
+                return XYSquare3D;
             } else if (id === 'Z Touch' || id === 'XYZ Touch') {
                 return XYZ3D;
             }
