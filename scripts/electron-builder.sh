@@ -1,7 +1,12 @@
 #!/bin/bash
 
 __dirname="$(CDPATH= cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-electron_version=$(electron --version)
+# `electron --version` prints a leading CRLF on Windows, and the CR survives
+# command substitution. Left in, it word-splits the electron-rebuild argument
+# below and poisons REBUILD_MARKER with a bare CR, making the marker name
+# independent of the version (so an Electron upgrade would silently reuse
+# native modules built for the old ABI). Strip all whitespace.
+electron_version=$(electron --version | tr -d "[:space:]")
 
 display_usage() {
     yarn electron-builder -- --help
@@ -117,7 +122,12 @@ EXTRA_ARGS=()
 # and local builds those operations fail (401 on publish; signing errors with no
 # certificate), so they must be disabled. GitHub Actions sets GITHUB_REPOSITORY
 # to "owner/repo"; it is unset locally, which correctly resolves to "not upstream".
-PUBLISH_REPO=$(node -e "const u=(require('$__dirname/../package.json').repository||{}).url||'';const m=u.match(/github\.com[/:]+([^/]+\/[^/.]+)/i);process.stdout.write(m?m[1].toLowerCase():'')")
+# Resolved from inside the repo root with a relative require: under Git Bash
+# $__dirname is an MSYS path (/d/repos/...) that Node on Windows cannot
+# resolve once it is embedded in a JS string (MSYS only rewrites paths that
+# are standalone arguments), which threw MODULE_NOT_FOUND and left
+# PUBLISH_REPO empty -- forcing ON_UPSTREAM=false even on upstream builds.
+PUBLISH_REPO=$(cd "$__dirname/.." && node -e "const u=(require('./package.json').repository||{}).url||'';const m=u.match(/github\.com[/:]+([^/]+\/[^/.]+)/i);process.stdout.write(m?m[1].toLowerCase():'')")
 CURRENT_REPO=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
 ON_UPSTREAM=false
 if [ -n "$CURRENT_REPO" ] && [ "$CURRENT_REPO" = "$PUBLISH_REPO" ]; then
