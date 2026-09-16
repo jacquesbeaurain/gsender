@@ -342,7 +342,7 @@ function executeJog(machine, body) {
             return;
         }
         target[axis] = relative
-            ? machine.mpos[axis] + axisWords[axis]
+            ? machine.planFrom()[axis] + axisWords[axis]
             : axisWords[axis] + offset[axis];
     });
 
@@ -526,7 +526,7 @@ function executeGcode(machine, line) {
             return;
         }
         if (machine.modal.distance === 'G91' && !nonModalWcsOverride) {
-            target[axis] = machine.mpos[axis] + axisWords[axis];
+            target[axis] = machine.planFrom()[axis] + axisWords[axis];
         } else {
             target[axis] = axisWords[axis] + offset[axis];
         }

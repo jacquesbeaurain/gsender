@@ -604,6 +604,162 @@ async function scenario(name, args, port, fn) {
         check('P0 left G54 untouched', g54 === '[G54:0.000,0.000,0.000]', g54);
     });
 
+    // ---------------------------------------------------------------
+    await scenario(
+        'relative moves plan from the planner end',
+        [],
+        2516,
+        async (c) => {
+            await wait(500);
+            c.send('G21\nG90\nG91\n');
+            await wait(300);
+            // Queued faster than they execute: each must chain off the previous
+            // block's end, not the live position.
+            c.send('G0 X5\nG0 X5\nG0 X5\n');
+            await wait(2500);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            const st = c.last((l) => l.startsWith('<'));
+            check(
+                'three queued G91 X5 land at X=15',
+                /MPos:15\.000/.test(st || ''),
+                st,
+            );
+        },
+    );
+
+    // ---------------------------------------------------------------
+    await scenario('probe: two-stage Z routine', [], 2517, async (c) => {
+        await wait(500);
+        c.send('G21\nG90\nG53 G0 X0 Y0 Z0\n');
+        await wait(1200);
+        c.clear();
+        // The shape gSender's Z routine takes: probe, retract, slow re-probe,
+        // dwell, set offset, retract.
+        c.send('G10 L20 P0 Z0\nG91 G21\n');
+        await wait(300);
+        c.send('G38.2 Z-30 F150\n');
+        await wait(4000);
+        c.send('G91 G0 Z2\n');
+        await wait(600);
+        c.send('G38.2 Z-3 F75\n');
+        await wait(2500);
+
+        const prbs = c.lines.filter((l) => l.startsWith('[PRB:'));
+        check(
+            'both probe passes trigger at the plate',
+            prbs.length === 2 && prbs.every((p) => /,-10\.000:1\]$/.test(p)),
+            prbs.join(' '),
+        );
+        check(
+            'no alarm from the re-probe',
+            !c.lines.some((l) => l.startsWith('ALARM:')),
+            c.lines.filter((l) => l.startsWith('ALARM:')).join(' '),
+        );
+
+        c.clear();
+        c.send('G10 L20 P0 Z15\n');
+        await wait(400);
+        c.send('$#\n');
+        await wait(400);
+        const g54 = c.last((l) => l.startsWith('[G54:'));
+        // Plate top at machine -10, 15mm thick, so work Z0 sits at -25.
+        check(
+            'Z zero lands at plate top minus thickness',
+            g54 === '[G54:0.000,0.000,-25.000]',
+            g54,
+        );
+    });
+
+    // ---------------------------------------------------------------
+    await scenario('probe: X and Y faces trigger', [], 2518, async (c) => {
+        await wait(500);
+        c.send('G21\nG90\nG53 G0 X-20 Y-20 Z-25\n');
+        await wait(2500);
+        c.clear();
+        c.send('G38.2 X30 F3000\n');
+        await wait(3000);
+        let prb = c.last((l) => l.startsWith('[PRB:'));
+        check(
+            'probing +X stops at the plate X face (0)',
+            /^\[PRB:0\.000,/.test(prb || ''),
+            prb,
+        );
+
+        c.clear();
+        c.send('G90 G0 X-20\n');
+        await wait(1500);
+        c.send('G38.2 Y30 F3000\n');
+        await wait(3000);
+        prb = c.last((l) => l.startsWith('[PRB:'));
+        check(
+            'probing +Y stops at the plate Y face (0)',
+            /^\[PRB:[-0-9.]+,0\.000,/.test(prb || ''),
+            prb,
+        );
+    });
+
+    // ---------------------------------------------------------------
+    await scenario(
+        'probe pin (Pn:P) drives the connectivity test',
+        [],
+        2519,
+        async (c) => {
+            await wait(500);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            check(
+                'pin is clear before contact',
+                !/Pn:/.test(c.last((l) => l.startsWith('<')) || ''),
+                c.last((l) => l.startsWith('<')),
+            );
+
+            c.send('G21\nG90\nG53 G0 X0 Y0 Z0\n');
+            await wait(1200);
+            c.send('G38.2 Z-30 F600\n');
+            await wait(3000);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            check(
+                'pin asserts while resting on the plate',
+                /Pn:P/.test(c.last((l) => l.startsWith('<')) || ''),
+                c.last((l) => l.startsWith('<')),
+            );
+
+            c.send('G91 G0 Z5\n');
+            await wait(1200);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            check(
+                'pin releases once retracted off the plate',
+                !/Pn:/.test(c.last((l) => l.startsWith('<')) || ''),
+                c.last((l) => l.startsWith('<')),
+            );
+        },
+    );
+
+    // ---------------------------------------------------------------
+    await scenario(
+        '--probe-touched holds the pin asserted',
+        ['--probe-touched'],
+        2520,
+        async (c) => {
+            await wait(600);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            check(
+                'pin is asserted from the start',
+                /Pn:P/.test(c.last((l) => l.startsWith('<')) || ''),
+                c.last((l) => l.startsWith('<')),
+            );
+        },
+    );
+
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail ? 1 : 0);
 })();

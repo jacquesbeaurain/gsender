@@ -62,7 +62,11 @@ function parseArgs(argv) {
         errorEvery: 0,
         errorCode: 20,
         latency: 0,
-        probeZ: -10,
+        plateZ: -10,
+        plateX: 0,
+        plateY: 0,
+        plateSize: 50,
+        probeTouched: false,
         quiet: false,
     };
 
@@ -101,7 +105,20 @@ function parseArgs(argv) {
                 options.latency = Number(value);
                 break;
             case 'probe-z':
-                options.probeZ = value === 'never' ? null : Number(value);
+            case 'plate-z':
+                options.plateZ = value === 'never' ? null : Number(value);
+                break;
+            case 'plate-x':
+                options.plateX = Number(value);
+                break;
+            case 'plate-y':
+                options.plateY = Number(value);
+                break;
+            case 'plate-size':
+                options.plateSize = Number(value);
+                break;
+            case 'probe-touched':
+                options.probeTouched = true;
                 break;
             case 'quiet':
                 options.quiet = true;
@@ -142,7 +159,13 @@ Options
   --error-every=<n>      Reject every nth G-code line
   --error-code=<n>       Code used by --error-every (default 20)
   --latency=<ms>         Delay every outgoing write
-  --probe-z=<mm|never>   Z where a G38.x probe makes contact (default -10)
+  --plate-z=<mm|never>   Machine Z of the touch plate's top face (default -10);
+                         'never' makes probes miss, to exercise ALARM:5
+  --plate-x=<mm>         Machine X of the plate's bottom-left corner (default 0)
+  --plate-y=<mm>         Machine Y of the plate's bottom-left corner (default 0)
+  --plate-size=<mm>      Plate width and length (default 50)
+  --probe-touched        Start with the probe pin asserted, so gSender's
+                         connectivity test passes without touching off
   --quiet                Do not log traffic
 
 Runtime commands (type into this terminal): help
@@ -156,8 +179,14 @@ class Session {
         this.machine = new Machine({
             axes: options.axes.split(''),
             firmware: options.firmware,
-            probeTriggerZ: options.probeZ,
+            plateZ: options.plateZ,
+            plateX: options.plateX,
+            plateY: options.plateY,
+            plateSize: options.plateSize,
         });
+        if (options.probeTouched) {
+            this.machine.setProbeTouchHold(true);
+        }
 
         this.rxBuffer = '';
         this.pendingLines = [];
@@ -391,6 +420,12 @@ class Session {
             ) {
                 return;
             }
+            // Nothing can be planned past a probe: where it stops depends on
+            // where it touches. grbl synchronizes around the probe cycle for
+            // the same reason.
+            if (this.machine.hasPendingProbe()) {
+                return;
+            }
             const line = this.pendingLines.shift();
             this.processLine(line);
         }
@@ -501,7 +536,14 @@ function startRepl(server, getSession, options) {
   door           Open the safety door (Door:1)
   error <code>   Reject the next line with error:<code>
   reset          Soft reset, as Ctrl-X would
-  probe-z <mm>   Move the probe trigger plane ('never' to disable)
+  plate          Show the touch plate's faces (machine coords)
+  plate here [drop] [size]
+                 Treat the tool's position as parked above the plate corner
+  plate z <mm>   Move the plate's top face ('never' so probes miss)
+  plate x <a> <b>  Set the plate's X faces (one value = +/- that)
+  plate y <a> <b>  Set the plate's Y faces
+  touch          Assert the probe pin, for gSender's connectivity test
+  untouch        Release the probe pin
   say <text>     Push a raw line to the client
   status         Print machine state
   drop           Drop the client connection
@@ -541,13 +583,53 @@ function startRepl(server, getSession, options) {
             case 'reset':
                 if (needsSession()) session.handleRealtime(RT_RESET);
                 break;
-            case 'probe-z':
+            case 'plate':
                 if (needsSession()) {
-                    session.machine.probeTriggerZ =
-                        rest[0] === 'never' ? null : Number(rest[0]);
-                    console.log(
-                        `Probe trigger Z: ${session.machine.probeTriggerZ}`,
-                    );
+                    const m = session.machine;
+                    const [sub, ...vals] = rest;
+                    if (sub === 'here') {
+                        // Treat the tool's current spot as "parked above the
+                        // plate's corner", which is where an operator jogs to
+                        // before running a corner routine.
+                        const drop = vals[0] ? Number(vals[0]) : 10;
+                        const size = vals[1] ? Number(vals[1]) : 50;
+                        m.plate.z = Number((m.mpos.Z - drop).toFixed(3));
+                        m.plate.xMin = Number(m.mpos.X.toFixed(3));
+                        m.plate.xMax = Number((m.mpos.X + size).toFixed(3));
+                        m.plate.yMin = Number(m.mpos.Y.toFixed(3));
+                        m.plate.yMax = Number((m.mpos.Y + size).toFixed(3));
+                    } else if (sub === 'z') {
+                        m.plate.z =
+                            vals[0] === 'never' ? null : Number(vals[0]);
+                    } else if (sub === 'x') {
+                        m.plate.xMin = Number(vals[0]);
+                        m.plate.xMax =
+                            vals[1] === undefined
+                                ? -Number(vals[0])
+                                : Number(vals[1]);
+                    } else if (sub === 'y') {
+                        m.plate.yMin = Number(vals[0]);
+                        m.plate.yMax =
+                            vals[1] === undefined
+                                ? -Number(vals[0])
+                                : Number(vals[1]);
+                    } else if (sub) {
+                        console.log(`Unknown: plate ${sub} (try 'help')`);
+                        break;
+                    }
+                    console.log(m.plate);
+                }
+                break;
+            case 'touch':
+                if (needsSession()) {
+                    session.machine.setProbeTouchHold(true);
+                    console.log('Probe pin asserted (Pn:P)');
+                }
+                break;
+            case 'untouch':
+                if (needsSession()) {
+                    session.machine.setProbeTouchHold(false);
+                    console.log('Probe pin released');
                 }
                 break;
             case 'say':
@@ -564,6 +646,10 @@ function startRepl(server, getSession, options) {
                         queued: m.queue.length,
                         pendingLines: session.pendingLines.length,
                         overrides: m.overrides,
+                        plate: m.plate,
+                        probeTouched: m.probeTouched,
+                        probePinHeld: m.probeTouchHold,
+                        lastProbe: m.probeResult,
                     });
                 }
                 break;
