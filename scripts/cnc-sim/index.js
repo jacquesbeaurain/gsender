@@ -366,7 +366,11 @@ class Session {
 
     sendStatusReport(opts = {}) {
         this.reportCount += 1;
-        const includeWCO = this.reportCount % WCO_EVERY_N_REPORTS === 1;
+        // An offset change forces WCO out immediately; otherwise it rides the
+        // periodic slot, as real grbl does.
+        const wcoPending = this.machine.consumeWcoPending();
+        const includeWCO =
+            wcoPending || this.reportCount % WCO_EVERY_N_REPORTS === 1;
         this.machine.rxAvailable = Math.max(
             0,
             RX_BUFFER_BYTES - this.pendingLines.join('\n').length,

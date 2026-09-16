@@ -97,6 +97,12 @@ Worked example, with the defaults and a 15 mm plate thickness: a Z probe stops
 at machine −10, gSender writes the offset with `G10 L20 P0 Z15`, and work zero
 lands at machine −25. Retracted 2 mm off the plate, the DRO reads Z = 17.000.
 
+A 3D probe works the same way against the same plate — its routines are the
+Standard Block ones with a different thickness. Set **Touch plate type** to
+*3D Probe* in Config → Probe; with the default `Z offset` of 0 the probe zeroes
+on the plate's top face, so the same Z routine ends with the DRO reading
+Z = 2.000 at machine −8 rather than 17.000.
+
 **The tool is a point.** There is no tool-radius compensation on contact, so an
 X or Y probe stops when the tool *centre* reaches the face. gSender compensates
 for the tool radius when it writes the offset, so simulated XY zeros are off by
@@ -135,7 +141,12 @@ server just runs.
   setting writes
 - Status reports on `?` (and grblHAL's `0x87` complete report), with `MPos`,
   `Bf`, `FS`, `WCO`, `Pn`, `Ov` and `A` fields; `WCO` every 10th report, as real
-  grbl does
+  grbl does, plus a forced `WCO` on the next report after any offset change
+  (`G10`, `G92`, `G92.1`, a `G54`–`G59` switch) — grbl's
+  `system_flag_wco_change()`. gSender derives the work position as
+  `MPos - WCO` from the last `WCO` it saw, so without the forced refresh the
+  DRO keeps showing the pre-probe zero for seconds after a routine finishes,
+  which reads as "probing did nothing"
 - Realtime bytes: `?` `~` `!` `0x18` `0x84` `0x85` `0x87`, and the feed/rapid/
   spindle override bytes `0x90`–`0x9B`
 - A 15-block planner buffer, so `ok` carries real back-pressure — exactly one

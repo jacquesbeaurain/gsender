@@ -393,6 +393,9 @@ function executeGcode(machine, line) {
             } else if (value === 53) {
                 nonModalWcsOverride = true;
             } else if (value >= 54 && value <= 59) {
+                if (machine.modal.wcs !== `G${value}`) {
+                    machine.flagWcoChange();
+                }
                 machine.modal.wcs = `G${value}`;
             } else if (value === 90) {
                 machine.modal.distance = 'G90';
@@ -471,6 +474,7 @@ function executeGcode(machine, line) {
 
     if (clearG92) {
         machine.g92 = machine.zeroVector();
+        machine.flagWcoChange();
         return [];
     }
 
@@ -483,6 +487,7 @@ function executeGcode(machine, line) {
                     machine.mpos[axis] - offset[axis] - axisWords[axis];
             }
         });
+        machine.flagWcoChange();
         return [];
     }
 
@@ -505,6 +510,7 @@ function executeGcode(machine, line) {
                     machine.mpos[axis] - axisWords[axis] - machine.g92[axis];
             }
         });
+        machine.flagWcoChange();
         return [];
     }
 

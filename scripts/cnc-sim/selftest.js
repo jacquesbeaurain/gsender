@@ -760,6 +760,61 @@ async function scenario(name, args, port, fn) {
         },
     );
 
+    // ---------------------------------------------------------------
+    await scenario(
+        'offset changes force WCO into the next report',
+        [],
+        2521,
+        async (c) => {
+            await wait(500);
+            c.send('G21\nG90\nG53 G0 X0 Y0 Z0\n');
+            await wait(1200);
+
+            // Burn the periodic WCO slot so the next report would not carry
+            // one on its own, then change the offset.
+            for (let i = 0; i < 4; i += 1) {
+                c.send('?');
+                await wait(120);
+            }
+            c.clear();
+            c.send('G10 L20 P0 Z15\n');
+            await wait(300);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            let st = c.last((l) => l.startsWith('<'));
+            check(
+                'the report right after G10 carries the new WCO',
+                /WCO:0\.000,0\.000,-15\.000/.test(st || ''),
+                st,
+            );
+
+            // And it is a one-shot, not a permanent "every report" switch.
+            c.clear();
+            c.send('?');
+            await wait(200);
+            st = c.last((l) => l.startsWith('<'));
+            check(
+                'the following report drops back to no WCO',
+                !/WCO:/.test(st || ''),
+                st,
+            );
+
+            c.clear();
+            c.send('G92 X5\n');
+            await wait(300);
+            c.clear();
+            c.send('?');
+            await wait(200);
+            st = c.last((l) => l.startsWith('<'));
+            check(
+                'G92 forces a WCO refresh too',
+                /WCO:-5\.000,/.test(st || ''),
+                st,
+            );
+        },
+    );
+
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail ? 1 : 0);
 })();
