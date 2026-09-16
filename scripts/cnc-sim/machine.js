@@ -74,10 +74,41 @@ class Machine {
 
         this.overrides = { feed: 100, rapid: 100, spindle: 100 };
 
-        // Where a G38.x probe is considered to make contact. Null means the
-        // probe never triggers and the move fails at its target.
-        this.probeTriggerZ =
-            options.probeTriggerZ === undefined ? -10 : options.probeTriggerZ;
+        // The touch plate, as planes in MACHINE coordinates: a square block with
+        // its bottom-left corner at (plateX, plateY) and its top face at `z`.
+        // A probing move triggers when it crosses the face it is travelling
+        // toward - down onto `z`, +X onto `xMin`, -X onto `xMax`, likewise Y.
+        // Set `z` to null for a plate the probe never reaches (ALARM:5).
+        //
+        // The defaults put a 50mm plate (gSender's own default plate size) with
+        // its corner at machine origin and its top 10mm below Z0, so the stock
+        // bottom-left-corner routine works from a tool parked at machine zero.
+        //
+        // This is a plane model, not a solid: probing X triggers at the X face
+        // wherever the tool happens to be in Y. That keeps the routines
+        // predictable at the cost of not catching a genuinely mispositioned
+        // probe - see README.
+        const plateX = options.plateX === undefined ? 0 : options.plateX;
+        const plateY = options.plateY === undefined ? 0 : options.plateY;
+        const plateSize =
+            options.plateSize === undefined ? 50 : options.plateSize;
+        this.plate = {
+            z: options.plateZ === undefined ? -10 : options.plateZ,
+            xMin: plateX,
+            xMax: plateX + plateSize,
+            yMin: plateY,
+            yMax: plateY + plateSize,
+        };
+
+        // True while the tool is resting on the plate, which is what drives the
+        // Pn:P field. gSender's probe dialog will not enable its Start button
+        // until it has seen this at least once (the "connectivity test").
+        this.probeTouched = false;
+        this.probeTouchHold = false; // forced on from the REPL
+        this.probeFace = null; // which plate face the tool is resting on
+
+        // Position after everything queued has run; null means "use mpos".
+        this.plannerEnd = null;
 
         this.homed = false;
         this.homingEndsAt = 0;
@@ -145,6 +176,18 @@ class Machine {
     }
 
     /**
+     * Where the tool will be once everything already queued has run.
+     *
+     * Lines are parsed into the planner ahead of execution, so a G91 move must
+     * be resolved against the end of the previous block rather than the live
+     * position - otherwise a burst of queued relative moves all resolve against
+     * the same stale spot and the machine ends up short.
+     */
+    planFrom() {
+        return this.plannerEnd || this.mpos;
+    }
+
+    /**
      * Queue a coordinated move. `target` holds absolute machine coordinates for
      * the axes that move; omitted axes hold position.
      */
@@ -152,10 +195,13 @@ class Machine {
         target,
         { rapid = false, feed = null, probe = null, jog = false } = {},
     ) {
+        const from = this.planFrom();
         const resolved = {};
+        const end = {};
         this.axes.forEach((axis) => {
             resolved[axis] =
                 target[axis] === undefined ? null : Number(target[axis]);
+            end[axis] = resolved[axis] === null ? from[axis] : resolved[axis];
         });
         this.queue.push({
             target: resolved,
@@ -165,12 +211,29 @@ class Machine {
             jog,
             start: null,
         });
+        // A probe stops wherever it touches, so its end position is unknowable
+        // here. Planning is suspended until it completes (see hasPendingProbe).
+        this.plannerEnd = probe ? null : end;
+    }
+
+    /** True while a probing move is queued or running. */
+    hasPendingProbe() {
+        return Boolean(
+            (this.active && this.active.probe) ||
+                this.queue.some((block) => block.probe),
+        );
+    }
+
+    /** Re-anchor planning to the live position. */
+    resyncPlanner() {
+        this.plannerEnd = null;
     }
 
     /** Drop queued and in-flight motion. Used by soft reset and jog cancel. */
     clearMotion() {
         this.queue = [];
         this.active = null;
+        this.resyncPlanner();
     }
 
     alarm(code) {
@@ -306,33 +369,111 @@ class Machine {
             return messages;
         }
 
+        const before = { ...this.mpos };
         const fraction =
             stepDistance >= remaining ? 1 : stepDistance / remaining;
         this.axes.forEach((axis) => {
             this.mpos[axis] += delta[axis] * fraction;
         });
 
-        // A probing move stops the moment it crosses the trigger plane.
-        if (block.probe && this.probeTriggerZ !== null) {
-            if (this.mpos.Z <= this.probeTriggerZ) {
-                this.mpos.Z = this.probeTriggerZ;
+        // A probing move stops the moment it touches the plate.
+        if (block.probe) {
+            const contact = this.probeContact(before);
+            if (contact) {
+                this.mpos[contact.axis] = contact.at;
                 this.probeResult = { position: { ...this.mpos }, success: 1 };
-                this.pinState = 'P';
+                this.probeFace = contact;
+                this.setProbeTouched(true);
                 this.active = null;
+                this.resyncPlanner();
                 messages.push({ type: 'probe', success: true, block });
-                // Probe contact is momentary as far as the status report cares.
-                setTimeout(() => {
-                    this.pinState = '';
-                }, 200);
                 return messages;
             }
         }
+
+        // Contact is positional, so re-derive it after every step: the pin
+        // stays asserted while the tool rests on the plate and releases as soon
+        // as it retracts clear.
+        this.refreshProbePin();
 
         if (fraction === 1) {
             messages.push(...this.finishBlock(block));
         }
 
         return messages;
+    }
+
+    /**
+     * Did the step from `before` to the current position cross a plate face in
+     * the direction of travel? Returns {axis, at} for the first face crossed.
+     */
+    probeContact(before) {
+        const faces = [
+            { axis: 'Z', at: this.plate.z, dir: -1 },
+            { axis: 'X', at: this.plate.xMin, dir: 1 },
+            { axis: 'X', at: this.plate.xMax, dir: -1 },
+            { axis: 'Y', at: this.plate.yMin, dir: 1 },
+            { axis: 'Y', at: this.plate.yMax, dir: -1 },
+        ];
+
+        for (const face of faces) {
+            if (face.at === null || !this.axes.includes(face.axis)) {
+                continue;
+            }
+            const from = before[face.axis];
+            const to = this.mpos[face.axis];
+            if (to === from) {
+                continue;
+            }
+            // Travelling toward the face, and this step reached or passed it.
+            if (face.dir < 0 && to < from && to <= face.at && from > face.at) {
+                return face;
+            }
+            if (face.dir > 0 && to > from && to >= face.at && from < face.at) {
+                return face;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Is the tool touching the plate? True anywhere inside the block's XY
+     * footprint at or below its top face. The probe circuit closes on contact
+     * however it happens - jogging into the plate, or lifting the plate up to
+     * the tool as gSender's connectivity check asks you to - not only during a
+     * G38.x move.
+     */
+    toolInPlate() {
+        if (this.plate.z === null) {
+            return false;
+        }
+        if (this.mpos.Z > this.plate.z + EPSILON) {
+            return false;
+        }
+        const inX =
+            this.mpos.X >= this.plate.xMin - EPSILON &&
+            this.mpos.X <= this.plate.xMax + EPSILON;
+        const inY =
+            this.mpos.Y >= this.plate.yMin - EPSILON &&
+            this.mpos.Y <= this.plate.yMax + EPSILON;
+        return inX && inY;
+    }
+
+    /** Recompute Pn:P from contact plus any manual override. */
+    refreshProbePin() {
+        this.probeTouched = this.toolInPlate();
+        this.pinState = this.probeTouched || this.probeTouchHold ? 'P' : '';
+    }
+
+    setProbeTouched(touched) {
+        this.probeTouched = touched;
+        this.pinState = touched || this.probeTouchHold ? 'P' : '';
+    }
+
+    /** REPL/flag override: hold the probe pin asserted regardless of position. */
+    setProbeTouchHold(hold) {
+        this.probeTouchHold = hold;
+        this.pinState = hold || this.probeTouched ? 'P' : '';
     }
 
     finishBlock(block) {
@@ -352,6 +493,7 @@ class Machine {
 
         if (!this.queue.length) {
             this.activeState = STATE_IDLE;
+            this.resyncPlanner();
         }
         return messages;
     }
