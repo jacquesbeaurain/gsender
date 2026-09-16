@@ -95,6 +95,33 @@ serial port — it will show up, but not where you expect.
 - **`Bf:15,128`** is planner blocks free, then RX bytes free. gSender derives its
   streaming buffer size as `rx - 8`.
 
+## Probing
+
+Probe routines are **generated G-code**, not direct commands. `getProbeCode()`
+in `src/app/src/lib/Probing.ts` emits a macro-style program: `%VAR=value`
+assignment lines plus `[expr]` interpolations. The controller's feeder evaluates
+the assignments into a context and substitutes the expressions before anything
+reaches the machine (`GrblController.js`, via `lib/translate-expression.js` and
+`lib/evaluate-assignment-expression.js`).
+
+Two things to know if you drive that machinery yourself:
+
+- **The context must be seeded with `GLOBAL_OBJECTS`** from
+  `src/server/controllers/constants.js`. That's what puts `Math` in scope;
+  without it `Math.abs(...)`/`Math.sign(...)` silently fail to resolve and the
+  raw `[expr]` text is passed straight through to the controller.
+- `src/server/lib/evaluate-expression.js` has a stray `console.log(node)` that
+  dumps an AST node for every expression evaluated. It is committed on master,
+  not something you introduced.
+
+A single-axis Z routine is: probe fast, retract, probe slow, dwell,
+`G10 L20 P0 Z[thickness]`, retract. Zeroing therefore depends on the retract
+between the two probes landing where it should, which is what made the
+planner-end bug (see below) show up as a probing failure.
+
+`yarn sim --probe-touched` is the way to exercise the probe dialog: it will not
+enable **Start Probe** until it has seen `Pn:P` from the connectivity test.
+
 ## Conventions
 
 - `src/` is ESM (`import`/`export`); `scripts/` is CommonJS (`require`). No
@@ -128,6 +155,16 @@ a stand-in; the simulator is a plausible stand-in but this has not been wired up
   passed 40/40 while `$J=` jogging was entirely unimplemented — the gap only
   surfaced on clicking a jog button in the browser and getting `error:3`. Unit
   tests confirm what you thought of; the app surfaces what you didn't.
+- **Better still, replay the app's own generated output.** Feeding the real
+  `getProbeCode()` routines at the simulator found a bug neither hand-written
+  tests nor clicking around had: relative moves were resolved against the live
+  position at parse time, but lines are parsed into the planner *ahead* of
+  execution, so three queued `G91 G0 X5` all targeted X=5. Real generated
+  programs exercise sequences you would never think to write by hand.
+- **Read a failure's numbers before assuming where the bug is.** The first XYZ
+  probe failure looked like broken X probing; the coordinates showed the probe
+  stopping at X=8.825 against a plate face at X=10 — the logic was fine, the
+  default geometry was 1.175 mm out of reach.
 - `src/server/api/notes.json` is **generated**, not hand-edited: `yarn dev` runs
   `prebuild-dev` → `scripts/package-sync.js`, which regenerates it by parsing
   the release notes out of `README.md`. So it can show up modified in
