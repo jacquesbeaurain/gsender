@@ -112,6 +112,25 @@ class Machine {
 
         this.homed = false;
         this.homingEndsAt = 0;
+
+        // Real grbl calls system_flag_wco_change() whenever a coordinate
+        // offset changes, which forces WCO into the *next* status report
+        // rather than waiting for the periodic one. gSender derives the work
+        // position as MPos - cached WCO, so without this the DRO keeps showing
+        // the pre-probe zero for up to ten reports after a routine finishes.
+        this.wcoPending = true;
+    }
+
+    /** Force WCO into the next status report, as grbl does on an offset change. */
+    flagWcoChange() {
+        this.wcoPending = true;
+    }
+
+    /** Read and clear the pending-WCO flag. */
+    consumeWcoPending() {
+        const pending = this.wcoPending;
+        this.wcoPending = false;
+        return pending;
     }
 
     zeroVector() {

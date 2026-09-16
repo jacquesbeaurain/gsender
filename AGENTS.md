@@ -29,7 +29,7 @@ the line protocol over TCP:
 
 ```bash
 yarn sim          # grbl on 127.0.0.1:2323
-yarn sim:test     # 50-check protocol self-test, ~1 min
+yarn sim:test     # 60-check protocol self-test, ~2 min
 ```
 
 Then **Settings → Ethernet** → *Connect to IP* `127.0.0.1`, *Ethernet port*
@@ -94,6 +94,13 @@ serial port — it will show up, but not where you expect.
   range `0x90`–`0x9B`. They can appear mid-line and must not reach the parser.
 - **`Bf:15,128`** is planner blocks free, then RX bytes free. gSender derives its
   streaming buffer size as `rx - 8`.
+- **`WCO` is cached by gSender**, which computes the work position as
+  `MPos - WCO` (`GrblRunner.js`). Real grbl sends `WCO` every 10th report *and*
+  forces one into the next report whenever offsets change
+  (`system_flag_wco_change()` on `G10`, `G92`, `G92.1`, a WCS switch). Only the
+  periodic half is obvious from the docs; miss the forced half and every
+  zeroing operation leaves the DRO stale for seconds, which looks like the
+  zeroing silently failed rather than a reporting bug.
 
 ## Probing
 
@@ -121,6 +128,14 @@ planner-end bug (see below) show up as a probing failure.
 
 `yarn sim --probe-touched` is the way to exercise the probe dialog: it will not
 enable **Start Probe** until it has seen `Pn:P` from the connectivity test.
+
+The **3D Probe** touch plate type is not a separate code path: `getProbeCode()`
+routes it through the same `getSingleAxisStandardRoutine` /
+`get3AxisStandardRoutine` as the Standard Block, and for a single-axis Z the two
+programs are identical apart from `%Z_THICKNESS` (`0` for a 3D probe by default,
+`15` for the block). So if a 3D probe misbehaves and a block probe does not, the
+difference is not in the generated G-code — look at the offset that gets written
+and at how it is reported back.
 
 ## Conventions
 
