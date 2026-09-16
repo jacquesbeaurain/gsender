@@ -169,6 +169,78 @@ both in `__tests__/` directories and beside their subjects as `*.test.ts(x)`.
 Cypress specs under `cypress/e2e/` mostly target grblHAL and assume hardware or
 a stand-in; the simulator is a plausible stand-in but this has not been wired up.
 
+## Building a distributable
+
+The published wiki page (<https://resources.sienci.com/view/gs-compile/>) ends
+with `yarn build` followed by a bare `yarn electron-builder`. **That does not
+work.** A bare `electron-builder` has no platform target and skips both the
+prebuild and the wrapper script that does the real setup work. Use the repo's
+own scripts, which are what CI runs:
+
+```bash
+yarn install
+npm run package-sync
+yarn --cwd src install --production --ignore-scripts --non-interactive
+npm run prebuild-prod     # generates dist/gsender/package.json + main.js
+yarn run build            # renderer + prod server bundles
+yarn run build:windows    # -> scripts/electron-builder.sh --windows --x64
+```
+
+`.github/workflows/CI.yml` and `.github/actions/setup-build/action.yml` are the
+authoritative sequence — mirror them rather than the wiki. CI's only divergence
+is `prebuild-latest` / `build-latest` on branches (it stamps a commit count into
+the version) versus `prebuild-prod` / `build` on tags.
+
+Run it from Git Bash, not PowerShell or CMD — the build scripts are bash.
+
+What `scripts/electron-builder.sh` adds over a bare `electron-builder`, and why
+skipping it fails:
+
+- installs production deps into `dist/gsender/` (electron-builder packages that
+  directory, not the repo root)
+- runs `electron-rebuild` for the native `serialport` / `usb` bindings against
+  the Electron ABI
+- passes `--publish never` and `-c.win.signExecutable=false` when no signing
+  credentials are present. Without the latter, electron-builder invokes
+  `signtool.exe` and the build dies.
+
+Output lands in `output/`: `gSender-<version>-x64.exe` (NSIS, per-machine, not
+one-click, ~138 MB) plus `win-unpacked/gSender.exe`, which runs directly and is
+the faster way to smoke-test a packaged build. A local build is unsigned, so
+SmartScreen warns on first launch. A full run from a clean `dist/` is roughly
+10 minutes, most of it the deps install and native rebuild; `build:windows`
+alone is ~90 s once those are cached.
+
+### Git Bash / MSYS traps in scripts/electron-builder.sh
+
+Two lines in that script are written defensively against MSYS quirks. Both
+were real bugs that a local Windows build walked straight into; if you find
+yourself "simplifying" either one, this is what it costs.
+
+- **`PUBLISH_REPO` reads `./package.json` after `cd "$__dirname/.."`, not
+  `$__dirname/../package.json` directly.** Under Git Bash `$__dirname` is an
+  MSYS path (`/d/repos/gh/gsender/scripts`). MSYS rewrites such paths to
+  `D:\...` when they are *standalone arguments* to a native binary, but not
+  when they are embedded inside a quoted JS string — so the original
+  `node -e "...require('$__dirname/../package.json')..."` threw
+  `MODULE_NOT_FOUND`, left `PUBLISH_REPO` empty, and forced `ON_UPSTREAM=false`
+  unconditionally, adding `--publish never` even on upstream tag builds. The
+  relative require sidesteps path translation entirely. Note the contrast with
+  `node "$__dirname/../esbuild.config.js"` a few lines up, which is fine
+  precisely because it *is* a standalone argument.
+- **`electron_version` pipes through `tr -d "[:space:]"`.** `electron --version`
+  on Windows emits a leading CRLF (`od -c` shows `\r \n v 3 8 . 8 . 6 \n`) and
+  the CR survives command substitution. Unstripped it word-split the
+  `electron-rebuild --version=` argument, and worse, it landed in
+  `REBUILD_MARKER` as a bare CR — making the marker name independent of the
+  Electron version, so an Electron upgrade would report "already rebuilt" and
+  package native modules built against the old ABI.
+
+Both were fixed after a local build surfaced them; the visible symptom was a
+`MODULE_NOT_FOUND` stack trace mid-build that did not fail the build, because
+the empty `PUBLISH_REPO` happened to resolve to the settings a local build
+wants anyway. A build that prints an error and still exits 0 is worth reading.
+
 ## Working notes for agents
 
 - **Verify claims against the code before writing them down.** Several things in
