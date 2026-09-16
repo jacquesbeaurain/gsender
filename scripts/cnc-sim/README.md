@@ -1,0 +1,124 @@
+# CNC simulator
+
+A grbl / grblHAL simulator that speaks the line protocol over TCP, so you can
+develop against a "connected" machine without hardware.
+
+It needs no changes to gSender. `SerialConnection.open()` already opens a
+`net.Socket` instead of a `SerialPort` when the target looks like an IPv4
+address ([`src/server/lib/SerialConnection.js`](../../src/server/lib/SerialConnection.js)),
+and everything above that layer — firmware detection, the controllers, the
+sender and feeder — is transport-agnostic.
+
+## Running it
+
+```bash
+yarn sim
+```
+
+Then in gSender:
+
+1. **Settings → Ethernet** → *Connect to IP* `127.0.0.1`, *Ethernet port* `2323`
+2. Open the connection dropdown and click the **Ethernet** button (below the USB
+   port list, not one of the USB entries — the USB path would try to open a real
+   serial port).
+
+Port 2323 rather than grbl's usual 23, because ports below 1024 need root on
+macOS and Linux.
+
+## Self-test
+
+```bash
+yarn sim:test
+```
+
+Starts a simulator per scenario and drives it with the exact command forms
+gSender's controllers emit, asserting the protocol invariants (one `ok` per
+line, planner back-pressure, deferred `ok` on `$H`, `$J=` jogging, probe and
+zeroing behaviour). Takes about a minute — the behaviour worth testing here is
+all timing behaviour, so it runs real timers.
+
+## Options
+
+| Flag | Meaning |
+| --- | --- |
+| `--host=<ip>` | Listen address (default `127.0.0.1`) |
+| `--port=<n>` | Listen port (default `2323`) |
+| `--firmware=grbl\|grblhal` | Which firmware to impersonate (default `grbl`) |
+| `--axes=XYZ` | Axis letters, e.g. `XYZA` for a 4-axis machine |
+| `--no-banner` | Suppress the startup banner, to exercise gSender's `$I` detection fallback |
+| `--alarm-on-connect[=n]` | Come up alarm-locked with `ALARM:n` (default 1) |
+| `--error-every=<n>` | Reject every nth G-code line |
+| `--error-code=<n>` | Code used by `--error-every` (default 20) |
+| `--latency=<ms>` | Delay every outgoing write |
+| `--probe-z=<mm\|never>` | Z where a `G38.x` probe makes contact (default `-10`) |
+| `--quiet` | Do not log traffic |
+
+```bash
+yarn sim --firmware=grblhal --axes=XYZA   # 4-axis grblHAL board
+yarn sim --alarm-on-connect               # starts alarm-locked, needs $X
+yarn sim --error-every=25                 # reject a line mid-job
+yarn sim --latency=150                    # a sluggish link
+```
+
+## Runtime fault injection
+
+With a TTY attached, the simulator takes commands while it runs — this is the
+part that's hard to reproduce on real hardware:
+
+```
+sim> alarm 1        Raise ALARM:<code> and lock the machine
+sim> unlock         Clear the alarm, as $X would
+sim> hold           Feed hold
+sim> resume         Cycle start
+sim> door           Open the safety door (Door:1)
+sim> error 9        Reject the next line with error:9
+sim> reset          Soft reset, as Ctrl-X would
+sim> probe-z -5     Move the probe trigger plane ('never' to disable)
+sim> say [MSG:hi]   Push a raw line to the client
+sim> status         Print machine state
+sim> drop           Drop the client connection mid-job
+sim> quit           Stop the simulator
+```
+
+Under `yarn sim &`, nohup or CI there is no TTY, so the REPL is skipped and the
+server just runs.
+
+## What it models
+
+- Startup banner, `$I`, `$$`, `$G`, `$#`, `$H`, `$X`, `$C`, `$N`, and `$<n>=<v>`
+  setting writes
+- Status reports on `?` (and grblHAL's `0x87` complete report), with `MPos`,
+  `Bf`, `FS`, `WCO`, `Pn`, `Ov` and `A` fields; `WCO` every 10th report, as real
+  grbl does
+- Realtime bytes: `?` `~` `!` `0x18` `0x84` `0x85` `0x87`, and the feed/rapid/
+  spindle override bytes `0x90`–`0x9B`
+- A 15-block planner buffer, so `ok` carries real back-pressure — exactly one
+  `ok` per line, delayed when the buffer is full. This is what gSender's
+  character-counting sender depends on.
+- Synchronizing commands (`$#`, `$G`, `G10`, `G92`, `G4`, `G38.x`, `M0`/`M2`/
+  `M30`, …) wait for the planner to drain, matching
+  `protocol_buffer_synchronize()` in the firmware. Without this, zeroing right
+  after a move captures a position that is still changing.
+- Motion at the programmed feed rate, `Run`/`Idle`/`Hold`/`Jog`/`Home`/`Alarm`
+  states, `Hold:1` while decelerating then `Hold:0`
+- `G0/G1`, `G90/G91`, `G20/G21`, `G53`, `G54`–`G59`, `G10 L2/L20`, `G92`,
+  `G92.1`, `G28/G30`, `G4` dwell, `M0/M1/M2/M30`, `M3/M4/M5`, `M7/M8/M9`, `F`,
+  `S`, `T`
+- Probing: `G38.2`–`G38.5` stop at the trigger plane and report `[PRB:…:1]`; a
+  probe that reaches its target without contact reports `[PRB:…:0]` and raises
+  `ALARM:5`
+
+## What it does not model
+
+- **Acceleration.** A move runs at its target feed for its whole length, so
+  timings are optimistic and `Bf` drains more evenly than on real hardware.
+- **Arcs.** `G2`/`G3` move in a straight line to the endpoint. Fine for state
+  and streaming, wrong for anything reading the toolpath back.
+- **Soft and hard limits.** `$130`–`$132` are reported but never enforced, and
+  there are no limit switches, so you cannot trigger a real limit alarm (use
+  `alarm 1` from the REPL instead).
+- **Setting-description queries.** grblHAL's `$ES`/`$EG`/`$EA` return an empty
+  `ok`, so any gSender UI driven by the firmware's own setting metadata will
+  come up blank.
+- **Tool changes.** `M6` synchronizes but does nothing else.
+- **EEPROM persistence.** Setting writes live for the life of the connection.
