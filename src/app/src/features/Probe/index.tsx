@@ -64,6 +64,7 @@ import type {
     State,
     TOUCHPLATE_TYPES_T,
 } from './definitions';
+import MeshProbe from './MeshProbe';
 import Probe from './Probe';
 import RunProbe from './RunProbe';
 
@@ -262,6 +263,17 @@ const ProbeWidget = () => {
             setModalIsOpen(isOpen);
         },
         onMeshOpenChange: (isOpen: boolean): void => {
+            // Same connectivity handshake as the single-axis probe dialog.
+            if (isOpen) {
+                setConnectionMade(false);
+                actions.startConnectivityTest();
+            } else {
+                if (testIntervalRef.current) {
+                    clearInterval(testIntervalRef.current);
+                    testIntervalRef.current = null;
+                }
+                setConnectionMade(false);
+            }
             setMeshModalIsOpen(isOpen);
         },
         changeProbeCommand: (value: string): void => {
@@ -658,6 +670,7 @@ const ProbeWidget = () => {
         <>
             <div className="relative">
                 <RunProbe state={state} actions={actions} />
+                <MeshProbe state={state} actions={actions} />
                 <Probe state={state} actions={actions} />
             </div>
         </>

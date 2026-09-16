@@ -137,6 +137,16 @@ planner-end bug (see below) show up as a probing failure.
 `yarn sim --probe-touched` is the way to exercise the probe dialog: it will not
 enable **Start Probe** until it has seen `Pn:P` from the connectivity test.
 
+To drive a probe loop from the app and read results back (as the mesh capture
+in `features/Probe/useMeshCapture.ts` does), listen for `[PRB:...]` on
+`serialport:read`. The parsed value is also on the controller's
+`parameters.PRB`, but `GrblRunner.js` only replaces its settings object when
+the value actually *changes* - so two probes that stop at the same coordinates
+produce one update, and a loop waiting for the second one hangs. The raw line
+arrives once per probe regardless. Note also that anything queued behind a
+`G38.x` reaches an alarm-locked machine if the probe misses, and comes back as
+`error:9`; make the probe the last line of each batch.
+
 The **3D Probe** touch plate type is not a separate code path: `getProbeCode()`
 routes it through the same `getSingleAxisStandardRoutine` /
 `get3AxisStandardRoutine` as the Standard Block, and for a single-axis Z the two
