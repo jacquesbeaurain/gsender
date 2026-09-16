@@ -80,6 +80,8 @@
     "dev": "npm run prebuild-dev && npm run build-dev-server && npm run prepare-dev-plugins && concurrently --kill-others-on-fail --names \"esbuild,server,tailwind\" \"npm run watch-dev\" \"npm run start-dev:nodemon\" \"npm run tailwind-dev\"",
     "dev:electron": "npm run build-dev && npm run prepare-dev-plugins && node scripts/electron-hot.js",
     "vite:dev": "cd src/app && vite --port 5173 --host --force",
+    "sim": "node scripts/cnc-sim",
+    "sim:test": "node scripts/cnc-sim/selftest.js",
     "prod": "npm run build-prod && NODE_ENV=production ./bin/gsender",
     "format": "biome format --write .",
     "format:check": "biome format .",
