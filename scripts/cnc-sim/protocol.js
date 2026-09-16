@@ -73,7 +73,9 @@ function statusReport(machine, { includeWCO = false, complete = false } = {}) {
     if (machine.active) {
         feed = machine.active.rapid ? machine.rapidRate() : machine.active.feed;
     }
-    fields.push(`FS:${Math.round(feed)},${Math.round(machine.isMoving() ? machine.spindleSpeed : machine.modal.spindle === 'M5' ? 0 : machine.spindleSpeed)}`);
+    fields.push(
+        `FS:${Math.round(feed)},${Math.round(machine.isMoving() ? machine.spindleSpeed : machine.modal.spindle === 'M5' ? 0 : machine.spindleSpeed)}`,
+    );
 
     if (machine.pinState) {
         fields.push(`Pn:${machine.pinState}`);
@@ -145,7 +147,9 @@ function parameters(machine) {
     });
     lines.push(`[G28:${machine.axes.map(() => fmt(0)).join(',')}]`);
     lines.push(`[G30:${machine.axes.map(() => fmt(0)).join(',')}]`);
-    lines.push(`[G92:${machine.axes.map((axis) => fmt(machine.g92[axis])).join(',')}]`);
+    lines.push(
+        `[G92:${machine.axes.map((axis) => fmt(machine.g92[axis])).join(',')}]`,
+    );
     lines.push(`[TLO:${fmt(machine.tlo)}]`);
     lines.push(
         `[PRB:${machine.axes.map((axis) => fmt(machine.probeResult.position[axis])).join(',')}:${machine.probeResult.success}]`,
@@ -252,7 +256,8 @@ function executeSystemCommand(machine, line, firmware) {
     }
 
     if (upper === '$C') {
-        machine.activeState = machine.activeState === 'Check' ? 'Idle' : 'Check';
+        machine.activeState =
+            machine.activeState === 'Check' ? 'Idle' : 'Check';
         return [
             machine.activeState === 'Check'
                 ? '[MSG:Enabled]'
@@ -328,7 +333,9 @@ function executeJog(machine, body) {
         return ['error:22']; // feed rate undefined
     }
 
-    const offset = machineCoords ? machine.zeroVector() : machine.activeOffset();
+    const offset = machineCoords
+        ? machine.zeroVector()
+        : machine.activeOffset();
     const target = {};
     machine.axes.forEach((axis) => {
         if (axisWords[axis] === undefined) {
@@ -483,10 +490,9 @@ function executeGcode(machine, line) {
         // P0 (and an absent P) mean "whichever WCS is active" - gSender zeroes
         // with `G10 L20 P0 ...`, so mapping P0 to G54 would silently write the
         // wrong offset for anyone working in G55-G59.
-        const wcs =
-            !g10Pvalue
-                ? machine.modal.wcs
-                : WCS_CODES[g10Pvalue - 1] || machine.modal.wcs;
+        const wcs = !g10Pvalue
+            ? machine.modal.wcs
+            : WCS_CODES[g10Pvalue - 1] || machine.modal.wcs;
         machine.axes.forEach((axis) => {
             if (axisWords[axis] === undefined) {
                 return;

@@ -148,7 +148,10 @@ class Machine {
      * Queue a coordinated move. `target` holds absolute machine coordinates for
      * the axes that move; omitted axes hold position.
      */
-    pushMove(target, { rapid = false, feed = null, probe = null, jog = false } = {}) {
+    pushMove(
+        target,
+        { rapid = false, feed = null, probe = null, jog = false } = {},
+    ) {
         const resolved = {};
         this.axes.forEach((axis) => {
             resolved[axis] =
@@ -211,7 +214,10 @@ class Machine {
     }
 
     resume() {
-        if (this.activeState === STATE_HOLD || this.activeState === STATE_DOOR) {
+        if (
+            this.activeState === STATE_HOLD ||
+            this.activeState === STATE_DOOR
+        ) {
             this.activeState = this.isMoving() ? STATE_RUN : STATE_IDLE;
             this.holdStartedAt = 0;
         }
@@ -263,7 +269,10 @@ class Machine {
         }
 
         if (!this.active) {
-            if (this.activeState === STATE_RUN || this.activeState === STATE_JOG) {
+            if (
+                this.activeState === STATE_RUN ||
+                this.activeState === STATE_JOG
+            ) {
                 this.activeState = STATE_IDLE;
             }
             return messages;
@@ -284,7 +293,9 @@ class Machine {
         let remaining = 0;
         this.axes.forEach((axis) => {
             const target =
-                block.target[axis] === null ? this.mpos[axis] : block.target[axis];
+                block.target[axis] === null
+                    ? this.mpos[axis]
+                    : block.target[axis];
             delta[axis] = target - this.mpos[axis];
             remaining += delta[axis] * delta[axis];
         });
@@ -295,7 +306,8 @@ class Machine {
             return messages;
         }
 
-        const fraction = stepDistance >= remaining ? 1 : stepDistance / remaining;
+        const fraction =
+            stepDistance >= remaining ? 1 : stepDistance / remaining;
         this.axes.forEach((axis) => {
             this.mpos[axis] += delta[axis] * fraction;
         });
