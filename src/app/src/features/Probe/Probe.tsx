@@ -31,12 +31,13 @@ import {
 } from 'app/components/shadcn/Dropdown';
 import Tooltip from 'app/components/Tooltip';
 import useShuttleEvents from 'app/hooks/useShuttleEvents';
-import { TOUCHPLATE_TYPES } from 'app/lib/constants';
+import { TOUCHPLATE_TYPES, TOUCHPLATE_TYPE_3D } from 'app/lib/constants';
 import useKeybinding from 'app/lib/useKeybinding';
 import cx from 'classnames';
 import { useCallback, useEffect, useRef } from 'react';
 import { PROBING_CATEGORY } from '../../constants';
 import { Actions, State } from './definitions';
+import MeshGridIcon from './MeshGridIcon';
 import ProbeDiameter from './ProbeDiameter';
 import ProbeImage from './ProbeImage';
 
@@ -128,6 +129,7 @@ const Probe = ({ state, actions }: ProbeProps) => {
     const { touchplateType } = touchplate;
 
     const probeCommand = availableProbeCommands[selectedProbeCommand];
+    const is3DProbe = touchplateType === TOUCHPLATE_TYPE_3D;
 
     return (
         <div className="w-full h-full max-xl:pt-1">
@@ -201,13 +203,26 @@ const Probe = ({ state, actions }: ProbeProps) => {
                             probeCommand={probeCommand}
                         />
                     </div>
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-2">
                         <Button
                             onClick={() => actions.onOpenChange(true)}
                             disabled={!canClick}
                         >
                             Probe
                         </Button>
+                        {is3DProbe && (
+                            <Tooltip content="Capture Mesh with 3D Probe">
+                                <ShadcnButton
+                                    onClick={() => actions.onMeshOpenChange(true)}
+                                    disabled={!canClick}
+                                    size="icon"
+                                    aria-label="Capture Mesh with 3D Probe"
+                                    className="rounded-md border-solid border border-gray-300 dark:border-outline bg-white dark:bg-surface-raised text-gray-900 dark:text-content-secondary"
+                                >
+                                    <MeshGridIcon className="w-5 h-5" />
+                                </ShadcnButton>
+                            </Tooltip>
+                        )}
                     </div>
                 </div>
                 <div className="flex w-full h-full min-h-full max-xl:pt-2">

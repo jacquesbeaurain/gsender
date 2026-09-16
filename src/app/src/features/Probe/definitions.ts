@@ -130,6 +130,7 @@ export interface Actions {
     startConnectivityTest: () => void;
     setProbeConnectivity: (connectionMade: boolean) => void;
     onOpenChange: (isOpen: boolean) => void;
+    onMeshOpenChange: (isOpen: boolean) => void;
     changeProbeCommand: (value: string) => void;
     changeTouchPlateType: (value: TOUCHPLATE_TYPES_T) => void;
     toggleUseTLO: () => void;
@@ -161,6 +162,7 @@ export interface State {
     connectionMadeRef: React.MutableRefObject<boolean>;
     canClick: boolean;
     show: boolean;
+    showMesh: boolean;
     availableProbeCommands: ProbeCommand[];
     selectedProbeCommand: number;
     touchplate: ProbeProfile;

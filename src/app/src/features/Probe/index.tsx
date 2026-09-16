@@ -113,6 +113,7 @@ const ProbeWidget = () => {
     // const [toolChangeActive, setToolChangeActive] = useState<boolean>(false);
     // const [port, setPort] = useState<string>(controller.port);
     const [modalIsOpen, setModalIsOpen] = useState(false);
+    const [meshModalIsOpen, setMeshModalIsOpen] = useState(false);
     // const [probeAxis, setProbeAxis] = useState<AXES_T>(config.get('probeAxis', 'Z'));
     const [probeCommand, setProbeCommand] = useState<string>(
         config.get('probeCommand', 'G38.2'),
@@ -259,6 +260,9 @@ const ProbeWidget = () => {
                 setConnectionMade(false);
             }
             setModalIsOpen(isOpen);
+        },
+        onMeshOpenChange: (isOpen: boolean): void => {
+            setMeshModalIsOpen(isOpen);
         },
         changeProbeCommand: (value: string): void => {
             setProbeCommand(value);
@@ -634,6 +638,7 @@ const ProbeWidget = () => {
 
     const state: State = {
         show: modalIsOpen,
+        showMesh: meshModalIsOpen,
         connectionMade: connectionMade,
         connectionMadeRef: connectionMadeRef,
         canClick: canClick(),
