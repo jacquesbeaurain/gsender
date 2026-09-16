@@ -88,7 +88,8 @@ function parseArgs(argv) {
                 options.banner = false;
                 break;
             case 'alarm-on-connect':
-                options.alarmOnConnect = value === undefined ? 1 : Number(value);
+                options.alarmOnConnect =
+                    value === undefined ? 1 : Number(value);
                 break;
             case 'error-every':
                 options.errorEvery = Number(value);
@@ -282,16 +283,28 @@ class Session {
                 machine.overrides.feed = 100;
                 return true;
             case RT_FEED_PLUS_10:
-                machine.overrides.feed = Math.min(200, machine.overrides.feed + 10);
+                machine.overrides.feed = Math.min(
+                    200,
+                    machine.overrides.feed + 10,
+                );
                 return true;
             case RT_FEED_MINUS_10:
-                machine.overrides.feed = Math.max(10, machine.overrides.feed - 10);
+                machine.overrides.feed = Math.max(
+                    10,
+                    machine.overrides.feed - 10,
+                );
                 return true;
             case RT_FEED_PLUS_1:
-                machine.overrides.feed = Math.min(200, machine.overrides.feed + 1);
+                machine.overrides.feed = Math.min(
+                    200,
+                    machine.overrides.feed + 1,
+                );
                 return true;
             case RT_FEED_MINUS_1:
-                machine.overrides.feed = Math.max(10, machine.overrides.feed - 1);
+                machine.overrides.feed = Math.max(
+                    10,
+                    machine.overrides.feed - 1,
+                );
                 return true;
             case RT_RAPID_100:
                 machine.overrides.rapid = 100;
@@ -372,7 +385,10 @@ class Session {
         ) {
             // A synchronizing command has to wait for the planner to run dry,
             // or it would read/write offsets against a position still in motion.
-            if (isSynchronizing(this.pendingLines[0]) && this.machine.isMoving()) {
+            if (
+                isSynchronizing(this.pendingLines[0]) &&
+                this.machine.isMoving()
+            ) {
                 return;
             }
             const line = this.pendingLines.shift();
@@ -517,7 +533,9 @@ function startRepl(server, getSession, options) {
             case 'error':
                 if (needsSession()) {
                     session.injectError = rest[0] ? Number(rest[0]) : 20;
-                    console.log(`Next line will return error:${session.injectError}`);
+                    console.log(
+                        `Next line will return error:${session.injectError}`,
+                    );
                 }
                 break;
             case 'reset':
@@ -527,7 +545,9 @@ function startRepl(server, getSession, options) {
                 if (needsSession()) {
                     session.machine.probeTriggerZ =
                         rest[0] === 'never' ? null : Number(rest[0]);
-                    console.log(`Probe trigger Z: ${session.machine.probeTriggerZ}`);
+                    console.log(
+                        `Probe trigger Z: ${session.machine.probeTriggerZ}`,
+                    );
                 }
                 break;
             case 'say':
