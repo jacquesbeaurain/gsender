@@ -36,7 +36,6 @@ const evaluateExpression = (src, vars) => {
 	}
 
 	const walk = (node) => {
-		console.log(node);
 		if (node.type === "Literal") {
 			return node.value;
 		}
