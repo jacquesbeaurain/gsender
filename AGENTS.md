@@ -40,6 +40,14 @@ failures on demand.
 
 It needs no changes to gSender, for the reason in the next section.
 
+To stop it, kill it by PID (`pkill -f cnc-sim/index.js`). **Do not use
+`lsof -ti:2323 | xargs kill`** — while gSender is connected, that port matches
+two processes: the simulator listening on 2323 and gSender's own server, whose
+client socket has 2323 as its *remote* port. The kill takes both, and the
+server dies by signal with no stack trace, which looks exactly like gSender
+crashing when the machine goes away. It does not: killing only the simulator
+leaves the server up and the UI simply goes to Disconnected.
+
 ## Architecture facts that are not obvious from a quick read
 
 **The transport already has a TCP mode.** `SerialConnection.open()`
