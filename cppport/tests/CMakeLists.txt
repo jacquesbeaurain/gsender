@@ -10,6 +10,8 @@ add_executable(gs_core_tests
     core/test_protocol_parser.cpp
     core/test_protocol_runner.cpp
     core/test_firmware_data.cpp
+    core/test_event_loop.cpp
+    core/test_streaming.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 gs_copy_runtime_dlls(gs_core_tests)

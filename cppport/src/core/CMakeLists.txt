@@ -14,6 +14,8 @@ add_library(gs_core STATIC
     src/protocol/line_parser.cpp
     src/protocol/runner.cpp
     src/protocol/firmware_data.cpp
+    src/runtime/event_loop.cpp
+    src/controller/streaming.cpp
 )
 add_library(gs::core ALIAS gs_core)
 
