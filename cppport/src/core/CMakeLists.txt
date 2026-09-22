@@ -20,6 +20,7 @@ add_library(gs_core STATIC
     src/controller/jog_streamer.cpp
     src/controller/helpers.cpp
     src/controller/controller.cpp
+    src/controller/session.cpp
 )
 add_library(gs::core ALIAS gs_core)
 

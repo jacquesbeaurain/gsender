@@ -297,3 +297,19 @@ keeps comments on `%` lines).
 | Jog streamer's status/settings source | controller snapshot (up to 250 ms old) | the runner's current state |
 | Settings/state descriptions debounce | lodash `debounce` | cancel-and-rearm timer (same 150 ms) |
 | Background polling | always on | `setPollingEnabled()` (tests; later firmware transfers) |
+
+## Step 12 — Connection session (`gs/controller/session`)
+
+`Session` is what `Connection.js` plus the engine's `firmwareFound` handler
+did: frame the byte stream into lines (split on `\n`, partial lines wait),
+poll `$I` every 800 ms up to 7 times until a line names the firmware
+(`/grblhal/i`, else `/grbl|fluidnc/i` - the Grbl startup banner or grblHAL's
+`[FIRMWARE:grblHAL]`), fall back to the configured default, then create and
+open the matching `Controller` and hand it every later line. The identifying
+line itself is not passed on, as upstream (the controller did not exist yet).
+The transport stays outside the core: the owner calls `opened()`,
+`receive(bytes)` and `closed()`.
+
+`ConnectionFirmwareDetect.test.js` is ported to `tests/core/test_session.cpp`
+together with framing and hand-over tests. The upstream "never emits an
+undefined firmware" case has no C++ equivalent (the firmware is an enum).
