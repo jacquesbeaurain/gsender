@@ -15,6 +15,11 @@ add_executable(gs_core_tests
     core/test_jog.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
+gs_precompile_headers(gs_core_tests
+    <gtest/gtest.h>
+    <algorithm> <cmath> <cstdint> <functional> <limits> <map> <memory>
+    <optional> <string> <string_view> <utility> <vector>
+    <boost/json.hpp>)
 gs_copy_runtime_dlls(gs_core_tests)
 
 # Discover at test time (not build time) so discovery runs after the runtime
