@@ -7,6 +7,9 @@ add_library(gs_core STATIC
     src/util/jsnumber.cpp
     src/gcode/parser.cpp
     src/gcode/interpreter.cpp
+    src/expr/value.cpp
+    src/expr/expression.cpp
+    src/expr/builtins.cpp
 )
 add_library(gs::core ALIAS gs_core)
 
