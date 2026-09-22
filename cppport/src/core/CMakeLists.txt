@@ -1,0 +1,24 @@
+# gs_core: the Qt-free heart of the port - G-code interpretation, firmware
+# protocol parsing, streaming and controller logic. Everything here is plain
+# C++20 plus Boost so it can be unit tested with simulated time and I/O.
+
+add_library(gs_core STATIC
+    src/util/strings.cpp
+    src/util/jsnumber.cpp
+    src/gcode/parser.cpp
+    src/gcode/interpreter.cpp
+)
+add_library(gs::core ALIAS gs_core)
+
+target_include_directories(gs_core PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+target_link_libraries(gs_core
+    PUBLIC
+        gs::compile_options
+        Boost::headers
+        Boost::json)
+
+set(GS_RESOURCE_DIR "${PROJECT_SOURCE_DIR}/resources")
+file(GLOB_RECURSE GS_RESOURCE_FILES CONFIGURE_DEPENDS "${GS_RESOURCE_DIR}/data/*.json")
+gs_embed_resources(gs_core BASE_DIR "${GS_RESOURCE_DIR}" FILES ${GS_RESOURCE_FILES})

@@ -1,0 +1,13 @@
+# Build trees (one per preset)
+/build/
+/out/
+
+# IDE / tooling
+/.vs/
+/.vscode/
+/.idea/
+CMakeUserPresets.json
+compile_commands.json
+
+# Scratch output from UI screenshot runs
+/screenshots/
