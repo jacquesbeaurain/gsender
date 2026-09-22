@@ -69,6 +69,18 @@ practical knowledge needed to build, test and extend the port.
   `X1.500` -> `X1.5` (`gs::gcode::Word::flat()`).
 - Deliberate behaviour differences from the JS are listed in
   `DEV_WALKTHROUGH.md`; add to that list whenever you knowingly deviate.
+- Firmware regexes are ported verbatim with Boost.Regex (header-only,
+  Perl/ECMAScript syntax) so matching stays identical to the JavaScript.
+- C++20 range-for does not extend the lifetime of temporaries nested inside
+  the range expression: `for (auto v : str::splitView(makeString(), ','))`
+  dangles. Bind the string to a local first.
+- Realtime commands are single raw bytes (`0x85`, `0x91`, ...). gSender wrote
+  them as JS strings, which node-serialport UTF-8 encodes (`C2 91`); Grbl
+  happens to discard the `C2`. The port writes the correct single byte.
+- Data tables (errors, alarms, settings metadata, machine profiles) are
+  generated from the JS sources by `node tools/extract_data.mjs` into
+  `resources/data/*.json` and embedded into gs_core. Do not hand-edit them;
+  re-run the script after upstream changes.
 - Tool-call environment note: in the Bash tool, avoid `cd` into
   subdirectories (it changes the session's working directory); use absolute
   paths instead.
