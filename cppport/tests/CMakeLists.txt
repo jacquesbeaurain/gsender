@@ -7,6 +7,7 @@ add_executable(gs_core_tests
     core/test_gcode_parser.cpp
     core/test_gcode_interpreter.cpp
     core/test_expression.cpp
+    core/test_protocol_parser.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 gs_copy_runtime_dlls(gs_core_tests)

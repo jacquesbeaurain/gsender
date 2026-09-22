@@ -10,6 +10,8 @@ add_library(gs_core STATIC
     src/expr/value.cpp
     src/expr/expression.cpp
     src/expr/builtins.cpp
+    src/protocol/types.cpp
+    src/protocol/line_parser.cpp
 )
 add_library(gs::core ALIAS gs_core)
 

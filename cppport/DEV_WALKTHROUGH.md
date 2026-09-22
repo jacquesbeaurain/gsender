@@ -132,3 +132,65 @@ lines, tool-change lines and per-line S/T/M events for the tool timeline.
 | Per-line estimates | pushed only for lines with tokens (drifts from the sender's line numbering) | kept per line; aligned to sender lines by the caller | exact remaining-time countdown |
 
 Tests: `tests/core/test_gcode_parser.cpp`, `tests/core/test_gcode_interpreter.cpp`.
+
+## Step 6 — Macro expressions (`gs/expr`)
+
+gSender macros use two constructs, both evaluated with an esprima-based
+JavaScript-subset evaluator:
+
+- `%` lines are assignments: `%X0=posx, global.state.wcs=modal.wcs`.
+- `[...]` inside G-code lines is substituted: `G0 X[posx - 8] Y[ymax]`.
+
+The port has its own small JavaScript expression engine rather than embedding
+a JS runtime:
+
+- `Value` — undefined/null/boolean/number/string/object/array/function with
+  JavaScript reference semantics for objects (the per-macro context object and
+  the controller's persistent `global` object are shared and mutated).
+- A lexer/parser for the expression grammar (templates, member/call chains,
+  object/array literals, all unary/binary/logical/conditional operators) and a
+  tree-walking evaluator.
+- Anything unsupported or any runtime error yields *unresolved*, mirroring the
+  JS evaluator that caught exceptions and returned `undefined`. This is
+  load-bearing: grblHAL has its own `[...]` expression syntax
+  (`G0 X[#<_x>+1]`), and unresolved brackets must pass through to the firmware
+  untouched.
+- Built-ins exposed to macros (the JS spread `Math`, `Number`, `String`,
+  `Boolean`, `JSON`, `Object`, `Date`, `parseFloat`, `parseInt` into the
+  context) plus string/number/array methods such as `toFixed`.
+
+Faithful quirk kept: an identifier whose value converts to a number is used
+as that number (`posx` holds the string `"12.345"` but `posx + 1` is `13.345`).
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| `a[b]` read access | used the literal key `"b"` (evaluator bug) | uses the value of `b` |
+| `x += 1` in a `%` line | treated as `x = 1` | compound assignment |
+| `&&` / `||` | evaluated both sides | short-circuit |
+
+## Step 7 — Firmware data tables and response parsing (`gs/protocol`)
+
+**Data tables.** Error/alarm/setting descriptions, the settings metadata used
+by the configuration UI and the machine profiles are large tables in the JS
+sources. `tools/extract_data.mjs` bundles each source module with the
+repository's esbuild, evaluates it and writes `resources/data/*.json`, which
+CMake embeds into gs_core. Regenerate when gSender updates the tables.
+
+**Line parsers.** `parseGrblResponse` / `parseGrblHalResponse` classify one
+line into a `std::variant` of typed results (`OkLine`, `StatusLine`,
+`ParserStateLine`, `SettingLine`, `AtciLine`, ...). They try the parsers in
+the same order as `GrblLineParser` / `GrblHalLineParser` and port the regexes
+verbatim with Boost.Regex, so each line is routed exactly as in gSender — the
+routing tests from `lineParserRouting.test.js` and friends are ported
+directly (`tests/core/test_protocol_parser.cpp`), including the documented
+differences between the two firmwares (`[MSG:...]` is feedback on Grbl but an
+info line on grblHAL; Grbl accepts mangled `ok`s).
+
+Status reports use a hand-written tokenizer that reproduces the JS token
+regex (including its v0.9 comma-format behaviour) and produce typed optional
+fields (`mpos`, `wco`, `buf`, `overrides`, ...), so the runner can merge
+reports the way the JS spread-merge did.
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| Hidden `._*` SD files | fell through to the generic info parser | ignored |
