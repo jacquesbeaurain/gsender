@@ -30,7 +30,15 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}",
+        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}"
+      }
+    },
+    {
+      "name": "ninja-release-nopch",
+      "displayName": "Ninja Release without precompiled headers",
+      "description": "Occasional check that every file includes what it uses (a PCH can hide a missing include)",
+      "inherits": "ninja-release",
+      "cacheVariables": {
         "GS_USE_PCH": "OFF"
       }
     },
@@ -53,14 +61,14 @@
       "architecture": "x64",
       "cacheVariables": {
         "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
-        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}",
-        "GS_USE_PCH": "OFF"
+        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}"
       }
     }
   ],
   "buildPresets": [
     { "name": "ninja-debug", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "configurePreset": "ninja-release" },
+    { "name": "ninja-release-nopch", "configurePreset": "ninja-release-nopch" },
     { "name": "vs-debug", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ],
@@ -73,6 +81,7 @@
     },
     { "name": "ninja-debug", "inherits": "test-base", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "inherits": "test-base", "configurePreset": "ninja-release" },
+    { "name": "ninja-release-nopch", "inherits": "test-base", "configurePreset": "ninja-release-nopch" },
     { "name": "vs-debug", "inherits": "test-base", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "inherits": "test-base", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ]
