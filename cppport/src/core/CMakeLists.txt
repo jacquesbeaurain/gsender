@@ -16,6 +16,8 @@ add_library(gs_core STATIC
     src/protocol/firmware_data.cpp
     src/runtime/event_loop.cpp
     src/controller/streaming.cpp
+    src/controller/jog_limits.cpp
+    src/controller/jog_streamer.cpp
 )
 add_library(gs::core ALIAS gs_core)
 
