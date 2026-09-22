@@ -19,6 +19,9 @@ inline constexpr std::array<char, 6> kAxisNames{'x', 'y', 'z', 'a', 'b', 'c'};
 // Up to six axis values in firmware order (x, y, z, a, b, c).
 struct AxisValues {
     std::array<double, 6> values{};
+    // Decimal places the firmware reported per axis; derived positions are
+    // rounded to match (gSender kept positions as strings).
+    std::array<int, 6> decimals{};
     std::size_t count = 0;
 
     double operator[](std::size_t i) const noexcept { return values[i]; }

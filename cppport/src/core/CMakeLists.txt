@@ -12,6 +12,8 @@ add_library(gs_core STATIC
     src/expr/builtins.cpp
     src/protocol/types.cpp
     src/protocol/line_parser.cpp
+    src/protocol/runner.cpp
+    src/protocol/firmware_data.cpp
 )
 add_library(gs::core ALIAS gs_core)
 

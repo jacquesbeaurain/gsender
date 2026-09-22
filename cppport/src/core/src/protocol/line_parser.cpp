@@ -5,6 +5,7 @@
 
 #include <boost/regex.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <map>
 
@@ -27,12 +28,31 @@ int toInt(std::string_view text) {
     return std::isfinite(d) ? static_cast<int>(d) : 0;
 }
 
+// decimal-places.js: digits after the point, adjusted for an exponent.
+int decimalPlaces(std::string_view text) {
+    int digits = 0;
+    int exponent = 0;
+    const std::size_t e = text.find_first_of("eE");
+    std::string_view mantissa = text.substr(0, e);
+    if (e != std::string_view::npos) {
+        exponent = static_cast<int>(js::stringToNumber(text.substr(e + 1)));
+    }
+    const std::size_t dot = mantissa.find('.');
+    if (dot != std::string_view::npos) {
+        for (std::size_t i = dot + 1; i < mantissa.size() && str::isAsciiDigit(mantissa[i]); ++i) {
+            ++digits;
+        }
+    }
+    return std::max(0, digits - exponent);
+}
+
 AxisValues axisValues(std::string_view csv) {
     AxisValues out;
     for (std::string_view part : str::splitView(csv, ',')) {
         if (out.count >= out.values.size()) {
             break;
         }
+        out.decimals[out.count] = decimalPlaces(part);
         out.values[out.count++] = js::stringToNumber(part);
     }
     return out;
