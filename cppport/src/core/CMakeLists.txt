@@ -30,6 +30,11 @@ target_link_libraries(gs_core
         Boost::headers
         Boost::json)
 
+gs_precompile_headers(gs_core
+    <algorithm> <array> <cmath> <cstdint> <deque> <functional> <limits> <map>
+    <memory> <optional> <string> <string_view> <utility> <variant> <vector>
+    <boost/json.hpp> <boost/regex.hpp>)
+
 set(GS_RESOURCE_DIR "${PROJECT_SOURCE_DIR}/resources")
 file(GLOB_RECURSE GS_RESOURCE_FILES CONFIGURE_DEPENDS "${GS_RESOURCE_DIR}/data/*.json")
 gs_embed_resources(gs_core BASE_DIR "${GS_RESOURCE_DIR}" FILES ${GS_RESOURCE_FILES})

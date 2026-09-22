@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 
+# Embedded (/Z7) debug information: every object carries its own, so parallel
+# compiles do not serialize on a shared PDB (mspdbsrv). Must precede project().
+if(NOT DEFINED CMAKE_MSVC_DEBUG_INFORMATION_FORMAT)
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
+endif()
+
 project(gSenderCpp
     VERSION 0.1.0
     DESCRIPTION "Native C++/Qt port of the gSender CNC sender"
@@ -21,6 +27,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(GS_BUILD_TESTS "Build the unit test suites" ON)
 option(GS_BUILD_APP "Build the Qt desktop application" ON)
 option(GS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(GS_USE_PCH "Precompile common standard and third-party headers" ON)
 
 include(GsLibPack)
 include(GsCompilerOptions)

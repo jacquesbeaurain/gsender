@@ -11,22 +11,80 @@ practical knowledge needed to build, test and extend the port.
 ## Build and test
 
 ```powershell
-./tools/build.ps1 -Config debug -Test          # configure (first run), build, run all tests
-./tools/build.ps1 -Config debug -Test -TestRegex Sender
-./tools/build.ps1 -Config release -Target gs_core_tests
-./tools/build.ps1 -Config debug -Reconfigure   # after adding source files / changing CMake
+./tools/build.ps1 -Test                    # configure (first run), build, run all tests
+./tools/build.ps1 -Filter 'Controller*'    # build, run matching tests (GoogleTest filter)
+./tools/build.ps1 -Target gs_core          # compile the library only
+./tools/build.ps1 -Config release -Test    # release build (no PCH) + tests
+./tools/build.ps1 -Reconfigure             # after changing presets/cache options
+./tools/build.ps1 -CTest -TestRegex Sender # through CTest (slow: a process per test)
+./tools/build.ps1 -Test -Full              # unfiltered build and test output
 ```
 
 - The script enters the Visual Studio developer shell itself; it works from a
-  plain PowerShell. Presets: `ninja-debug`, `ninja-release` (need the dev
-  shell) and `vs-debug`, `vs-release` (Visual Studio 18 2026 generator).
+  plain PowerShell. The environment is captured once into
+  `build/.vsdevenv.json` and replayed afterwards (`-RefreshVsEnv` redoes it;
+  a VS update invalidates it automatically). Presets: `ninja-debug`,
+  `ninja-release` (need the dev shell) and `vs-debug`, `vs-release` (Visual
+  Studio 18 2026 generator).
+- Output is brief by default: compiler/linker diagnostics, test failures and a
+  `phase: ok (time)` line per step. A failure without recognisable
+  diagnostics prints the whole output.
 - Build trees live in `build/<preset>/`; binaries in `build/<preset>/bin/`.
 - LibPack locations come from `GS_LIBPACK_DEBUG` / `GS_LIBPACK_RELEASE`
   (defaults in `tools/build.ps1`). **Debug builds must use the Debug LibPack**
   (debug CRT, `Qt6*d.dll`); `cmake/GsLibPack.cmake` warns on a mismatch.
 - Tests use GoogleTest from the LibPack, discovered with
   `DISCOVERY_MODE PRE_TEST` so discovery runs after the runtime DLLs are
-  copied next to the test executable (`gs_copy_runtime_dlls`).
+  copied next to the test executable (`gs_copy_runtime_dlls`). CTest starts
+  one process per test case (3.6 s for 175 tests and growing); `-Test` runs
+  each `*_tests.exe` once instead (~0.15 s for the same suite).
+
+## Fast iteration
+
+Measured on the dev machine (8 threads): no-op build + full test run 0.25 s;
+editing a test file 0.5 s; `controller.cpp` 2.3 s; a widely included header
+~3.3 s; full rebuild ~6 s. Keep it that way:
+
+- **Build settings.** Debug info is embedded (`/Z7`, no PDB-server
+  contention between parallel compiles). Standard and third-party headers are
+  precompiled per target via `gs_precompile_headers()`; never put first-party
+  headers in a PCH (every TU would rebuild on each edit). Warnings are errors
+  in all presets (`GS_WARNINGS_AS_ERRORS`), so a warning can't scroll by
+  unnoticed in an incremental build.
+- **PCH blind spot.** A PCH can hide a missing `#include`. The release presets
+  build with `GS_USE_PCH=OFF`; run `./tools/build.ps1 -Config release -Test`
+  every few commits and always before pushing.
+- **Keep headers light.** Heavy headers (`boost/regex.hpp`, `boost/json.hpp`,
+  `<regex>`) belong in `.cpp` files. A first-party header that many TUs include
+  costs every one of them a recompile per edit.
+- **Loop.** While iterating: `-Filter` for the tests at hand, `-Target gs_core`
+  to check library code compiles before writing its tests. Before each
+  commit: `./tools/build.ps1 -Test` (all tests, under a second).
+- **Commit cadence.** Commit each coherent, tested increment: a ported
+  component with the tests that pin its behaviour. Don't hold several
+  components back for one big commit, and don't hold a commit back for
+  documentation polish. The walkthrough entry can be short and grow with
+  later commits; the deviation table must be current for what is committed.
+  Large ports (e.g. a controller) can land as "core + first test batch", then
+  further test batches.
+
+### Agent workflow
+
+Most wall-clock time goes to reading and writing text, not to compiling:
+
+- Read upstream JS with targeted `grep -n`/`sed -n 'a,bp'` ranges instead of
+  whole multi-thousand-line files. Each C++ file names its JS origin; note
+  non-obvious upstream facts (and deviations) in comments where they are
+  ported, so they survive context resets and need not be re-derived.
+- Verify upstream semantics *before* writing a large file, then write it once.
+  Draft-then-rewrite of a 1,500-line file costs minutes; later changes go
+  through small `Edit`s.
+- Port the upstream Jest tests together with the code; they pin down exactly
+  the behaviour to match and catch misreadings early.
+- Keep tool output small: the build script is already brief; pipe other
+  commands through `Select-Object -First N` / `head`.
+- Don't modify tracked files temporarily to probe tool behaviour (e.g.
+  injecting a failing test); use a scratch copy or wait for a real case.
 
 ## FreeCAD LibPack facts (26.3.0 / 3.5.5, x64)
 

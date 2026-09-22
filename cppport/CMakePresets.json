@@ -7,7 +7,8 @@
       "hidden": true,
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "GS_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
@@ -29,7 +30,8 @@
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}"
+        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}",
+        "GS_USE_PCH": "OFF"
       }
     },
     {
@@ -51,7 +53,8 @@
       "architecture": "x64",
       "cacheVariables": {
         "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
-        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}"
+        "GS_LIBPACK_DIR": "$env{GS_LIBPACK_RELEASE}",
+        "GS_USE_PCH": "OFF"
       }
     }
   ],

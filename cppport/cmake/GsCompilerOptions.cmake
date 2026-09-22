@@ -34,3 +34,13 @@ else()
         target_compile_options(gs_compile_options INTERFACE -Werror)
     endif()
 endif()
+
+# Precompiled headers. Only standard and third-party headers belong here: a
+# first-party header in a PCH would rebuild every translation unit whenever it
+# changes. A PCH can hide a missing #include, so the release presets build
+# without one (GS_USE_PCH=OFF) and catch that.
+function(gs_precompile_headers target)
+    if(GS_USE_PCH)
+        target_precompile_headers(${target} PRIVATE ${ARGN})
+    endif()
+endfunction()
