@@ -194,3 +194,70 @@ reports the way the JS spread-merge did.
 | Behaviour | gSender | Port |
 |---|---|---|
 | Hidden `._*` SD files | fell through to the generic info parser | ignored |
+
+## Step 8 — Runners: accumulated machine state (`gs/protocol/runner`)
+
+`Runner` ports `GrblRunner` / `GrblHalRunner`: it feeds each line through the
+right parser and folds the result into `RunnerState` (merged status, parser
+state, grblHAL axes and SD card) and `FirmwareSettings` (`$` settings,
+parameters, version, grblHAL setting descriptions/groups/alarm and error
+tables, tool table, ATCI values).
+
+- Status reports merge like the JS spread-merge: absent fields keep their
+  previous value, `Pn` is always refreshed, the `WCO` is sticky and work/machine
+  positions are derived from each other, rounded to the decimals the firmware
+  reported (the JS kept positions as strings and used `toFixed(digits)`).
+- The JS signalled "changed" by swapping the state object and letting the
+  controller compare identities; the port bumps `stateRevision()` /
+  `settingsRevision()` only when a value really changes.
+- `parse()` returns the typed line plus flags (`enteredAlarm`, `semver`) in
+  place of the extra events the JS runners emitted.
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| `probeActive` | raw line contains `Pn:P` (missed `Pn:XP`) | pin list contains `P` |
+| Grbl accessory state (`A:`) | sticky forever once seen | cleared when `Ov:` arrives without `A:` (Grbl only sends `A:` with `Ov:` while an accessory is on) |
+| Alarm code for `ALARM:<text>` | `NaN` | the text |
+
+Firmware reference tables (error/alarm descriptions, setting metadata) are
+exposed by `FirmwareTables::get(firmware)`, parsed once from the embedded JSON.
+
+## Step 9 — Time, and the streaming trio (`gs/runtime`, `gs/controller/streaming`)
+
+**Event loop.** Every timer in the JS (`setTimeout`, `setInterval`,
+`await delay()`) goes through `runtime::EventLoop`. The Qt app will implement
+it with `QTimer`; tests use `ManualEventLoop`, which advances simulated time
+deterministically (timers fire in time order, ties in scheduling order). Its
+clock starts at 1,000,000 ms because ported code uses `timestamp > 0` as a
+flag, as `Date.now()` never returns 0. `TimerScope` owns timers and cancels
+them on destruction, so no callback can outlive the object that scheduled it.
+
+**Sender** (character-counting streaming): lines are kept as views into the
+program text; the pending line that did not fit is cached and never filtered
+twice (the filter has side effects); only an `ok` frees buffer bytes; a line
+that filters to nothing is acknowledged locally. The remaining-time countdown
+(`fakeCountdown`) is ported with its timers.
+
+**Feeder** and **Workflow** are straightforward; the feeder shares one context
+object across a batch so `%` assignments carry between a macro's lines, and
+tolerates re-entrant calls from its data filter.
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| `isCountdownRunning()` | returned the *paused* flag, so the countdown never paused | returns `!paused` |
+| Countdown restart interval | leaked one interval per job start | replaced on restart, cleared on unload |
+
+## Step 10 — Continuous jogging (`gs/controller/jog_streamer`, `jog_limits`)
+
+`JogStreamer` streams short `$J=G21G91...` segments paced by wall-clock time
+(acks are only backpressure), keeping enough motion queued that the planner
+never decelerates. Velocity mode (keyboard/gamepad), displacement mode
+(handwheel), soft-limit travel budgets, backpressure gates (RX budget, planner
+low-water, in-flight count), draining after stop and the 30 s watchdog are all
+ported, along with `jog-limits.js` and `homing.js`.
+
+The 40-test JS suite is ported to `tests/core/test_jog.cpp`. Running the
+upstream suite shows **2 of its tests fail on gSender itself**: they were
+written when the assumed acceleration for unreported axes was 200 mm/s²;
+`ASSUMED_ACCEL` is now 1000. The port reproduces the JS numbers exactly, so
+those two tests assert the same intent against the current constant.
