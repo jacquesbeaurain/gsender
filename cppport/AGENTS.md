@@ -84,3 +84,6 @@ practical knowledge needed to build, test and extend the port.
 - Tool-call environment note: in the Bash tool, avoid `cd` into
   subdirectories (it changes the session's working directory); use absolute
   paths instead.
+- The repository normalizes to LF (`.gitattributes`). Scripted edits must not
+  write CRLF: in Python use `open(path, 'w', newline='\n')` (or
+  `write_bytes`), not `Path.write_text` on Windows.
