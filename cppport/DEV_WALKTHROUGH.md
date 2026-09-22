@@ -261,3 +261,39 @@ upstream suite shows **2 of its tests fail on gSender itself**: they were
 written when the assumed acceleration for unreported axes was 200 mm/s²;
 `ASSUMED_ACCEL` is now 1000. The port reproduces the JS numbers exactly, so
 those two tests assert the same intent against the current constant.
+
+## Step 11 — The machine controller (`gs/controller/controller`)
+
+One `Controller` class ports both `GrblController.js` and
+`GrblHalController.js`: they share most of their logic and differ in dozens of
+small ways, each an `isGrbl()`/`isGrblHal()` branch, so the differences stay
+visible side by side. There is no socket layer: the controller is driven by
+`receiveLine()` (lines from the board), its command methods (what the UI
+calls), a `DeviceLink` (bytes to the board, tagged `Write` - through the write
+filter - or `Immediate`) and the `EventLoop`; it reports through typed
+`ControllerEvent`s (`events.hpp` maps each to the socket.io event it replaces).
+Configuration comes in through `ControllerHooks` (macros, event triggers,
+preferences, system commands).
+
+Ported with it (`helpers.hpp`): override byte sequences (`runOverride.js`),
+A-to-Y rotary translation (`gcode-translation.js`), `[\xNN]` realtime tokens,
+`EventTrigger` and the idle-waiting `ToolChanger`.
+
+The upstream Jest suites for commands, file loading/start-from-line, runner
+events, workflow, grblHAL `[AXS:]` probing and reply echo are ported to
+`tests/core/test_controller.cpp` (136 cases over both firmwares), asserting
+on the wire and on events rather than on spies. Upstream quirks the tests pin
+as-is: the feeder reports completion once its last line is *written* (so a
+start/resume hook's job starts before the hook's final `ok`), and Grbl's
+appended `%wait ; ...` line is not recognized as a wait (the sender filter
+keeps comments on `%` lines).
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| Grbl job-line comment stripping | greedy `/\s*\(.*\)*\)/` - `G1 (a) X1 (b)` lost `X1` | `/\([^)]*\)/` for both firmwares (grblHAL's) |
+| grblHAL errors/alarms before `$EE`/`$EA` arrive | error text `undefined`; alarm printed raw with no error report (its intended static-table fallback was unreachable) | both fall back to the static grblHAL tables |
+| Realtime bytes | JS strings, UTF-8 encoded on the wire (`C2 85`) | single raw bytes |
+| grblHAL `toolchange:context` | shallow-merged partial objects | contexts are complete structs; tool `mappings` survive a context that carries none |
+| Jog streamer's status/settings source | controller snapshot (up to 250 ms old) | the runner's current state |
+| Settings/state descriptions debounce | lodash `debounce` | cancel-and-rearm timer (same 150 ms) |
+| Background polling | always on | `setPollingEnabled()` (tests; later firmware transfers) |

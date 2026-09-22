@@ -205,6 +205,8 @@ public:
     void clear();
     void reset();
     std::size_t size() const noexcept { return queue_.size(); }
+    // The commands waiting to be sent, oldest first.
+    std::vector<std::string> queuedCommands() const;
     // Sends the next command unless holding; returns whether one is pending.
     bool next();
     bool isPending() const noexcept { return pending_; }

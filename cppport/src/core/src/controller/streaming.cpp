@@ -523,6 +523,15 @@ bool Feeder::next() {
     return pending_;
 }
 
+std::vector<std::string> Feeder::queuedCommands() const {
+    std::vector<std::string> out;
+    out.reserve(queue_.size());
+    for (const Item& item : queue_) {
+        out.push_back(item.command);
+    }
+    return out;
+}
+
 bool Feeder::peek() {
     const bool changed = changed_;
     changed_ = false;

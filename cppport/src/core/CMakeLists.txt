@@ -18,6 +18,8 @@ add_library(gs_core STATIC
     src/controller/streaming.cpp
     src/controller/jog_limits.cpp
     src/controller/jog_streamer.cpp
+    src/controller/helpers.cpp
+    src/controller/controller.cpp
 )
 add_library(gs::core ALIAS gs_core)
 
