@@ -13,6 +13,7 @@ add_executable(gs_core_tests
     core/test_event_loop.cpp
     core/test_streaming.cpp
     core/test_jog.cpp
+    core/test_controller.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 gs_precompile_headers(gs_core_tests
