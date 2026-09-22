@@ -18,15 +18,18 @@
     otherwise from the defaults below.
 
 .EXAMPLE
-    ./tools/build.ps1 -Test                        # build all, run every test
-    ./tools/build.ps1 -Filter 'Controller*'        # build all, run matching tests
+    ./tools/build.ps1 -Test                        # release build, run every test
+    ./tools/build.ps1 -Filter 'Controller*'        # release build, run matching tests
     ./tools/build.ps1 -Target gs_core              # compile the library only
-    ./tools/build.ps1 -Config release -Test        # release build (no PCH)
+    ./tools/build.ps1 -Config release-nopch -Test  # without precompiled headers
+    ./tools/build.ps1 -Config debug -Test          # only to investigate a release failure
     ./tools/build.ps1 -CTest -TestRegex Sender     # through CTest
 #>
 param(
-    [ValidateSet('debug', 'release')]
-    [string]$Config = 'debug',
+    # release is the working configuration; debug only for investigating a
+    # release failure; release-nopch occasionally (see AGENTS.md).
+    [ValidateSet('release', 'debug', 'release-nopch')]
+    [string]$Config = 'release',
     [string[]]$Target,
     # Run the test executables directly (fast).
     [switch]$Test,

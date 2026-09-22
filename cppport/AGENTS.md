@@ -14,18 +14,24 @@ practical knowledge needed to build, test and extend the port.
 ./tools/build.ps1 -Test                    # configure (first run), build, run all tests
 ./tools/build.ps1 -Filter 'Controller*'    # build, run matching tests (GoogleTest filter)
 ./tools/build.ps1 -Target gs_core          # compile the library only
-./tools/build.ps1 -Config release -Test    # release build (no PCH) + tests
 ./tools/build.ps1 -Reconfigure             # after changing presets/cache options
-./tools/build.ps1 -CTest -TestRegex Sender # through CTest (slow: a process per test)
 ./tools/build.ps1 -Test -Full              # unfiltered build and test output
+./tools/build.ps1 -Config release-nopch -Test  # occasional: without precompiled headers
+./tools/build.ps1 -CTest -TestRegex Sender # through CTest (slow: a process per test)
 ```
+
+**Release is the only working configuration.** The script defaults to
+`-Config release` (`ninja-release`, RelWithDebInfo against the Release
+LibPack); every build and test run while developing uses it. Do not build or
+run tests in Debug - that is reserved for a human investigating a Release
+failure (`-Config debug`, Debug LibPack), and only when asked.
 
 - The script enters the Visual Studio developer shell itself; it works from a
   plain PowerShell. The environment is captured once into
   `build/.vsdevenv.json` and replayed afterwards (`-RefreshVsEnv` redoes it;
-  a VS update invalidates it automatically). Presets: `ninja-debug`,
-  `ninja-release` (need the dev shell) and `vs-debug`, `vs-release` (Visual
-  Studio 18 2026 generator).
+  a VS update invalidates it automatically). Presets: `ninja-release`,
+  `ninja-release-nopch`, `ninja-debug` (need the dev shell) and `vs-release`,
+  `vs-debug` (Visual Studio 18 2026 generator).
 - Output is brief by default: compiler/linker diagnostics, test failures and a
   `phase: ok (time)` line per step. A failure without recognisable
   diagnostics prints the whole output.
@@ -41,9 +47,10 @@ practical knowledge needed to build, test and extend the port.
 
 ## Fast iteration
 
-Measured on the dev machine (8 threads): no-op build + full test run 0.25 s;
-editing a test file 0.5 s; `controller.cpp` 2.3 s; a widely included header
-~3.3 s; full rebuild ~6 s. Keep it that way:
+Measured on the dev machine (8 threads), release: no-op build + full test run
+~0.25 s; editing a test file 0.55 s; `controller.cpp` 5.3 s (the optimizer
+dominates); a widely included header ~9 s; full rebuild ~15 s. Keep it that
+way:
 
 - **Build settings.** Debug info is embedded (`/Z7`, no PDB-server
   contention between parallel compiles). Standard and third-party headers are
@@ -51,9 +58,14 @@ editing a test file 0.5 s; `controller.cpp` 2.3 s; a widely included header
   headers in a PCH (every TU would rebuild on each edit). Warnings are errors
   in all presets (`GS_WARNINGS_AS_ERRORS`), so a warning can't scroll by
   unnoticed in an incremental build.
-- **PCH blind spot.** A PCH can hide a missing `#include`. The release presets
-  build with `GS_USE_PCH=OFF`; run `./tools/build.ps1 -Config release -Test`
-  every few commits and always before pushing.
+- **PCH blind spot.** A PCH can hide a missing `#include`. The
+  `ninja-release-nopch` preset builds without one (its own tree, ~17 s full
+  build); run `./tools/build.ps1 -Config release-nopch -Test` every few
+  commits and at the end of a work session.
+- **Split big translation units.** An optimized compile of a 1,500-line file
+  takes ~5 s. When one file starts dominating incremental builds, split it
+  along its natural seams (e.g. commands / stream filters / event handling)
+  so an edit recompiles only its part and the parts build in parallel.
 - **Keep headers light.** Heavy headers (`boost/regex.hpp`, `boost/json.hpp`,
   `<regex>`) belong in `.cpp` files. A first-party header that many TUs include
   costs every one of them a recompile per edit.
