@@ -315,6 +315,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     backupRow->addWidget(browse);
     generalForm->addRow(tr("Run settings backup"), backupFrequency_);
     generalForm->addRow(tr("Settings backup location"), backupRow);
+    darkMode_ = new QCheckBox(tr("Dark mode"));
+    darkMode_->setToolTip(tr("The application in dark colours."));
+    generalForm->addRow(QString(), darkMode_);
     generalForm->addRow(tr("Visualizer theme"), visualizerTheme_);
     for (QCheckBox* box : {showBoundingBox_, boundingBoxLabels_, showMachineBed_, trimGridToBed_, followTool_}) {
         generalForm->addRow(QString(), box);
@@ -661,6 +664,7 @@ void SettingsDialog::load() {
     hideProcessedLines_->setChecked(s.hideProcessedLines);
     warnBadFile_->setChecked(s.warnBadFile);
     visualizerTheme_->setCurrentText(QString::fromStdString(s.visualizerTheme));
+    darkMode_->setChecked(s.darkMode);
     showBoundingBox_->setChecked(s.showBoundingBox);
     boundingBoxLabels_->setChecked(s.boundingBoxLabels);
     showMachineBed_->setChecked(s.showMachineBed);
@@ -785,6 +789,7 @@ void SettingsDialog::save() {
     s.hideProcessedLines = hideProcessedLines_->isChecked();
     s.warnBadFile = warnBadFile_->isChecked();
     s.visualizerTheme = visualizerTheme_->currentText().toStdString();
+    s.darkMode = darkMode_->isChecked();
     s.showBoundingBox = showBoundingBox_->isChecked();
     s.boundingBoxLabels = boundingBoxLabels_->isChecked();
     s.showMachineBed = showMachineBed_->isChecked();

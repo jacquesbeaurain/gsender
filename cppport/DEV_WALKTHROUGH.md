@@ -1273,3 +1273,12 @@ screenshots): "On Update" backs up once per application version (upstream:
 when the stored settings are older than the application), the others after
 their interval since the last backup. Settings > General has both settings;
 gSender's are imported.
+
+## Step 47 — Dark mode
+
+Settings > General > Dark mode (workspace.enableDarkMode, off; imported):
+the application switches to Fusion with a dark palette, and back to the
+platform's own style and palette (as they were at start) when turned off
+(`appearance`). The palette is set before the style: setting the style
+re-polishes every widget, and widgets with style sheets keep the palette
+they were polished with. The visualizer keeps its own theme.
