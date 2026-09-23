@@ -1,6 +1,7 @@
 #include "machine.hpp"
 
 #include "qt_event_loop.hpp"
+#include "shortcuts.hpp"
 
 #include "gs/calibration/calibration.hpp"
 #include "gs/config/history.hpp"
@@ -13,10 +14,13 @@
 #include "gs/transport/asio_link.hpp"
 
 #include <QDateTime>
+#include <QKeySequence>
 #include <QFile>
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QThreadPool>
+
+#include <boost/json.hpp>
 
 #include <cmath>
 #include <numbers>
@@ -881,6 +885,86 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    [](const auto&) {},
                },
                event);
+}
+
+// ---- settings files ----------------------------------------------------------------------
+
+bool Machine::exportSettings(const QString& path, QString* error) const {
+    const boost::json::object out{{"format", "gsender-cpp-settings"},
+                                  {"version", 1},
+                                  {"app", appSettingsToJson(settings_)},
+                                  {"events", config_.get("events", boost::json::object())}};
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        *error = file.errorString();
+        return false;
+    }
+    const std::string text = boost::json::serialize(out);
+    file.write(text.data(), static_cast<qint64>(text.size()));
+    return true;
+}
+
+bool Machine::importSettings(const QString& path, QString* report) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        *report = tr("Cannot open %1: %2").arg(path, file.errorString());
+        return false;
+    }
+    const QByteArray bytes = file.readAll();
+    boost::system::error_code error;
+    const boost::json::value data =
+        boost::json::parse(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())), error);
+    if (error) {
+        *report = tr("Failed to import settings. Please check the file format.");
+        return false;
+    }
+    AppSettings imported;
+    std::optional<boost::json::object> events;
+    const boost::json::object* object = data.if_object();
+    if (object && object->contains("app") && object->at("app").is_object()) {
+        imported = appSettingsFromJson(object->at("app").as_object());
+        if (const boost::json::value* hooks = object->if_contains("events"); hooks && hooks->is_object()) {
+            events = hooks->as_object();
+        }
+        *report = tr("Settings imported.");
+    } else if (std::optional<GSenderSettings> gsender = readGSenderSettings(data)) {
+        imported = std::move(gsender->settings);
+        events = std::move(gsender->events);
+        // Shortcuts: the port's actions only, kept where they differ from
+        // its defaults (as the shortcut editor stores them).
+        const std::vector<ShortcutAction> actions = shortcutActions(*this);
+        std::map<std::string, ShortcutBinding> kept;
+        for (const auto& [id, binding] : imported.shortcuts) {
+            const ShortcutAction* action = findShortcutAction(actions, QString::fromStdString(id));
+            if (!action) {
+                continue;
+            }
+            const QKeySequence keys = QKeySequence::fromString(QString::fromStdString(binding.keys));
+            const QKeySequence defaults = QKeySequence::fromString(action->defaultKeys);
+            if (keys != defaults || binding.active != action->defaultActive) {
+                kept[id] = ShortcutBinding{keys.toString(QKeySequence::PortableText).toStdString(), binding.active};
+            }
+        }
+        imported.shortcuts = std::move(kept);
+        *report = tr("gSender settings imported; %1 keyboard shortcut(s) differ from the defaults.")
+                      .arg(imported.shortcuts.size());
+        if (!gsender->unreadableShortcuts.empty()) {
+            *report += " " + tr("%1 shortcut(s) had keys the port cannot read.").arg(gsender->unreadableShortcuts.size());
+        }
+    } else {
+        *report = tr("Failed to import settings. Please check the file format.");
+        return false;
+    }
+    setSettings(imported);
+    if (events) {
+        config_.set("events", *events);
+    }
+    return true;
+}
+
+void Machine::restoreDefaultSettings() {
+    setSettings(AppSettings{});
+    config::EventStore(config_).clear();  // restoreDefault(): the event hooks go too
 }
 
 // ---- history ---------------------------------------------------------------------------

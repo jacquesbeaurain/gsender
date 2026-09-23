@@ -1,8 +1,11 @@
 #include "app_settings.hpp"
 
+#include "gs/util/jsnumber.hpp"
+
 #include <boost/json.hpp>
 
 #include <algorithm>
+#include <cctype>
 
 namespace gs::app {
 namespace {
@@ -236,12 +239,12 @@ void addRecentFile(std::vector<RecentFile>& files, RecentFile file) {
 }
 
 AppSettings loadAppSettings(const config::ConfigStore& store) {
-    AppSettings settings;
     const json::value app = store.get("app", json::object());
-    if (!app.is_object()) {
-        return settings;
-    }
-    const json::object& root = app.as_object();
+    return app.is_object() ? appSettingsFromJson(app.as_object()) : AppSettings{};
+}
+
+AppSettings appSettingsFromJson(const json::object& root) {
+    AppSettings settings;
     if (const json::value* tool = root.if_contains("toolChange"); tool && tool->is_object()) {
         const json::object& t = tool->as_object();
         settings.toolChange.option = text(t, "option", "Ignore");
@@ -321,8 +324,12 @@ json::object shortcutsObject(const std::map<std::string, ShortcutBinding>& short
 }  // namespace
 
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
+    store.set("app", appSettingsToJson(settings));
+}
+
+json::object appSettingsToJson(const AppSettings& settings) {
     const controller::ToolChangeContext& t = settings.toolChange;
-    store.set("app", json::object{
+    return json::object{
                          {"toolChange", json::object{{"option", t.option},
                                                      {"passthrough", t.passthrough},
                                                      {"preHook", t.preHook},
@@ -355,7 +362,222 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"outlineSpeed", settings.outlineSpeed},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
-                     });
+                     };
+}
+
+// ---- gSender's settings ----------------------------------------------------------------
+
+std::optional<std::string> keysFromMousetrap(std::string_view combo) {
+    if (combo.empty()) {
+        return std::string();
+    }
+    // "+" separates, but the key itself may be "+" ("shift++").
+    std::vector<std::string> parts;
+    std::string current;
+    for (const char c : combo) {
+        if (c == '+' && !current.empty()) {
+            parts.push_back(std::move(current));
+            current.clear();
+        } else {
+            current.push_back(c);
+        }
+    }
+    if (!current.empty()) {
+        parts.push_back(std::move(current));
+    }
+    const auto lower = [](std::string text) {
+        std::transform(text.begin(), text.end(), text.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return text;
+    };
+    bool ctrl = false;
+    bool alt = false;
+    bool shift = false;
+    bool meta = false;
+    for (std::size_t i = 0; i + 1 < parts.size(); ++i) {
+        const std::string name = lower(parts[i]);
+        if (name == "ctrl" || name == "control") {
+            ctrl = true;
+        } else if (name == "alt" || name == "option") {
+            alt = true;
+        } else if (name == "shift") {
+            shift = true;
+        } else if (name == "command" || name == "meta" || name == "cmd" || name == "mod") {
+            meta = true;
+        } else {
+            return std::nullopt;
+        }
+    }
+    static const std::pair<std::string_view, std::string_view> kNamed[] = {
+        {"backspace", "Backspace"}, {"tab", "Tab"},     {"enter", "Return"},     {"return", "Return"},
+        {"capslock", "CapsLock"},   {"escape", "Esc"},  {"esc", "Esc"},          {"space", "Space"},
+        {"pageup", "PgUp"},         {"pagedown", "PgDown"}, {"left", "Left"},    {"right", "Right"},
+        {"up", "Up"},               {"down", "Down"},   {"del", "Del"},          {"delete", "Del"},
+        {"ins", "Ins"},             {"insert", "Ins"},  {"end", "End"},          {"home", "Home"},
+        {"plus", "+"},
+    };
+    const std::string key = lower(parts.back());
+    std::string name;
+    for (const auto& [from, to] : kNamed) {
+        if (key == from) {
+            name = to;
+        }
+    }
+    if (name.empty() && key.size() >= 2 && key.size() <= 3 && key[0] == 'f' &&
+        std::all_of(key.begin() + 1, key.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+        name = "F" + key.substr(1);  // f1 ... f35
+    }
+    if (name.empty() && key.size() == 1 && key[0] > ' ' && key[0] < 0x7f) {
+        name = std::string(1, static_cast<char>(std::toupper(static_cast<unsigned char>(key[0]))));
+    }
+    if (name.empty()) {
+        return std::nullopt;
+    }
+    std::string out;
+    if (ctrl) {
+        out += "Ctrl+";
+    }
+    if (alt) {
+        out += "Alt+";
+    }
+    if (shift) {
+        out += "Shift+";
+    }
+    if (meta) {
+        out += "Meta+";
+    }
+    return out + name;
+}
+
+namespace {
+
+const json::object* child(const json::object& o, std::string_view key) {
+    const json::value* v = o.if_contains(key);
+    return v && v->is_object() ? &v->as_object() : nullptr;
+}
+
+}  // namespace
+
+std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
+    if (!file.is_object()) {
+        return std::nullopt;
+    }
+    const json::object& root = file.as_object();
+    // The Export's "settings", or the store file's "state".
+    const json::object* state = child(root, "settings");
+    if (!state) {
+        state = child(root, "state");
+    }
+    const json::object* workspace = state ? child(*state, "workspace") : nullptr;
+    const json::object* widgets = state ? child(*state, "widgets") : nullptr;
+    if (!workspace && !widgets) {
+        return std::nullopt;
+    }
+    const json::object none;
+    const json::object& w = workspace ? *workspace : none;
+    const json::object& g = widgets ? *widgets : none;
+    GSenderSettings out;
+    AppSettings& s = out.settings;  // over the defaults, as upstream merges
+
+    s.metric = text(w, "units", "mm") != "in";
+    s.customDecimalPlaces = static_cast<int>(number(w, "customDecimalPlaces", 0));
+    s.safeRetractHeight = number(w, "safeRetractHeight", 0);
+    s.warnZero = flag(w, "shouldWarnZero", false);
+    s.park = loadPosition(w, "park");
+    s.outlineMode = job::outlineModeFromName(text(w, "outlineMode")).value_or(s.outlineMode);
+    s.outlineSpeed = number(w, "outlineSpeed", 0);
+    if (const std::string firmware = text(w, "defaultFirmware"); !firmware.empty()) {
+        s.defaultFirmware = firmware == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
+    }
+    s.recentFiles = loadRecentFiles(w.if_contains("recentFiles"));
+    s.jog.preventJoggingPastLimits = flag(w, "preventJoggingPastLimits", false);
+    if (const json::object* rotary = child(w, "rotaryAxis")) {
+        s.preferences.useAaxisForGrbl = flag(*rotary, "useAaxisForGrbl", false);
+    }
+    if (const json::object* diagnostics = child(w, "diagnostics")) {
+        if (const json::object* stepper = child(*diagnostics, "stepperMotor")) {
+            if (const json::value* stored = stepper->if_contains("storedValue"); stored && !stored->is_null()) {
+                s.stepperRestoreValue =
+                    stored->is_string() ? std::string(stored->as_string())
+                                        : (stored->is_number() ? js::numberToString(stored->to_number<double>()) : "");
+            }
+        }
+    }
+
+    // Tool changes: the strategy, its hooks and the positions.
+    s.toolChange.option = text(w, "toolChangeOption", "Ignore");
+    if (const json::object* hooks = child(w, "toolChangeHooks")) {
+        s.toolChange.preHook = text(*hooks, "preHook");
+        s.toolChange.postHook = text(*hooks, "postHook");
+    }
+    if (const json::object* tool = child(w, "toolChange")) {
+        s.toolChange.passthrough = flag(*tool, "passthrough", false);
+        s.toolChange.skipDialog = flag(*tool, "skipDialog", false);
+        s.moveToManualPosition = flag(*tool, "moveToManualPosition", false);
+        s.firstToolBehaviour = text(*tool, "firstToolBehaviour", s.firstToolBehaviour);
+        s.manualPosition = loadPosition(*tool, "manualPosition");
+    }
+    s.toolChangePosition = loadPosition(w, "toolChangePosition");
+
+    // Probing: the plate profile (workspace) and the widget's feeds and
+    // distances - the port keeps them in one object with the same names.
+    json::object probe;
+    if (const json::object* widget = child(g, "probe")) {
+        probe = *widget;
+    }
+    if (const json::object* profile = child(w, "probeProfile")) {
+        for (const auto& member : *profile) {
+            probe[member.key()] = member.value();
+        }
+    }
+    if (text(probe, "touchplateType") == "AutoZero Touchplate") {
+        probe["touchplateType"] = "AutoZero";  // older files
+    }
+    s.probe = loadProbe(probe);
+
+    if (const json::object* axes = child(g, "axes")) {
+        if (const json::object* jog = child(*axes, "jog")) {
+            s.jog.rapid = loadSpeeds(*jog, "rapid", s.jog.rapid);
+            s.jog.normal = loadSpeeds(*jog, "normal", s.jog.normal);
+            s.jog.precise = loadSpeeds(*jog, "precise", s.jog.precise);
+            s.jog.threshold = static_cast<int>(number(*jog, "threshold", s.jog.threshold));
+        }
+    }
+    if (const json::object* connection = child(g, "connection")) {
+        s.port = text(*connection, "port");
+        s.baudRate = static_cast<int>(number(*connection, "baudrate", s.baudRate));
+        s.networkPort = static_cast<int>(number(*connection, "ethernetPort", s.networkPort));
+    }
+    if (const json::object* spindle = child(g, "spindle")) {
+        s.spindle = loadSpindle(*spindle);
+        s.preferences.spindleDelay = number(*spindle, "delay", 0);
+    }
+    if (const json::object* surfacing = child(g, "surfacing")) {
+        s.surfacing = loadSurfacing(*surfacing);
+    }
+    if (const json::object* visualizer = child(g, "visualizer")) {
+        s.preferences.showLineWarnings = flag(*visualizer, "showLineWarnings", false);
+    }
+
+    // Keyboard shortcuts: every binding gSender stored, converted; the caller
+    // keeps the ones that differ from the port's defaults.
+    if (const json::object* commandKeys = child(*state, "commandKeys")) {
+        for (const auto& [command, value] : *commandKeys) {
+            if (!value.is_object()) {
+                continue;
+            }
+            const std::optional<std::string> keys = keysFromMousetrap(text(value.as_object(), "keys"));
+            if (!keys) {
+                out.unreadableShortcuts.emplace_back(command);
+                continue;
+            }
+            s.shortcuts[std::string(command)] = ShortcutBinding{*keys, flag(value.as_object(), "isActive", true)};
+        }
+    }
+    if (const json::object* events = child(root, "events")) {
+        out.events = *events;
+    }
+    return out;
 }
 
 }  // namespace gs::app

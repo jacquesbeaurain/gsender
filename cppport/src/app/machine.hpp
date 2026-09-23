@@ -93,6 +93,13 @@ public:
     const AppSettings& settings() const noexcept { return settings_; }
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
+    // Settings files (Settings > Export / Import / Restore Defaults). Export
+    // writes the settings and event hooks; Import takes such a file or a
+    // gSender one (its export or its store file) and replaces the settings
+    // and the hooks it carries - `report` says what was taken, or why not.
+    bool exportSettings(const QString& path, QString* error) const;
+    bool importSettings(const QString& path, QString* report);
+    void restoreDefaultSettings();
     runtime::EventLoop& eventLoop() noexcept;  // the UI thread's
 
     // ---- tool change wizards ----

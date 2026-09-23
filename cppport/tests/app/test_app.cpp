@@ -25,6 +25,8 @@
 #include "gs/controller/actions.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
+#include <boost/json.hpp>
+
 #include <QApplication>
 #include <QKeyEvent>
 #include <QLabel>
@@ -436,6 +438,138 @@ TEST_F(AppTest, RecentFilesAndMacroFilesComeAndGo) {
     ASSERT_EQ(other.macros().list().size(), 1u);
     EXPECT_EQ(other.macros().list()[0].content, "G0 Z5\nG0 X0 Y0");
     EXPECT_FALSE(otherPanel.importFrom(write("junk.json", "{not json"), &message));
+}
+
+TEST(GSenderSettings, KeysConvertFromMousetrapToQt) {
+    EXPECT_EQ(keysFromMousetrap("shift+w"), "Shift+W");
+    EXPECT_EQ(keysFromMousetrap("ctrl+alt+command+h"), "Ctrl+Alt+Meta+H");
+    EXPECT_EQ(keysFromMousetrap("command+alt+ctrl+shift+left"), "Ctrl+Alt+Shift+Meta+Left");
+    EXPECT_EQ(keysFromMousetrap("shift+pageup"), "Shift+PgUp");
+    EXPECT_EQ(keysFromMousetrap("~"), "~");
+    EXPECT_EQ(keysFromMousetrap("ctrl+4"), "Ctrl+4");
+    EXPECT_EQ(keysFromMousetrap("f5"), "F5");
+    EXPECT_EQ(keysFromMousetrap("shift++"), "Shift++");
+    EXPECT_EQ(keysFromMousetrap("space"), "Space");
+    EXPECT_EQ(keysFromMousetrap("del"), "Del");
+    EXPECT_EQ(keysFromMousetrap(""), "");  // unbound
+    EXPECT_FALSE(keysFromMousetrap("hyper+x").has_value());
+    EXPECT_FALSE(keysFromMousetrap("shift+scrolllock").has_value());
+}
+
+TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
+    const boost::json::value file = boost::json::parse(R"({
+        "settings": {
+            "workspace": {
+                "units": "in", "safeRetractHeight": 5, "shouldWarnZero": true,
+                "park": {"x": -10, "y": -20, "z": -1},
+                "toolChangeOption": "Fixed Tool Sensor", "toolChangeHooks": {"preHook": "G0 Z10"},
+                "toolChange": {"passthrough": true, "firstToolBehaviour": "Prompt for first tool"},
+                "toolChangePosition": {"x": -5, "y": -6, "z": -7},
+                "probeProfile": {"touchplateType": "AutoZero Touchplate", "xyThickness": 9,
+                                 "zThickness": {"standardBlock": 14}},
+                "outlineMode": "Square", "defaultFirmware": "grblHAL",
+                "rotaryAxis": {"useAaxisForGrbl": true}
+            },
+            "widgets": {
+                "probe": {"probeFeedrate": 60, "connectivityTest": false},
+                "axes": {"jog": {"rapid": {"xyStep": 25, "zStep": 12, "aStep": 30, "feedrate": 6000},
+                                 "threshold": 300}},
+                "connection": {"port": "COM4", "baudrate": 250000},
+                "spindle": {"mode": "laser", "delay": 2, "laser": {"maxPower": 1000}},
+                "surfacing": {"width": 250},
+                "visualizer": {"showLineWarnings": true}
+            },
+            "commandKeys": {
+                "START_JOB": {"keys": "f9", "isActive": true},
+                "STOP_JOB": {"keys": "@", "isActive": false},
+                "JOG_X_P": {"keys": "hyper+x", "isActive": true}
+            }
+        },
+        "events": {"gcode:start": {"event": "gcode:start", "trigger": "gcode", "commands": "G0 Z5", "enabled": true}}
+    })");
+    const std::optional<GSenderSettings> read = readGSenderSettings(file);
+    ASSERT_TRUE(read.has_value());
+    const AppSettings& s = read->settings;
+    EXPECT_FALSE(s.metric);
+    EXPECT_EQ(s.safeRetractHeight, 5);
+    EXPECT_TRUE(s.warnZero);
+    EXPECT_EQ(s.park.y, -20);
+    EXPECT_EQ(s.toolChange.option, "Fixed Tool Sensor");
+    EXPECT_EQ(s.toolChange.preHook, "G0 Z10");
+    EXPECT_TRUE(s.toolChange.passthrough);
+    EXPECT_EQ(s.firstToolBehaviour, "Prompt for first tool");
+    EXPECT_EQ(s.toolChangePosition.z, -7);
+    EXPECT_EQ(s.probe.plateType, probe::PlateType::AutoZero);  // the old name
+    EXPECT_EQ(s.probe.xyThickness, 9);
+    EXPECT_EQ(s.probe.zThickness.standardBlock, 14);
+    EXPECT_EQ(s.probe.probeFeedrate, 60);
+    EXPECT_FALSE(s.probe.connectivityTest);
+    EXPECT_EQ(s.outlineMode, job::OutlineMode::Square);
+    EXPECT_EQ(s.defaultFirmware, protocol::Firmware::GrblHal);
+    EXPECT_TRUE(s.preferences.useAaxisForGrbl);
+    EXPECT_EQ(s.jog.rapid.xyStep, 25);
+    EXPECT_EQ(s.jog.threshold, 300);
+    EXPECT_EQ(s.jog.normal.xyStep, 5);  // not in the file: the default
+    EXPECT_EQ(s.port, "COM4");
+    EXPECT_EQ(s.baudRate, 250000);
+    EXPECT_TRUE(s.spindle.laserMode);
+    EXPECT_EQ(s.spindle.laser.maxPower, 1000);
+    EXPECT_EQ(s.preferences.spindleDelay, 2);
+    EXPECT_EQ(s.surfacing.width, 250);
+    EXPECT_TRUE(s.preferences.showLineWarnings);
+    EXPECT_EQ(s.shortcuts.at("START_JOB").keys, "F9");
+    EXPECT_FALSE(s.shortcuts.at("STOP_JOB").active);
+    EXPECT_EQ(read->unreadableShortcuts, std::vector<std::string>{"JOG_X_P"});
+    ASSERT_TRUE(read->events.has_value());
+    EXPECT_TRUE(read->events->contains("gcode:start"));
+
+    // gSender's store file carries the same under "state"; anything else is no settings file.
+    EXPECT_TRUE(readGSenderSettings(boost::json::parse(R"({"version": "1.5", "state": {"workspace": {}}})")));
+    EXPECT_FALSE(readGSenderSettings(boost::json::parse(R"({"macros": []})")));
+}
+
+TEST_F(AppTest, SettingsFilesExportImportAndRestore) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.safeRetractHeight = 7;
+    settings.shortcuts["START_JOB"] = {"F9", true};
+    machine.setSettings(settings);
+    config::EventStore(machine.config()).create("gcode:stop", "gcode", "M5", true);
+
+    // The port's own file: everything back as it was.
+    QString message;
+    ASSERT_TRUE(machine.exportSettings(dir.path() + "/settings.json", &message)) << message.toStdString();
+    machine.restoreDefaultSettings();
+    EXPECT_EQ(machine.settings().safeRetractHeight, 0);
+    EXPECT_FALSE(config::EventStore(machine.config()).find("gcode:stop").has_value());
+    ASSERT_TRUE(machine.importSettings(dir.path() + "/settings.json", &message)) << message.toStdString();
+    EXPECT_EQ(machine.settings().safeRetractHeight, 7);
+    EXPECT_EQ(machine.settings().shortcuts.at("START_JOB").keys, "F9");
+    EXPECT_EQ(config::EventStore(machine.config()).find("gcode:stop")->commands, "M5");
+
+    // A gSender export: only the shortcuts that differ from the defaults stay.
+    QFile gsender(dir.path() + "/gsender.json");
+    ASSERT_TRUE(gsender.open(QIODevice::WriteOnly));
+    gsender.write(R"({"settings": {"workspace": {"units": "in"}, "widgets": {},
+        "commandKeys": {"PAUSE_JOB": {"keys": "!", "isActive": true},
+                        "STOP_JOB": {"keys": "shift+f12", "isActive": true},
+                        "SOMETHING_ELSE": {"keys": "f2", "isActive": true}}},
+        "events": {}})");
+    gsender.close();
+    ASSERT_TRUE(machine.importSettings(gsender.fileName(), &message)) << message.toStdString();
+    EXPECT_FALSE(machine.settings().metric);
+    ASSERT_EQ(machine.settings().shortcuts.size(), 1u);
+    EXPECT_EQ(machine.settings().shortcuts.at("STOP_JOB").keys, "Shift+F12");
+
+    // Anything else is refused and changes nothing.
+    QFile junk(dir.path() + "/junk.json");
+    ASSERT_TRUE(junk.open(QIODevice::WriteOnly));
+    junk.write(R"({"macros": []})");
+    junk.close();
+    EXPECT_FALSE(machine.importSettings(junk.fileName(), &message));
+    EXPECT_FALSE(machine.settings().metric);
 }
 
 TEST_F(AppTest, HeldJogKeysJogUntilReleased) {
