@@ -1,5 +1,6 @@
 #include "main_window.hpp"
 
+#include "appearance.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
@@ -115,8 +116,12 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
         }
         showMessage(tr("Invalid Lines Detected"), detail);
     });
-    // Power saving: the display kept awake unless sleeping is allowed.
-    const auto applyPower = [this] { setDisplaySleepAllowed(machine_.settings().powerSaving); };
+    // Power saving: the display kept awake unless sleeping is allowed; and
+    // the application dark or not.
+    const auto applyPower = [this] {
+        setDisplaySleepAllowed(machine_.settings().powerSaving);
+        applyDarkMode(machine_.settings().darkMode);
+    };
     connect(&machine_, &Machine::appSettingsChanged, this, applyPower);
     applyPower();
     // The alerts at a job's end (workspace/Alerts).

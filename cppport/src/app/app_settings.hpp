@@ -148,6 +148,7 @@ struct AppSettings {
     // it (objects.machineBed.visible / trimGridToBed), and the camera
     // following the tool while a job runs (followToolDuringRuntime).
     std::string visualizerTheme = "Dark";
+    bool darkMode = false;  // workspace.enableDarkMode: the application dark
     bool showBoundingBox = true;
     bool boundingBoxLabels = false;
     bool showMachineBed = false;

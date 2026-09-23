@@ -3,6 +3,8 @@
 add_library(gs_app STATIC
     app_settings.cpp
     app_settings.hpp
+    appearance.cpp
+    appearance.hpp
     calibration_dialogs.cpp
     calibration_dialogs.hpp
     controls.cpp

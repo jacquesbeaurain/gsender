@@ -79,6 +79,7 @@ private:
     QCheckBox* hideProcessedLines_;
     QCheckBox* warnBadFile_;
     QComboBox* visualizerTheme_;
+    QCheckBox* darkMode_;
     QCheckBox* showBoundingBox_;
     QCheckBox* boundingBoxLabels_;
     QCheckBox* showMachineBed_;

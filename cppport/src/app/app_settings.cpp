@@ -384,6 +384,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
     settings.warnBadFile = flag(root, "warnBadFile", false);
     settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
+    settings.darkMode = flag(root, "darkMode", false);
     settings.showBoundingBox = flag(root, "showBoundingBox", true);
     settings.boundingBoxLabels = flag(root, "boundingBoxLabels", false);
     settings.showMachineBed = flag(root, "showMachineBed", false);
@@ -475,6 +476,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"hideProcessedLines", settings.hideProcessedLines},
                          {"warnBadFile", settings.warnBadFile},
                          {"visualizerTheme", settings.visualizerTheme},
+                         {"darkMode", settings.darkMode},
                          {"showBoundingBox", settings.showBoundingBox},
                          {"boundingBoxLabels", settings.boundingBoxLabels},
                          {"showMachineBed", settings.showMachineBed},
@@ -615,6 +617,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.revertWorkspace = flag(w, "revertWorkspace", false);
     s.powerSaving = flag(w, "powerSaving", false);
     s.promptExit = flag(w, "promptExit", false);
+    s.darkMode = flag(w, "enableDarkMode", false);
     if (const std::string frequency = text(w, "backupFreq"); !frequency.empty()) {
         s.backupFrequency = frequency;
     }
