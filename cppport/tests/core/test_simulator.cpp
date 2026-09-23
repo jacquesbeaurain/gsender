@@ -1,6 +1,7 @@
 // The simulated Grbl board, and the whole stack running a job against it.
 
 #include "gs/controller/session.hpp"
+#include "gs/probe/probing.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
 #include <gtest/gtest.h>
@@ -186,6 +187,56 @@ TEST_F(SimulatorTest, FeedOverridesChangeTheSpeed) {
     EXPECT_DOUBLE_EQ(sim.machinePosition()[0], 10.0);
 }
 
+TEST_F(SimulatorTest, ADwellAnswersOnceThePlannerEmptiesAndTheTimeIsUp) {
+    send("G1 X10 F600\n");  // 1 s
+    EXPECT_EQ(take(), "ok\r\n");
+    send("G4 P0.5\n");
+    send("G0 X0\n");  // waits behind the dwell, like Grbl's serial buffer
+    loop.advance(1400);
+    EXPECT_EQ(take(), "");
+    loop.advance(200);
+    EXPECT_EQ(take(), "ok\r\nok\r\n");
+}
+
+TEST_F(SimulatorTest, ProbesStopWhereTheBitTouchesThePlate) {
+    sim.setProbeSolids({Solid{{-10, -10, -20}, {40, 40, -5}}});
+    sim.setToolRadius(3);
+    send("G91 G38.2 Z-10 F600\n");  // the plate top is 5 below
+    EXPECT_EQ(take(), "");           // answered when the probe completes
+    loop.advance(600);
+    EXPECT_EQ(take(), "[PRB:0.000,0.000,-5.000:1]\r\nok\r\n");
+    EXPECT_DOUBLE_EQ(sim.machinePosition()[2], -5.0);
+    send("?");
+    EXPECT_NE(take().find("|Pn:P|"), std::string::npos);
+
+    send("G38.2 Z-1\n");  // already touching
+    loop.advance(50);
+    EXPECT_EQ(take(), "ALARM:4\r\nok\r\n");
+    send("$X\n");
+    take();
+
+    // The bit's radius counts: a side probe stops 3 mm short of the face.
+    send("G0 Z2\n");
+    send("G0 X-20\n");
+    send("G0 Z-3\n");
+    loop.advance(2000);
+    take();
+    send("G38.2 X15 F600\n");
+    loop.advance(1000);
+    EXPECT_EQ(take(), "[PRB:-13.000,0.000,-6.000:1]\r\nok\r\n");
+}
+
+TEST_F(SimulatorTest, AMissedProbeAlarmsUnlessItOnlyReports) {
+    send("G91 G38.3 Z-2 F600\n");
+    loop.advance(300);
+    EXPECT_EQ(take(), "[PRB:0.000,0.000,-2.000:0]\r\nok\r\n");
+    send("G38.2 Z-2\n");
+    loop.advance(300);
+    EXPECT_EQ(take(), "ALARM:5\r\n[PRB:0.000,0.000,-2.000:0]\r\nok\r\n");
+    send("G0 X1\n");
+    EXPECT_EQ(take(), "error:9\r\n");
+}
+
 TEST_F(SimulatorTest, CheckModeValidatesWithoutMoving) {
     send("$C\n");
     EXPECT_EQ(take(), "[MSG:Enabled]\r\nok\r\n");
@@ -240,5 +291,64 @@ TEST(EndToEnd, AJobRunsToCompletionOnTheSimulatedBoard) {
     const std::vector<std::string> job(first, first + 5);
     EXPECT_EQ(job, (std::vector<std::string>{"G1 X10 F1200", "G1 Y10", "G1 X0", "G1 Y0", "M30"}));
 }
+
+// gSender's standard block routine (XYZ, 1/4" bit) against a simulated plate
+// on each corner of the stock: afterwards work zero is the stock corner.
+class StandardBlockProbing : public ::testing::TestWithParam<int> {};
+
+TEST_P(StandardBlockProbing, ZeroesTheStockCorner) {
+    const int corner = GetParam();
+    runtime::ManualEventLoop loop;
+    GrblSimulator sim(loop);
+    std::vector<std::string> alarms;
+    controller::Session session(loop, sim, {}, {}, [&](const controller::ControllerEvent& e) {
+        if (const auto* line = std::get_if<controller::ConsoleOutput>(&e); line && line->text.starts_with("ALARM")) {
+            alarms.push_back(line->text);
+        }
+    });
+    sim.onData = [&](std::string_view bytes) { session.receive(bytes); };
+    sim.open();
+    session.opened();
+    for (int i = 0; i < 100 && (!session.controller() || !session.controller()->runner().hasSettings()); ++i) {
+        loop.advance(50);
+    }
+    ASSERT_NE(session.controller(), nullptr);
+    controller::Controller& c = *session.controller();
+
+    // The bit starts 10 mm above the plate, 5 mm in from its outer faces.
+    const double sx = corner == probe::kBottomLeft || corner == probe::kTopLeft ? 1 : -1;
+    const double sy = corner == probe::kBottomLeft || corner == probe::kBottomRight ? 1 : -1;
+    const double cornerX = 5 * sx;
+    const double cornerY = 5 * sy;
+    const double stockTop = -25;
+    sim.setProbeSolids(touchPlateOnCorner(corner, cornerX, cornerY, stockTop));
+    sim.setToolRadius(6.35 / 2);
+
+    probe::MachineFacts facts;
+    facts.homing = c.runner().setting("$22");
+    facts.zMaxTravel = c.runner().setting("$132");
+    const probe::ProbingOptions options = probe::makeProbingOptions(
+        probe::ProbeSettings{}, true, {true, true, true}, probe::ProbeType::Diameter, 6.35, facts);
+    std::vector<std::string> code = probe::probeCode(options, corner);
+    code.emplace_back("G90");  // the widget restores the distance mode
+    c.gcodeSafe(code, "G21");
+    for (int i = 0; i < 2000 && (c.feeder().size() > 0 || c.feeder().isPending() || sim.activeState() != "Idle");
+         ++i) {
+        loop.advance(50);
+    }
+    EXPECT_TRUE(alarms.empty()) << alarms.front();
+    EXPECT_EQ(sim.activeState(), "Idle");
+    const SimAxes offset = sim.workOffset();
+    EXPECT_NEAR(offset[0], cornerX, 1e-9);
+    EXPECT_NEAR(offset[1], cornerY, 1e-9);
+    EXPECT_NEAR(offset[2], stockTop, 1e-9);
+    // The bit ends over the corner, clear of the plate.
+    const SimAxes work = sim.workPosition();
+    EXPECT_NEAR(work[0], 0, 1e-9);
+    EXPECT_NEAR(work[1], 0, 1e-9);
+    EXPECT_NEAR(work[2], 19, 1e-9);
+}
+
+INSTANTIATE_TEST_SUITE_P(Corners, StandardBlockProbing, ::testing::Values(0, 1, 2, 3));
 
 }  // namespace

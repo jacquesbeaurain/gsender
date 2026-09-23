@@ -476,3 +476,40 @@ The Firmware tab lists the board's `$` settings with units and descriptions
 (grblHAL's own `$ES` descriptions first, then the extracted Grbl/grblHAL
 tables); changed values are written as `$n=value` followed by `$$`.
 Menus: File (load/close/quit), Machine (settings, firmware settings), Help.
+
+## Step 21 — Touch plate probing (`gs/probe/probing`, simulator contact)
+
+`Probing.ts` is a pure generator - plate and machine settings in, G-code out
+- so it lives in the core. The routines rely on the controller's `%NAME=`
+assignments and `[expression]` words (`X_LEFT=posx`, `X[posx/2]`, ...) and
+run through `Controller::gcodeSafe(code, "G21")`, as the Probe widget does,
+with the modal distance mode appended to restore it.
+
+Upstream has no tests for it, so `tools/gen_probe_fixtures.mjs` bundles the
+real `Probing.ts` with esbuild (the Redux store that `SoftLimits` reads is
+stubbed per case) and records 168 cases - every plate (Standard Block, Z
+Probe, 3D Probe, BitZero, AutoZero Auto/Tip/Diameter) x axes x corner, with
+units, firmware, homing/soft limits, `$13`, feeds and thicknesses varied by
+a seeded generator - in `tests/data/probing_golden.json`. The C++ output
+matches every case byte for byte, and `makeProbingOptions` (the widget's
+mm-to-inch conversion) reproduces the recorded options.
+
+Upstream quirks kept for identical output:
+
+| Quirk | Effect |
+| --- | --- |
+| AutoZero diameter routine tests `axes.z && axes.y && axes.z` | Y+Z without X runs the XYZ routine |
+| Imperial options drop the BitZero thicknesses | BitZero falls back to 13 / 15.5 mm in inch workspaces |
+| `getZDownTravel` compares the probe distance in workspace units with `$132` (mm) | inch workspaces cap Z probing by a mm figure |
+| `${prependUnits} G0 ...` with no G20 | lines start with a space |
+| Auto/BitZero centring reads `posx`/`posy` from the last status report | the centre can lag the touch by one status poll (at most about 0.1 mm at the slow feed) |
+
+The simulator now probes for real: conductive boxes (`touchPlateOnCorner`
+builds a standard plate hooked over a stock corner) and a bit radius; G38.2/.3
+stop where the bit first touches, G38.4/.5 where it leaves; wrong initial
+state raises ALARM:4, a miss ALARM:5 (G38.2/.4) or `[PRB:...:0]` (.3/.5);
+`Pn:P` shows while touching. G4 and G38.x now hold the input until they
+complete, as Grbl's buffer synchronisation does, so the lines after a dwell or
+probe are parsed at the settled position. An end-to-end test runs the widget's standard
+block XYZ routine on each corner and checks that work zero lands on the
+stock corner.

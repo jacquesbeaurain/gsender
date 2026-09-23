@@ -18,8 +18,11 @@ add_executable(gs_core_tests
     core/test_config.cpp
     core/test_program_analysis.cpp
     core/test_simulator.cpp
+    core/test_probing.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
+# Golden files generated from the upstream JavaScript (see tools/).
+target_compile_definitions(gs_core_tests PRIVATE GS_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 gs_precompile_headers(gs_core_tests
     <gtest/gtest.h>
     <algorithm> <cmath> <cstdint> <functional> <limits> <map> <memory>
