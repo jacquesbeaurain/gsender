@@ -862,3 +862,24 @@ positive value. XY Squaring draws its triangle - the marked points, the move
 being made, the measured sides - and ends with the verdict and the
 recommended steps/mm, written after a confirmation. An application test
 runs both on the simulator and checks the rewritten `$100`/`$101`.
+
+## Step 32 — Macro shortcuts and automations
+
+**Macro shortcuts.** Upstream adds every macro to its shortcut table
+(`commandKeys`, keyed by the macro id, category "Macros") unbound and
+switched off; binding keys in the editor switches a shortcut on; the
+shortcut runs the macro only when the machine is idle, with the loaded
+file as its context. The port's shortcut list is now the fixed table plus
+one action per macro (`shortcutActions(machine)`, rebuilt when macros
+change), actions carry their default on/off state, the editor switches a
+shortcut on when keys are assigned, and only differences from the defaults
+are stored - a macro that is on counts as one.
+
+**Automations.** The controller already ran the config file's event hooks
+(`events`: `gcode:start`, `gcode:pause`, `gcode:resume`, `gcode:stop` with
+trigger "gcode"); the Settings dialog now has gSender's Automations page to
+edit them: per event its description, an Enabled switch and the G-code. As
+upstream's EventInput, the first commands create the hook (enabled), later
+edits update it, and a hook left without commands is disabled. Tests: a
+macro bound and triggered through the shortcut manager, and a start hook
+that reaches the simulated board before the job's first line.
