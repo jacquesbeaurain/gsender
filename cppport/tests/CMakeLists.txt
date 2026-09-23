@@ -19,6 +19,7 @@ add_executable(gs_core_tests
     core/test_program_analysis.cpp
     core/test_simulator.cpp
     core/test_probing.cpp
+    core/test_surfacing.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 # Golden files generated from the upstream JavaScript (see tools/).

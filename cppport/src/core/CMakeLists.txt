@@ -26,6 +26,7 @@ add_library(gs_core STATIC
     src/config/records.cpp
     src/job/program_analysis.cpp
     src/probe/probing.cpp
+    src/surfacing/surfacing.cpp
     src/sim/grbl_simulator.cpp
 )
 add_library(gs::core ALIAS gs_core)
