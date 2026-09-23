@@ -8,7 +8,7 @@
 // upstream tables change and commit the regenerated JSON.
 
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,5 +109,26 @@ mkdirSync(outDir, { recursive: true });
         profiles: load(profilesEntry).default,
         boardProfiles: load(boardEntry).BOARD_PROFILES,
         grblCore: coreData,
+    });
+}
+
+// Defaults the config store backfills into ~/.sender_rc. They are not
+// exported, so the block declaring them is evaluated on its own; fail loudly
+// if upstream reshapes it.
+{
+    const entry = 'src/server/services/configstore/index.js';
+    const source = readFileSync(join(repoRoot, entry), 'utf8');
+    const start = source.indexOf('const defaultJobStats');
+    const end = source.indexOf('const writeFileAtomicSync');
+    if (start < 0 || end < start) {
+        throw new Error(`${entry}: the default declarations moved; update extract_data.mjs`);
+    }
+    const defaults = new Function(
+        `${source.slice(start, end)}\nreturn { defaultJobStats, defaultState, defaultMaintenance };`,
+    )();
+    write('config_defaults.json', [entry], {
+        state: defaults.defaultState,
+        jobStats: defaults.defaultJobStats,
+        maintenance: defaults.defaultMaintenance,
     });
 }
