@@ -71,7 +71,7 @@ way:
   costs every one of them a recompile per edit.
 - **Loop.** While iterating: `-Filter` for the tests at hand, `-Target gs_core`
   to check library code compiles before writing its tests. Before each
-  commit: `./tools/build.ps1 -Test` (all tests, under a second).
+  commit: `./tools/build.ps1 -Test` (all suites, ~2.5 s).
 - **Commit cadence.** Commit each coherent, tested increment: a ported
   component with the tests that pin its behaviour. Don't hold several
   components back for one big commit, and don't hold a commit back for
@@ -122,7 +122,12 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   `build/ninja-release/bin/gsender.exe -platform offscreen --simulator
   --load <file> [--start] --screenshot out.png --wait 3000`, then look at it.
 - The Machine/app tests run in real time against the simulator; keep them
-  short (wait for a condition, never for a fixed long delay).
+  short (wait for a condition, never for a fixed long delay). They are the
+  slowest suite (~1.5 s - a Grbl controller waits 500 ms before resetting a
+  board it has not heard from); filter them out while iterating on the core
+  (`-Filter '-AppTest.*'`).
+- `GS_TEST_SCREENSHOTS=<dir>` makes the dialog tests save what they render,
+  to look at a dialog without a display.
 
 ## FreeCAD LibPack facts (26.3.0 / 3.5.5, x64)
 

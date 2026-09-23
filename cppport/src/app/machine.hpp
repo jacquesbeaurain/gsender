@@ -6,6 +6,8 @@
 // analysis, and turns controller events into Qt signals. Everything runs on
 // the UI thread; the transport and the program analysis report back to it.
 
+#include "app_settings.hpp"
+
 #include "gs/config/config_store.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/session.hpp"
@@ -76,10 +78,11 @@ public:
 
     controller::Preferences& preferences() noexcept { return *preferences_; }
     config::MacroStore macros() { return config::MacroStore(config_); }
-    // Sent to every new controller, as gSender's UI sent its workspace
-    // settings ("toolchange:context"); gSender's default option is Ignore.
-    void setToolChangeContext(const controller::ToolChangeContext& context);
-    const controller::ToolChangeContext& toolChangeContext() const noexcept { return toolChange_; }
+    // The application preferences: applied to the controller (preferences,
+    // tool change context - sent to every new controller as gSender's UI did
+    // with "toolchange:context") and saved in the config file.
+    const AppSettings& settings() const noexcept { return settings_; }
+    void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
 
 Q_SIGNALS:
@@ -94,6 +97,9 @@ Q_SIGNALS:
     void errorReported(const QString& title, const QString& detail);
     void notice(const QString& text);  // tool changes, pauses and other prompts
     void macrosChanged();
+    // A "Code" tool change ran its pre-hook: change the tool, then call
+    // controller()->toolChangePost() to run the post-hook and resume.
+    void toolChangeWaiting(const QString& comment);
 
 private:
     void startSession(controller::DeviceLink& link);
@@ -111,7 +117,7 @@ private:
     std::unique_ptr<controller::Session> session_;
     QString port_;
     bool connecting_ = false;
-    controller::ToolChangeContext toolChange_{"Ignore"};
+    AppSettings settings_;
 
     QString programName_;
     std::string programText_;

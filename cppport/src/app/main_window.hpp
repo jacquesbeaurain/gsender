@@ -20,6 +20,9 @@ public:
 
 private:
     void showError(const QString& title, const QString& detail);
+    void createMenus();
+    void openFile();
+    void openSettings(int page);
 
     Machine& machine_;
     ConsolePanel* console_;
