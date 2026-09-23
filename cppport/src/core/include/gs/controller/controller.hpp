@@ -214,7 +214,7 @@ public:
 
     // ---- raw writes (console) ----
     void write(std::string_view data);
-    void writeln(std::string_view data, bool emit = false);
+    void writeln(std::string_view data, bool echo = false);
     // A console line typed by the user: remembered for error attribution and
     // ends an active jog stream first.
     void writeConsoleLine(std::string_view data);
@@ -259,7 +259,7 @@ private:
     void runPreChangeHook(const std::string& comment = {});
     void runPostChangeHook();
     void consumeFeederCallback();
-    void emit(ControllerEvent event) const;
+    void report(ControllerEvent event) const;
     void emitState(std::optional<std::string> tool = std::nullopt);
     std::optional<protocol::CodeInfo> errorInfo(int code) const;
     std::optional<protocol::CodeInfo> alarmInfo(const std::string& code) const;

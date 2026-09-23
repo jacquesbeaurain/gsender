@@ -1,0 +1,146 @@
+// The Qt side: the event loop adapter, the machine service against the
+// simulated board (real time, so kept short), and a main-window smoke test on
+// the offscreen platform.
+
+#include "machine.hpp"
+#include "main_window.hpp"
+#include "qt_event_loop.hpp"
+
+#include <QApplication>
+#include <QDeadlineTimer>
+#include <QTemporaryDir>
+#include <gtest/gtest.h>
+
+#include <atomic>
+#include <functional>
+#include <string>
+#include <thread>
+#include <vector>
+
+using namespace gs;
+using namespace gs::app;
+
+namespace {
+
+QApplication& application() {
+    static int argc = 1;
+    static char name[] = "gs_app_tests";
+    static char* argv[] = {name, nullptr};
+    static QApplication* app = [] {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+        if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR") && !qEnvironmentVariableIsEmpty("WINDIR")) {
+            qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
+        }
+        return new QApplication(argc, argv);
+    }();
+    return *app;
+}
+
+// Runs Qt events until `done` holds; false on timeout.
+bool waitFor(const std::function<bool()>& done, int timeoutMs = 5000) {
+    const QDeadlineTimer deadline(timeoutMs);
+    while (!done()) {
+        if (deadline.hasExpired()) {
+            return false;
+        }
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+    }
+    return true;
+}
+
+void runFor(int ms) {
+    waitFor([] { return false; }, ms);
+}
+
+class AppTest : public ::testing::Test {
+protected:
+    void SetUp() override { application(); }
+};
+
+TEST_F(AppTest, EventLoopRunsTimersInOrderAndClearsThem) {
+    QtEventLoop loop;
+    std::vector<int> order;
+    loop.setTimeout(30, [&] { order.push_back(2); });
+    loop.setTimeout(10, [&] { order.push_back(1); });
+    const runtime::TimerId cancelled = loop.setTimeout(20, [&] { order.push_back(99); });
+    loop.clear(cancelled);
+    EXPECT_TRUE(waitFor([&] { return order.size() == 2; }));
+    runFor(20);
+    EXPECT_EQ(order, (std::vector<int>{1, 2}));
+    EXPECT_EQ(loop.activeTimers(), 0u);
+    EXPECT_GE(loop.nowMs(), 1'000'000);
+}
+
+TEST_F(AppTest, IntervalsRepeatUntilTheyClearThemselves) {
+    QtEventLoop loop;
+    int ticks = 0;
+    runtime::TimerId id = 0;
+    id = loop.setInterval(5, [&] {
+        if (++ticks == 3) {
+            loop.clear(id);
+        }
+    });
+    EXPECT_TRUE(waitFor([&] { return ticks >= 3; }));
+    runFor(30);
+    EXPECT_EQ(ticks, 3);
+    EXPECT_EQ(loop.activeTimers(), 0u);
+}
+
+TEST_F(AppTest, PostWorksFromOtherThreads) {
+    QtEventLoop loop;
+    int ran = 0;  // only touched on this thread
+    std::thread worker([&] {
+        for (int i = 0; i < 100; ++i) {
+            loop.post([&] { ++ran; });
+        }
+    });
+    worker.join();
+    EXPECT_TRUE(waitFor([&] { return ran == 100; }));
+}
+
+TEST_F(AppTest, TheMachineConnectsToTheSimulatorAndAnalysesPrograms) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    std::vector<QString> console;
+    QObject::connect(&machine, &Machine::consoleLine,
+                     [&](const QString& text, bool) { console.push_back(text.trimmed()); });
+
+    machine.connectTo(Machine::kSimulatorPort);
+    EXPECT_TRUE(machine.isConnecting());
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    EXPECT_EQ(machine.controller()->firmware(), protocol::Firmware::Grbl);
+
+    machine.sendConsoleLine("$I");
+    EXPECT_TRUE(waitFor([&] {
+        return std::find(console.begin(), console.end(), "[VER:1.1h.20190825:]") != console.end();
+    }));
+
+    machine.loadProgram("square.nc", "G21 G90\nG1 X5 F1200\nG1 Y5\nG2 X0 Y0 I-2.5 J-2.5\n");
+    EXPECT_TRUE(machine.isAnalyzing());
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    EXPECT_EQ(machine.analysis().estimates.size(), 4u);
+    EXPECT_GT(machine.toolpath().feeds.size(), 6u * 3);  // the arc is tessellated
+    EXPECT_TRUE(machine.controller()->sender().hasProgram());
+
+    machine.disconnectFromMachine();
+    EXPECT_FALSE(machine.isConnected());
+    EXPECT_TRUE(machine.hasProgram());  // the file stays loaded
+}
+
+TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    window.resize(1200, 800);
+    window.show();
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    const QImage image = window.grab().toImage();
+    EXPECT_EQ(image.width(), 1200);
+    EXPECT_FALSE(image.isNull());
+}
+
+}  // namespace

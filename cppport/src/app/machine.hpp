@@ -1,0 +1,119 @@
+#pragma once
+
+// The application's machine service - what gSender's CNCEngine and the UI's
+// controller sagas did together: it owns the connection (serial, TCP or the
+// simulated board), the controller session, the loaded program and its
+// analysis, and turns controller events into Qt signals. Everything runs on
+// the UI thread; the transport and the program analysis report back to it.
+
+#include "gs/config/config_store.hpp"
+#include "gs/controller/session.hpp"
+#include "gs/job/program_analysis.hpp"
+
+#include <QObject>
+#include <QString>
+
+#include <atomic>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace gs::transport {
+class AsioLink;
+}
+namespace gs::sim {
+class GrblSimulator;
+}
+
+namespace gs::app {
+
+class QtEventLoop;
+
+// Toolpath segments for the visualizer: x0,y0,z0, x1,y1,z1 per segment.
+struct Toolpath {
+    std::vector<float> rapids;
+    std::vector<float> feeds;
+};
+
+class Machine final : public QObject {
+    Q_OBJECT
+
+public:
+    // The port name that connects to the built-in simulated Grbl board.
+    static const QString kSimulatorPort;
+
+    Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent = nullptr);
+    ~Machine() override;
+
+    // ---- connection ----
+    // A COM port, an IPv4 address (TCP, `networkPort`) or kSimulatorPort.
+    void connectTo(const QString& port, int baudRate = 115200, int networkPort = 23);
+    void disconnectFromMachine();
+    bool isConnecting() const noexcept { return connecting_; }
+    bool isConnected() const;  // the firmware is known and a controller runs
+    QString port() const { return port_; }
+    controller::Controller* controller() const;
+
+    // ---- program ----
+    bool loadFile(const QString& path, QString* error = nullptr);
+    void loadProgram(const QString& name, std::string text);
+    void unloadProgram();
+    bool hasProgram() const noexcept { return !programName_.isEmpty(); }
+    QString programName() const { return programName_; }
+    const std::string& programText() const noexcept { return programText_; }
+    bool isAnalyzing() const noexcept { return analyzing_; }
+    const job::ProgramAnalysis& analysis() const noexcept { return analysis_; }
+    const Toolpath& toolpath() const noexcept { return toolpath_; }
+
+    // ---- commands ----
+    void sendConsoleLine(const QString& line);
+
+    controller::Preferences& preferences() noexcept { return *preferences_; }
+    // Sent to every new controller, as gSender's UI sent its workspace
+    // settings ("toolchange:context"); gSender's default option is Ignore.
+    void setToolChangeContext(const controller::ToolChangeContext& context);
+    const controller::ToolChangeContext& toolChangeContext() const noexcept { return toolChange_; }
+    config::ConfigStore& config() noexcept { return config_; }
+
+Q_SIGNALS:
+    void connectionChanged();
+    void connectionFailed(const QString& reason);
+    void stateChanged();     // machine status / parser state
+    void settingsChanged();  // firmware settings
+    void workflowChanged();
+    void senderStatusChanged();
+    void consoleLine(const QString& text, bool fromHost);
+    void programChanged();   // loaded, unloaded or analysed
+    void errorReported(const QString& title, const QString& detail);
+    void notice(const QString& text);  // tool changes, pauses and other prompts
+
+private:
+    void startSession(controller::DeviceLink& link);
+    void teardown();
+    void handle(const controller::ControllerEvent& event);
+    void attachProgram();
+    void sendEstimates();
+    void analysisFinished(std::uint64_t generation, job::ProgramAnalysis analysis, Toolpath toolpath);
+
+    QtEventLoop& loop_;
+    config::ConfigStore config_;
+    std::shared_ptr<controller::Preferences> preferences_;
+    std::unique_ptr<transport::AsioLink> link_;
+    std::unique_ptr<sim::GrblSimulator> simulator_;
+    std::unique_ptr<controller::Session> session_;
+    QString port_;
+    bool connecting_ = false;
+    controller::ToolChangeContext toolChange_{"Ignore"};
+
+    QString programName_;
+    std::string programText_;
+    job::ProgramAnalysis analysis_;
+    Toolpath toolpath_;
+    bool analyzing_ = false;
+    std::uint64_t analysisGeneration_ = 0;
+    std::shared_ptr<std::atomic<bool>> analysisCancel_;
+};
+
+}  // namespace gs::app
