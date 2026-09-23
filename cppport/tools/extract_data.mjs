@@ -112,6 +112,13 @@ mkdirSync(outDir, { recursive: true });
     });
 }
 
+// Rotary mounting setup: the ready-made programs that bore the rotary
+// track's mounting holes, by hole layout and end mill.
+{
+    const entry = 'src/app/src/features/Rotary/utils/mountingSetupMacros.ts';
+    write('rotary_mounting.json', [entry], { holeTypes: load(entry).HOLE_TYPES });
+}
+
 // Defaults the config store backfills into ~/.sender_rc. They are not
 // exported, so the block declaring them is evaluated on its own; fail loudly
 // if upstream reshapes it.
