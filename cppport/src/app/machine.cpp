@@ -2,6 +2,7 @@
 
 #include "qt_event_loop.hpp"
 
+#include "gs/calibration/calibration.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
 #include "gs/util/jsnumber.hpp"
@@ -567,6 +568,40 @@ void Machine::setStepperLock(bool lock) {
         settings.stepperRestoreValue.clear();
     }
     setSettings(settings);
+}
+
+// ---- calibration tools --------------------------------------------------------------------
+
+bool Machine::runTuningMove(char axis, double distance) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return false;
+    }
+    const auto axes = controller::filterAxesForLimits({{axis, distance}}, c->state().status.pinState,
+                                                      settings_.jog.preventJoggingPastLimits);
+    if (!axes) {
+        return false;
+    }
+    c->gcode(calibration::tuningMove(axis, distance, settings_.metric));
+    return true;
+}
+
+void Machine::runSquaringMove(char axis, double distance) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(calibration::squaringMove(axis, distance, settings_.metric));
+    }
+}
+
+double Machine::settingNumber(const std::string& key) const {
+    const controller::Controller* c = controller();
+    const std::string value = c ? c->runner().setting(key) : std::string();
+    return value.empty() ? std::nan("") : js::stringToNumber(value);
+}
+
+void Machine::writeFirmwareSettings(const std::vector<std::string>& lines) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(lines);
+    }
 }
 
 // ---- probing ----------------------------------------------------------------------------

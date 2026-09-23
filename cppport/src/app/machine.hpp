@@ -165,6 +165,18 @@ public:
     bool stepperLocked() const;
     void setStepperLock(bool lock);
 
+    // ---- calibration tools ----
+    // Movement Tuning's move (workspace units): a $J= jog at 1000 mm/min,
+    // dropped towards a triggered limit when that protection is on. False
+    // when nothing was sent.
+    bool runTuningMove(char axis, double distance);
+    // XY Squaring's move to the next mark (workspace units, G0 in G91).
+    void runSquaringMove(char axis, double distance);
+    // A firmware setting as a number (NaN when not reported).
+    double settingNumber(const std::string& key) const;
+    // Sends lines such as "$100=98.04" and "$$".
+    void writeFirmwareSettings(const std::vector<std::string>& lines);
+
     // ---- probing ----
     // The Probe widget's routine: the probe settings (converted for inch
     // workspaces), the board's $13, $22 and $132 and the machine position;

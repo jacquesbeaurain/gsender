@@ -17,6 +17,7 @@ add_executable(gs_core_tests
     core/test_jogging.cpp
     core/test_locations.cpp
     core/test_actions.cpp
+    core/test_calibration.cpp
     core/test_controller.cpp
     core/test_session.cpp
     core/test_config.cpp
