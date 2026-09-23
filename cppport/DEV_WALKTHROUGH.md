@@ -313,3 +313,30 @@ The transport stays outside the core: the owner calls `opened()`,
 `ConnectionFirmwareDetect.test.js` is ported to `tests/core/test_session.cpp`
 together with framing and hand-over tests. The upstream "never emits an
 undefined firmware" case has no C++ equivalent (the firmware is an enum).
+
+## Step 13 — Configuration file (`gs/config`)
+
+gSender keeps macros, event hooks, commands, job statistics and maintenance
+tasks in one JSON file (`~/.sender_rc`). The port's `ConfigStore` behaves like
+`services/configstore/index.js`: lodash-style paths (`json_path.hpp`), every
+change re-reads the file and writes the whole document atomically (temp file,
+flush, rename), unreadable files are reported and never overwritten,
+`validateAndRepair()` backs a corrupt file up as `.corrupt-<ms>.bak`, the old
+list form of `events` is migrated to an object keyed by event, and defaults
+are backfilled (state, job statistics and the maintenance tasks - extracted
+into `resources/data/config_defaults.json` by `tools/extract_data.mjs`).
+Members the port does not know are preserved, so the file stays compatible.
+
+`MacroStore` and `EventStore` port the record handling of `api.macros.js` and
+`api.events.js` (repair of macros without ids, column assignment, a hook
+without commands is disabled), and `makeControllerHooks()` connects them to
+the controller the way `macro:run` and `EventTrigger.js` read them.
+
+| Behaviour | gSender | Port |
+|---|---|---|
+| Non-integer numbers written to the file | `1.5` | `1.5E0` (Boost.JSON); same value when read back, and ids, times and indexes are integers |
+
+**Open decision:** whether the port reads and writes gSender's own
+`~/.sender_rc` (users keep their macros and hooks, but both applications may
+write it) or uses its own file, importing `~/.sender_rc` once on first start.
+The store takes any path; the application picks one.
