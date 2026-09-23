@@ -5,6 +5,7 @@
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "settings_dialog.hpp"
+#include "surfacing_dialog.hpp"
 #include "toolpath_view.hpp"
 
 #include <QApplication>
@@ -101,6 +102,12 @@ void MainWindow::createMenus() {
     QAction* settings = machine->addAction(tr("&Settings..."), this, [this] { openSettings(SettingsDialog::Page::General); });
     settings->setShortcut(QKeySequence::Preferences);
     machine->addAction(tr("&Firmware Settings..."), this, [this] { openSettings(SettingsDialog::Page::Firmware); });
+
+    QMenu* tools = menuBar()->addMenu(tr("&Tools"));
+    tools->addAction(tr("&Surfacing..."), this, [this] {
+        SurfacingDialog dialog(machine_, this);
+        dialog.exec();
+    });
 
     QMenu* help = menuBar()->addMenu(tr("&Help"));
     help->addAction(tr("&About"), this, [this] {

@@ -43,6 +43,10 @@ struct Toolpath {
     std::vector<std::uint32_t> feedLines;
 };
 
+// The toolpath of a program that is not the loaded job (tool previews),
+// traced on the calling thread with the default machine limits.
+Toolpath traceToolpath(const std::string& program);
+
 class Machine final : public QObject {
     Q_OBJECT
 

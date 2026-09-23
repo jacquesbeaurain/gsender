@@ -12,12 +12,14 @@
 #include <QWidget>
 
 #include <array>
+#include <vector>
 
 class QToolButton;
 
 namespace gs::app {
 
 class Machine;
+struct Toolpath;
 
 class ToolpathView final : public QWidget {
     Q_OBJECT
@@ -63,6 +65,25 @@ private:
     QToolButton* topButton_;
     QToolButton* isoButton_;
     QToolButton* fitButton_;
+};
+
+// A plan view of a toolpath that is not the loaded job (tool previews):
+// fitted to the widget, cutting moves solid and rapids dashed.
+class ToolpathPreview final : public QWidget {
+    Q_OBJECT
+
+public:
+    explicit ToolpathPreview(QWidget* parent = nullptr);
+    ~ToolpathPreview() override;
+    void setToolpath(const Toolpath& path);
+    QSize sizeHint() const override { return {360, 360}; }
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    std::vector<float> rapids_;
+    std::vector<float> feeds_;
 };
 
 }  // namespace gs::app

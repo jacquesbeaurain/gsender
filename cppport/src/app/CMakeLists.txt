@@ -17,6 +17,8 @@ add_library(gs_app STATIC
     qt_event_loop.hpp
     settings_dialog.cpp
     settings_dialog.hpp
+    surfacing_dialog.cpp
+    surfacing_dialog.hpp
     toolpath_view.cpp
     toolpath_view.hpp
 )

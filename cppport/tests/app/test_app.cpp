@@ -7,6 +7,7 @@
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "settings_dialog.hpp"
+#include "surfacing_dialog.hpp"
 
 #include "gs/sim/grbl_simulator.hpp"
 
@@ -231,6 +232,34 @@ TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     EXPECT_NEAR(offset[0], start[0] + 5, 1e-6);
     EXPECT_NEAR(offset[1], start[1] + 5, 1e-6);
     EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
+}
+
+TEST_F(AppTest, TheSurfacingToolGeneratesAndLoadsAJob) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    SurfacingDialog dialog(machine);
+    surfacing::Options options = dialog.options();
+    EXPECT_EQ(options.width, 100);  // gSender's defaults
+    EXPECT_EQ(options.bitDiameter, 22);
+    options.width = 150;
+    options.type = surfacing::Pattern::ZigZag;
+    options.startPosition = surfacing::StartPosition::Center;
+    dialog.setOptions(options);
+    EXPECT_FALSE(dialog.loadIntoMachine());  // nothing generated yet
+    dialog.generate();
+    EXPECT_EQ(dialog.program().toStdString(), surfacing::generate(options, true));
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.show();
+        dialog.grab().save(QString::fromLocal8Bit(out) + "/surfacing.png");
+    }
+    ASSERT_TRUE(dialog.loadIntoMachine());
+    EXPECT_EQ(machine.programName(), "gSender_Surfacing.gcode");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    EXPECT_FALSE(machine.toolpath().feeds.empty());
+    dialog.reject();  // closing keeps the settings
+    EXPECT_EQ(machine.settings().surfacing.width, 150);
+    EXPECT_EQ(machine.settings().surfacing.type, surfacing::Pattern::ZigZag);
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {

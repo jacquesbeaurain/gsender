@@ -543,3 +543,33 @@ The Settings dialog has a Probe page for the plate profile and the probe
 feeds, retractions and distances (stored in mm under `app.probe`). The
 workspace is metric for now; the imperial conversions exist in the core
 (`makeProbingOptions`) for when inch workspaces are added.
+
+## Step 23 — Surfacing (`gs/surfacing`, `src/app/surfacing_dialog`)
+
+gSender's Surfacing generator is another pure function - stock rectangle,
+depths, bit and cutting settings in, a program out - so it is ported to the
+core with the same golden approach: `tools/gen_surfacing_fixtures.mjs` runs
+the upstream generator (the UI store and controller stubbed) over 41 cases -
+spiral and zig-zag, all five start positions, both cut directions, mm and
+inch workspaces, multi-layer depths, tool numbers, dwell and coolant - and
+the C++ output matches every line. Upstream's own
+`surfacing-output.test.ts` still expects an older ramp (`G1 X28.36 Z-4`)
+than the generator now writes, so its golden lines are not used.
+
+Two upstream details worth knowing: the generator's result contains `"\n"`
+elements (spacers that become blank lines when joined), and the spiral's
+centre-start variant needs the spiral's last X/Y, which upstream finds by
+running the lines through a toolpath - the port tracks the values it writes.
+Inputs that never finish upstream (zero stepover or cut depth, a zero ramp
+length) end after one pass here.
+
+The two golden generators now share `tools/lib/bundle.mjs`: esbuild loading
+with stubs for the Redux store, the settings store and the socket.io
+controller; a seeded chooser; and one-case-per-line output for readable
+diffs.
+
+In the application, Tools > Surfacing opens the form (defaults and last
+values from `app.surfacing`, stored in mm), a plan-view preview
+(`ToolpathPreview`, fed by `traceToolpath`) and the G-code with its line
+count. "Load as Job" makes it the job as `gSender_Surfacing.gcode`; as
+upstream, both actions are disabled unless the machine is idle or jogging.
