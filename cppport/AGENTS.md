@@ -185,6 +185,14 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   generated from the JS sources by `node tools/extract_data.mjs` into
   `resources/data/*.json` and embedded into gs_core. Do not hand-edit them;
   re-run the script after upstream changes.
+- Pure generators (G-code in/out: probing, surfacing, ...) get golden tests:
+  a `tools/gen_<name>_fixtures.mjs` loads the upstream module with
+  `tools/lib/bundle.mjs` (`loadModule(entry, [stubs.redux, stubs.store,
+  stubs.controller])` - stubs read `globalThis.__reduxState` /
+  `__storeValues`), sweeps a seeded matrix, and `writeCases()` writes
+  `tests/data/<name>_golden.json`; the C++ test compares every line. Upstream
+  Jest expectations can be stale - the running JS is the reference. Keep
+  fixtures small (tens of KB) by bounding sizes in the matrix.
 - Tool-call environment note: in the Bash tool, avoid `cd` into
   subdirectories (it changes the session's working directory); use absolute
   paths instead.

@@ -98,6 +98,12 @@ private:
 
 }  // namespace
 
+Toolpath traceToolpath(const std::string& program) {
+    ToolpathSink sink;
+    job::analyzeProgram(program, {}, &sink);
+    return std::move(sink.path);
+}
+
 Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent)
     : QObject(parent), loop_(loop), preferences_(std::make_shared<controller::Preferences>()) {
     config::validateAndRepair(configFile);

@@ -7,6 +7,7 @@
 #include "gs/config/config_store.hpp"
 #include "gs/controller/controller.hpp"
 #include "gs/probe/probing.hpp"
+#include "gs/surfacing/surfacing.hpp"
 
 #include <string>
 
@@ -23,6 +24,8 @@ struct AppSettings {
     protocol::Firmware defaultFirmware = protocol::Firmware::Grbl;
     // Probe widget and touch plate profile (mm)
     probe::ProbeSettings probe;
+    // Surfacing tool (mm)
+    surfacing::Options surfacing;
 };
 
 // The tool change strategies the port supports so far (gSender's option

@@ -74,6 +74,48 @@ json::object saveProbe(const probe::ProbeSettings& p) {
     };
 }
 
+surfacing::Options loadSurfacing(const json::object& o) {
+    surfacing::Options s;
+    s.bitDiameter = number(o, "bitDiameter", s.bitDiameter);
+    s.stepover = number(o, "stepover", s.stepover);
+    s.feedrate = number(o, "feedrate", s.feedrate);
+    s.length = number(o, "length", s.length);
+    s.width = number(o, "width", s.width);
+    s.skimDepth = number(o, "skimDepth", s.skimDepth);
+    s.maxDepth = number(o, "maxDepth", s.maxDepth);
+    s.spindleRPM = number(o, "spindleRPM", s.spindleRPM);
+    s.type = surfacing::patternFromName(text(o, "type")).value_or(s.type);
+    s.startPosition = surfacing::startPositionFromName(text(o, "startPosition")).value_or(s.startPosition);
+    s.spindle = text(o, "spindle", s.spindle);
+    s.cutDirectionFlipped = flag(o, "cutDirectionFlipped", s.cutDirectionFlipped);
+    s.shouldDwell = flag(o, "shouldDwell", s.shouldDwell);
+    s.flood = flag(o, "flood", s.flood);
+    s.mist = flag(o, "mist", s.mist);
+    s.toolNumber = static_cast<int>(number(o, "toolNumber", s.toolNumber));
+    return s;
+}
+
+json::object saveSurfacing(const surfacing::Options& s) {
+    return {
+        {"bitDiameter", s.bitDiameter},
+        {"stepover", s.stepover},
+        {"feedrate", s.feedrate},
+        {"length", s.length},
+        {"width", s.width},
+        {"skimDepth", s.skimDepth},
+        {"maxDepth", s.maxDepth},
+        {"spindleRPM", s.spindleRPM},
+        {"type", surfacing::patternName(s.type)},
+        {"startPosition", surfacing::startPositionName(s.startPosition)},
+        {"spindle", s.spindle},
+        {"cutDirectionFlipped", s.cutDirectionFlipped},
+        {"shouldDwell", s.shouldDwell},
+        {"flood", s.flood},
+        {"mist", s.mist},
+        {"toolNumber", s.toolNumber},
+    };
+}
+
 }  // namespace
 
 AppSettings loadAppSettings(const config::ConfigStore& store) {
@@ -102,6 +144,9 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
         settings.probe = loadProbe(probe->as_object());
     }
+    if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
+        settings.surfacing = loadSurfacing(surfacing->as_object());
+    }
     return settings;
 }
 
@@ -122,6 +167,7 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"defaultFirmware",
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
                          {"probe", saveProbe(settings.probe)},
+                         {"surfacing", saveSurfacing(settings.surfacing)},
                      });
 }
 

@@ -27,6 +27,66 @@ constexpr double kDegree = std::numbers::pi / 180;
 
 }  // namespace
 
+// ---- preview ---------------------------------------------------------------------------
+
+ToolpathPreview::ToolpathPreview(QWidget* parent) : QWidget(parent) {
+    setMinimumSize(200, 200);
+}
+
+ToolpathPreview::~ToolpathPreview() = default;
+
+void ToolpathPreview::setToolpath(const Toolpath& path) {
+    rapids_ = path.rapids;
+    feeds_ = path.feeds;
+    update();
+}
+
+void ToolpathPreview::paintEvent(QPaintEvent*) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.fillRect(rect(), kBackground);
+    // Bounds in XY over both kinds of move (x0,y0,z0,x1,y1,z1 per segment).
+    double minX = 0, maxX = 0, minY = 0, maxY = 0;
+    bool any = false;
+    for (const std::vector<float>* segments : {&rapids_, &feeds_}) {
+        for (std::size_t i = 0; i + 2 < segments->size(); i += 3) {
+            const double x = (*segments)[i];
+            const double y = (*segments)[i + 1];
+            minX = any ? std::min(minX, x) : x;
+            maxX = any ? std::max(maxX, x) : x;
+            minY = any ? std::min(minY, y) : y;
+            maxY = any ? std::max(maxY, y) : y;
+            any = true;
+        }
+    }
+    if (!any) {
+        painter.setPen(kText);
+        painter.drawText(rect(), Qt::AlignCenter, tr("No preview"));
+        return;
+    }
+    const double margin = 16;
+    const double scale = std::min((width() - 2 * margin) / std::max(maxX - minX, 1e-3),
+                                  (height() - 2 * margin) / std::max(maxY - minY, 1e-3));
+    const QPointF centre((minX + maxX) / 2, (minY + maxY) / 2);
+    const auto map = [&](double x, double y) {
+        return QPointF(width() / 2.0 + (x - centre.x()) * scale, height() / 2.0 - (y - centre.y()) * scale);
+    };
+    const auto draw = [&](const std::vector<float>& segments, const QPen& pen) {
+        painter.setPen(pen);
+        for (std::size_t i = 0; i + 5 < segments.size(); i += 6) {
+            painter.drawLine(map(segments[i], segments[i + 1]), map(segments[i + 3], segments[i + 4]));
+        }
+    };
+    draw(rapids_, QPen(kRapid, 1, Qt::DashLine));
+    draw(feeds_, QPen(kCut, 1.5));
+    // The work origin.
+    const QPointF origin = map(0, 0);
+    painter.setPen(QPen(QColor(0xe5, 0x39, 0x35), 2));
+    painter.drawLine(origin, origin + QPointF(14, 0));
+    painter.setPen(QPen(QColor(0x43, 0xa0, 0x47), 2));
+    painter.drawLine(origin, origin - QPointF(0, 14));
+}
+
 ToolpathView::ToolpathView(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
     setMinimumSize(360, 280);
     setMouseTracking(false);
