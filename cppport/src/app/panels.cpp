@@ -3,6 +3,7 @@
 #include "controls.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
+#include "step_through_dialog.hpp"
 #include "start_from_line_dialog.hpp"
 
 #include "gs/controller/actions.hpp"
@@ -400,11 +401,13 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     outline_->setToolTip(tr("Trace the job's outline above the stock"));
     fromLine_ = new QPushButton(tr("From Line..."));
     fromLine_->setToolTip(tr("Start From Line: resume a stopped or interrupted job"));
+    stepThrough_ = new QPushButton(tr("Step Through..."));
+    stepThrough_->setToolTip(tr("G-code Step Through: follow the file line by line"));
     pause_ = new QPushButton(tr("Pause"));
     resume_ = new QPushButton(tr("Resume"));
     stop_ = new QPushButton(tr("Stop"));
     start_->setStyleSheet("font-weight:600");
-    for (QPushButton* button : {open_, unload_, start_, outline_, fromLine_, pause_, resume_, stop_}) {
+    for (QPushButton* button : {open_, unload_, stepThrough_, start_, outline_, fromLine_, pause_, resume_, stop_}) {
         button->setMinimumHeight(34);
         row->addWidget(button);
     }
@@ -438,6 +441,11 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     connect(fromLine_, &QPushButton::clicked, this, [this] {
         StartFromLineDialog dialog(machine_, this);
         dialog.exec();
+    });
+    connect(stepThrough_, &QPushButton::clicked, this, [this] {
+        auto* dialog = new StepThroughDialog(machine_, window());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->open();
     });
     connect(pause_, &QPushButton::clicked, this, [this] {
         if (auto* c = machine_.controller()) {
@@ -477,6 +485,7 @@ void JobPanel::refresh() {
     const bool runnable = c && machine_.hasProgram() && !machine_.isAnalyzing() && controller::canRun(activeState, workflow);
     open_->setEnabled(idle);
     unload_->setEnabled(idle && machine_.hasProgram());
+    stepThrough_->setEnabled(machine_.hasProgram() && !machine_.isAnalyzing());
     start_->setEnabled(runnable && idle && activeState != "Hold");
     fromLine_->setEnabled(runnable && idle && activeState == "Idle");
     outline_->setEnabled(runnable && idle && activeState == "Idle");

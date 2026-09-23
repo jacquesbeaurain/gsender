@@ -31,6 +31,8 @@ add_library(gs_app STATIC
     shortcuts_dialog.hpp
     start_from_line_dialog.cpp
     start_from_line_dialog.hpp
+    step_through_dialog.cpp
+    step_through_dialog.hpp
     stats_dialog.cpp
     stats_dialog.hpp
     status_area.cpp

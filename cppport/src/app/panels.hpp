@@ -101,6 +101,7 @@ private:
     QPushButton* start_;
     QPushButton* fromLine_;
     QPushButton* outline_;
+    QPushButton* stepThrough_;
     QPushButton* pause_;
     QPushButton* resume_;
     QPushButton* stop_;

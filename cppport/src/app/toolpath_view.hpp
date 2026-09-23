@@ -8,12 +8,19 @@
 // automated screenshots); the data it draws is renderer-independent, so an
 // OpenGL implementation can replace it if large files need one.
 
+#include "gs/gcode/interpreter.hpp"
+
+#include <QColor>
 #include <QPointF>
 #include <QWidget>
 
 #include <array>
+#include <cstdint>
+#include <functional>
+#include <optional>
 #include <vector>
 
+class QPainter;
 class QToolButton;
 
 namespace gs::app {
@@ -21,12 +28,12 @@ namespace gs::app {
 class Machine;
 struct Toolpath;
 
-class ToolpathView final : public QWidget {
+// What both visualizers share: the camera (the views, orbit/pan/zoom, fit),
+// the grid, the work origin, the segments and the tool marker.
+class ToolpathCanvas : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ToolpathView(Machine& machine, QWidget* parent = nullptr);
-
     // The visualizer's camera presets; each also fits the program.
     enum class View { Iso, Top, Front, Right, Left };
     void setView(View view);
@@ -37,8 +44,33 @@ public:
     void fit();
     void zoom(double factor);  // about the middle of the view
 
+    static const QColor kBackground;
+    static const QColor kRapid;
+    static const QColor kCut;
+    static const QColor kDone;
+
 protected:
-    void paintEvent(QPaintEvent* event) override;
+    explicit ToolpathCanvas(QWidget* parent = nullptr);
+
+    struct Point3 {
+        double x = 0, y = 0, z = 0;
+    };
+    QPointF project(const Point3& p) const;
+
+    // The box fit() frames: the program's, or nothing (a 100 mm square).
+    virtual std::optional<gcode::BoundingBox> contentBounds() const = 0;
+
+    // Background, the 10 mm grid around `bounds` (or the origin) and the
+    // work origin's axes.
+    void paintScene(QPainter& painter, const std::optional<gcode::BoundingBox>& bounds);
+    // Segments (x0,y0,z0,x1,y1,z1 each) and their sender lines; `pen` gives
+    // each one's pen by index and line, nullptr to leave it out. Segments
+    // are batched by pen.
+    void paintSegments(QPainter& painter, const std::vector<float>& segments, const std::vector<std::uint32_t>& lines,
+                       const std::function<const QPen*(std::size_t index, std::uint32_t line)>& pen);
+    void paintTool(QPainter& painter, const Point3& position);
+    void paintCaption(QPainter& painter, const QString& caption);
+
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -47,14 +79,8 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 
 private:
-    struct Point3 {
-        double x = 0, y = 0, z = 0;
-    };
-    QPointF project(const Point3& p) const;
-    void programChanged();
-    void progressChanged();
+    void updateRotation();
 
-    Machine& machine_;
     // Camera: rotation about Z (yaw) then tilt towards the viewer (pitch),
     // orthographic, `scale_` pixels per millimetre, centred on `target_`.
     View view_ = View::Top;
@@ -64,14 +90,27 @@ private:
     Point3 target_;
     QPointF pan_;
     std::array<double, 9> rotation_{};  // cached from yaw/pitch
-    void updateRotation();
-
-    std::size_t doneLines_ = 0;  // sender lines acknowledged
     QPoint lastMouse_;
     Qt::MouseButton dragging_ = Qt::NoButton;
-    QToolButton* topButton_;
-    QToolButton* isoButton_;
-    QToolButton* fitButton_;
+};
+
+// The main visualizer: the loaded job, its progress and the machine's tool.
+class ToolpathView final : public ToolpathCanvas {
+    Q_OBJECT
+
+public:
+    explicit ToolpathView(Machine& machine, QWidget* parent = nullptr);
+
+protected:
+    std::optional<gcode::BoundingBox> contentBounds() const override;
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    void programChanged();
+    void progressChanged();
+
+    Machine& machine_;
+    std::size_t doneLines_ = 0;  // sender lines acknowledged
 };
 
 // A plan view of a toolpath that is not the loaded job (tool previews):
