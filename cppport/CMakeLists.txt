@@ -38,6 +38,7 @@ include(GsEmbed)
 find_package(Boost 1.91 CONFIG REQUIRED COMPONENTS json)
 
 add_subdirectory(src/core)
+add_subdirectory(src/transport)
 
 if(GS_BUILD_APP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/CMakeLists.txt")
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)

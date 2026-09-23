@@ -28,3 +28,13 @@ gs_copy_runtime_dlls(gs_core_tests)
 # Discover at test time (not build time) so discovery runs after the runtime
 # DLLs have been copied next to the executable.
 gtest_discover_tests(gs_core_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
+
+add_executable(gs_transport_tests
+    transport/test_transport.cpp
+)
+target_link_libraries(gs_transport_tests PRIVATE gs::transport GTest::gtest GTest::gtest_main)
+gs_precompile_headers(gs_transport_tests
+    <gtest/gtest.h> <chrono> <condition_variable> <deque> <functional> <mutex> <string> <thread>
+    <boost/asio.hpp>)
+gs_copy_runtime_dlls(gs_transport_tests)
+gtest_discover_tests(gs_transport_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
