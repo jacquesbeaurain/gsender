@@ -124,6 +124,10 @@ struct AppSettings {
     int toastDuration = 0;
     bool jobEndModal = true;
     bool maintenanceNotifications = true;
+    // Lightweight mode (widgets.visualizer.liteMode / liteOption): for big
+    // files, "Light" draws the cuts flat from above, "Everything" nothing.
+    bool liteMode = false;
+    std::string liteOption = "Light";
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

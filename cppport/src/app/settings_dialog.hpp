@@ -70,6 +70,7 @@ private:
     QSpinBox* toastDuration_;
     QCheckBox* jobEndModal_;
     QCheckBox* maintenanceNotifications_;
+    QComboBox* liteOption_;
     QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;

@@ -611,10 +611,9 @@ on/off states, and stores only what differs from the defaults. The
 visualizer gained Front/Right/Left views, view cycling and zoom for the
 shortcuts.
 
-Not ported yet: gamepads, the Lightweight Mode shortcut (no lightweight
-view yet), and editing the presets outside the Jog tab. (The go-to-corner
-and park shortcuts came with Step 29, macro shortcuts with Step 32, the
-rotary ones with Step 38.)
+Not ported yet: gamepads, and editing the presets outside the Jog tab.
+(The go-to-corner and park shortcuts came with Step 29, macro shortcuts
+with Step 32, the rotary ones with Step 38, Lightweight mode with Step 43.)
 
 ## Step 25 — Start From Line
 
@@ -1203,3 +1202,13 @@ turns it by the current line's A.
 Deviation: in rotary mode the rotary's angle is read from Y (where the
 rotary is) and the tool is drawn over the centreline; upstream only read
 A, which Grbl's rotary mode never reports, and drew the tool at Y's degrees.
+
+## Step 43 — Lightweight mode
+
+The visualizer's feather (the "Lite" toggle at its top right, Shift+M -
+`LIGHTWEIGHT_MODE`) for big files: with Settings > General > Lightweight
+options at Light the view is held flat from above (the view buttons and
+orbiting keep it there; panning and zooming still work) and draws only the
+cuts, without the tool - upstream swaps in its SVG renderer, which skips
+G0; at Everything nothing is drawn. Both settings (liteMode, liteOption)
+are kept and imported from gSender's settings.

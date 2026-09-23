@@ -376,6 +376,8 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.toastDuration = static_cast<int>(number(root, "toastDuration", 0));
     settings.jobEndModal = flag(root, "jobEndModal", true);
     settings.maintenanceNotifications = flag(root, "maintenanceNotifications", true);
+    settings.liteMode = flag(root, "liteMode", false);
+    settings.liteOption = text(root, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
             if (value.is_object()) {
@@ -449,6 +451,8 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"toastDuration", settings.toastDuration},
                          {"jobEndModal", settings.jobEndModal},
                          {"maintenanceNotifications", settings.maintenanceNotifications},
+                         {"liteMode", settings.liteMode},
+                         {"liteOption", settings.liteOption},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
                      };
@@ -670,6 +674,8 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.preferences.showLineWarnings = flag(*visualizer, "showLineWarnings", false);
         s.jobEndModal = flag(*visualizer, "jobEndModal", true);
         s.maintenanceNotifications = flag(*visualizer, "maintenanceTaskNotifications", true);
+        s.liteMode = flag(*visualizer, "liteMode", false);
+        s.liteOption = text(*visualizer, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     }
 
     // Keyboard shortcuts: every binding gSender stored, converted; the caller
