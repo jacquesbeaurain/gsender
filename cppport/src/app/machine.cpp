@@ -402,7 +402,7 @@ bool Machine::runOutline(QString* error) {
         return fail(tr("The file has no toolpath to outline."));
     }
     c->gcode(*program, fileContext());
-    Q_EMIT notice(tr("Running file outline"));
+    Q_EMIT successNotice(tr("Running file outline"));
     return true;
 }
 
@@ -877,6 +877,7 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    },
                    [this](const JobStarted&) {
                        jobRunning_ = true;
+                       jobErrors_.clear();
                        Q_EMIT workflowChanged();
                    },
                    [this](const JobStopped&) {
@@ -919,7 +920,15 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        }
                        Q_EMIT errorReported(title, detail);
                    },
-                   [this](const GcodeError& e) { Q_EMIT notice(QString::fromStdString(e.message)); },
+                   // Kept for the Job End summary (the error itself pops up
+                   // through ErrorReported, as upstream's 'error' toast).
+                   [this](const GcodeError& e) {
+                       const std::int64_t now = loop_.nowMs();
+                       if (lastJobErrorMs_ < 0 || now - lastJobErrorMs_ >= 250) {
+                           jobErrors_ << QString::fromStdString(e.message);
+                           lastJobErrorMs_ = now;
+                       }
+                   },
                    [this](const ToolChangeRequested& e) {
                        if (isWizardStrategy(e.option)) {
                            Q_EMIT toolChangeWizardRequested(QString::fromStdString(e.option), e.count,
@@ -1060,6 +1069,31 @@ void Machine::recordJob(const controller::SenderStatus& status) {
     job.completed = status.finishTime > 0;
     config::JobStatsStore(config_).record(std::move(job), status.timeRunning);
     config::MaintenanceStore(config_).addRunTime(status.timeRunning);
+    Q_EMIT historyChanged();
+    const QStringList errors = jobErrors_;
+    jobErrors_.clear();
+    Q_EMIT jobEnded(status.finishTime > 0, static_cast<double>(status.elapsedTime), errors);
+}
+
+std::vector<config::MaintenanceTask> Machine::dueMaintenanceTasks() {
+    std::vector<config::MaintenanceTask> due;
+    for (const config::MaintenanceTask& task : config::MaintenanceStore(config_).list()) {
+        if (task.currentTime >= task.rangeStart) {
+            due.push_back(task);
+        }
+    }
+    return due;
+}
+
+void Machine::resetMaintenanceTimers(const std::vector<int>& ids) {
+    config::MaintenanceStore store(config_);
+    std::vector<config::MaintenanceTask> tasks = store.list();
+    for (config::MaintenanceTask& task : tasks) {
+        if (std::find(ids.begin(), ids.end(), task.id) != ids.end()) {
+            task.currentTime = 0;
+        }
+    }
+    store.save(tasks);
     Q_EMIT historyChanged();
 }
 

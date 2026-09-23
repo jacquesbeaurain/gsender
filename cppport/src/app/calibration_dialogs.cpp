@@ -258,7 +258,7 @@ QString MovementTuningDialog::resultText() const {
 
 void MovementTuningDialog::updateFirmware() {
     machine_.writeFirmwareSettings(calibration::tuningUpdateCommands(axis_, recommendedStepsPerMm()));
-    Q_EMIT machine_.notice(tr("Updated steps-per-mm value"));
+    Q_EMIT machine_.successNotice(tr("Updated steps-per-mm value"));
 }
 
 void MovementTuningDialog::restart() {
@@ -681,7 +681,7 @@ QString SquaringDialog::resultText() const {
 
 void SquaringDialog::updateFirmware() {
     machine_.writeFirmwareSettings(calibration::squaringUpdateCommands(adjustment()));
-    Q_EMIT machine_.notice(tr("Updated EEPROM values"));
+    Q_EMIT machine_.successNotice(tr("Updated EEPROM values"));
 }
 
 void SquaringDialog::refresh() {

@@ -239,6 +239,20 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     warnZero_ = new QCheckBox(tr("Warn when setting zero"));
     warnZero_->setToolTip(tr("The zero buttons ask first - useful if you tend to set zero accidentally"));
     generalForm->addRow(QString(), warnZero_);
+    jobEndModal_ = new QCheckBox(tr("Job end notifications"));
+    jobEndModal_->setToolTip(tr("Show a carving summary at the end of each job."));
+    maintenanceNotifications_ = new QCheckBox(tr("Maintenance notifications"));
+    maintenanceNotifications_->setToolTip(tr("Show upcoming maintenance tasks at the end of each job."));
+    toastDuration_ = new QSpinBox;
+    toastDuration_->setRange(-2, 10000);
+    toastDuration_->setSingleStep(500);
+    toastDuration_->setSuffix(" ms");
+    toastDuration_->setToolTip(tr("How long notifications stay visible, in milliseconds, before auto-dismissing. (-1 "
+                                  "keeps them up until manually dismissed, -2 disables them, Default 0 keeps default "
+                                  "duration)"));
+    generalForm->addRow(QString(), jobEndModal_);
+    generalForm->addRow(QString(), maintenanceNotifications_);
+    generalForm->addRow(tr("Pop-up notification duration"), toastDuration_);
     // The DRO's Park button (homing enabled, machine homed).
     QHBoxLayout* parkRow = positionRow(park_);
     auto* parkGo = new QPushButton(tr("Go to"));
@@ -566,6 +580,9 @@ void SettingsDialog::load() {
     decimals_->setValue(s.customDecimalPlaces);
     safeRetract_->setValue(s.safeRetractHeight);
     warnZero_->setChecked(s.warnZero);
+    jobEndModal_->setChecked(s.jobEndModal);
+    maintenanceNotifications_->setChecked(s.maintenanceNotifications);
+    toastDuration_->setValue(s.toastDuration);
     const double park[3] = {s.park.x, s.park.y, s.park.z};
     for (int i = 0; i < 3; ++i) {
         park_[i]->setValue(park[i]);
@@ -672,6 +689,9 @@ void SettingsDialog::save() {
     s.customDecimalPlaces = decimals_->value();
     s.safeRetractHeight = safeRetract_->value();
     s.warnZero = warnZero_->isChecked();
+    s.jobEndModal = jobEndModal_->isChecked();
+    s.maintenanceNotifications = maintenanceNotifications_->isChecked();
+    s.toastDuration = toastDuration_->value();
     s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

@@ -317,7 +317,7 @@ bool GcodeEditorDialog::save() {
     senderLines_ = job::senderLineNumbers(source_);
     editor_->document()->setModified(false);
     machine_.loadProgram(machine_.programName(), source_, machine_.programPath());
-    Q_EMIT machine_.notice(tr("G-code saved successfully"));
+    Q_EMIT machine_.successNotice(tr("G-code saved successfully"));
     refresh();
     return true;
 }

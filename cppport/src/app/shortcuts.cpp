@@ -111,6 +111,7 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"PROBE_ROUTINE_SCROLL_RIGHT", "Probe Routine scroll right", kProbing, ""},
         {"PROBE_ROUTINE_SCROLL_LEFT", "Probe Routine scroll left", kProbing, ""},
         {"DISPLAY_MACHINE_INFO", "Display Machine Info", kToolbar, ""},
+        {"DISPLAY_NOTIFICATIONS", "Display Notifications", kToolbar, ""},
         {"SWITCH_WORKSPACE_MODE", "Toggle Rotary Mode", kToolbar, "Ctrl+5"},
         {"TOGGLE_ROTARY_SURFACING", "Toggle Rotary Surfacing Display", kToolbar, ""},
         {"TOGGLE_MOUNTING_SETUP", "Rotary Mounting Setup", kToolbar, ""},

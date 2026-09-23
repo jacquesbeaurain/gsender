@@ -118,6 +118,12 @@ struct AppSettings {
     std::string stepperRestoreValue;
     // Files loaded last, newest first.
     std::vector<RecentFile> recentFiles;
+    // Notifications: how long pop-ups stay (workspace.toastDuration, ms;
+    // 0 the default 5 s, -1 until closed, -2 none), and the alerts at a
+    // job's end (widgets.visualizer.jobEndModal, maintenanceTaskNotifications).
+    int toastDuration = 0;
+    bool jobEndModal = true;
+    bool maintenanceNotifications = true;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

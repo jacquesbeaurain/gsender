@@ -5,6 +5,7 @@
 #include "dro_panel.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
+#include "notifications.hpp"
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "rotary_panel.hpp"
@@ -80,11 +81,47 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     layout->addWidget(splitter, 1);
     setCentralWidget(central);
 
-    statusBar()->showMessage(tr("Ready"));
-    connect(&machine_, &Machine::notice, this, [this](const QString& text) {
-        statusBar()->showMessage(text, 15000);
-        console_->append(text, false);
+    // Notifications: every message is kept for the bell's list and pops up
+    // at the bottom right for workspace.toastDuration.
+    notifications_ = new NotificationCenter(this);
+    toasts_ = new ToastArea(central);
+    connect(notifications_, &NotificationCenter::added, this, [this](const Notification& n) {
+        toasts_->showToast(n.message, n.type, machine_.settings().toastDuration);
     });
+    bell_ = new NotificationButton(*notifications_, this);
+    menuBar()->setCornerWidget(bell_, Qt::TopRightCorner);
+
+    statusBar()->showMessage(tr("Ready"));
+    const auto announce = [this](NotificationType type) {
+        return [this, type](const QString& text) {
+            statusBar()->showMessage(text, 15000);
+            console_->append(text, false);
+            notifications_->add(text, type);
+        };
+    };
+    connect(&machine_, &Machine::notice, this, announce(NotificationType::Info));
+    connect(&machine_, &Machine::successNotice, this, announce(NotificationType::Success));
+    // The alerts at a job's end (workspace/Alerts).
+    connect(&machine_, &Machine::jobEnded, this,
+            [this](bool completed, double durationMs, const QStringList& errors) {
+                const AppSettings& settings = machine_.settings();
+                if (!dialogsEnabled_) {
+                    return;
+                }
+                if (settings.jobEndModal) {
+                    auto* summary = new JobEndDialog(completed, durationMs, errors, this);
+                    summary->setAttribute(Qt::WA_DeleteOnClose);
+                    summary->show();
+                }
+                if (settings.maintenanceNotifications) {
+                    std::vector<config::MaintenanceTask> due = machine_.dueMaintenanceTasks();
+                    if (!due.empty()) {
+                        auto* alert = new MaintenanceAlertDialog(machine_, std::move(due), this);
+                        alert->setAttribute(Qt::WA_DeleteOnClose);
+                        alert->show();
+                    }
+                }
+            });
     connect(&machine_, &Machine::connectionFailed, this,
             [this](const QString& reason) { showError(tr("Connection"), reason); });
     connect(&machine_, &Machine::errorReported, this, &MainWindow::showError);
@@ -113,7 +150,7 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
             });
     // gSender's recovery prompt: the job can resume from where it stopped.
     connect(&machine_, &Machine::jobInterrupted, this, [this](qint64 line) {
-        showError(tr("Job interrupted"),
+        showMessage(tr("Job interrupted"),
                   tr("The connection closed while the job was running, around line %1.\n\n"
                      "Reconnect (and home if needed), then use Start From Line to resume.")
                       .arg(line));
@@ -228,6 +265,7 @@ void MainWindow::installShortcuts() {
     });
     s.setHandler("RUN_OUTLINE", [this] { machine_.runOutline(); });
     s.setHandler("DISPLAY_MACHINE_INFO", [this] { statusArea_->toggleMachineInfo(); });
+    s.setHandler("DISPLAY_NOTIFICATIONS", [this] { bell_->togglePanel(); });
     // A macro's shortcut runs it when the machine is idle (upstream's MACRO
     // event), with the loaded file as context.
     s.setMacroHandler([this](const QString& id) {
@@ -467,6 +505,14 @@ void MainWindow::openSettings(SettingsDialog::Page page) {
 }
 
 void MainWindow::showError(const QString& title, const QString& detail) {
+    // toast.error("Error 20: ..."): the first line pops up; the console has it all.
+    const QString text = title + ": " + detail.section('\n', 0, 0);
+    statusBar()->showMessage(text, 15000);
+    console_->append(title + ": " + detail, false);
+    notifications_->add(text, NotificationType::Error);
+}
+
+void MainWindow::showMessage(const QString& title, const QString& detail) {
     statusBar()->showMessage(title + ": " + detail.section('\n', 0, 0), 15000);
     console_->append(title + ": " + detail, false);
     if (!dialogsEnabled_) {

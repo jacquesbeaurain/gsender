@@ -373,6 +373,9 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.recentFiles = loadRecentFiles(root.if_contains("recentFiles"));
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
     settings.outlineSpeed = number(root, "outlineSpeed", 0);
+    settings.toastDuration = static_cast<int>(number(root, "toastDuration", 0));
+    settings.jobEndModal = flag(root, "jobEndModal", true);
+    settings.maintenanceNotifications = flag(root, "maintenanceNotifications", true);
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
             if (value.is_object()) {
@@ -443,6 +446,9 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"recentFiles", saveRecentFiles(settings.recentFiles)},
                          {"outlineMode", job::outlineModeName(settings.outlineMode)},
                          {"outlineSpeed", settings.outlineSpeed},
+                         {"toastDuration", settings.toastDuration},
+                         {"jobEndModal", settings.jobEndModal},
+                         {"maintenanceNotifications", settings.maintenanceNotifications},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
                      };
@@ -569,6 +575,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.park = loadPosition(w, "park");
     s.outlineMode = job::outlineModeFromName(text(w, "outlineMode")).value_or(s.outlineMode);
     s.outlineSpeed = number(w, "outlineSpeed", 0);
+    s.toastDuration = static_cast<int>(numberOrText(w, "toastDuration", 0));
     if (const std::string firmware = text(w, "defaultFirmware"); !firmware.empty()) {
         s.defaultFirmware = firmware == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     }
@@ -661,6 +668,8 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     }
     if (const json::object* visualizer = child(g, "visualizer")) {
         s.preferences.showLineWarnings = flag(*visualizer, "showLineWarnings", false);
+        s.jobEndModal = flag(*visualizer, "jobEndModal", true);
+        s.maintenanceNotifications = flag(*visualizer, "maintenanceTaskNotifications", true);
     }
 
     // Keyboard shortcuts: every binding gSender stored, converted; the caller
