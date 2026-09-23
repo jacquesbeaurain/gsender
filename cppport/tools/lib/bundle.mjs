@@ -20,10 +20,14 @@ globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {}
 // written and after the `app` alias, so patterns should allow both.
 export const stubs = {
     // SoftLimits and others read the Redux store; serve globalThis.__reduxState.
-    redux: [/(^|[\\/])store[\\/]redux$/, 'export default { getState: () => globalThis.__reduxState ?? {} };'],
+    redux: [
+        /(^|[\\/])store[\\/]redux$/,
+        'const store = { getState: () => globalThis.__reduxState ?? {} }; export default store; export { store };',
+    ],
     // The UI's settings store; serve globalThis.__storeValues by key.
+    // (Matched however it is imported: 'app/store', '../store', ...)
     store: [
-        /(^app|[\\/]src)[\\/]store$/,
+        /(^|[\\/])store$/,
         'export default { get: (key, fallback) => (globalThis.__storeValues ?? {})[key] ?? fallback, set() {}, on() {} };',
     ],
     // The socket.io controller client.
