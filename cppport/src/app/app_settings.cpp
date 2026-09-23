@@ -22,6 +22,40 @@ bool flag(const json::object& object, std::string_view key, bool fallback) {
     return value && value->is_bool() ? value->as_bool() : fallback;
 }
 
+SpindleSettings loadSpindle(const json::object& o) {
+    SpindleSettings s;
+    s.laserMode = text(o, "mode", "spindle") == "laser";
+    s.speed = number(o, "speed", s.speed);
+    s.spindleMax = number(o, "spindleMax", s.spindleMax);
+    s.spindleMin = number(o, "spindleMin", s.spindleMin);
+    if (const json::value* laser = o.if_contains("laser"); laser && laser->is_object()) {
+        const json::object& l = laser->as_object();
+        s.laser.onOutline = flag(l, "laserOnOutline", s.laser.onOutline);
+        s.laser.power = number(l, "power", s.laser.power);
+        s.laser.duration = number(l, "duration", s.laser.duration);
+        s.laser.xOffset = number(l, "xOffset", s.laser.xOffset);
+        s.laser.yOffset = number(l, "yOffset", s.laser.yOffset);
+        s.laser.minPower = number(l, "minPower", s.laser.minPower);
+        s.laser.maxPower = number(l, "maxPower", s.laser.maxPower);
+    }
+    return s;
+}
+
+json::object saveSpindle(const SpindleSettings& s) {
+    const LaserSettings& l = s.laser;
+    return {{"mode", s.laserMode ? "laser" : "spindle"},
+            {"speed", s.speed},
+            {"spindleMax", s.spindleMax},
+            {"spindleMin", s.spindleMin},
+            {"laser", json::object{{"laserOnOutline", l.onOutline},
+                                   {"power", l.power},
+                                   {"duration", l.duration},
+                                   {"xOffset", l.xOffset},
+                                   {"yOffset", l.yOffset},
+                                   {"minPower", l.minPower},
+                                   {"maxPower", l.maxPower}}}};
+}
+
 probe::ProbeSettings loadProbe(const json::object& o) {
     probe::ProbeSettings p;
     p.plateType = probe::plateTypeFromName(text(o, "touchplateType")).value_or(p.plateType);
@@ -190,6 +224,9 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
         settings.surfacing = loadSurfacing(surfacing->as_object());
     }
+    if (const json::value* spindle = root.if_contains("spindle"); spindle && spindle->is_object()) {
+        settings.spindle = loadSpindle(spindle->as_object());
+    }
     if (const json::value* jog = root.if_contains("jog"); jog && jog->is_object()) {
         const json::object& j = jog->as_object();
         settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
@@ -260,6 +297,7 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
                          {"probe", saveProbe(settings.probe)},
                          {"surfacing", saveSurfacing(settings.surfacing)},
+                         {"spindle", saveSpindle(settings.spindle)},
                          {"jog", jogObject(settings.jog)},
                          {"units", settings.metric ? "mm" : "in"},
                          {"customDecimalPlaces", settings.customDecimalPlaces},

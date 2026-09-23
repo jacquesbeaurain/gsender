@@ -519,7 +519,7 @@ void Controller::onStatus(const protocol::StatusReport& reported, const std::str
     if (isGrbl()) {
         if (!runner_.hasSettings() && reported.activeState == "Idle") {
             initialized_ = true;
-            initController(std::nullopt);
+            initController();
         }
         if (homingStarted_) {
             homingFlagSet_ = determineMachineZeroFlagSet(runner_.state().status.mpos, runner_.settings().settings);
@@ -886,7 +886,7 @@ void Controller::onStartup(const std::string& raw, std::optional<long long> semv
     if (isGrbl()) {
         if (!initialized_ || !runner_.hasSettings()) {
             initialized_ = true;
-            initController(std::nullopt);
+            initController();
         }
         return;
     }
@@ -895,17 +895,17 @@ void Controller::onStartup(const std::string& raw, std::optional<long long> semv
     // does not.
     if (!initialized_ && semver) {
         initialized_ = true;
-        initController(semver);
+        initController();
     }
 }
 
-void Controller::initController(std::optional<long long> semver) {
+void Controller::initController() {
     if (isGrbl()) {
         writeln("$$");
         timers_.timeout(50, [this] { eventTrigger_.trigger(kControllerReady); });
         return;
     }
-    timers_.timeout(500, [this, semver] {
+    timers_.timeout(500, [this] {
         // Each enabled step is written, then 25 ms pass before the next.
         auto steps = std::make_shared<std::vector<StartupStep>>();
         steps->push_back({"$$"});
@@ -913,7 +913,7 @@ void Controller::initController(std::optional<long long> semver) {
         if (runner_.state().status.sdCard && !actionMask_.sdAccessory) {
             steps->push_back({"$FM\n$F", true});
         }
-        steps->push_back({semver.value_or(0) >= 20231210 ? "$spindlesh" : "$spindles"});
+        steps->push_back({spindleListCommand()});
         runStartupStep(std::move(steps), 0);
     });
 }

@@ -26,6 +26,7 @@ add_library(gs_core STATIC
     src/controller/actions.cpp
     src/controller/controller.cpp
     src/controller/session.cpp
+    src/controller/spindle.cpp
     src/config/json_path.cpp
     src/config/config_store.cpp
     src/config/records.cpp

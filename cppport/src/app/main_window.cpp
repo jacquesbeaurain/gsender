@@ -56,7 +56,7 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     spindle_ = new SpindlePanel(machine_);
     probe_ = new ProbePanel(machine_);
     tabs_->addTab(new JogPanel(machine_, *jogger_), tr("Jog"));
-    tabs_->addTab(spindle_, tr("Spindle && Coolant"));
+    tabs_->addTab(spindle_, tr("Spindle/Laser"));
     tabs_->addTab(probe_, tr("Probe"));
     tabs_->addTab(new MacrosPanel(machine_), tr("Macros"));
     rightLayout->addWidget(tabs_);
@@ -308,6 +308,7 @@ void MainWindow::installShortcuts() {
     s.setHandler("MIST_COOLANT", coolant("M7"));
     s.setHandler("FLOOD_COOLANT", coolant("M8"));
     s.setHandler("STOP_COOLANT", coolant("M9"));
+    s.setHandler("TOGGLE_SPINDLE_LASER_MODE", [this] { spindle_->toggleMode(); });
     s.setHandler("CW_LASER_ON", [this] { spindle_->startClockwise(); });
     s.setHandler("CCW_LASER_TEST", [this] { spindle_->startCounterClockwise(); });
     s.setHandler("STOP_LASER_OFF", [this] { spindle_->stopSpindle(); });

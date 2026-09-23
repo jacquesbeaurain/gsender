@@ -165,6 +165,21 @@ public:
     bool stepperLocked() const;
     void setStepperLock(bool lock);
 
+    // ---- spindle and laser ----
+    // Laser mode: the board's $32 when connected, else the mode last chosen.
+    bool laserMode() const;
+    // The Spindle/Laser toggle (enableLaserMode / enableSpindleMode): the
+    // work offset shift between the tools, the power ranges ($30/$31 -
+    // except for grblHAL's own laser), $32; the settings keep the range the
+    // other mode will want back.
+    void setLaserMode(bool laser);
+    // The laser's maximum S: $730 on grblHAL, the settings' on Grbl.
+    double laserMaxPower() const;
+    // grblHAL's spindles ($spindles), as listed since connecting.
+    const std::vector<protocol::SpindleLine>& spindles() const noexcept { return spindles_; }
+    // grblHAL: switch spindle (M104 Q<id>) and list them again.
+    void selectSpindle(int id);
+
     // ---- calibration tools ----
     // Movement Tuning's move (workspace units): a $J= jog at 1000 mm/min,
     // dropped towards a triggered limit when that protection is on. False
@@ -213,6 +228,7 @@ Q_SIGNALS:
     void toolChangeWizardRequested(const QString& option, int count, const QString& comment);
     void wizardNext(int step, int substep);  // an action's G-code is done
     void toolChangeWizardReady();            // the start-up G-code went out
+    void spindlesChanged();                  // grblHAL's spindle list
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);
@@ -243,6 +259,7 @@ private:
     std::uint64_t analysisGeneration_ = 0;
     bool jobRunning_ = false;
     bool wizardReady_ = false;
+    std::vector<protocol::SpindleLine> spindles_;
     std::int64_t lastLine_ = 1;
     std::shared_ptr<std::atomic<bool>> analysisCancel_;
 };

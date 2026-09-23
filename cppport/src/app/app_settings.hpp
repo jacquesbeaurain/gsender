@@ -35,6 +35,25 @@ struct ShortcutBinding {
     bool operator==(const ShortcutBinding&) const = default;
 };
 
+// widgets.spindle: the Spindle/Laser tab (upstream's defaults).
+struct LaserSettings {
+    bool onOutline = false;  // laserOnOutline: outlines traced with the laser lit
+    double power = 100;      // % of the maximum, for focusing and the test
+    double duration = 1;     // s, the laser test
+    double xOffset = 0;      // mm from the spindle (Grbl; grblHAL: $770/$771)
+    double yOffset = 0;
+    double minPower = 0;     // $31 in laser mode (Grbl; grblHAL: $731)
+    double maxPower = 255;   // $30 in laser mode (Grbl; grblHAL: $730)
+};
+
+struct SpindleSettings {
+    bool laserMode = false;   // the mode last chosen (the board's $32 rules when connected)
+    double speed = 1000;      // rpm for M3/M4
+    double spindleMax = 30000;  // $30/$31 kept for spindle mode while the laser has them
+    double spindleMin = 10000;
+    LaserSettings laser;
+};
+
 struct AppSettings {
     // Workspace units (workspace.units): positions, jogging and the tools
     // show and take inches when false; storage stays mm.
@@ -52,6 +71,8 @@ struct AppSettings {
     probe::ProbeSettings probe;
     // Surfacing tool (mm)
     surfacing::Options surfacing;
+    // Spindle/Laser tab
+    SpindleSettings spindle;
     // Jogging and positioning
     JogSettings jog;
     double safeRetractHeight = 0;  // mm lifted before go-to-zero moves; 0: none

@@ -5,6 +5,7 @@
 #include "gs/calibration/calibration.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
+#include "gs/controller/spindle.hpp"
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/units.hpp"
 #include "gs/sim/grbl_simulator.hpp"
@@ -228,6 +229,7 @@ void Machine::teardown() {
         simulator_.reset();
     }
     connecting_ = false;
+    spindles_.clear();
 }
 
 runtime::EventLoop& Machine::eventLoop() noexcept {
@@ -339,6 +341,8 @@ bool Machine::runOutline(QString* error) {
     }
     job::OutlineInput input;
     input.mode = settings_.outlineMode;
+    // "Laser on during outline": in laser mode the trace runs lit at S1.
+    input.isLaser = settings_.spindle.laser.onOutline && laserMode();
     input.outlineSpeed = settings_.outlineSpeed;
     input.bbox = analysis_.bounds;
     input.content = programText_;
@@ -570,6 +574,93 @@ void Machine::setStepperLock(bool lock) {
     setSettings(settings);
 }
 
+// ---- spindle and laser ----------------------------------------------------------------------
+
+bool Machine::laserMode() const {
+    const controller::Controller* c = controller();
+    const std::string mode = c ? c->runner().setting("$32") : std::string();
+    return mode.empty() ? settings_.spindle.laserMode : js::stringToNumber(mode) != 0;
+}
+
+double Machine::laserMaxPower() const {
+    const controller::Controller* c = controller();
+    if (c && c->isGrblHal()) {
+        const std::string max = c->runner().setting("$730", "255");
+        return js::stringToNumber(max);
+    }
+    return settings_.spindle.laser.maxPower;
+}
+
+void Machine::setLaserMode(bool laser) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    protocol::Runner& runner = c->runner();
+    const bool hal = c->isGrblHal();
+    AppSettings s = settings_;
+    controller::ModeSwitch change;
+    change.toLaser = laser;
+    change.metric = s.metric;
+    change.deviceUnits = runner.modal().units;
+    change.spindleOn = runner.modal().spindle != "M5";
+    change.wcs = runner.modal().wcs;
+    const std::array<double, 4> work = workPositionMm();
+    change.workX = work[0];
+    change.workY = work[1];
+    if (hal) {
+        // The SLB's laser offset lives in the firmware: $770/$771 (older $741/$742).
+        const auto offset = [&runner](const char* key, const char* older) {
+            std::string value = runner.setting(key);
+            if (value.empty()) {
+                value = runner.setting(older);
+            }
+            return value.empty() ? 0.0 : js::stringToNumber(value);
+        };
+        change.offset = {offset("$770", "$741"), offset("$771", "$742")};
+    } else {
+        change.offset = {s.spindle.laser.xOffset, s.spindle.laser.yOffset};
+    }
+    const double currentMax = js::stringToNumber(runner.setting("$30", "30000"));
+    const double currentMin = js::stringToNumber(runner.setting("$31", "1000"));
+    if (laser) {
+        if (!hal) {  // grblHAL's laser has its own range
+            s.spindle.spindleMax = currentMax;
+            s.spindle.spindleMin = currentMin;
+            change.range = std::pair{s.spindle.laser.maxPower, s.spindle.laser.minPower};
+        }
+    } else {
+        const bool laserSpindle = hal && std::any_of(spindles_.begin(), spindles_.end(), [](const auto& spindle) {
+                                      return spindle.label == "SLB_LASER" || spindle.label == "PWM2";
+                                  });
+        if (!laserSpindle) {
+            s.spindle.laser.maxPower = currentMax;
+            s.spindle.laser.minPower = currentMin;
+            change.range = std::pair{s.spindle.spindleMax, s.spindle.spindleMin};
+        }
+    }
+    s.spindle.laserMode = laser;
+    setSettings(s);
+    c->gcode(controller::modeSwitchCommands(change));
+    // As upstream's store, the new values count at once (no $$ follows).
+    if (change.range) {
+        runner.setSetting("$30", js::numberToString(change.range->first));
+        runner.setSetting("$31", js::numberToString(change.range->second));
+    }
+    runner.setSetting("$32", laser ? "1" : "0");
+    Q_EMIT settingsChanged();
+}
+
+void Machine::selectSpindle(int id) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    spindles_.clear();  // clearSpindles(): the list comes again
+    Q_EMIT spindlesChanged();
+    c->gcode(std::vector<std::string>{"M104 Q" + std::to_string(id), c->spindleListCommand()});
+}
+
 // ---- calibration tools --------------------------------------------------------------------
 
 bool Machine::runTuningMove(char axis, double distance) {
@@ -747,6 +838,18 @@ void Machine::handle(const controller::ControllerEvent& event) {
                                        .arg(e.line));
                    },
                    [this](const WizardNext& e) { Q_EMIT wizardNext(e.step, e.substep); },
+                   [this](const SpindleAdded& e) {
+                       // addSpindle(): one entry per id, the latest wins.
+                       const auto same = std::find_if(spindles_.begin(), spindles_.end(), [&e](const auto& s) {
+                           return s.id == e.spindle.id;
+                       });
+                       if (same != spindles_.end()) {
+                           *same = e.spindle;
+                       } else {
+                           spindles_.push_back(e.spindle);
+                       }
+                       Q_EMIT spindlesChanged();
+                   },
                    [this](const ToolChangeStarted&) { Q_EMIT notice(tr("Tool change: running the pre-hook...")); },
                    [this](const ToolChangePreHookComplete& e) {
                        Q_EMIT toolChangeWaiting(QString::fromStdString(e.comment));

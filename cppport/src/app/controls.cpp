@@ -2,6 +2,10 @@
 
 #include "machine.hpp"
 
+#include "gs/controller/spindle.hpp"
+#include "gs/util/jsnumber.hpp"
+
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
@@ -16,7 +20,10 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSlider>
+#include <QTimer>
 #include <QVBoxLayout>
+
+#include <cmath>
 
 namespace gs::app {
 namespace {
@@ -28,36 +35,96 @@ bool canCommand(Machine& machine) {
 
 }  // namespace
 
-// ---- spindle and coolant ------------------------------------------------------------
+// ---- spindle, laser and coolant ------------------------------------------------------
 
 SpindlePanel::SpindlePanel(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
     auto* layout = new QVBoxLayout(this);
-    auto* spindle = new QGroupBox(tr("Spindle"));
-    auto* grid = new QGridLayout(spindle);
-    speed_ = new QDoubleSpinBox;
-    speed_->setRange(0, 100000);
-    speed_->setDecimals(0);
-    speed_->setSingleStep(500);
-    speed_->setValue(10000);
-    speed_->setSuffix(" RPM");
-    grid->addWidget(new QLabel(tr("Speed")), 0, 0);
-    grid->addWidget(speed_, 0, 1, 1, 2);
-    const auto add = [this](QGridLayout* to, const QString& text, int row, int column, auto gcode) {
-        auto* button = new QPushButton(text);
-        connect(button, &QPushButton::clicked, this, [this, gcode] { command(gcode()); });
-        to->addWidget(button, row, column);
-        buttons_.append(button);
+
+    // The mode switch (and grblHAL's spindles).
+    auto* modeRow = new QHBoxLayout;
+    spindleMode_ = new QPushButton(tr("Spindle"));
+    laserMode_ = new QPushButton(tr("Laser"));
+    for (QPushButton* button : {spindleMode_, laserMode_}) {
+        button->setCheckable(true);
+        modeRow->addWidget(button);
+    }
+    modeRow->setSpacing(0);
+    connect(spindleMode_, &QPushButton::clicked, this, [this] {
+        if (machine_.laserMode()) {
+            toggleMode();
+        }
+        refresh();
+    });
+    connect(laserMode_, &QPushButton::clicked, this, [this] {
+        if (!machine_.laserMode()) {
+            toggleMode();
+        }
+        refresh();
+    });
+    spindleSelect_ = new QComboBox;
+    spindleSelect_->setToolTip(tr("grblHAL spindle (M104)"));
+    connect(spindleSelect_, &QComboBox::activated, this,
+            [this](int index) { machine_.selectSpindle(spindleSelect_->itemData(index).toInt()); });
+    modeRow->addSpacing(12);
+    modeRow->addWidget(spindleSelect_, 1);
+    layout->addLayout(modeRow);
+
+    const auto button = [this](QGridLayout* grid, const QString& text, int row, int column, auto action,
+                               bool isStop = false) {
+        auto* b = new QPushButton(text);
+        connect(b, &QPushButton::clicked, this, action);
+        grid->addWidget(b, row, column);
+        (isStop ? stops_ : buttons_).append(b);
+        return b;
     };
-    add(grid, tr("On CW (M3)"), 1, 0, [this] { return QString("M3 S%1").arg(speed_->value(), 0, 'f', 0); });
-    add(grid, tr("On CCW (M4)"), 1, 1, [this] { return QString("M4 S%1").arg(speed_->value(), 0, 'f', 0); });
-    add(grid, tr("Off (M5)"), 1, 2, [] { return QString("M5"); });
-    layout->addWidget(spindle);
+
+    // Spindle: speed within $31..$30, CW / CCW / stop.
+    spindleBox_ = new QGroupBox(tr("Spindle"));
+    auto* spindleGrid = new QGridLayout(spindleBox_);
+    speedSlider_ = new QSlider(Qt::Horizontal);
+    speed_ = new QDoubleSpinBox;
+    speed_->setDecimals(0);
+    speed_->setSingleStep(100);
+    speed_->setSuffix(tr(" rpm"));
+    spindleGrid->addWidget(new QLabel(tr("Speed")), 0, 0);
+    spindleGrid->addWidget(speedSlider_, 0, 1, 1, 2);
+    spindleGrid->addWidget(speed_, 0, 3);
+    button(spindleGrid, tr("CW (M3)"), 1, 1, [this] { startClockwise(); });
+    button(spindleGrid, tr("CCW (M4)"), 1, 2, [this] { startCounterClockwise(); });
+    button(spindleGrid, tr("Stop (M5)"), 1, 3, [this] { stopSpindle(); }, true);
+    layout->addWidget(spindleBox_);
+
+    // Laser: power in % of its maximum, focus (on), test, off.
+    laserBox_ = new QGroupBox(tr("Laser"));
+    auto* laserGrid = new QGridLayout(laserBox_);
+    powerSlider_ = new QSlider(Qt::Horizontal);
+    powerSlider_->setRange(0, 100);
+    power_ = new QDoubleSpinBox;
+    power_->setRange(0, 100);
+    power_->setDecimals(0);
+    power_->setSuffix(" %");
+    duration_ = new QDoubleSpinBox;
+    duration_->setRange(0, 60);
+    duration_->setDecimals(1);
+    duration_->setSuffix(tr(" s"));
+    duration_->setToolTip(tr("How long the laser test fires"));
+    laserGrid->addWidget(new QLabel(tr("Power")), 0, 0);
+    laserGrid->addWidget(powerSlider_, 0, 1, 1, 2);
+    laserGrid->addWidget(power_, 0, 3);
+    laserGrid->addWidget(new QLabel(tr("Test duration")), 1, 0);
+    laserGrid->addWidget(duration_, 1, 1);
+    button(laserGrid, tr("Laser On"), 2, 1, [this] { startClockwise(); })
+        ->setToolTip(tr("Lights the laser at the set power to focus it (G1 F1 M3)"));
+    button(laserGrid, tr("Laser Test"), 2, 2, [this] { startCounterClockwise(); })
+        ->setToolTip(tr("Fires the laser for the test duration"));
+    button(laserGrid, tr("Laser Off"), 2, 3, [this] { stopSpindle(); }, true);
+    layout->addWidget(laserBox_);
 
     auto* coolant = new QGroupBox(tr("Coolant"));
     auto* coolantGrid = new QGridLayout(coolant);
-    add(coolantGrid, tr("Mist (M7)"), 0, 0, [] { return QString("M7"); });
-    add(coolantGrid, tr("Flood (M8)"), 0, 1, [] { return QString("M8"); });
-    add(coolantGrid, tr("Off (M9)"), 0, 2, [] { return QString("M9"); });
+    button(coolantGrid, tr("Mist (M7)"), 0, 0, [this] { command("M7"); });
+    button(coolantGrid, tr("Flood (M8)"), 0, 1, [this] { command("M8"); });
+    button(coolantGrid, tr("Off (M9)"), 0, 2, [this] { command("M9"); }, true);
     layout->addWidget(coolant);
 
     state_ = new QLabel;
@@ -65,36 +132,198 @@ SpindlePanel::SpindlePanel(Machine& machine, QWidget* parent) : QWidget(parent),
     layout->addWidget(state_);
     layout->addStretch();
 
-    for (auto signal : {&Machine::stateChanged, &Machine::connectionChanged, &Machine::workflowChanged}) {
+    // Changes reach the machine (and the settings) 300 ms after the last one.
+    speedTimer_ = new QTimer(this);
+    speedTimer_->setSingleShot(true);
+    speedTimer_->setInterval(300);
+    connect(speedTimer_, &QTimer::timeout, this, &SpindlePanel::applySpeed);
+    powerTimer_ = new QTimer(this);
+    powerTimer_->setSingleShot(true);
+    powerTimer_->setInterval(300);
+    connect(powerTimer_, &QTimer::timeout, this, &SpindlePanel::applyPower);
+    connect(speedSlider_, &QSlider::valueChanged, this, [this](int value) {
+        if (!syncing_) {
+            setSpeed(value);
+        }
+    });
+    connect(speed_, &QDoubleSpinBox::valueChanged, this, [this](double value) {
+        if (!syncing_) {
+            setSpeed(value);
+        }
+    });
+    connect(powerSlider_, &QSlider::valueChanged, this, [this](int value) {
+        if (!syncing_) {
+            setLaserPower(value);
+        }
+    });
+    connect(power_, &QDoubleSpinBox::valueChanged, this, [this](double value) {
+        if (!syncing_) {
+            setLaserPower(value);
+        }
+    });
+    connect(duration_, &QDoubleSpinBox::valueChanged, this, [this](double value) {
+        if (!syncing_) {
+            AppSettings settings = machine_.settings();
+            settings.spindle.laser.duration = value;
+            machine_.setSettings(settings);
+        }
+    });
+
+    for (auto signal : {&Machine::stateChanged, &Machine::connectionChanged, &Machine::workflowChanged,
+                        &Machine::settingsChanged, &Machine::spindlesChanged, &Machine::appSettingsChanged}) {
         connect(&machine_, signal, this, &SpindlePanel::refresh);
     }
+    connect(&machine_, &Machine::spindlesChanged, this, &SpindlePanel::fillSpindles);
+    connect(&machine_, &Machine::connectionChanged, this, [this] {
+        if (!machine_.isConnected()) {
+            spindleOn_ = laserOn_ = false;
+        }
+    });
     refresh();
 }
 
+bool SpindlePanel::canClick() const {
+    controller::Controller* c = machine_.controller();
+    return c && !c->workflow().isRunning() && c->state().status.activeState == "Idle";
+}
+
 void SpindlePanel::startClockwise() {
-    command(QString("M3 S%1").arg(speed_->value(), 0, 'f', 0));
+    if (!canClick()) {
+        return;
+    }
+    if (machine_.laserMode()) {
+        // sendLaserM3(): focus at the set power.
+        laserOn_ = true;
+        command(controller::laserOnCommand(power_->value(), machine_.laserMaxPower()));
+    } else {
+        spindleOn_ = true;
+        command("M3 S" + js::numberToString(speed_->value()));
+    }
 }
 
 void SpindlePanel::startCounterClockwise() {
-    command(QString("M4 S%1").arg(speed_->value(), 0, 'f', 0));
+    if (!canClick()) {
+        return;
+    }
+    if (machine_.laserMode()) {
+        // runLaserTest(): the controller fires for the duration, the widget
+        // turns the laser off once it has passed.
+        if (controller::Controller* c = machine_.controller()) {
+            c->laserTestOn(power_->value(), duration_->value());
+        }
+        QTimer::singleShot(static_cast<int>(duration_->value() * 1000), this, [this] { stopSpindle(); });
+    } else {
+        spindleOn_ = true;
+        command("M4 S" + js::numberToString(speed_->value()));
+    }
 }
 
 void SpindlePanel::stopSpindle() {
-    command("M5");
+    spindleOn_ = laserOn_ = false;
+    command("M5 S0");
 }
 
-void SpindlePanel::command(const QString& gcode) {
+void SpindlePanel::toggleMode() {
+    if (canClick()) {
+        spindleOn_ = laserOn_ = false;
+        machine_.setLaserMode(!machine_.laserMode());
+    }
+}
+
+void SpindlePanel::setSpeed(double rpm) {
+    syncing_ = true;
+    speed_->setValue(rpm);
+    speedSlider_->setValue(static_cast<int>(rpm));
+    syncing_ = false;
+    speedTimer_->start();
+}
+
+void SpindlePanel::setLaserPower(double percent) {
+    syncing_ = true;
+    power_->setValue(percent);
+    powerSlider_->setValue(static_cast<int>(percent));
+    syncing_ = false;
+    powerTimer_->start();
+}
+
+void SpindlePanel::applySpeed() {
+    AppSettings settings = machine_.settings();
+    settings.spindle.speed = speed_->value();
+    machine_.setSettings(settings);
+    controller::Controller* c = machine_.controller();
+    if (c && spindleOn_) {
+        c->spindleSpeedChange(speed_->value());
+    }
+}
+
+void SpindlePanel::applyPower() {
+    AppSettings settings = machine_.settings();
+    settings.spindle.laser.power = power_->value();
+    machine_.setSettings(settings);
+    controller::Controller* c = machine_.controller();
+    if (c && laserOn_) {
+        c->laserPowerChange(power_->value(), machine_.laserMaxPower());
+    }
+}
+
+void SpindlePanel::fillSpindles() {
+    spindleSelect_->clear();
+    for (const auto& spindle : machine_.spindles()) {
+        const int id = spindle.id.value_or(0);
+        spindleSelect_->addItem(QString("%1 - %2").arg(id).arg(QString::fromStdString(spindle.label)), id);
+        if (spindle.enabled) {
+            spindleSelect_->setCurrentIndex(spindleSelect_->count() - 1);
+        }
+    }
+}
+
+void SpindlePanel::command(const std::string& gcode) {
     if (auto* c = machine_.controller()) {
-        c->gcode(gcode.toStdString());
+        c->gcode(gcode);
     }
 }
 
 void SpindlePanel::refresh() {
-    const bool enabled = canCommand(machine_);
-    for (QPushButton* button : buttons_) {
-        button->setEnabled(enabled);
-    }
     controller::Controller* c = machine_.controller();
+    const bool laser = machine_.laserMode();
+    const AppSettings& settings = machine_.settings();
+    spindleMode_->setChecked(!laser);
+    laserMode_->setChecked(laser);
+    spindleBox_->setVisible(!laser);
+    laserBox_->setVisible(laser);
+    const bool idle = canClick();
+    spindleMode_->setEnabled(idle);
+    laserMode_->setEnabled(idle);
+    for (QPushButton* b : buttons_) {
+        b->setEnabled(idle);
+    }
+    for (QPushButton* b : stops_) {
+        b->setEnabled(c != nullptr && !c->workflow().isRunning());
+    }
+
+    // The speed range: the board's $31..$30 (upstream's defaults 1000..30000).
+    const double min = c ? js::stringToNumber(c->runner().setting("$31", "1000")) : settings.spindle.spindleMin;
+    const double max = c ? js::stringToNumber(c->runner().setting("$30", "30000")) : settings.spindle.spindleMax;
+    syncing_ = true;
+    if (!laser && std::isfinite(min) && std::isfinite(max) && max >= min) {
+        speed_->setRange(min, max);
+        speedSlider_->setRange(static_cast<int>(min), static_cast<int>(max));
+    }
+    if (!speedTimer_->isActive()) {
+        speed_->setValue(settings.spindle.speed);  // clamped to the range, as upstream
+        speedSlider_->setValue(static_cast<int>(speed_->value()));
+    }
+    if (!powerTimer_->isActive()) {
+        power_->setValue(settings.spindle.laser.power);
+        powerSlider_->setValue(static_cast<int>(power_->value()));
+    }
+    duration_->setValue(settings.spindle.laser.duration);
+    syncing_ = false;
+
+    // grblHAL's spindles, when there is a choice.
+    spindleSelect_->setVisible(c && c->isGrblHal() && machine_.spindles().size() > 1);
+    spindleSelect_->setEnabled(idle);
+
     if (!c) {
         state_->setText(tr("Not connected"));
         return;
@@ -104,7 +333,8 @@ void SpindlePanel::refresh() {
     for (const std::string& code : modal.coolant) {
         coolant << QString::fromStdString(code);
     }
-    state_->setText(tr("Spindle %1 at %2 RPM - coolant %3")
+    state_->setText(tr("%1 %2 at S%3 - coolant %4")
+                        .arg(laser ? tr("Laser") : tr("Spindle"))
                         .arg(QString::fromStdString(modal.spindle))
                         .arg(c->state().status.spindle, 0, 'f', 0)
                         .arg(coolant.join(' ')));

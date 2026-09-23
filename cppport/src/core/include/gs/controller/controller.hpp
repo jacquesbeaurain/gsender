@@ -116,6 +116,11 @@ public:
     bool isReady() const noexcept { return ready_; }
     bool hasHomed() const noexcept { return hasHomedSet_; }
     bool homingFlag() const noexcept { return homingFlagSet_; }
+    // grblHAL's spindle list query: "$spindlesh" from the 20231210 build
+    // (ATCI support), "$spindles" before.
+    std::string spindleListCommand() const {
+        return runner_.settings().semver >= 20231210 ? "$spindlesh" : "$spindles";
+    }
     // An alarm's description ("9", or "Homing" for Grbl's homing lock):
     // grblHAL's own ($EA) first, then the firmware tables.
     std::optional<protocol::CodeInfo> alarmInfo(const std::string& code) const;
@@ -252,7 +257,7 @@ private:
     void queryTick();
     void queryStatusReport();
     void queryParserState();
-    void initController(std::optional<long long> semver);
+    void initController();
     void runStartupStep(std::shared_ptr<const std::vector<StartupStep>> steps, std::size_t index);
     void populateContext(const expr::Value& context) const;
     void clearActionValues();
