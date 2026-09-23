@@ -15,10 +15,12 @@
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
 #include "start_from_line_dialog.hpp"
+#include "stats_dialog.hpp"
 #include "status_area.hpp"
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
 
+#include "gs/config/history.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
 #include "gs/sim/grbl_simulator.hpp"
@@ -881,6 +883,46 @@ TEST_F(AppTest, TheSpindleTabSwitchesToLaserModeAndBack) {
     EXPECT_FALSE(machine.laserMode());
     EXPECT_EQ(machine.settings().spindle.laser.maxPower, 255);
     ASSERT_TRUE(waitFor([&] { return workAt(0, 0); }));
+}
+
+TEST_F(AppTest, JobsMaintenanceHoursAndAlarmsAreRecordedForTheStatistics) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+    int recorded = 0;
+    QObject::connect(&machine, &Machine::historyChanged, [&] { ++recorded; });
+
+    machine.loadProgram("square.nc", "G21 G90\nG1 X5 F1200\nG1 Y5\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    controller::runJob(*machine.controller());
+    ASSERT_TRUE(waitFor([&] { return recorded == 1; }));  // the job's end
+
+    StatsDialog stats(machine);
+    EXPECT_TRUE(stats.totalsText().startsWith("Jobs: 1 - completed 1, stopped 0")) << stats.totalsText().toStdString();
+    ASSERT_EQ(stats.jobsTable()->rowCount(), 1);
+    EXPECT_EQ(stats.jobsTable()->item(0, 0)->text(), "square.nc");
+    EXPECT_EQ(stats.jobsTable()->item(0, 3)->text(), "4");  // the sender's lines: the last one is empty
+    EXPECT_EQ(stats.jobsTable()->item(0, 5)->text(), "Complete");
+    const std::vector<config::MaintenanceTask> tasks = config::MaintenanceStore(machine.config()).list();
+    ASSERT_FALSE(tasks.empty());
+    EXPECT_GT(tasks[0].currentTime, 0);  // the job's running time
+    EXPECT_EQ(stats.tasksTable()->rowCount(), static_cast<int>(tasks.size()));
+
+    // Alarms land in the log, which the open dialog follows.
+    machine.simulator()->triggerAlarm(9);
+    ASSERT_TRUE(waitFor([&] { return stats.alarmsTable()->rowCount() == 1; }));
+    EXPECT_EQ(stats.alarmsTable()->item(0, 1)->text(), "Alarm");
+    EXPECT_EQ(stats.alarmsTable()->item(0, 2)->text(), "9");
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        stats.show();
+        stats.grab().save(QString::fromLocal8Bit(out) + "/stats.png");
+    }
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

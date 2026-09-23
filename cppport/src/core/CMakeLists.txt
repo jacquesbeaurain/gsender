@@ -29,6 +29,7 @@ add_library(gs_core STATIC
     src/controller/spindle.cpp
     src/config/json_path.cpp
     src/config/config_store.cpp
+    src/config/history.cpp
     src/config/records.cpp
     src/job/program_analysis.cpp
     src/job/outline.cpp

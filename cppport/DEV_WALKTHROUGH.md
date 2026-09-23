@@ -919,3 +919,33 @@ the laser lit in laser mode); the TOGGLE_SPINDLE_LASER_MODE shortcut and the
 CW/CCW/stop shortcuts follow the mode. An application test switches the
 simulated board to laser mode and back, checking the shift, the ranges,
 focus and a live power change.
+
+## Step 34 — Statistics: jobs, maintenance, alarms (`gs/config/history`, `src/app/stats_dialog`)
+
+gSender keeps the machine's history for its Stats page; the port records
+the same, in upstream's JSON shapes (the config file's `jobStats`,
+`maintenance` and `alarmList`; upstream splits the first and last into
+`.sender_jobrc` and an errors file, the port keeps one file):
+
+- **Jobs** (`updateJobStats`): when a job ends the Machine records its file
+  and path, lines, port, firmware, start and end (ISO dates, the end null
+  for a stopped job), elapsed time and status, and the totals - jobs,
+  completed, stopped, running time. The sender's times come from the
+  monotonic event-loop clock; the records convert them to wall-clock dates.
+- **Maintenance** (`updateMaintenanceTasks`): every task's hours grow by the
+  job's running time. Tasks are due within their range (rangeStart..End
+  hours); the list shows the hours left, "Due", or "Urgent!" past the range
+  (Soon: within 10 h, as upstream's preview). Upstream's four default tasks
+  come with the config defaults.
+- **Alarms and errors** (`updateAlarmsErrors`): each reported alarm or error
+  with its code, message, line and source; numeric codes stay numbers in
+  the file. Upstream's `isHomingRequiredAlarm` now applies: the homing
+  prompt a board raises on connecting (Grbl's "Homing", grblHAL's ALARM:11)
+  is neither recorded nor reported as an error - the status area offers
+  homing instead.
+
+Tools > Statistics shows the three: the job list (newest first) with the
+totals and "Clear Job History"; the maintenance tasks with Add, Edit, Mark
+Done (hours back to 0) and Delete; the alarm and error log (newest first)
+with Clear. Tests cover the stores (dates, counters, due states) and a job
+and an alarm on the simulator reaching the open dialog.

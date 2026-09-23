@@ -70,7 +70,7 @@ public:
 
     // ---- program ----
     bool loadFile(const QString& path, QString* error = nullptr);
-    void loadProgram(const QString& name, std::string text);
+    void loadProgram(const QString& name, std::string text, const QString& path = {});
     void unloadProgram();
     bool hasProgram() const noexcept { return !programName_.isEmpty(); }
     QString programName() const { return programName_; }
@@ -229,6 +229,8 @@ Q_SIGNALS:
     void wizardNext(int step, int substep);  // an action's G-code is done
     void toolChangeWizardReady();            // the start-up G-code went out
     void spindlesChanged();                  // grblHAL's spindle list
+    // A job or an alarm/error was recorded (Stats).
+    void historyChanged();
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);
@@ -240,6 +242,8 @@ private:
     void attachProgram();
     void sendEstimates();
     void analysisFinished(std::uint64_t generation, job::ProgramAnalysis analysis, Toolpath toolpath);
+    // updateJobStats() / updateMaintenanceTasks() at a job's end.
+    void recordJob(const controller::SenderStatus& status);
 
     QtEventLoop& loop_;
     config::ConfigStore config_;
@@ -252,6 +256,7 @@ private:
     AppSettings settings_;
 
     QString programName_;
+    QString programPath_;
     std::string programText_;
     job::ProgramAnalysis analysis_;
     Toolpath toolpath_;

@@ -142,6 +142,10 @@ bool isLimitSwitchFaultAlarm(std::string_view alarmCode) {
     return code == 8 || code == 9;
 }
 
+bool isHomingRequiredAlarm(bool isAlarm, std::string_view code, bool grblHal) {
+    return isAlarm && (code == "Homing" || (grblHal && alarmNumber(code) == 11));
+}
+
 UnlockAction alarmButtonAction(std::string_view activeState, std::string_view alarmCode) {
     if (activeState == "Alarm") {
         const int code = alarmNumber(alarmCode);

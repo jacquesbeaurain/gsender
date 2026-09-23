@@ -3,6 +3,7 @@
 #include "qt_event_loop.hpp"
 
 #include "gs/calibration/calibration.hpp"
+#include "gs/config/history.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
 #include "gs/controller/spindle.hpp"
@@ -11,6 +12,7 @@
 #include "gs/sim/grbl_simulator.hpp"
 #include "gs/transport/asio_link.hpp"
 
+#include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
 #include <QMetaObject>
@@ -795,6 +797,7 @@ void Machine::handle(const controller::ControllerEvent& event) {
                            lastLine_ = status.finishTime != 0
                                            ? 1
                                            : std::max<std::int64_t>(status.currentLineRunning, 1);
+                           recordJob(status);
                        }
                        Q_EMIT workflowChanged();
                    },
@@ -816,6 +819,23 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    },
                    [this](const EstimateDataRequested&) { sendEstimates(); },
                    [this](const ErrorReported& e) {
+                       // The homing prompt on connecting is expected: neither
+                       // reported nor kept (the status area offers homing).
+                       if (isHomingRequiredAlarm(e.isAlarm, e.code, e.firmware == protocol::Firmware::GrblHal)) {
+                           return;
+                       }
+                       // updateAlarmsErrors()
+                       config::AlarmRecord record;
+                       record.alarm = e.isAlarm;
+                       record.code = e.code;
+                       record.message = e.description;
+                       record.source = e.origin;
+                       record.line = e.line;
+                       record.lineNumber = e.lineNumber;
+                       record.controller = std::string(protocol::firmwareName(e.firmware));
+                       record.time = QDateTime::currentMSecsSinceEpoch();
+                       config::AlarmHistory(config_).record(std::move(record));
+                       Q_EMIT historyChanged();
                        const QString title = e.isAlarm ? tr("Alarm %1").arg(QString::fromStdString(e.code))
                                                        : tr("Error %1").arg(QString::fromStdString(e.code));
                        QString detail = QString::fromStdString(e.description);
@@ -863,6 +883,32 @@ void Machine::handle(const controller::ControllerEvent& event) {
                event);
 }
 
+// ---- history ---------------------------------------------------------------------------
+
+void Machine::recordJob(const controller::SenderStatus& status) {
+    const controller::Controller* c = controller();
+    // The sender's times are the event loop's (monotonic); the records keep
+    // wall-clock dates.
+    const std::int64_t wallNow = QDateTime::currentMSecsSinceEpoch();
+    const std::int64_t loopNow = loop_.nowMs();
+    const auto wall = [&](std::int64_t t) { return wallNow - (loopNow - t); };
+    config::JobRecord job;
+    job.file = status.name;
+    job.path = programPath_.toStdString();
+    job.totalLines = status.total;
+    job.port = port_.toStdString();
+    job.controller = c ? std::string(protocol::firmwareName(c->firmware())) : std::string();
+    job.startTime = wall(status.startTime);
+    if (status.finishTime > 0) {
+        job.endTime = wall(status.finishTime);
+    }
+    job.duration = status.elapsedTime;
+    job.completed = status.finishTime > 0;
+    config::JobStatsStore(config_).record(std::move(job), status.timeRunning);
+    config::MaintenanceStore(config_).addRunTime(status.timeRunning);
+    Q_EMIT historyChanged();
+}
+
 // ---- program ---------------------------------------------------------------------------
 
 bool Machine::loadFile(const QString& path, QString* error) {
@@ -874,12 +920,14 @@ bool Machine::loadFile(const QString& path, QString* error) {
         return false;
     }
     const QByteArray bytes = file.readAll();
-    loadProgram(QFileInfo(path).fileName(), std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())));
+    loadProgram(QFileInfo(path).fileName(), std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
+                QFileInfo(path).absoluteFilePath());
     return true;
 }
 
-void Machine::loadProgram(const QString& name, std::string text) {
+void Machine::loadProgram(const QString& name, std::string text, const QString& path) {
     programName_ = name;
+    programPath_ = path;
     programText_ = std::move(text);
     analysis_ = {};
     toolpath_ = {};
