@@ -415,6 +415,127 @@ void Machine::goToZero(std::string_view axes) {
                  "G21");
 }
 
+std::array<double, 4> Machine::workPositionMm() const {
+    std::array<double, 4> out{};
+    if (const controller::Controller* c = controller()) {
+        const bool inches = c->runner().setting("$13") == "1";
+        for (std::size_t i = 0; i < 4; ++i) {
+            const double value = c->state().status.wpos.axis("xyza"[i]);
+            out[i] = inches && i < 3 ? units::in2mm(value) : value;
+        }
+    }
+    return out;
+}
+
+std::array<double, 4> Machine::machinePositionMm() const {
+    std::array<double, 4> out{};
+    if (const controller::Controller* c = controller()) {
+        const bool inches = c->runner().setting("$13") == "1";
+        for (std::size_t i = 0; i < 4; ++i) {
+            const double value = c->state().status.mpos.axis("xyza"[i]);
+            out[i] = inches && i < 3 ? units::in2mm(value) : value;
+        }
+    }
+    return out;
+}
+
+bool Machine::canMove() const {
+    controller::Controller* c = controller();
+    if (!c || c->workflow().isRunning()) {
+        return false;
+    }
+    const std::string& state = c->state().status.activeState;
+    return state == "Idle" || state == "Jog";
+}
+
+bool Machine::homingEnabled() const {
+    const controller::Controller* c = controller();
+    return c && js::stringToNumber(c->runner().setting("$22", "0")) > 0;
+}
+
+bool Machine::singleAxisHoming() const {
+    const controller::Controller* c = controller();
+    return c && controller::singleAxisHomingEnabled(c->runner().setting("$22", "0"));
+}
+
+void Machine::selectWorkspace(const QString& wcs) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(wcs.toStdString());
+    }
+}
+
+void Machine::setWorkPosition(char axis, double value) {
+    if (controller::Controller* c = controller()) {
+        c->gcodeSafe({controller::manualOffsetCommand(axis, value)}, settings_.metric ? "G21" : "G20");
+    }
+}
+
+void Machine::homeAxis(char axis) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(controller::homeAxisCommand(axis));
+    }
+}
+
+namespace {
+
+controller::LocationSettings locationSettings(const controller::Controller& c) {
+    const protocol::Runner& runner = c.runner();
+    return {runner.setting("$22"), runner.setting("$23"), runner.setting("$27"), runner.setting("$130"),
+            runner.setting("$131")};
+}
+
+}  // namespace
+
+void Machine::goToCorner(controller::MachineCorner corner) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    const controller::LocationSettings settings = locationSettings(*c);
+    const std::vector<std::string> gcode =
+        controller::cornerCommands(corner, settings, c->homingFlag(), settings.pullOffDistance(), c->isGrblHal());
+    if (gcode.empty()) {
+        Q_EMIT notice(tr("Unable to find machine limits - make sure they're set in preferences"));
+        return;
+    }
+    c->gcode(gcode);
+}
+
+void Machine::goToPark() {
+    if (controller::Controller* c = controller()) {
+        const toolchange::MachinePosition& park = settings_.park;
+        c->gcode(controller::parkCommands({park.x, park.y, park.z}, locationSettings(*c)));
+    }
+}
+
+void Machine::goToMachinePosition(const toolchange::MachinePosition& position) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(controller::locationCommands({position.x, position.y, position.z}, locationSettings(*c)));
+    }
+}
+
+void Machine::goToLocation(controller::GoToMode mode, double x, double y, double z, double a) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    controller::GoToLocation location;
+    location.mode = mode;
+    location.x = x;
+    location.y = y;
+    location.z = z;
+    location.a = a;
+    // A goes along on a grblHAL board that reports one (rotary mode is not ported).
+    location.aAvailable = c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos;
+    location.metric = settings_.metric;
+    location.homingEnabled = js::stringToNumber(c->runner().setting("$22", "0")) != 0;
+    location.safeRetractHeight = settings_.safeRetractHeight;
+    location.machineZ = machinePositionMm()[2];
+    const double workZ = workPositionMm()[2];
+    location.workZ = settings_.metric ? workZ : units::convertToImperial(workZ);
+    c->gcodeSafe(controller::goToLocationCommands(location), settings_.metric ? "G21" : "G20");
+}
+
 // ---- probing ----------------------------------------------------------------------------
 
 std::vector<std::string> Machine::probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,
@@ -501,6 +622,9 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    [this](const ConsoleOutput& e) { Q_EMIT consoleLine(QString::fromStdString(e.text), false); },
                    [this](const ConsoleInput& e) { Q_EMIT consoleLine(QString::fromStdString(e.text), true); },
                    [this](const StateChanged&) { Q_EMIT stateChanged(); },
+                   // The DRO's corner, park and MCS moves follow these.
+                   [this](const HasHomedChanged&) { Q_EMIT stateChanged(); },
+                   [this](const HomingFlagChanged&) { Q_EMIT stateChanged(); },
                    [this](const SettingsChanged&) { Q_EMIT settingsChanged(); },
                    [this](const WorkflowChanged& e) {
                        // A job ending: note where it got to before the sender

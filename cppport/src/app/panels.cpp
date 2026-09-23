@@ -6,8 +6,6 @@
 #include "start_from_line_dialog.hpp"
 
 #include "gs/controller/actions.hpp"
-#include "gs/protocol/runner.hpp"
-#include "gs/util/units.hpp"
 #include "gs/transport/port_list.hpp"
 
 #include <QButtonGroup>
@@ -34,8 +32,6 @@
 namespace gs::app {
 namespace {
 
-constexpr const char* kAxisNames[4] = {"X", "Y", "Z", "A"};
-
 QString duration(double seconds) {
     if (!std::isfinite(seconds) || seconds < 0) {
         seconds = 0;
@@ -46,16 +42,6 @@ QString duration(double seconds) {
     const long long s = total % 60;
     return h > 0 ? QString("%1:%2:%3").arg(h).arg(m, 2, 10, QChar('0')).arg(s, 2, 10, QChar('0'))
                  : QString("%1:%2").arg(m).arg(s, 2, 10, QChar('0'));
-}
-
-// Positions are reported in inches when $13=1; the panels show millimetres.
-double toMillimetres(const controller::Controller& c, double value) {
-    return c.settings().settings.get("$13") == "1" ? value * 25.4 : value;
-}
-
-bool workflowIdle(const Machine& machine) {
-    controller::Controller* c = machine.controller();
-    return c && c->workflow().isIdle();
 }
 
 }  // namespace
@@ -175,129 +161,6 @@ void ConnectionBar::updateState() {
                                                                  : "#555";
     }
     state_->setText(QString("<span style='color:%1; font-weight:600'>%2</span>").arg(color, text));
-}
-
-// ---- positions ------------------------------------------------------------------------
-
-PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
-    auto* box = new QGroupBox(tr("Position"));
-    auto* outer = new QVBoxLayout(this);
-    outer->setContentsMargins(0, 0, 0, 0);
-    outer->addWidget(box);
-    auto* layout = new QVBoxLayout(box);
-    auto* grid = new QGridLayout;
-    // The units badge: click to switch the workspace between mm and inches.
-    units_ = new QPushButton;
-    units_->setFlat(true);
-    units_->setToolTip(tr("Workspace units - click to switch"));
-    connect(units_, &QPushButton::clicked, this, [this] {
-        AppSettings settings = machine_.settings();
-        settings.metric = !settings.metric;
-        machine_.setSettings(settings);
-    });
-    connect(&machine_, &Machine::appSettingsChanged, this, &PositionPanel::refresh);
-    grid->addWidget(units_, 0, 0);
-    grid->addWidget(new QLabel(tr("Work")), 0, 1, Qt::AlignRight);
-    grid->addWidget(new QLabel(tr("Machine")), 0, 2, Qt::AlignRight);
-    QFont big = font();
-    big.setPointSizeF(big.pointSizeF() * 1.8);
-    big.setBold(true);
-    const QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    for (int i = 0; i < 4; ++i) {
-        auto* name = new QLabel(kAxisNames[i]);
-        name->setFont(big);
-        work_[i] = new QLabel("0.000");
-        work_[i]->setFont(big);
-        work_[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        work_[i]->setMinimumWidth(120);
-        machinePos_[i] = new QLabel("0.000");
-        machinePos_[i]->setFont(mono);
-        machinePos_[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        machinePos_[i]->setStyleSheet("color:#777");
-        zero_[i] = new QPushButton(tr("Zero %1").arg(kAxisNames[i]));
-        grid->addWidget(name, i + 1, 0);
-        if (i == 3) {
-            rowA_[3] = name;
-        }
-        grid->addWidget(work_[i], i + 1, 1);
-        grid->addWidget(machinePos_[i], i + 1, 2);
-        grid->addWidget(zero_[i], i + 1, 3);
-        connect(zero_[i], &QPushButton::clicked, this,
-                [this, i] { machine_.zeroAxis(kAxisNames[i][0]); });
-    }
-    rowA_[0] = work_[3];
-    rowA_[1] = machinePos_[3];
-    rowA_[2] = zero_[3];
-    layout->addLayout(grid);
-
-    auto* buttons = new QGridLayout;
-    const auto add = [&](const QString& text, int row, int column, auto action) {
-        auto* button = new QPushButton(text);
-        connect(button, &QPushButton::clicked, this, action);
-        buttons->addWidget(button, row, column);
-        actions_.append(button);
-        return button;
-    };
-    add(tr("Zero All"), 0, 0, [this] { machine_.zeroAllAxes(); });
-    add(tr("Go to XY Zero"), 0, 1, [this] { machine_.goToZero("XY"); });
-    add(tr("Home"), 1, 0, [this] {
-        if (auto* c = machine_.controller()) {
-            c->home();
-        }
-    });
-    add(tr("Unlock"), 1, 1, [this] {
-        if (auto* c = machine_.controller()) {
-            c->unlock();
-        }
-    });
-    auto* reset = add(tr("Reset"), 1, 2, [this] {
-        if (auto* c = machine_.controller()) {
-            c->reset();
-        }
-    });
-    reset->setToolTip(tr("Soft reset (Ctrl-X)"));
-    layout->addLayout(buttons);
-
-    connect(&machine_, &Machine::stateChanged, this, &PositionPanel::refresh);
-    connect(&machine_, &Machine::connectionChanged, this, &PositionPanel::refresh);
-    connect(&machine_, &Machine::workflowChanged, this, &PositionPanel::refresh);
-    refresh();
-}
-
-void PositionPanel::refresh() {
-    const controller::Controller* c = machine_.controller();
-    const bool idle = workflowIdle(machine_);
-    units_->setText(machine_.settings().metric ? tr("Units: mm") : tr("Units: in"));
-    for (QPushButton* button : actions_) {
-        button->setEnabled(c != nullptr && (idle || button->text() == tr("Reset") || button->text() == tr("Unlock")));
-    }
-    bool showA = false;
-    for (int i = 0; i < 4; ++i) {
-        zero_[i]->setEnabled(c != nullptr && idle);
-        if (!c) {
-            work_[i]->setText("-");
-            machinePos_[i]->setText("-");
-            continue;
-        }
-        const auto& status = c->state().status;
-        const char axis = "xyza"[i];
-        if (i == 3) {  // degrees, as reported
-            work_[i]->setText(QString::number(status.wpos.axis(axis), 'f', 3));
-            machinePos_[i]->setText(QString::number(status.mpos.axis(axis), 'f', 3));
-        } else {
-            const AppSettings& s = machine_.settings();
-            work_[i]->setText(QString::fromStdString(
-                units::positionText(toMillimetres(*c, status.wpos.axis(axis)), s.metric, s.customDecimalPlaces)));
-            machinePos_[i]->setText(QString::fromStdString(
-                units::positionText(toMillimetres(*c, status.mpos.axis(axis)), s.metric, s.customDecimalPlaces)));
-        }
-        if (i == 3) {
-            showA = status.mpos.count >= 4 || c->state().axes.letters.find('A') != std::string::npos;
-        }
-    }
-    for (QWidget* widget : rowA_) {
-        widget->setVisible(showA);
-    }
 }
 
 // ---- jogging ------------------------------------------------------------------------------

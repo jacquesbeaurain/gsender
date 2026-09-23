@@ -55,6 +55,10 @@ struct AppSettings {
     // Jogging and positioning
     JogSettings jog;
     double safeRetractHeight = 0;  // mm lifted before go-to-zero moves; 0: none
+    bool warnZero = false;         // workspace.shouldWarnZero: the zero buttons ask first
+    // The park position (workspace.park, machine coordinates, mm): the DRO's
+    // Park button goes there once the machine has homed.
+    toolchange::MachinePosition park;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

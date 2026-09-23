@@ -2,6 +2,7 @@
 // simulated board (real time, so kept short), and a main-window smoke test on
 // the offscreen platform.
 
+#include "dro_panel.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "main_window.hpp"
@@ -21,12 +22,16 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QPushButton>
 #include <QTableWidget>
+#include <QToolButton>
 #include <QDeadlineTimer>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <atomic>
+#include <cmath>
 #include <functional>
 #include <string>
 #include <thread>
@@ -506,6 +511,89 @@ TEST_F(AppTest, AnInchWorkspaceShowsAndJogsInInches) {
         const auto labels = panel.findChildren<QLabel*>();
         return std::any_of(labels.begin(), labels.end(), [](QLabel* l) { return l->text() == "0.197"; });
     }));
+}
+
+TEST_F(AppTest, TheDroSelectsWorkspacesAndGoesToPlaces) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.park = {-100, -200, -10};
+    machine.setSettings(settings);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+    controller::Controller& c = *machine.controller();
+    // Positions as the controller last heard them (what the DRO shows).
+    const auto near = [&](const std::array<double, 4>& p, double x, double y, double z) {
+        return c.state().status.activeState == "Idle" && std::fabs(p[0] - x) < 1e-6 && std::fabs(p[1] - y) < 1e-6 &&
+               std::fabs(p[2] - z) < 1e-6;
+    };
+    const auto machineAt = [&](double x, double y, double z) { return near(machine.machinePositionMm(), x, y, z); };
+    const auto workAt = [&](double x, double y, double z) { return near(machine.workPositionMm(), x, y, z); };
+    PositionPanel panel(machine);
+
+    // G55, and a typed work position in it.
+    machine.selectWorkspace("G55");
+    ASSERT_TRUE(waitFor([&] { return c.runner().modal().wcs == "G55"; }));
+    panel.enterWorkPosition(0, "12.5");
+    ASSERT_TRUE(waitFor([&] { return workAt(12.5, 0, 0); }));
+    panel.enterWorkPosition(1, "");  // ignored
+    EXPECT_EQ(machine.workPositionMm()[1], 0);
+
+    // The corners and park appear with homing enabled, and work once homed:
+    // the board homes back right, so the far corner is max travel less the
+    // pull-off away, below the top of Z by the pull-off.
+    const auto corners = panel.findChildren<QToolButton*>();
+    ASSERT_EQ(corners.size(), 4);
+    EXPECT_TRUE(corners[0]->isVisibleTo(&panel));
+    EXPECT_FALSE(corners[0]->isEnabled());
+    c.home();
+    ASSERT_TRUE(waitFor([&] { return c.hasHomed() && machineAt(0, 0, 0); }));
+    ASSERT_TRUE(waitFor([&] { return corners[2]->isEnabled(); }));
+    corners[2]->click();  // front left
+    ASSERT_TRUE(waitFor([&] { return machineAt(-799, -799, -1); }));
+    machine.goToPark();
+    ASSERT_TRUE(waitFor([&] { return machineAt(-100, -200, -10); }));
+
+    // Go To Location: absolute and incremental work coordinates, then
+    // machine coordinates (which leave Z where it is).
+    GoToDialog goTo(machine);
+    goTo.setMode(controller::GoToMode::Absolute);
+    EXPECT_EQ(goTo.value(1), -200);  // filled with the work position
+    goTo.setTarget(10, 20, -5, 0);
+    goTo.go();
+    ASSERT_TRUE(waitFor([&] { return workAt(10, 20, -5); }));
+    goTo.setMode(controller::GoToMode::Incremental);
+    EXPECT_EQ(goTo.value(0), 0);
+    goTo.setTarget(1, 2, 0, 0);
+    goTo.go();
+    ASSERT_TRUE(waitFor([&] { return workAt(11, 22, -5); }));
+    goTo.setMode(controller::GoToMode::Machine);
+    ASSERT_EQ(goTo.mode(), controller::GoToMode::Machine);
+    goTo.setTarget(-50, -60, 0, 0);
+    goTo.go();
+    // Z stays (G55 has no Z offset).
+    ASSERT_TRUE(waitFor([&] { return machineAt(-50, -60, -5); }));
+
+    // Single-axis homing ($22 bit 1): the axis buttons turn into "HX"...
+    machine.sendConsoleLine("$22=3");
+    machine.sendConsoleLine("$$");
+    ASSERT_TRUE(waitFor([&] { return machine.singleAxisHoming(); }));
+    panel.setHomingMode(true);
+    QPushButton* homeX = nullptr;
+    for (QPushButton* button : panel.findChildren<QPushButton*>()) {
+        if (button->text() == "HX") {
+            homeX = button;
+        }
+    }
+    ASSERT_NE(homeX, nullptr);
+    ASSERT_TRUE(waitFor([&] { return homeX->isEnabled(); }));
+    homeX->click();
+    ASSERT_TRUE(waitFor([&] { return machineAt(0, -60, -5); }));
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

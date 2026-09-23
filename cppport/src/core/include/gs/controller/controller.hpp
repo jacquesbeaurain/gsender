@@ -127,6 +127,7 @@ public:
     const expr::Value& sharedContext() const noexcept { return sharedContext_; }
 
     protocol::Runner& runner() noexcept { return runner_; }
+    const protocol::Runner& runner() const noexcept { return runner_; }
     Sender& sender() noexcept { return *sender_; }
     Feeder& feeder() noexcept { return *feeder_; }
     Workflow& workflow() noexcept { return workflow_; }

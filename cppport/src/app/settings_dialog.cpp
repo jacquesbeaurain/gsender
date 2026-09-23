@@ -194,6 +194,28 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     decimals_->setRange(0, 5);
     decimals_->setSpecialValueText(tr("Default"));
     decimals_->setToolTip(tr("Decimal places of the position display (default: 2 in mm, 3 in inches)"));
+    // Machine positions, with a button to take the current one.
+    const auto positionRow = [this](QDoubleSpinBox* (&boxes)[3]) {
+        auto* row = new QHBoxLayout;
+        for (int i = 0; i < 3; ++i) {
+            boxes[i] = new QDoubleSpinBox;
+            boxes[i]->setRange(-10000, 10000);
+            boxes[i]->setDecimals(3);
+            boxes[i]->setPrefix(QString("XYZ"[i]) + " ");
+            row->addWidget(boxes[i]);
+        }
+        auto* here = new QPushButton(tr("Use current"));
+        here->setToolTip(tr("The machine position now"));
+        connect(here, &QPushButton::clicked, this, [this, &boxes] {
+            if (controller::Controller* c = machine_.controller()) {
+                for (std::size_t i = 0; i < 3; ++i) {
+                    boxes[i]->setValue(c->runner().machinePosition()[i]);
+                }
+            }
+        });
+        row->addWidget(here);
+        return row;
+    };
     generalForm->addRow(tr("Units"), units_);
     generalForm->addRow(tr("Position decimals"), decimals_);
     generalForm->addRow(tr("Spindle delay"), spindleDelay_);
@@ -208,6 +230,20 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     safeRetract_->setSpecialValueText(tr("None"));
     safeRetract_->setToolTip(tr("Z lifts this far before go-to-zero moves (machine Z with homing)"));
     generalForm->addRow(tr("Safe retract height"), safeRetract_);
+    warnZero_ = new QCheckBox(tr("Warn when setting zero"));
+    warnZero_->setToolTip(tr("The zero buttons ask first - useful if you tend to set zero accidentally"));
+    generalForm->addRow(QString(), warnZero_);
+    // The DRO's Park button (homing enabled, machine homed).
+    QHBoxLayout* parkRow = positionRow(park_);
+    auto* parkGo = new QPushButton(tr("Go to"));
+    parkGo->setToolTip(tr("Move there now: up to the top of Z, over, then down (machine coordinates)"));
+    connect(parkGo, &QPushButton::clicked, this, [this] {
+        if (machine_.canMove()) {
+            machine_.goToMachinePosition({park_[0]->value(), park_[1]->value(), park_[2]->value()});
+        }
+    });
+    parkRow->addWidget(parkGo);
+    generalForm->addRow(tr("Park location (mm)"), parkRow);
     outlineMode_ = new QComboBox;
     for (const job::OutlineMode mode :
          {job::OutlineMode::Detailed, job::OutlineMode::Square, job::OutlineMode::RapidlessSquare}) {
@@ -249,28 +285,7 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     toolForm->addRow(tr("Before change"), preHook_);
     toolForm->addRow(tr("After change"), postHook_);
 
-    // Fixed Tool Sensor: machine positions, with a button to take the current one.
-    const auto positionRow = [this](QDoubleSpinBox* (&boxes)[3]) {
-        auto* row = new QHBoxLayout;
-        for (int i = 0; i < 3; ++i) {
-            boxes[i] = new QDoubleSpinBox;
-            boxes[i]->setRange(-10000, 10000);
-            boxes[i]->setDecimals(3);
-            boxes[i]->setPrefix(QString("XYZ"[i]) + " ");
-            row->addWidget(boxes[i]);
-        }
-        auto* here = new QPushButton(tr("Use current"));
-        here->setToolTip(tr("The machine position now"));
-        connect(here, &QPushButton::clicked, this, [this, &boxes] {
-            if (controller::Controller* c = machine_.controller()) {
-                for (std::size_t i = 0; i < 3; ++i) {
-                    boxes[i]->setValue(c->runner().machinePosition()[i]);
-                }
-            }
-        });
-        row->addWidget(here);
-        return row;
-    };
+    // Fixed Tool Sensor: machine positions.
     toolForm->addRow(tr("Fixed sensor location"), positionRow(sensor_));
     firstTool_ = new QComboBox;
     for (const char* behaviour : toolchange::kFirstToolBehaviours) {
@@ -368,6 +383,11 @@ void SettingsDialog::load() {
     units_->setCurrentIndex(s.metric ? 0 : 1);
     decimals_->setValue(s.customDecimalPlaces);
     safeRetract_->setValue(s.safeRetractHeight);
+    warnZero_->setChecked(s.warnZero);
+    const double park[3] = {s.park.x, s.park.y, s.park.z};
+    for (int i = 0; i < 3; ++i) {
+        park_[i]->setValue(park[i]);
+    }
     outlineMode_->setCurrentText(QString::fromUtf8(job::outlineModeName(s.outlineMode).data()));
     outlineSpeed_->setValue(s.outlineSpeed);
     const int option = toolChange_->findText(QString::fromStdString(s.toolChange.option));
@@ -416,6 +436,8 @@ void SettingsDialog::save() {
     s.metric = units_->currentIndex() == 0;
     s.customDecimalPlaces = decimals_->value();
     s.safeRetractHeight = safeRetract_->value();
+    s.warnZero = warnZero_->isChecked();
+    s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();
     s.toolChange.option = toolChange_->currentText().toStdString();

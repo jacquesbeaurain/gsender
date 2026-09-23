@@ -5,6 +5,8 @@ add_library(gs_app STATIC
     app_settings.hpp
     controls.cpp
     controls.hpp
+    dro_panel.cpp
+    dro_panel.hpp
     machine.cpp
     machine.hpp
     jogger.cpp

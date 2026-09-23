@@ -27,7 +27,7 @@ const QString kProbing = QStringLiteral("Probing");
 }  // namespace
 
 const std::vector<ShortcutAction>& shortcutActions() {
-    // Upstream's defaults: workspace/index.tsx, DRO, JobControl, FileControl,
+    // Upstream's defaults: workspace/index.tsx, DRO (and its Parking), JobControl, FileControl,
     // Jogging (and its SpeedSelector), Visualizer, Probe.
     static const std::vector<ShortcutAction> actions{
         {"CONTROLLER_COMMAND_UNLOCK", "Unlock", kGeneral, "$"},
@@ -48,6 +48,11 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"GO_TO_Y_AXIS_ZERO", "Go to Y zero", kLocation, "Shift+D"},
         {"GO_TO_Z_AXIS_ZERO", "Go to Z zero", kLocation, "Shift+F"},
         {"GO_TO_XY_AXIS_ZERO", "Go to XY zero", kLocation, "Shift+A"},
+        {"HOMING_GO_TO_BACK_LEFT_CORNER", "Go to Back Left corner", kLocation, ""},
+        {"HOMING_GO_TO_BACK_RIGHT_CORNER", "Go to Back Right corner", kLocation, ""},
+        {"HOMING_GO_TO_FRONT_LEFT_CORNER", "Go to Front Left corner", kLocation, ""},
+        {"HOMING_GO_TO_FRONT_RIGHT_CORNER", "Go to Front Right corner", kLocation, ""},
+        {"HOMING_PARK", "Park", kLocation, ""},
         {"START_JOB", "Start job", kCarving, "~"},
         {"PAUSE_JOB", "Pause job", kCarving, "!"},
         {"STOP_JOB", "Global Stop", kCarving, "@"},
