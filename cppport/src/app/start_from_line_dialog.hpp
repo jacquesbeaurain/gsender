@@ -20,7 +20,7 @@ public:
 
     int line() const;
     void setLine(int line);
-    double safeHeight() const;  // mm
+    double safeHeight() const;  // mm (entered in the workspace units)
     // Starts the job; false (and stays open) when the machine cannot.
     bool start();
 

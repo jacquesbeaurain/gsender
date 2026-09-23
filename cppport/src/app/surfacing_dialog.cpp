@@ -137,7 +137,17 @@ SurfacingDialog::SurfacingDialog(Machine& machine, QWidget* parent) : QDialog(pa
     connect(&machine_, &Machine::stateChanged, this, &SurfacingDialog::refresh);
     connect(&machine_, &Machine::connectionChanged, this, &SurfacingDialog::refresh);
 
-    setOptions(machine_.settings().surfacing);
+    const bool metric = machine_.settings().metric;
+    const QString length = metric ? " mm" : " in";
+    for (QDoubleSpinBox* box : {width_, length_, skimDepth_, maxDepth_, bitDiameter_}) {
+        box->setMinimum(0.001);
+        box->setDecimals(3);
+        box->setSuffix(length);
+    }
+    feedrate_->setSuffix(metric ? " mm/min" : " in/min");
+    feedrate_->setDecimals(metric ? 0 : 2);
+    const surfacing::Options& stored = machine_.settings().surfacing;
+    setOptions(metric ? stored : surfacing::toImperial(stored));
     refresh();
 }
 
@@ -184,9 +194,11 @@ void SurfacingDialog::setOptions(const surfacing::Options& o) {
 
 void SurfacingDialog::refresh() {
     const bool tooDeep = skimDepth_->value() > maxDepth_->value();
-    depthWarning_->setText(tooDeep ? tr("The cut depth (%1 mm) exceeds the max depth (%2 mm).")
+    const QString unit = machine_.settings().metric ? "mm" : "in";
+    depthWarning_->setText(tooDeep ? tr("The cut depth (%1 %3) exceeds the max depth (%2 %3).")
                                          .arg(skimDepth_->value())
                                          .arg(maxDepth_->value())
+                                         .arg(unit)
                                    : QString());
     depthWarning_->setVisible(tooDeep);
     const bool free = machineFree(machine_);
@@ -199,7 +211,7 @@ void SurfacingDialog::generate() {
         return;
     }
     save();
-    const std::string text = surfacing::generate(options(), true);
+    const std::string text = surfacing::generate(options(), machine_.settings().metric);
     program_ = QString::fromStdString(text);
     gcode_->setPlainText(program_);
     views_->setTabText(1, tr("G-code (%1 lines)").arg(program_.count('\n') + 1));
@@ -217,7 +229,7 @@ bool SurfacingDialog::loadIntoMachine() {
 
 void SurfacingDialog::save() {
     AppSettings settings = machine_.settings();
-    settings.surfacing = options();
+    settings.surfacing = settings.metric ? options() : surfacing::toMetric(options());
     machine_.setSettings(settings);
 }
 

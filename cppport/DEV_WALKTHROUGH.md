@@ -669,3 +669,29 @@ above the machine Z less 1 mm - which at machine Z 0 is -1, a dip of 1 mm and
 a final invalid `Z--1` (kept, see the tests). The file context (the
 toolpath's box, as the visualizer sets `controller.context`) now also goes to
 macros, so `[xmin]`... work in them as upstream.
+
+## Step 27 — Inch workspaces (`gs/util/units`)
+
+gSender stores lengths in mm and shows an inch workspace converted, with
+its own rounding in each place; `gs/util/units` ports those rules once
+(`convertToImperial` 3 decimals, `convertToMetric` 2, the jogging widget's
+`convertValue` multiplying by 1/25.4, and `mapPositionToUnits`: the DRO shows
+mm with 2 decimals - a negative zero as 0.00 - and inches with 3, keeping
+"-0.000" as upstream does; a custom number of decimals overrides both).
+Probing and surfacing now share them.
+
+The workspace units (`app.units`, "mm"/"in", and the position decimals)
+switch from the DRO's units badge or the General settings, and:
+
+- the DRO converts (A stays in degrees);
+- the jog presets (stored in mm) are shown converted, step jogs are sent
+  in G20 (`$J=G20 G91 X0.197 F118.11`) and continuous jogs in inches;
+- the Probe widget offers the inch tool diameters and builds its options
+  with the imperial conversions (`makeProbingOptions`), the simulated plate
+  converting the diameter back to mm;
+- the Surfacing dialog edits the converted values, writes a G20 program and
+  stores mm again;
+- Start From Line takes the safe height in inches (default 0.4 in).
+
+The settings dialog's probe values, the outline speed and the visualizer
+stay in mm for now.

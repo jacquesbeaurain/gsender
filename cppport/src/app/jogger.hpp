@@ -24,7 +24,10 @@ public:
     // Selecting a preset (again) loads its speeds from the settings.
     void selectPreset(controller::JogPreset preset);
     void cyclePreset();
+    // In the workspace units: inch workspaces see the stored mm presets
+    // converted (updateCurrentJogValues) and jog with G20.
     const controller::JogSpeeds& speeds() const noexcept { return speeds_; }
+    bool metric() const noexcept { return metric_; }
     // Edited speeds, in use until a preset is selected.
     void setSpeeds(const controller::JogSpeeds& speeds);
 
@@ -41,6 +44,7 @@ Q_SIGNALS:
 
 private:
     void rebuildHelper();
+    controller::JogSpeeds presetSpeeds(controller::JogPreset preset) const;
     void stepJog(const controller::JogAxes& distances, double feedrate);
     void startContinuous(const controller::JogAxes& distances, double feedrate);
     void stopContinuous();
@@ -49,6 +53,7 @@ private:
     controller::JogPreset preset_ = controller::JogPreset::Normal;
     controller::JogSpeeds speeds_;
     int threshold_ = 0;
+    bool metric_ = true;
     std::unique_ptr<controller::JogHelper> helper_;
 };
 

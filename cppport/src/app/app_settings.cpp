@@ -181,6 +181,8 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
         settings.jog.threshold = static_cast<int>(number(j, "threshold", settings.jog.threshold));
         settings.jog.preventJoggingPastLimits = flag(j, "preventJoggingPastLimits", false);
     }
+    settings.metric = text(root, "units", "mm") != "in";
+    settings.customDecimalPlaces = static_cast<int>(number(root, "customDecimalPlaces", 0));
     settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
     settings.outlineSpeed = number(root, "outlineSpeed", 0);
@@ -235,6 +237,8 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"probe", saveProbe(settings.probe)},
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"jog", jogObject(settings.jog)},
+                         {"units", settings.metric ? "mm" : "in"},
+                         {"customDecimalPlaces", settings.customDecimalPlaces},
                          {"safeRetractHeight", settings.safeRetractHeight},
                          {"outlineMode", job::outlineModeName(settings.outlineMode)},
                          {"outlineSpeed", settings.outlineSpeed},

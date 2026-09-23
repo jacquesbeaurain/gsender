@@ -2,16 +2,23 @@
 
 #include "machine.hpp"
 
+#include "gs/util/units.hpp"
+
 #include <cctype>
 
 namespace gs::app {
 
 Jogger::Jogger(Machine& machine, QObject* parent) : QObject(parent), machine_(machine) {
-    speeds_ = machine_.settings().jog.speeds(preset_);
+    metric_ = machine_.settings().metric;
+    speeds_ = presetSpeeds(preset_);
     rebuildHelper();
     connect(&machine_, &Machine::appSettingsChanged, this, [this] {
         if (machine_.settings().jog.threshold != threshold_) {
             rebuildHelper();
+        }
+        if (machine_.settings().metric != metric_) {
+            metric_ = machine_.settings().metric;
+            selectPreset(preset_);  // the preset again, in the new units
         }
     });
     // Never leave a continuous jog running when the connection goes.
@@ -39,9 +46,19 @@ void Jogger::rebuildHelper() {
         threshold_);
 }
 
+controller::JogSpeeds Jogger::presetSpeeds(controller::JogPreset preset) const {
+    controller::JogSpeeds speeds = machine_.settings().jog.speeds(preset);
+    if (!metric_) {
+        speeds.xyStep = units::convertValue(speeds.xyStep, true, false);
+        speeds.zStep = units::convertValue(speeds.zStep, true, false);
+        speeds.feedrate = units::convertValue(speeds.feedrate, true, false);
+    }
+    return speeds;
+}
+
 void Jogger::selectPreset(controller::JogPreset preset) {
     preset_ = preset;
-    speeds_ = machine_.settings().jog.speeds(preset);
+    speeds_ = presetSpeeds(preset);
     Q_EMIT changed();
 }
 
@@ -92,7 +109,7 @@ void Jogger::stepJog(const controller::JogAxes& distances, double feedrate) {
     const auto allowed = controller::filterAxesForLimits(distances, c->state().status.pinState,
                                                          machine_.settings().jog.preventJoggingPastLimits);
     if (allowed) {
-        c->gcode(controller::jogCommand(*allowed, feedrate, true));
+        c->gcode(controller::jogCommand(*allowed, feedrate, metric_));
     }
 }
 
@@ -119,7 +136,7 @@ void Jogger::startContinuous(const controller::JogAxes& distances, double feedra
             }
         }
     }
-    c->jogStart(direction, feedrate, controller::JogUnits::Millimetres);
+    c->jogStart(direction, feedrate, metric_ ? controller::JogUnits::Millimetres : controller::JogUnits::Inches);
 }
 
 void Jogger::stopContinuous() {

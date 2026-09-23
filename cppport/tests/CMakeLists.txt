@@ -4,6 +4,7 @@
 add_executable(gs_core_tests
     core/test_jsnumber.cpp
     core/test_strings.cpp
+    core/test_units.cpp
     core/test_gcode_parser.cpp
     core/test_gcode_interpreter.cpp
     core/test_expression.cpp
