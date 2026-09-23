@@ -54,6 +54,7 @@ public:
     double toolDiameter() const;  // mm; 0 for Auto and Tip
     int corner() const;
     void selectCommand(int index);
+    void stepCommand(int delta);  // the routine scroll shortcuts, wrapping
 
     // "Probe": the run dialog (non-modal, deleted on close).
     class RunProbeDialog* openRunDialog();

@@ -88,6 +88,14 @@ public:
     const AppSettings& settings() const noexcept { return settings_; }
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
+    runtime::EventLoop& eventLoop() noexcept;  // the UI thread's
+
+    // ---- positions (DRO) ----
+    void zeroAxis(char axis);  // work zero here, "G10 L20 P0 X0"
+    void zeroAllAxes();        // X, Y, Z (and A on grblHAL)
+    // gotoZero / goXYAxes: `axes` "X", "Y", "Z", "A" or "XY", lifting to the
+    // safe retract height first when one is set; gcode:safe in mm.
+    void goToZero(std::string_view axes);
 
     // ---- probing ----
     // The Probe widget's routine: the probe settings, the board's $13, $22

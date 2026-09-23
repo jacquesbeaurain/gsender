@@ -573,3 +573,44 @@ values from `app.surfacing`, stored in mm), a plan-view preview
 (`ToolpathPreview`, fed by `traceToolpath`) and the G-code with its line
 count. "Load as Job" makes it the job as `gSender_Surfacing.gcode`; as
 upstream, both actions are disabled unless the machine is idle or jogging.
+
+## Step 24 — Jogging presets and keyboard shortcuts
+
+The widget logic that buttons and shortcuts share moved into the core, where
+it is testable with simulated time:
+
+- `gs/controller/jogging`: upstream's step-jog command
+  (`$J=G21 G91 X5 F3000` - the old panel sent `$J=G21G91X10F3000`), the
+  prevent-jogging-past-limits filter (X-, Y-, A- and Z+ blocked while their
+  switch is triggered), the Rapid/Normal/Precise presets (20/10 mm at 5000,
+  5/2 mm at 3000, 0.5/0.1 mm at 1000 mm/min) and `JogHelper`: released within
+  the threshold (250 ms) a key or button steps; held, it starts a continuous
+  jog that stops on release; auto-repeat is ignored; upstream's throttles
+  (150 ms, threshold - 25 ms) are kept.
+- `gs/controller/actions`: the job control rules (`canRun` idle/hold/check
+  and not running, `canPause` running and moving, `canStop` running or
+  paused; run resumes a paused or held job, stop leaves check mode, the Stop
+  shortcut without a job cancels a jog or resets), zeroing, go-to-zero with
+  the safe retract height (machine Z with homing, relative lift otherwise,
+  via `gcode:safe` in mm) and the workspace controller shortcuts with
+  upstream's state gating. Upstream quirk kept: in an alarm other than 1 or
+  2, every allowed controller shortcut (reset, homing) just unlocks.
+
+In the application a `Jogger` owns the presets and the helper; the Jog tab
+(preset buttons, XY/Z steps, speed, tap/hold buttons) and the shortcuts use
+it. `ShortcutManager` holds gSender's action table - command ids, titles,
+categories and default keys (`~`/`!`/`@` start/pause/stop, Shift+arrows and
+Shift+PgUp/PgDn jog, Shift+W/E/R zero, Shift+S/D/F/A go to zero, Shift+V/C/X/Z
+presets, Shift+B/N/P/O/I view, `^` toggles all) - with the user's changes
+from `app.shortcuts`, and an application event filter: shortcuts run while
+the main window is active and the focus is not in a text field (Mousetrap's
+rule); symbols bind without Shift as Mousetrap binds characters; jog keys
+jog while held and stop on release or when the window loses focus.
+Tools > Keyboard Shortcuts edits keys (one chord, conflicts refused) and
+on/off states, and stores only what differs from the defaults. The
+visualizer gained Front/Right/Left views, view cycling and zoom for the
+shortcuts.
+
+Not ported yet: macro shortcuts, gamepads, the Toggle Rotary Mode and
+Lightweight Mode shortcuts (no rotary mode or lightweight view yet), the
+go-to-corner shortcuts, and editing the presets outside the Jog tab.

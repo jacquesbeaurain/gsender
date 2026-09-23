@@ -1,0 +1,55 @@
+#pragma once
+
+// The jog speed presets and tap/hold jogging shared by the jog buttons and
+// the keyboard shortcuts (gSender's Jogging widget state).
+
+#include "gs/controller/jogging.hpp"
+
+#include <QObject>
+
+#include <memory>
+
+namespace gs::app {
+
+class Machine;
+
+class Jogger final : public QObject {
+    Q_OBJECT
+
+public:
+    explicit Jogger(Machine& machine, QObject* parent = nullptr);
+    ~Jogger() override;
+
+    controller::JogPreset preset() const noexcept { return preset_; }
+    // Selecting a preset (again) loads its speeds from the settings.
+    void selectPreset(controller::JogPreset preset);
+    void cyclePreset();
+    const controller::JogSpeeds& speeds() const noexcept { return speeds_; }
+    // Edited speeds, in use until a preset is selected.
+    void setSpeeds(const controller::JogSpeeds& speeds);
+
+    // Tap/hold jogging along `directions` (axis letter -> +1 or -1); the
+    // distances come from the speeds (X and Y xyStep, Z zStep, A aStep).
+    void press(const controller::JogAxes& directions);
+    void release();
+    bool isPressed() const;
+    // canClickShortcut(): connected, no job running, idle or jogging.
+    bool canJog() const;
+
+Q_SIGNALS:
+    void changed();
+
+private:
+    void rebuildHelper();
+    void stepJog(const controller::JogAxes& distances, double feedrate);
+    void startContinuous(const controller::JogAxes& distances, double feedrate);
+    void stopContinuous();
+
+    Machine& machine_;
+    controller::JogPreset preset_ = controller::JogPreset::Normal;
+    controller::JogSpeeds speeds_;
+    int threshold_ = 0;
+    std::unique_ptr<controller::JogHelper> helper_;
+};
+
+}  // namespace gs::app

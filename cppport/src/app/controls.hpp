@@ -23,6 +23,11 @@ class SpindlePanel final : public QWidget {
 public:
     explicit SpindlePanel(Machine& machine, QWidget* parent = nullptr);
 
+    // The spindle shortcuts (CW / CCW / Stop): M3 or M4 at the set speed, M5.
+    void startClockwise();
+    void startCounterClockwise();
+    void stopSpindle();
+
 private:
     void command(const QString& gcode);
     void refresh();

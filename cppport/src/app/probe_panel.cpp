@@ -240,6 +240,11 @@ void ProbePanel::selectCommand(int index) {
     refresh();
 }
 
+void ProbePanel::stepCommand(int delta) {
+    const int count = static_cast<int>(available_.size());
+    selectCommand(((selected_ + delta) % count + count) % count);
+}
+
 probe::ProbeType ProbePanel::probeType() const {
     if (machine_.settings().probe.plateType == probe::PlateType::AutoZero) {
         if (const auto type = probe::probeTypeFromName(tool_->currentText().trimmed().toStdString())) {

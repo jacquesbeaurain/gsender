@@ -27,9 +27,15 @@ class ToolpathView final : public QWidget {
 public:
     explicit ToolpathView(Machine& machine, QWidget* parent = nullptr);
 
-    void setTopView();
-    void set3dView();
+    // The visualizer's camera presets; each also fits the program.
+    enum class View { Iso, Top, Front, Right, Left };
+    void setView(View view);
+    View view() const noexcept { return view_; }
+    void cycleView();  // 3D, Top, Front, Right, Left, as upstream's shortcut
+    void setTopView() { setView(View::Top); }
+    void set3dView() { setView(View::Iso); }
     void fit();
+    void zoom(double factor);  // about the middle of the view
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -51,6 +57,7 @@ private:
     Machine& machine_;
     // Camera: rotation about Z (yaw) then tilt towards the viewer (pitch),
     // orthographic, `scale_` pixels per millimetre, centred on `target_`.
+    View view_ = View::Top;
     double yaw_ = 0;
     double pitch_ = 0;
     double scale_ = 4;
