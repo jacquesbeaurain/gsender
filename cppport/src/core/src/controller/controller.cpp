@@ -228,14 +228,14 @@ Controller::~Controller() {
     }
 }
 
-void Controller::emit(ControllerEvent event) const {
+void Controller::report(ControllerEvent event) const {
     if (sink_) {
         sink_(event);
     }
 }
 
 void Controller::emitState(std::optional<std::string> tool) {
-    emit(StateChanged{firmware_, runner_.state(), std::move(tool)});
+    report(StateChanged{firmware_, runner_.state(), std::move(tool)});
 }
 
 Preferences Controller::preferences() const {
@@ -268,7 +268,7 @@ void Controller::wireStreaming() {
         if (line.empty()) {
             return;
         }
-        emit(ConsoleInput{line + "\n", WriteSource::Feeder});
+        report(ConsoleInput{line + "\n", WriteSource::Feeder});
         write(line + "\n");
     };
     sender_->onStart = [this](std::int64_t) { senderFinishTime_ = 0; };
@@ -280,10 +280,10 @@ void Controller::wireStreaming() {
             workflow_.stopTesting();
             gcode("$C");
             timers_.timeout(200, [this] { gcode("[global.state.testWCS]"); });
-            emit(CheckModeFinished{sender_->status()});
+            report(CheckModeFinished{sender_->status()});
         }
     };
-    sender_->onRequestData = [this] { emit(EstimateDataRequested{}); };
+    sender_->onRequestData = [this] { report(EstimateDataRequested{}); };
 
     feeder_->onData = [this](const std::string& raw, const expr::Value&) {
         if (!isOpen()) {
@@ -293,7 +293,7 @@ void Controller::wireStreaming() {
         if (line.empty()) {
             return;
         }
-        emit(ConsoleInput{line + "\n", WriteSource::Feeder});
+        report(ConsoleInput{line + "\n", WriteSource::Feeder});
         // Grbl writes straight to the connection; grblHAL goes through write(),
         // which also arms the reply-echo flags.
         if (isGrbl()) {
@@ -305,25 +305,25 @@ void Controller::wireStreaming() {
     feeder_->onComplete = [this] { consumeFeederCallback(); };
 
     workflow_.onStart = [this] {
-        emit(WorkflowChanged{workflow_.state(), std::nullopt});
+        report(WorkflowChanged{workflow_.state(), std::nullopt});
         jogStreamer_->abort("workflow");
         sender_->rewind();
         sender_->resumeCountdown();
     };
     workflow_.onStop = [this] {
-        emit(WorkflowChanged{workflow_.state(), std::nullopt});
+        report(WorkflowChanged{workflow_.state(), std::nullopt});
         feeder_->reset();
         sender_->rewind();
         sender_->stopCountdown();
     };
     workflow_.onPause = [this](const std::optional<HoldReason>& reason) {
-        emit(WorkflowChanged{workflow_.state(), std::nullopt});
+        report(WorkflowChanged{workflow_.state(), std::nullopt});
         jogStreamer_->abort("workflow");
         sender_->hold(reason);
         timePaused_ = loop_.nowMs();
     };
     workflow_.onResume = [this] {
-        emit(WorkflowChanged{workflow_.state(), std::nullopt});
+        report(WorkflowChanged{workflow_.state(), std::nullopt});
         const std::int64_t pauseTime = loop_.nowMs() - timePaused_;
         // grblHAL: a job paused by an error left the feeder holding.
         if (isGrblHal() && feeder_->isHeld()) {
@@ -370,10 +370,10 @@ void Controller::wireJogStreamer() {
     // One console line for the whole jog, written as the server.
     jogStreamer_->onStart = [this](const std::string& summary) {
         jogAnnounced_ = true;
-        emit(ConsoleInput{summary + "\n", WriteSource::Server});
+        report(ConsoleInput{summary + "\n", WriteSource::Server});
     };
     jogStreamer_->onFeedrate = [this](const std::string& summary) {
-        emit(ConsoleInput{summary + "\n", WriteSource::Server});
+        report(ConsoleInput{summary + "\n", WriteSource::Server});
     };
     // stop() drains and abort() can still fire mid-drain: announce the end once.
     const auto announceStopped = [this](std::string_view reason) {
@@ -382,7 +382,7 @@ void Controller::wireJogStreamer() {
         }
         jogAnnounced_ = false;
         const std::optional<std::string> why = describeJogStopReason(reason);
-        emit(ConsoleInput{"Stopped jogging" + (why ? " - " + *why : std::string()) + "\n", WriteSource::Server});
+        report(ConsoleInput{"Stopped jogging" + (why ? " - " + *why : std::string()) + "\n", WriteSource::Server});
     };
     jogStreamer_->onStop = [announceStopped] { announceStopped({}); };
     jogStreamer_->onAbort = [this, announceStopped](const std::string& reason) {
@@ -430,10 +430,10 @@ void Controller::close() {
         resetAxsProbe();
         if (hasHomedSet_) {
             hasHomedSet_ = false;
-            emit(HasHomedChanged{false});
+            report(HasHomedChanged{false});
         }
     }
-    emit(ControllerClosed{sender_->currentLineRunning()});
+    report(ControllerClosed{sender_->currentLineRunning()});
 }
 
 void Controller::receiveLine(std::string_view line) {
@@ -467,67 +467,67 @@ void Controller::handle(const protocol::RunnerEvent& event) {
                 if (isGrblHal()) {
                     onStartup(raw, event.semver);  // [VER:] is grblHAL's startup
                 } else {
-                    emit(ConsoleOutput{raw});
+                    report(ConsoleOutput{raw});
                 }
             },
             [&](const protocol::AtciLine& l) {
-                emit(ConsoleOutput{raw});
+                report(ConsoleOutput{raw});
                 if (l.subtype) {
-                    emit(AtciMessage{l});
+                    report(AtciMessage{l});
                 }
             },
             [&](const protocol::AutoconfigLine& l) {
-                emit(ConsoleOutput{raw});
-                emit(GrblHalAutoconfig{l});
+                report(ConsoleOutput{raw});
+                report(GrblHalAutoconfig{l});
             },
             [&](const protocol::SpindleLine& l) {
-                emit(SpindleAdded{l});
-                emit(ConsoleOutput{raw});
+                report(SpindleAdded{l});
+                report(ConsoleOutput{raw});
             },
-            [&](const protocol::JsonLine& l) { emit(SdCardJson{l.code}); },
+            [&](const protocol::JsonLine& l) { report(SdCardJson{l.code}); },
             [&](const protocol::InfoLine& l) {
-                emit(ConsoleOutput{raw});
-                emit(GrblHalInfo{l});
+                report(ConsoleOutput{raw});
+                report(GrblHalInfo{l});
             },
             [&](const protocol::SettingDescriptionLine&) {
-                debounce(descriptionsDebounce_, 150, [this] { emit(SettingDescriptionsChanged{}); });
+                debounce(descriptionsDebounce_, 150, [this] { report(SettingDescriptionsChanged{}); });
             },
             [&](const protocol::SettingDetailsLine&) {
-                debounce(descriptionsDebounce_, 150, [this] { emit(SettingDescriptionsChanged{}); });
+                debounce(descriptionsDebounce_, 150, [this] { report(SettingDescriptionsChanged{}); });
             },
-            [&](const protocol::AlarmDetailLine&) { emit(SettingAlarmsChanged{}); },
+            [&](const protocol::AlarmDetailLine&) { report(SettingAlarmsChanged{}); },
             [&](const protocol::GroupDetailLine&) {
-                debounce(groupsDebounce_, 150, [this] { emit(SettingGroupsChanged{}); });
+                debounce(groupsDebounce_, 150, [this] { report(SettingGroupsChanged{}); });
             },
             [&](const protocol::SdFileLine& l) {
-                emit(ConsoleOutput{raw});
-                emit(SdCardFileListed{l.file});
+                report(ConsoleOutput{raw});
+                report(SdCardFileListed{l.file});
             },
             // grblHAL's runner takes these in without anything listening.
             [&](const protocol::ToolLine&) {},
             [&](const protocol::AxsLine&) {},
             [&](const protocol::ErrorDescriptionLine&) {},
             // Parameters, feedback, help, echo and anything unrecognised.
-            [&](const auto&) { emit(ConsoleOutput{raw}); },
+            [&](const auto&) { report(ConsoleOutput{raw}); },
         },
         event.line);
 }
 
 // ---- runner events -----------------------------------------------------------------
 
-void Controller::onStatus(const protocol::StatusReport& report, const std::string& raw) {
+void Controller::onStatus(const protocol::StatusReport& reported, const std::string& raw) {
     if (isGrbl()) {
-        if (!runner_.hasSettings() && report.activeState == "Idle") {
+        if (!runner_.hasSettings() && reported.activeState == "Idle") {
             initialized_ = true;
             initController(std::nullopt);
         }
         if (homingStarted_) {
             homingFlagSet_ = determineMachineZeroFlagSet(runner_.state().status.mpos, runner_.settings().settings);
-            emit(HomingFlagChanged{homingFlagSet_});
+            report(HomingFlagChanged{homingFlagSet_});
             homingStarted_ = false;
-            if (!hasHomedSet_ && report.activeState != "Alarm") {
+            if (!hasHomedSet_ && reported.activeState != "Alarm") {
                 hasHomedSet_ = true;
-                emit(HasHomedChanged{true});
+                report(HasHomedChanged{true});
             }
         }
     } else {
@@ -535,15 +535,15 @@ void Controller::onStatus(const protocol::StatusReport& report, const std::strin
         ready_ = true;
         // This only ever starts a probe; resolveAxsProbe() judges the reply.
         if (!runner_.hasAxs() && !axsProbePending_ && axsSupport_ == AxsSupport::Unknown &&
-            axsQueryCount_ < kAxsQueryMaxRetries && report.activeState == "Idle" &&
+            axsQueryCount_ < kAxsQueryMaxRetries && reported.activeState == "Idle" &&
             loop_.nowMs() - axsQueryLastTime_ >= kAxsQueryRetryInterval) {
             startAxsProbe();
         }
         // Newer grblHAL reports the runtime homed state in H:.
-        if (report.hasHomed) {
-            if (*report.hasHomed != hasHomedSet_) {
-                hasHomedSet_ = *report.hasHomed;
-                emit(HasHomedChanged{hasHomedSet_});
+        if (reported.hasHomed) {
+            if (*reported.hasHomed != hasHomedSet_) {
+                hasHomedSet_ = *reported.hasHomed;
+                report(HasHomedChanged{hasHomedSet_});
             }
             homingStarted_ = false;
         }
@@ -552,16 +552,16 @@ void Controller::onStatus(const protocol::StatusReport& report, const std::strin
     actionMask_.queryStatusReport = false;
 
     // The reported position is the truth the streamer's budget estimates.
-    jogStreamer_->onStatus(JogStatus{report.activeState, runner_.state().status.mpos, report.buf});
+    jogStreamer_->onStatus(JogStatus{reported.activeState, runner_.state().status.mpos, reported.buf});
 
     if (actionMask_.replyStatusReport) {
         actionMask_.replyStatusReport = false;
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
     }
 
     // Grow the character-counting buffer to what the firmware reports - never
     // during a job and never with bytes in flight.
-    const int rx = report.buf ? report.buf->rx : 0;
+    const int rx = reported.buf ? reported.buf->rx : 0;
     if (rx > 0 && workflow_.isIdle() && sender_->protocol() == Sender::Protocol::CharacterCounting &&
         sender_->dataLength() == 0) {
         const int bufferSize = rx - 8;
@@ -582,7 +582,7 @@ void Controller::onOk(const std::string& raw) {
         if (actionMask_.queryParserStateReply) {
             if (actionMask_.replyParserState) {
                 actionMask_.replyParserState = false;
-                emit(ConsoleOutput{raw});
+                report(ConsoleOutput{raw});
             }
             actionMask_.queryParserStateReply = false;
             return;
@@ -591,7 +591,7 @@ void Controller::onOk(const std::string& raw) {
         // $G is only polled while $10 does not push the parser state.
         if (actionMask_.replyParserState) {
             actionMask_.replyParserState = false;
-            emit(ConsoleOutput{raw});
+            report(ConsoleOutput{raw});
         }
         actionMask_.queryParserStateReply = false;
         return;
@@ -599,7 +599,7 @@ void Controller::onOk(const std::string& raw) {
         // A pushed parser state has no ok: only a user-typed $G produces one.
         actionMask_.replyParserState = false;
         actionMask_.queryParserStateReply = false;
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
         return;
     }
 
@@ -613,7 +613,7 @@ void Controller::onOk(const std::string& raw) {
     const std::size_t sent = sender_->sent();
     const std::size_t received = sender_->received();
     if (workflow_.isRunning()) {
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
         if (hold && received + 1 >= sent) {
             sender_->unhold();
         }
@@ -622,13 +622,13 @@ void Controller::onOk(const std::string& raw) {
         return;
     }
     if (workflow_.isPaused() && received < sent) {
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
         sender_->ack();
         sender_->next({.isOk = true});
         return;
     }
 
-    emit(ConsoleOutput{raw});
+    report(ConsoleOutput{raw});
     feeder_->ack();
     feeder_->next();
 }
@@ -703,8 +703,8 @@ void Controller::onError(const std::string& message, const std::string& raw) {
         const bool wasJogError = jogStreamer_->onError();
         jogStreamer_->abort("error");
         if (wasJogError) {
-            emit(ConsoleOutput{raw});
-            emit(ErrorReported{false, codeText, error ? error->description : std::string(), "jog", std::nullopt,
+            report(ConsoleOutput{raw});
+            report(ErrorReported{false, codeText, error ? error->description : std::string(), "jog", std::nullopt,
                                "Jog", firmware_, false});
             return;
         }
@@ -729,7 +729,7 @@ void Controller::onError(const std::string& message, const std::string& raw) {
     const bool isFileError = sender_->total() != 0;
     const std::size_t received = sender_->received();
     const auto [origin, line] = errorOrigin(false);
-    emit(ErrorReported{false, codeText, error ? error->description : std::string(), line,
+    report(ErrorReported{false, codeText, error ? error->description : std::string(), line,
                        isFileError ? std::optional<std::size_t>(received) : std::nullopt, origin, firmware_,
                        isGrblHal() && running});
 
@@ -739,29 +739,29 @@ void Controller::onError(const std::string& message, const std::string& raw) {
     if (workflow_.isRunning() || workflow_.isPaused()) {
         const std::string invalidLine = std::to_string(sender_->total()) + " " + std::string(sender_->line(received));
         const Preferences prefs = preferences();
-        emit(ConsoleOutput{"error:" + codeText + " (" + annotation + ")"});
+        report(ConsoleOutput{"error:" + codeText + " (" + annotation + ")"});
         if (isGrbl()) {
             if (error) {
                 const HoldReason reason{"", "", "error:" + codeText + " (" + error->message + ")"};
                 if (!prefs.showLineWarnings) {
-                    emit(GcodeError{"Error " + codeText + " on line " + std::to_string(received) + " - " +
+                    report(GcodeError{"Error " + codeText + " on line " + std::to_string(received) + " - " +
                                     error->message});
                     workflow_.pause(reason);
                 } else {
                     workflow_.pause(reason);
-                    emit(WorkflowChanged{workflow_.state(), invalidLine});
+                    report(WorkflowChanged{workflow_.state(), invalidLine});
                 }
             } else {
-                emit(ConsoleOutput{raw});
+                report(ConsoleOutput{raw});
             }
             sender_->ack();
             sender_->next();
             return;
         }
         if (!prefs.showLineWarnings) {
-            emit(GcodeError{"Error " + codeText + " on line " + std::to_string(received) + " - " + annotation});
+            report(GcodeError{"Error " + codeText + " on line " + std::to_string(received) + " - " + annotation});
         } else {
-            emit(WorkflowChanged{workflow_.state(), invalidLine});
+            report(WorkflowChanged{workflow_.state(), invalidLine});
         }
         sender_->ack();
         sender_->next({.isOk = true});
@@ -769,15 +769,15 @@ void Controller::onError(const std::string& message, const std::string& raw) {
     }
 
     if (isGrbl()) {
-        emit(ConsoleOutput{error ? "error:" + codeText + " (" + error->message + ")" : raw});
+        report(ConsoleOutput{error ? "error:" + codeText + " (" + error->message + ")" : raw});
     } else {
-        emit(ConsoleOutput{"error:" + codeText + " (" + annotation + ")"});
+        report(ConsoleOutput{"error:" + codeText + " (" + annotation + ")"});
         // SD card errors: the card is gone.
         if (error && (code == 60 || code == 62 || code == 64)) {
             runner_.setSdStatus(false);
             emitState();
         }
-        emit(GcodeError{"Error " + codeText + " - " + annotation});
+        report(GcodeError{"Error " + codeText + " - " + annotation});
     }
     feeder_->ack();
     feeder_->next();
@@ -798,7 +798,7 @@ void Controller::onAlarm(const std::string& message, const std::string& raw) {
         const int number = std::stoi(code);
         if (number >= 6 && number <= 9 && hasHomedSet_) {
             hasHomedSet_ = false;
-            emit(HasHomedChanged{false});
+            report(HasHomedChanged{false});
         }
     }
 
@@ -807,15 +807,15 @@ void Controller::onAlarm(const std::string& message, const std::string& raw) {
     const auto [origin, line] = errorOrigin(true);
     const std::optional<protocol::CodeInfo> alarm = alarmInfo(code);
     if (!alarm) {
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
         return;
     }
     const bool running = workflow_.isRunning();
     if (isGrblHal() && running) {
         workflow_.stop();
     }
-    emit(ConsoleOutput{"ALARM:" + code + " (" + (isGrbl() ? alarm->message : alarm->description) + ")"});
-    emit(ErrorReported{true, code, alarm->description, line,
+    report(ConsoleOutput{"ALARM:" + code + " (" + (isGrbl() ? alarm->message : alarm->description) + ")"});
+    report(ErrorReported{true, code, alarm->description, line,
                        isFileError ? std::optional<std::size_t>(received) : std::nullopt, origin, firmware_,
                        isGrblHal() && running});
     emitState();  // propagate the alarm right away
@@ -824,11 +824,11 @@ void Controller::onAlarm(const std::string& message, const std::string& raw) {
 void Controller::onStartupAlarm(const std::string& raw) {
     const std::optional<protocol::CodeInfo> alarm = alarmInfo("Homing");
     if (!alarm) {
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
         return;
     }
-    emit(ConsoleOutput{"ALARM:Homing (" + alarm->message + ")"});
-    emit(ErrorReported{true, "Homing", alarm->description, "N/A", std::nullopt, "Startup", firmware_, false});
+    report(ConsoleOutput{"ALARM:Homing (" + alarm->message + ")"});
+    report(ErrorReported{true, "Homing", alarm->description, "N/A", std::nullopt, "Startup", firmware_, false});
     emitState();
 }
 
@@ -843,13 +843,13 @@ void Controller::onParserState(const std::string& raw) {
             gcode("$C");
             timers_.timeout(200, [this] { gcode("[global.state.testWCS]"); });
         }
-        emit(CheckModeFinished{sender_->status()});
+        report(CheckModeFinished{sender_->status()});
         return;
     }
     actionMask_.queryParserStateState = false;
     actionMask_.queryParserStateReply = true;
     if (actionMask_.replyParserState) {
-        emit(ConsoleOutput{raw});
+        report(ConsoleOutput{raw});
     }
 }
 
@@ -857,17 +857,17 @@ void Controller::onSetting(const protocol::SettingLine& line, const std::string&
     const protocol::SettingInfo* info = protocol::FirmwareTables::get(firmware_).setting(line.name);
     if (isGrbl()) {
         if (line.message.empty() && info) {
-            emit(ConsoleOutput{line.name + "=" + line.value + " (" + info->message + ", " + info->units + ")"});
+            report(ConsoleOutput{line.name + "=" + line.value + " (" + info->message + ", " + info->units + ")"});
         } else {
-            emit(ConsoleOutput{raw});
+            report(ConsoleOutput{raw});
         }
         return;
     }
     if (line.message.empty()) {
         if (info && !info->message.empty()) {
-            emit(ConsoleOutput{line.name + "=" + line.value + " (" + info->message + ", " + info->units + ")"});
+            report(ConsoleOutput{line.name + "=" + line.value + " (" + info->message + ", " + info->units + ")"});
         } else {
-            emit(ConsoleOutput{line.name + "=" + line.value});
+            report(ConsoleOutput{line.name + "=" + line.value});
         }
     }
     // $10 bit 9: the firmware pushes the parser state by itself.
@@ -878,7 +878,7 @@ void Controller::onSetting(const protocol::SettingLine& line, const std::string&
 }
 
 void Controller::onStartup(const std::string& raw, std::optional<long long> semver) {
-    emit(ConsoleOutput{raw});
+    report(ConsoleOutput{raw});
     // The banner prints on power-up, after a reset and at program end: start
     // over from a clean slate.
     clearActionValues();
@@ -952,10 +952,10 @@ void Controller::queryTick() {
         return;
     }
     if (feeder_->peek()) {
-        emit(FeederStatusChanged{feeder_->status()});
+        report(FeederStatusChanged{feeder_->status()});
     }
     if (sender_->peek()) {
-        emit(SenderStatusChanged{sender_->status()});
+        report(SenderStatusChanged{sender_->status()});
     }
 
     // Has the work position stayed put since the last broadcast?
@@ -963,13 +963,13 @@ void Controller::queryTick() {
 
     if (runner_.settingsRevision() != reportedSettingsRevision_) {
         reportedSettingsRevision_ = runner_.settingsRevision();
-        emit(SettingsChanged{firmware_, runner_.settings()});
+        report(SettingsChanged{firmware_, runner_.settings()});
         if (isGrblHal()) {
             // $22 bit 3 decides whether machine zero is known after homing.
             const bool flag = determineHalMachineZeroFlag(runner_.settings().settings);
             if (flag != homingFlagSet_) {
                 homingFlagSet_ = flag;
-                emit(HomingFlagChanged{flag});
+                report(HomingFlagChanged{flag});
             }
         }
     }
@@ -1217,7 +1217,7 @@ std::string Controller::feederFilter(std::string line, const expr::Value& contex
         }
         if (line == kPreHookComplete) {
             feeder_->hold(HoldReason{"%toolchange", "", ""});
-            emit(ToolChangePreHookComplete{comment});
+            report(ToolChangePreHookComplete{comment});
             return isGrbl() ? "G4 P0.5" : "G4 P1";
         }
         if (line == kPostHookComplete) {
@@ -1225,7 +1225,7 @@ std::string Controller::feederFilter(std::string line, const expr::Value& contex
             return isGrbl() ? "G4 P0.5" : "G4 P1";
         }
         if (line == kPauseStart) {
-            emit(ProgramPaused{"M0/M1", comment, true, ignoreEvent});
+            report(ProgramPaused{"M0/M1", comment, true, ignoreEvent});
             return "G4 P0.5";
         }
         if (line == kGcodeStart) {
@@ -1265,7 +1265,7 @@ std::string Controller::feederFilter(std::string line, const expr::Value& contex
 
     if (const auto mode = firstOf(words, {"M0", "M1"}); mode && !(isGrblHal() && looksLikeEeprom)) {
         feeder_->hold(HoldReason{*mode, comment, ""});
-        emit(ProgramPaused{*mode, comment, false, true});
+        report(ProgramPaused{*mode, comment, false, true});
     }
     // Update the spindle modal eagerly, for safety.
     if (const auto spindle = firstOf(words, {"M3", "M4"})) {
@@ -1382,7 +1382,7 @@ std::string Controller::senderFilter(std::string line, const expr::Value& contex
         workflow_.pause(HoldReason{"M6", comment, ""});
         if (option == "Code") {
             const auto startHook = [this, comment] {
-                emit(ToolChangeStarted{});
+                report(ToolChangeStarted{});
                 runPreChangeHook(comment);
             };
             if (isGrbl()) {
@@ -1396,7 +1396,7 @@ std::string Controller::senderFilter(std::string line, const expr::Value& contex
                 // Report the new tool before the dialog asks for it.
                 runner_.setTool(toolNumber.value_or(std::string()));
                 emitState(toolNumber);
-                emit(ToolChangeRequested{sent + 1, count, *block, toolLabel, option, comment});
+                report(ToolChangeRequested{sent + 1, count, *block, toolLabel, option, comment});
             });
         }
     }
@@ -1440,9 +1440,9 @@ Controller::LoadResult Controller::loadProgram(const std::string& name, std::str
         const bool hasA = hasAxisWord(withoutComments, 'A');
         const bool hasY = hasAxisWord(withoutComments, 'Y');
         if (hasA && hasY) {
-            emit(FileTypeDetected{ProgramFileType::FourAxis});
+            report(FileTypeDetected{ProgramFileType::FourAxis});
         } else if (hasA) {
-            emit(FileTypeDetected{ProgramFileType::Rotary});
+            report(FileTypeDetected{ProgramFileType::Rotary});
         }
         gcodeText += "\n%wait ; Wait for the planner to empty";
     } else {
@@ -1480,7 +1480,7 @@ void Controller::unloadProgram() {
         hooks_.unloadFile();
     }
     sender_->unload();
-    emit(FileUnloaded{});
+    report(FileUnloaded{});
     eventTrigger_.trigger(kFileUnload);
 }
 
@@ -1491,7 +1491,7 @@ void Controller::start(const StartOptions& options) {
     const std::size_t totalLines = sender_->total();
     const bool fromLine = options.lineToStartFrom > 0 && options.lineToStartFrom <= totalLines;
     const bool startEventEnabled = eventTrigger_.hasEnabledEvent(kProgramStart);
-    emit(JobStarted{fromLine});
+    report(JobStarted{fromLine});
 
     gcode("%global.state.workspace=modal.wcs");
 
@@ -1624,7 +1624,7 @@ void Controller::stop(bool force) {
     if (isGrblHal()) {
         timers_.clear(programResumeTimer_);
     }
-    emit(JobStopped{});
+    report(JobStopped{});
     const std::string wcs = runner_.modal().wcs;
     // The program end event fires last - after the reset on a forced stop.
     const auto finish = [this] {
@@ -1963,7 +1963,7 @@ void Controller::errorClear() {
 
 void Controller::toolChangeAcknowledge() {
     beginCommand("toolchange:acknowledge");
-    emit(ConsoleInput{"Toolchange Ack sent", WriteSource::Feeder});
+    report(ConsoleInput{"Toolchange Ack sent", WriteSource::Feeder});
     write("\xA3");
 }
 
@@ -2091,7 +2091,7 @@ void Controller::wizardStart(const std::string& gcodeText) {
 
 void Controller::wizardStep(int step, int substep) {
     beginCommand("wizard:step");
-    feederCallback_ = [this, step, substep] { emit(WizardNext{step, substep}); };
+    feederCallback_ = [this, step, substep] { report(WizardNext{step, substep}); };
 }
 
 void Controller::consumeFeederCallback() {
@@ -2205,7 +2205,7 @@ void Controller::writeln(std::string_view data, bool emitWrite) {
     }
     // Only grblHAL acts on the emit flag.
     if (emitWrite && isGrblHal()) {
-        emit(ConsoleInput{std::string(data) + "\n", WriteSource::Feeder});
+        report(ConsoleInput{std::string(data) + "\n", WriteSource::Feeder});
     }
 }
 

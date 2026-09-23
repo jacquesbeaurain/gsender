@@ -405,3 +405,30 @@ loop, as a real device's would be.
 `Session` + `Controller` to completion: detection from the banner, the
 controller's soft reset and `$$` initialization, streaming, and the job-end
 detection after half a second of idle.
+
+## Step 17 — The Qt application (`src/app`, first cut)
+
+The UI talks to the core directly (no socket layer):
+
+- `QtEventLoop` implements the core's `EventLoop` with `QTimer`s (precise
+  timers - the jog streamer ticks every 10 ms); `post()` is thread-safe and is
+  the transport's dispatcher.
+- `Machine` is the application service - gSender's CNCEngine plus the UI's
+  controller sagas: it owns the config store, the link (`AsioLink`, or the
+  simulated board for the "Simulator" port), the `Session`, the loaded program
+  and its background analysis (a `QThreadPool` task with cancellation; the
+  toolpath is collected with arcs tessellated), sends the estimates when the
+  sender asks for them, sends the tool change context (gSender's default:
+  Ignore) to each new controller, and re-emits controller events as Qt
+  signals. A link is never destroyed inside its own callback: teardown is
+  queued.
+- Panels (`panels.hpp`): connection bar (ports, recognized boards first, the
+  simulator, or an IP address), position readout with zeroing/home/unlock/
+  reset, jogging (click = step via `$J=`, hold = continuous through the jog
+  streamer), console with history, and the job panel (load/close, start/
+  pause/resume/stop, progress, remaining time, file statistics).
+- `gsender --simulator --load demo.nc --start --screenshot out.png --wait 9000
+  -platform offscreen` runs the real application without a display and saves
+  a screenshot - used to check the UI in automation.
+
+The toolpath view is a placeholder in this step.

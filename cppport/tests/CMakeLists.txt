@@ -40,3 +40,14 @@ gs_precompile_headers(gs_transport_tests
     <boost/asio.hpp>)
 gs_copy_runtime_dlls(gs_transport_tests)
 gtest_discover_tests(gs_transport_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
+
+if(TARGET gs_app)
+    add_executable(gs_app_tests
+        app/test_app.cpp
+    )
+    target_link_libraries(gs_app_tests PRIVATE gs_app GTest::gtest GTest::gtest_main)
+    gs_precompile_headers(gs_app_tests <gtest/gtest.h> <QtCore> <functional> <string>)
+    gs_copy_runtime_dlls(gs_app_tests)
+    gs_deploy_qt_plugins(gs_app_tests)
+    gtest_discover_tests(gs_app_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
+endif()

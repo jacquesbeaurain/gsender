@@ -104,6 +104,26 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   PowerShell 5 (`powershell.exe` from the Bash tool) refuses to run scripts
   under the default execution policy.
 
+## Qt application notes
+
+- `gs_app` compiles with `QT_NO_KEYWORDS`: write `Q_SIGNALS`, `Q_SLOTS`,
+  `Q_EMIT`. Qt's `emit`/`signals`/`slots` macros otherwise break plain C++
+  identifiers in included core headers (a method named `emit`, a parameter
+  named `signals`).
+- Qt needs `libpng16`, `z` and `zstd` from the LibPack beside the executable;
+  `$<TARGET_RUNTIME_DLLS>` misses them (they are not imported targets).
+  `gs_deploy_qt_plugins()` copies them together with the `platforms/` and
+  `styles/` plugins. A test executable that exits with `0xC0000135` is missing
+  a DLL: `dumpbin /dependents` (after `tools/build.ps1` has cached the VS
+  environment) finds which.
+- The offscreen platform needs `QT_QPA_FONTDIR` on Windows (the app and the
+  app tests point it at `%WINDIR%\Fonts`), otherwise text renders as boxes.
+- Check UI changes with a screenshot of the real application:
+  `build/ninja-release/bin/gsender.exe -platform offscreen --simulator
+  --load <file> [--start] --screenshot out.png --wait 3000`, then look at it.
+- The Machine/app tests run in real time against the simulator; keep them
+  short (wait for a condition, never for a fixed long delay).
+
 ## FreeCAD LibPack facts (26.3.0 / 3.5.5, x64)
 
 - Toolset is MSVC v145 (VS 2026, `cl` 14.51); Boost libraries are named
