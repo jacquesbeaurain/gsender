@@ -13,6 +13,8 @@ add_executable(gs_core_tests
     core/test_event_loop.cpp
     core/test_streaming.cpp
     core/test_jog.cpp
+    core/test_jogging.cpp
+    core/test_actions.cpp
     core/test_controller.cpp
     core/test_session.cpp
     core/test_config.cpp

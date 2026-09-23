@@ -18,7 +18,9 @@ add_library(gs_core STATIC
     src/controller/streaming.cpp
     src/controller/jog_limits.cpp
     src/controller/jog_streamer.cpp
+    src/controller/jogging.cpp
     src/controller/helpers.cpp
+    src/controller/actions.cpp
     src/controller/controller.cpp
     src/controller/session.cpp
     src/config/json_path.cpp
