@@ -128,6 +128,20 @@ struct AppSettings {
     // files, "Light" draws the cuts flat from above, "Everything" nothing.
     bool liteMode = false;
     std::string liteOption = "Light";
+    // Basics: reconnect to the last machine on start
+    // (widgets.connection.autoReconnect); let M2/M30 leave the job's end in
+    // G54 rather than put the job's workspace back (workspace.revertWorkspace);
+    // let the display sleep (workspace.powerSaving); ask before exiting
+    // (workspace.promptExit).
+    bool autoReconnect = false;
+    bool revertWorkspace = false;
+    bool powerSaving = false;
+    bool promptExit = false;
+    // Visualizer: done lines hidden rather than greyed
+    // (widgets.visualizer.hideProcessedLines); the invalid lines of a
+    // loaded file reported (widgets.visualizer.showWarning).
+    bool hideProcessedLines = false;
+    bool warnBadFile = false;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

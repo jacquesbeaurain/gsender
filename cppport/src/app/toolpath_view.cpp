@@ -427,12 +427,17 @@ void ToolpathView::paintEvent(QPaintEvent*) {
         if (!lite) {
             paintSegments(
                 painter, path.rapids, path.rapidLines,
-                [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &rapidDone : &rapid; },
+                [&](std::size_t, std::uint32_t line) {
+                    return line >= doneLines_ ? &rapid : settings.hideProcessedLines ? nullptr : &rapidDone;
+                },
                 rotaryAngle);
         }
         paintSegments(
             painter, path.feeds, path.feedLines,
-            [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &cutDone : &cut; }, rotaryAngle);
+            [&](std::size_t, std::uint32_t line) {
+                return line >= doneLines_ ? &cut : settings.hideProcessedLines ? nullptr : &cutDone;
+            },
+            rotaryAngle);
     }
     if (tool && !lite) {
         paintTool(painter, *tool);

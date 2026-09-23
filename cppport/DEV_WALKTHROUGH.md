@@ -1212,3 +1212,25 @@ orbiting keep it there; panning and zooming still work) and draws only the
 cuts, without the tool - upstream swaps in its SVG renderer, which skips
 G0; at Everything nothing is drawn. Both settings (liteMode, liteOption)
 are kept and imported from gSender's settings.
+
+## Step 44 — Basics and visualizer settings
+
+More of upstream's Basics and Visualizer settings, on Settings > General
+(now scrollable), kept and imported from gSender's settings:
+
+- **Reconnect automatically** (widgets.connection.autoReconnect): on start
+  the last machine is connected again - its serial port if listed, an
+  address, or the simulator (not when the command line connects).
+- **Revert workspace** (workspace.revertWorkspace, off): when a job stops or
+  ends the workspace it started in comes back (`[global.state.workspace]`,
+  or the check-mode one), so M2/M30 cannot leave the machine in G54; on,
+  they may.
+- **Power saving** (workspace.powerSaving, off): while off the display is
+  kept from sleeping (Electron's powerSaveBlocker; `SetThreadExecutionState`
+  on Windows, nothing elsewhere).
+- **Prompt on exit** (workspace.promptExit): "Are you sure you want to
+  exit?" on closing.
+- **Hide processed lines** (widgets.visualizer.hideProcessedLines): done
+  lines are left out rather than greyed; the Step Through starts with it.
+- **Warn if bad file** (widgets.visualizer.showWarning): a loaded file's
+  invalid lines are reported - how many and the first five.

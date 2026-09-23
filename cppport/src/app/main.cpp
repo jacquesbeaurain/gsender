@@ -69,6 +69,8 @@ int main(int argc, char** argv) {
 
     if (parser.isSet(simulator)) {
         machine.connectTo(gs::app::Machine::kSimulatorPort);
+    } else if (!parser.isSet(screenshot)) {
+        window.reconnectAutomatically();
     }
     if (parser.isSet(load)) {
         machine.loadFile(parser.value(load));

@@ -377,6 +377,12 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.jobEndModal = flag(root, "jobEndModal", true);
     settings.maintenanceNotifications = flag(root, "maintenanceNotifications", true);
     settings.liteMode = flag(root, "liteMode", false);
+    settings.autoReconnect = flag(root, "autoReconnect", false);
+    settings.revertWorkspace = flag(root, "revertWorkspace", false);
+    settings.powerSaving = flag(root, "powerSaving", false);
+    settings.promptExit = flag(root, "promptExit", false);
+    settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
+    settings.warnBadFile = flag(root, "warnBadFile", false);
     settings.liteOption = text(root, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
@@ -452,6 +458,12 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"jobEndModal", settings.jobEndModal},
                          {"maintenanceNotifications", settings.maintenanceNotifications},
                          {"liteMode", settings.liteMode},
+                         {"autoReconnect", settings.autoReconnect},
+                         {"revertWorkspace", settings.revertWorkspace},
+                         {"powerSaving", settings.powerSaving},
+                         {"promptExit", settings.promptExit},
+                         {"hideProcessedLines", settings.hideProcessedLines},
+                         {"warnBadFile", settings.warnBadFile},
                          {"liteOption", settings.liteOption},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
@@ -580,6 +592,9 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.outlineMode = job::outlineModeFromName(text(w, "outlineMode")).value_or(s.outlineMode);
     s.outlineSpeed = number(w, "outlineSpeed", 0);
     s.toastDuration = static_cast<int>(numberOrText(w, "toastDuration", 0));
+    s.revertWorkspace = flag(w, "revertWorkspace", false);
+    s.powerSaving = flag(w, "powerSaving", false);
+    s.promptExit = flag(w, "promptExit", false);
     if (const std::string firmware = text(w, "defaultFirmware"); !firmware.empty()) {
         s.defaultFirmware = firmware == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     }
@@ -661,6 +676,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     if (const json::object* connection = child(g, "connection")) {
         s.port = text(*connection, "port");
         s.baudRate = static_cast<int>(number(*connection, "baudrate", s.baudRate));
+        s.autoReconnect = flag(*connection, "autoReconnect", false);
         s.networkPort = static_cast<int>(number(*connection, "ethernetPort", s.networkPort));
     }
     if (const json::object* spindle = child(g, "spindle")) {
@@ -675,6 +691,8 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.jobEndModal = flag(*visualizer, "jobEndModal", true);
         s.maintenanceNotifications = flag(*visualizer, "maintenanceTaskNotifications", true);
         s.liteMode = flag(*visualizer, "liteMode", false);
+        s.hideProcessedLines = flag(*visualizer, "hideProcessedLines", false);
+        s.warnBadFile = flag(*visualizer, "showWarning", false);
         s.liteOption = text(*visualizer, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     }
 
