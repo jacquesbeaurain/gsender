@@ -260,7 +260,7 @@ void RotarySurfacingDialog::generate() {
     gcode_->setPlainText(program_);
     views_->setTabEnabled(1, true);
     views_->setTabText(1, tr("G-Code (%1 lines)").arg(program_.count('\n') + 1));
-    preview_->setToolpath(traceToolpath(text, true));
+    preview_->setToolpath(traceToolpath(text));
     previewPage_->setCurrentWidget(preview_);
     refresh();
 }

@@ -213,7 +213,18 @@ void ToolpathCanvas::paintScene(QPainter& painter, const std::optional<gcode::Bo
 
 void ToolpathCanvas::paintSegments(QPainter& painter, const std::vector<float>& segments,
                                    const std::vector<std::uint32_t>& lines,
-                                   const std::function<const QPen*(std::size_t, std::uint32_t)>& pen) {
+                                   const std::function<const QPen*(std::size_t, std::uint32_t)>& pen,
+                                   double rotationA) {
+    // Turned back by the rotary's angle about X.
+    const double angle = -rotationA * kDegree;
+    const double cosA = std::cos(angle);
+    const double sinA = std::sin(angle);
+    const auto point = [&](std::size_t i) -> Point3 {
+        const double y = segments[i + 1];
+        const double z = segments[i + 2];
+        return rotationA == 0 ? Point3{segments[i], y, z}
+                              : Point3{segments[i], y * cosA - z * sinA, y * sinA + z * cosA};
+    };
     // Batched by pen, in the order the pens first appear (runs of one pen
     // skip the search).
     std::vector<std::pair<const QPen*, QVector<QLineF>>> batches;
@@ -233,8 +244,7 @@ void ToolpathCanvas::paintSegments(QPainter& painter, const std::vector<float>& 
             }
             lastPen = chosen;
         }
-        batches[lastBatch].second.append(QLineF(project({segments[i], segments[i + 1], segments[i + 2]}),
-                                                project({segments[i + 3], segments[i + 4], segments[i + 5]})));
+        batches[lastBatch].second.append(QLineF(project(point(i)), project(point(i + 3))));
     }
     // Many short segments: antialiasing costs more than it gives here.
     painter.setRenderHint(QPainter::Antialiasing, segments.size() < 6 * 200000);
@@ -313,7 +323,16 @@ ToolpathView::ToolpathView(Machine& machine, QWidget* parent) : ToolpathCanvas(p
 std::optional<gcode::BoundingBox> ToolpathView::contentBounds() const {
     const bool empty = !machine_.hasProgram() || machine_.analysis().totalLines == 0 ||
                        (machine_.toolpath().feeds.empty() && machine_.toolpath().rapids.empty());
-    return empty ? std::nullopt : std::optional<gcode::BoundingBox>(machine_.analysis().bounds);
+    if (empty) {
+        return std::nullopt;
+    }
+    // A rotary job is framed as drawn: wrapped around X.
+    return rotaryJob() && machine_.toolpath().bounded ? machine_.toolpath().bounds : machine_.analysis().bounds;
+}
+
+bool ToolpathView::rotaryJob() const {
+    return machine_.hasProgram() && !machine_.isAnalyzing() &&
+           machine_.analysis().fileType != gcode::FileType::Default;
 }
 
 void ToolpathView::programChanged() {
@@ -336,23 +355,37 @@ void ToolpathView::paintEvent(QPaintEvent*) {
     const bool hasPath = machine_.hasProgram() && !machine_.isAnalyzing();
     paintScene(painter, hasPath ? std::optional<gcode::BoundingBox>(a.bounds) : std::nullopt);
 
+    // The tool at the work position, and the rotary's angle: A, or in rotary
+    // mode Y (the rotary is on Y; the tool stays over the centreline).
+    // Deviation: upstream turned the path by A only, which Grbl's rotary
+    // mode never reports.
+    std::optional<Point3> tool;
+    double rotaryAngle = 0;
+    if (controller::Controller* c = machine_.controller()) {
+        const auto& status = c->state().status;
+        const double unit = c->settings().settings.get("$13") == "1" ? 25.4 : 1.0;
+        const bool onY = machine_.rotaryMode();
+        tool = Point3{status.wpos.x() * unit, onY ? 0.0 : status.wpos.y() * unit, status.wpos.z() * unit};
+        if (rotaryJob()) {
+            rotaryAngle = onY ? status.wpos.y() * unit : status.wpos.a();
+        }
+    }
+
     if (hasPath) {
         const Toolpath& path = machine_.toolpath();
         const QPen rapid(kRapid, 1, Qt::DashLine);
         const QPen rapidDone(kDone, 1, Qt::DashLine);
         const QPen cut(kCut, 1.5);
         const QPen cutDone(kDone, 1.5);
-        paintSegments(painter, path.rapids, path.rapidLines,
-                      [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &rapidDone : &rapid; });
-        paintSegments(painter, path.feeds, path.feedLines,
-                      [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &cutDone : &cut; });
+        paintSegments(
+            painter, path.rapids, path.rapidLines,
+            [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &rapidDone : &rapid; }, rotaryAngle);
+        paintSegments(
+            painter, path.feeds, path.feedLines,
+            [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &cutDone : &cut; }, rotaryAngle);
     }
-
-    // The tool, at the work position.
-    if (controller::Controller* c = machine_.controller()) {
-        const auto& status = c->state().status;
-        const double unit = c->settings().settings.get("$13") == "1" ? 25.4 : 1.0;
-        paintTool(painter, {status.wpos.x() * unit, status.wpos.y() * unit, status.wpos.z() * unit});
+    if (tool) {
+        paintTool(painter, *tool);
     }
 
     QString caption;

@@ -65,9 +65,11 @@ protected:
     void paintScene(QPainter& painter, const std::optional<gcode::BoundingBox>& bounds);
     // Segments (x0,y0,z0,x1,y1,z1 each) and their sender lines; `pen` gives
     // each one's pen by index and line, nullptr to leave it out. Segments
-    // are batched by pen.
+    // are batched by pen. `rotationA`: a rotary job's path turned back by
+    // the rotary's angle (degrees), so what is under the tool is on top.
     void paintSegments(QPainter& painter, const std::vector<float>& segments, const std::vector<std::uint32_t>& lines,
-                       const std::function<const QPen*(std::size_t index, std::uint32_t line)>& pen);
+                       const std::function<const QPen*(std::size_t index, std::uint32_t line)>& pen,
+                       double rotationA = 0);
     void paintTool(QPainter& painter, const Point3& position);
     void paintCaption(QPainter& painter, const QString& caption);
 
@@ -106,6 +108,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
+    bool rotaryJob() const;
     void programChanged();
     void progressChanged();
 

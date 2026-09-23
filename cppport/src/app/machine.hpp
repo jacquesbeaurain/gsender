@@ -45,14 +45,16 @@ struct Toolpath {
     std::vector<float> feeds;
     std::vector<std::uint32_t> rapidLines;
     std::vector<std::uint32_t> feedLines;
+    // The drawn points' extent (a rotary job's wrapped path differs from the
+    // analysis' bounds).
+    gcode::BoundingBox bounds;
+    bool bounded = false;
 };
 
 // The toolpath of a program that is not the loaded job (tool previews),
-// traced on the calling thread with the default machine limits.
-// `wrapRotary`: A turns the stock about X, Z being the distance from the
-// rotary's centreline - the path is wrapped around X (y = z sin a,
-// z = z cos a) so a plan view shows the turned stock from above.
-Toolpath traceToolpath(const std::string& program, bool wrapRotary = false);
+// traced on the calling thread with the default machine limits. As every
+// toolpath, A turns the stock about X: moves are wrapped around it.
+Toolpath traceToolpath(const std::string& program);
 
 class Machine final : public QObject {
     Q_OBJECT
