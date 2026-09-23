@@ -27,6 +27,8 @@ add_library(gs_app STATIC
     shortcuts_dialog.hpp
     start_from_line_dialog.cpp
     start_from_line_dialog.hpp
+    status_area.cpp
+    status_area.hpp
     surfacing_dialog.cpp
     surfacing_dialog.hpp
     toolchange_dialog.cpp

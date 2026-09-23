@@ -203,6 +203,7 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
     settings.warnZero = flag(root, "warnZero", false);
     settings.park = loadPosition(root, "park");
+    settings.stepperRestoreValue = text(root, "stepperRestoreValue");
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
     settings.outlineSpeed = number(root, "outlineSpeed", 0);
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
@@ -265,6 +266,7 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"safeRetractHeight", settings.safeRetractHeight},
                          {"warnZero", settings.warnZero},
                          {"park", savePosition(settings.park)},
+                         {"stepperRestoreValue", settings.stepperRestoreValue},
                          {"outlineMode", job::outlineModeName(settings.outlineMode)},
                          {"outlineSpeed", settings.outlineSpeed},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},

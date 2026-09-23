@@ -144,6 +144,14 @@ void GrblSimulator::close() {
     syncing_ = false;
 }
 
+void GrblSimulator::triggerAlarm(int code) {
+    flushMotion();
+    waiting_.clear();
+    syncing_ = false;
+    state_ = State::Alarm;
+    emitText("ALARM:" + std::to_string(code) + "\r\n");
+}
+
 void GrblSimulator::banner() {
     emitText("\r\nGrbl 1.1h ['$' for help]\r\n");
     if (state_ == State::Alarm) {

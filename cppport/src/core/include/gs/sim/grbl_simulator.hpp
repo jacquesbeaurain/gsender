@@ -85,6 +85,9 @@ public:
     // Motion and dwells run `factor` times faster than real time (demos,
     // application tests).
     void setSpeed(double factor) { speed_ = factor > 0 ? factor : 1.0; }
+    // Stops where it is and raises ALARM:<code>, as a tripped limit switch or
+    // a failed homing cycle would.
+    void triggerAlarm(int code);
 
     static constexpr std::size_t kPlannerSize = 15;
     static constexpr std::int64_t kTickMs = 20;

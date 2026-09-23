@@ -150,4 +150,81 @@ TEST_F(ActionsTest, ToolChangeAcknowledgementNeedsTheToolState) {
     EXPECT_TRUE(runControllerCommand(c(), ControllerCommand::ToolChangeAcknowledge));
 }
 
+
+// ---- the status area (MachineStatus, UnlockButton) ----
+
+TEST(StatusArea, NamesTheStatesAsUpstream) {
+    EXPECT_EQ(statusLabel(""), "Disconnected");
+    EXPECT_EQ(statusLabel("Run"), "Running");
+    EXPECT_EQ(statusLabel("Jog"), "Jogging");
+    EXPECT_EQ(statusLabel("Home"), "Homing");
+    EXPECT_EQ(statusLabel("Tool"), "Tool Change");
+    for (const char* same : {"Idle", "Hold", "Check", "Sleep", "Alarm", "Door"}) {
+        EXPECT_EQ(statusLabel(same), same);
+    }
+}
+
+// UnlockButton/__tests__/isHomingFailureAlarm.test.ts and the
+// isLimitSwitchFaultAlarm cases of confirmUnlockAfterHomingFailure.test.tsx.
+TEST(StatusArea, HomingFailuresAreAlarmsSixToNine) {
+    for (const char* code : {"6", "7", "8", "9"}) {
+        EXPECT_TRUE(isHomingFailureAlarm(code)) << code;
+    }
+    for (const char* code : {"1", "10", "17", "Homing", ""}) {
+        EXPECT_FALSE(isHomingFailureAlarm(code)) << code;
+    }
+    EXPECT_TRUE(isLimitSwitchFaultAlarm("8"));
+    EXPECT_TRUE(isLimitSwitchFaultAlarm("9"));
+    EXPECT_FALSE(isLimitSwitchFaultAlarm("6"));
+    EXPECT_FALSE(isLimitSwitchFaultAlarm("7"));
+    EXPECT_FALSE(isLimitSwitchFaultAlarm("Homing"));
+}
+
+TEST(StatusArea, TheAlarmButtonResetsHomesAsksOrUnlocks) {
+    for (const char* code : {"1", "2", "10", "14", "17"}) {
+        EXPECT_EQ(alarmButtonAction("Alarm", code), UnlockAction::ResetLimit) << code;
+    }
+    EXPECT_EQ(alarmButtonAction("Alarm", "Homing"), UnlockAction::Home);
+    EXPECT_EQ(alarmButtonAction("Alarm", "11"), UnlockAction::Home);
+    EXPECT_TRUE(alarmButtonHomes("Alarm", "11"));
+    EXPECT_FALSE(alarmButtonHomes("Alarm", "3"));
+    EXPECT_EQ(alarmButtonAction("Alarm", "6"), UnlockAction::ConfirmHomingFailure);
+    EXPECT_EQ(alarmButtonAction("Alarm", "3"), UnlockAction::Unlock);
+    EXPECT_EQ(alarmButtonAction("Hold", ""), UnlockAction::CycleStart);
+    EXPECT_EQ(alarmButtonAction("Idle", ""), UnlockAction::Unlock);
+}
+
+TEST(StatusArea, TheLockIconDiffersFromTheAlarmButton) {
+    // Only 10 and 17 reset; the homing lock just unlocks (and re-reads the
+    // configuration); outside an alarm it resumes, even when idle.
+    EXPECT_EQ(lockIconAction("Alarm", "10"), UnlockAction::ResetLimit);
+    EXPECT_EQ(lockIconAction("Alarm", "17"), UnlockAction::ResetLimit);
+    EXPECT_EQ(lockIconAction("Alarm", "1"), UnlockAction::Unlock);
+    EXPECT_EQ(lockIconAction("Alarm", "8"), UnlockAction::ConfirmHomingFailure);
+    EXPECT_EQ(lockIconAction("Alarm", "Homing"), UnlockAction::Unlock);
+    EXPECT_TRUE(lockIconRepopulates("Alarm", "Homing"));
+    EXPECT_TRUE(lockIconRepopulates("Alarm", "11"));
+    EXPECT_FALSE(lockIconRepopulates("Alarm", "1"));
+    EXPECT_EQ(lockIconAction("Hold", ""), UnlockAction::CycleStart);
+    EXPECT_EQ(lockIconAction("Idle", ""), UnlockAction::CycleStart);
+}
+
+TEST_F(ActionsTest, UnlockActionsSendTheirCommands) {
+    make();
+    runUnlockAction(c(), UnlockAction::Unlock);
+    EXPECT_TRUE(sent("$X\n"));
+    link.sends.clear();
+    runUnlockAction(c(), UnlockAction::ResetLimit);  // soft reset, then $X
+    EXPECT_TRUE(sent("\x18"));
+    EXPECT_TRUE(sent("$X\n"));
+    link.sends.clear();
+    runUnlockAction(c(), UnlockAction::CycleStart);
+    EXPECT_TRUE(sent("~"));
+    link.sends.clear();
+    runUnlockAction(c(), UnlockAction::ConfirmHomingFailure);
+    EXPECT_TRUE(link.sends.empty());
+    runUnlockAction(c(), UnlockAction::Home);
+    EXPECT_TRUE(sent("$H\n"));
+}
+
 }  // namespace

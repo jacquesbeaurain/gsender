@@ -12,6 +12,7 @@ class Machine;
 class ProbePanel;
 class ShortcutManager;
 class SpindlePanel;
+class StatusArea;
 class ToolpathView;
 
 class MainWindow final : public QMainWindow {
@@ -36,6 +37,7 @@ private:
     Machine& machine_;
     ConsolePanel* console_;
     ToolpathView* visualizer_;
+    StatusArea* statusArea_;
     Jogger* jogger_;
     ShortcutManager* shortcuts_;
     SpindlePanel* spindle_;
