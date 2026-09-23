@@ -230,7 +230,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     for (const char* option : kToolChangeOptions) {
         toolChange_->addItem(option);
     }
-    toolChange_->setToolTip(tr("Ignore: comment M6 out. Pause: pause the job at M6. "
+    toolChange_->setToolTip(tr("Ignore: comment M6 out. Pause: pause the job at M6. Standard Re-zero: a wizard "
+                               "to change the bit and re-zero Z. Flexible Re-zero: a wizard measuring tools on the "
+                               "touch plate. Fixed Tool Sensor: a wizard measuring tools on a sensor (needs homing). "
                                "Code: run the hooks below around the tool change."));
     passthrough_ = new QCheckBox(tr("Send M6 to the firmware (it handles tool changes)"));
     skipDialog_ = new QCheckBox(tr("Code: run both hooks without asking in between"));
@@ -246,6 +248,38 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     toolForm->addRow(QString(), skipDialog_);
     toolForm->addRow(tr("Before change"), preHook_);
     toolForm->addRow(tr("After change"), postHook_);
+
+    // Fixed Tool Sensor: machine positions, with a button to take the current one.
+    const auto positionRow = [this](QDoubleSpinBox* (&boxes)[3]) {
+        auto* row = new QHBoxLayout;
+        for (int i = 0; i < 3; ++i) {
+            boxes[i] = new QDoubleSpinBox;
+            boxes[i]->setRange(-10000, 10000);
+            boxes[i]->setDecimals(3);
+            boxes[i]->setPrefix(QString("XYZ"[i]) + " ");
+            row->addWidget(boxes[i]);
+        }
+        auto* here = new QPushButton(tr("Use current"));
+        here->setToolTip(tr("The machine position now"));
+        connect(here, &QPushButton::clicked, this, [this, &boxes] {
+            if (controller::Controller* c = machine_.controller()) {
+                for (std::size_t i = 0; i < 3; ++i) {
+                    boxes[i]->setValue(c->runner().machinePosition()[i]);
+                }
+            }
+        });
+        row->addWidget(here);
+        return row;
+    };
+    toolForm->addRow(tr("Fixed sensor location"), positionRow(sensor_));
+    firstTool_ = new QComboBox;
+    for (const char* behaviour : toolchange::kFirstToolBehaviours) {
+        firstTool_->addItem(behaviour);
+    }
+    toolForm->addRow(tr("First tool behaviour"), firstTool_);
+    moveToManual_ = new QCheckBox(tr("Move to a tool change location to change bits"));
+    toolForm->addRow(QString(), moveToManual_);
+    toolForm->addRow(tr("Tool change location"), positionRow(manual_));
     tabs_->addTab(toolChange, tr("Tool Change"));
 
     // The touch plate profile and the Probe widget's settings (gSender's
@@ -342,6 +376,14 @@ void SettingsDialog::load() {
     skipDialog_->setChecked(s.toolChange.skipDialog);
     preHook_->setPlainText(QString::fromStdString(s.toolChange.preHook));
     postHook_->setPlainText(QString::fromStdString(s.toolChange.postHook));
+    const double sensor[3] = {s.toolChangePosition.x, s.toolChangePosition.y, s.toolChangePosition.z};
+    const double manual[3] = {s.manualPosition.x, s.manualPosition.y, s.manualPosition.z};
+    for (int i = 0; i < 3; ++i) {
+        sensor_[i]->setValue(sensor[i]);
+        manual_[i]->setValue(manual[i]);
+    }
+    firstTool_->setCurrentText(QString::fromStdString(s.firstToolBehaviour));
+    moveToManual_->setChecked(s.moveToManualPosition);
 
     const probe::ProbeSettings& p = s.probe;
     plateType_->setCurrentText(QString::fromUtf8(probe::plateTypeName(p.plateType).data()));
@@ -381,6 +423,10 @@ void SettingsDialog::save() {
     s.toolChange.skipDialog = skipDialog_->isChecked();
     s.toolChange.preHook = preHook_->toPlainText().toStdString();
     s.toolChange.postHook = postHook_->toPlainText().toStdString();
+    s.toolChangePosition = {sensor_[0]->value(), sensor_[1]->value(), sensor_[2]->value()};
+    s.manualPosition = {manual_[0]->value(), manual_[1]->value(), manual_[2]->value()};
+    s.firstToolBehaviour = firstTool_->currentText().toStdString();
+    s.moveToManualPosition = moveToManual_->isChecked();
 
     probe::ProbeSettings& p = s.probe;
     p.plateType = probe::plateTypeFromName(plateType_->currentText().toStdString()).value_or(p.plateType);

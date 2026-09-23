@@ -2084,9 +2084,14 @@ void Controller::toolChangePost() {
     runPostChangeHook();
 }
 
-void Controller::wizardStart(const std::string& gcodeText) {
+void Controller::wizardStart(const std::string& gcodeText, std::function<void()> started) {
     beginCommand("wizard:start");
-    toolChanger_->addInterval([this, gcodeText] { gcode(gcodeText); });
+    toolChanger_->addInterval([this, gcodeText, started = std::move(started)] {
+        gcode(gcodeText);
+        if (started) {
+            started();
+        }
+    });
 }
 
 void Controller::wizardStep(int step, int substep) {

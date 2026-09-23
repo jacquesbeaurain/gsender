@@ -9,6 +9,7 @@
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
 #include "surfacing_dialog.hpp"
+#include "toolchange_dialog.hpp"
 #include "toolpath_view.hpp"
 
 #include <QApplication>
@@ -73,6 +74,29 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     connect(&machine_, &Machine::connectionFailed, this,
             [this](const QString& reason) { showError(tr("Connection"), reason); });
     connect(&machine_, &Machine::errorReported, this, &MainWindow::showError);
+    // M6 with a wizard strategy (controllerSagas' gcode:toolChange).
+    connect(&machine_, &Machine::toolChangeWizardRequested, this,
+            [this](const QString& option, int count, const QString& comment) {
+                bool fullWizard = true;
+                const AppSettings& settings = machine_.settings();
+                if (option == "Fixed Tool Sensor" && count <= 1 &&
+                    settings.firstToolBehaviour == toolchange::kFirstToolBehaviours[1] && dialogsEnabled_) {
+                    // showFirstToolchangePrompt()
+                    fullWizard = QMessageBox::question(
+                                     this, tr("First tool change"),
+                                     tr("A tool change was requested for the first tool%1.\n\nRun the full tool "
+                                        "change wizard? Choose No to only measure the tool that is loaded.")
+                                         .arg(comment.isEmpty() ? QString() : " (" + comment + ")")) ==
+                                 QMessageBox::Yes;
+                }
+                const auto wizard = machine_.startToolChangeWizard(option.toStdString(), count, fullWizard);
+                if (!wizard) {
+                    return;
+                }
+                auto* dialog = new ToolChangeWizardDialog(machine_, *wizard, this);
+                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                dialog->show();
+            });
     // gSender's recovery prompt: the job can resume from where it stopped.
     connect(&machine_, &Machine::jobInterrupted, this, [this](qint64 line) {
         showError(tr("Job interrupted"),

@@ -2,6 +2,7 @@
 
 #include "gs/controller/session.hpp"
 #include "gs/probe/probing.hpp"
+#include "gs/toolchange/wizards.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
 #include <gtest/gtest.h>
@@ -290,6 +291,62 @@ TEST(EndToEnd, AJobRunsToCompletionOnTheSimulatedBoard) {
     ASSERT_NE(first, lines.end());
     const std::vector<std::string> job(first, first + 5);
     EXPECT_EQ(job, (std::vector<std::string>{"G1 X10 F1200", "G1 Y10", "G1 X0", "G1 Y0", "M30"}));
+}
+
+// A job reaching M6 with a wizard strategy: the wizard's start-up G-code runs
+// once the board is idle, its actions run on the paused job, and
+// %toolchange_complete resumes it.
+TEST(EndToEnd, AToolChangeWizardCarriesTheJobOn) {
+    runtime::ManualEventLoop loop;
+    GrblSimulator sim(loop);
+    std::vector<controller::ControllerEvent> events;
+    controller::Session session(loop, sim, {}, {},
+                                [&](const controller::ControllerEvent& e) { events.push_back(e); });
+    sim.onData = [&](std::string_view bytes) { session.receive(bytes); };
+    sim.open();
+    session.opened();
+    for (int i = 0; i < 100 && (!session.controller() || !session.controller()->runner().hasSettings()); ++i) {
+        loop.advance(50);
+    }
+    ASSERT_NE(session.controller(), nullptr);
+    controller::Controller& c = *session.controller();
+    c.setToolChangeContext({"Standard Re-zero"});
+    ASSERT_TRUE(c.loadProgram("tools.nc", "G21 G90\nG0 X5 Z-2\nM6 T2\nG0 X10\n").ok);
+    c.start();
+    const auto requested = [&] {
+        return std::any_of(events.begin(), events.end(), [](const controller::ControllerEvent& e) {
+            return std::holds_alternative<controller::ToolChangeRequested>(e);
+        });
+    };
+    for (int i = 0; i < 100 && !requested(); ++i) {
+        loop.advance(50);
+    }
+    ASSERT_TRUE(requested());
+    const toolchange::Wizard wizard = toolchange::standardRezero({}, {});
+    std::string start;
+    for (const std::string& line : wizard.start) {
+        start += line + "\n";
+    }
+    c.wizardStart(start);
+    const std::vector<std::string>& lines = sim.receivedLines();
+    for (int i = 0; i < 100 && std::find(lines.begin(), lines.end(), "G91 G21") == lines.end(); ++i) {
+        loop.advance(50);
+    }
+    ASSERT_NE(std::find(lines.begin(), lines.end(), "G91 G21"), lines.end());
+
+    // Paper method, then resume.
+    c.gcode(wizard.steps[1].substeps[0].actions[1].gcode);
+    c.wizardStep(2, 0);
+    c.gcode(wizard.steps[2].substeps[0].actions[0].gcode);
+    for (int i = 0; i < 400 && !(c.workflow().isIdle() && sim.machinePosition()[0] > 9.99); ++i) {
+        loop.advance(50);
+    }
+    EXPECT_TRUE(c.workflow().isIdle());
+    EXPECT_NEAR(sim.machinePosition()[0], 10, 1e-9);
+    // Back to the stored spot, the modals restored, then the rest of the job.
+    const auto back = std::find(lines.begin(), lines.end(), "G90 G21 G0 X5 Y0");
+    ASSERT_NE(back, lines.end());
+    EXPECT_NE(std::find(back, lines.end(), "G0 X10"), lines.end());
 }
 
 // gSender's standard block routine (XYZ, 1/4" bit) against a simulated plate

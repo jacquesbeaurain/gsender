@@ -695,3 +695,42 @@ switch from the DRO's units badge or the General settings, and:
 
 The settings dialog's probe values, the outline speed and the visualizer
 stay in mm for now.
+
+## Step 28 — Tool change wizards (`gs/toolchange`, `src/app/toolchange_dialog`)
+
+The remaining tool change strategies are UI wizards in gSender
+(`src/app/src/wizards`): when the controller reports `gcode:toolChange` for
+"Standard Re-zero", "Flexible Re-zero" or "Fixed Tool Sensor", the UI sends
+start-up G-code (storing the position, modals and spindle in
+`global.toolchange.*`), then walks the operator through steps whose actions
+run G-code; each action is `wizard:step` + `gcode`, the controller answers
+`wizard:next` when the lines are through, and the last action ends in
+`%toolchange_complete`, which resumes the job.
+
+The four wizard definitions are ported to the core as data builders
+(start-up G-code, steps, instruction text, actions) from the probe settings
+(`getProbeSettings`: the plate's Z thickness, BitZero flat on the surface)
+and the machine's `$13`/`$20`/`$132`, Z position and tool.
+`tools/gen_toolchange_fixtures.mjs` runs the upstream wizard modules - JSX
+instructions rendered to text with react-dom/server - over 40 settings
+combinations; the port matches every start line, instruction and action.
+Upstream quirks kept: the Flexible Re-zero hint always says "0.4in" (it
+tests the `$13` string, and "0" is truthy); the Fixed Tool Sensor start goes
+out with a plain `gcode` command while the re-zero ones go through
+`wizard:start` (queued until the board is idle); stored positions come back
+as plain numbers (`X5`, not `X5.000`), because evaluate-expression converts
+numeric identifiers - pinned by a controller test.
+
+In the application `Machine::startToolChangeWizard` builds the wizard
+(asking, for the first tool with a fixed sensor and "Prompt for first tool",
+whether to run the full wizard or only measure the loaded tool) and the
+wizard dialog shows the steps, the instruction, the tool to load and the
+actions; it advances on `wizard:next` and closes after the resume. One
+deviation: actions stay disabled until the start-up G-code has actually gone
+out (`Controller::wizardStart` gained an optional "started" callback) -
+upstream relies on the operator being slower than its 200 ms idle poll, and
+an action run earlier finds no stored position. The tool change settings
+gained the strategies, the fixed sensor location, the first-tool behaviour
+and the optional tool change location (with "Use current" buttons). Tests:
+a core end-to-end run and an application run take a job through M6 with
+the Standard Re-zero wizard on the simulator and on to its last line.

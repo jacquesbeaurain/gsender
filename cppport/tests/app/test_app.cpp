@@ -13,6 +13,7 @@
 #include "shortcuts_dialog.hpp"
 #include "start_from_line_dialog.hpp"
 #include "surfacing_dialog.hpp"
+#include "toolchange_dialog.hpp"
 
 #include "gs/controller/actions.hpp"
 #include "gs/sim/grbl_simulator.hpp"
@@ -505,6 +506,79 @@ TEST_F(AppTest, AnInchWorkspaceShowsAndJogsInInches) {
         const auto labels = panel.findChildren<QLabel*>();
         return std::any_of(labels.begin(), labels.end(), [](QLabel* l) { return l->text() == "0.197"; });
     }));
+}
+
+TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.toolChange.option = "Standard Re-zero";
+    machine.setSettings(settings);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(20);
+    QString requested;
+    int requestedCount = 0;
+    QObject::connect(&machine, &Machine::toolChangeWizardRequested,
+                     [&](const QString& option, int count, const QString&) {
+                         requested = option;
+                         requestedCount = count;
+                     });
+    machine.loadProgram("tools.nc", "G21 G90\nG0 X5 Z-2\nM6 T2\nG0 X10\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    controller::runJob(*machine.controller());
+    ASSERT_TRUE(waitFor([&] { return !requested.isEmpty(); }));
+    EXPECT_EQ(requested, "Standard Re-zero");
+    EXPECT_EQ(requestedCount, 1);
+    EXPECT_TRUE(machine.controller()->workflow().isPaused());
+
+    const auto wizard = machine.startToolChangeWizard(requested.toStdString(), requestedCount);
+    ASSERT_TRUE(wizard.has_value());
+    ToolChangeWizardDialog dialog(machine, *wizard);
+    // Actions wait for the start-up G-code, which goes once the board is idle.
+    dialog.next();
+    dialog.next();
+    dialog.runAction(1);
+    EXPECT_FALSE(dialog.isRunning());
+    ASSERT_TRUE(waitFor([&] { return machine.isToolChangeWizardReady(); }));
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    EXPECT_TRUE(waitFor([&] { return std::find(received.begin(), received.end(), "G91 G21") != received.end(); }));
+    dialog.back();
+    dialog.back();
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.next();
+        dialog.show();
+        dialog.grab().save(QString::fromLocal8Bit(out) + "/toolchange_wizard.png");
+        dialog.back();
+    }
+    dialog.next();  // Safety First
+    dialog.next();  // Change Bit
+    ASSERT_EQ(dialog.step(), 1);
+    dialog.next();  // an instruction with actions only passes once one ran
+    EXPECT_EQ(dialog.step(), 1);
+    dialog.runAction(1);  // Set Z0 (paper method)
+    EXPECT_TRUE(dialog.isRunning());
+    ASSERT_TRUE(waitFor([&] { return dialog.step() == 2; }));
+    // Z0 was set where the bit is (the job's Z-2 in the first work offset).
+    EXPECT_NEAR(machine.simulator()->workOffset()[2], -2, 1e-9);
+
+    dialog.runAction(0);  // Resume Job: back to the stored position, %toolchange_complete
+    ASSERT_TRUE(waitFor([&] { return dialog.result() == QDialog::Accepted; })) << [&] {
+        std::string all;
+        for (const std::string& line : machine.simulator()->receivedLines()) {
+            all += line + " | ";
+        }
+        return all + " running=" + std::to_string(dialog.isRunning()) + " step=" + std::to_string(dialog.step()) +
+               " state=" + machine.controller()->state().status.activeState +
+               " sim=" + machine.simulator()->activeState();
+    }();
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isIdle() &&
+                                     machine.simulator()->machinePosition()[0] > 9.99; }, 8000));
+    EXPECT_NEAR(machine.simulator()->machinePosition()[0], 10, 1e-9);
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {

@@ -355,6 +355,18 @@ TEST_P(ControllerTest, ToolChangeHooksQueueTheirBlocksAndCompletionMarkers) {
     EXPECT_EQ(queued(), (std::vector<std::string>{"G4 P1", "M3", "%toolchange_complete"}));
 }
 
+TEST_P(ControllerTest, PositionsInExpressionsAreNumbers) {
+    // populateContext() gives positions as toFixed(3) strings, but
+    // evaluate-expression turns numeric identifiers into numbers, so stored
+    // and printed back they lose the padding: "X5", not "X5.000".
+    line("<Idle|MPos:5.000,0.000,-2.000|FS:0,0|WCO:0.000,0.000,0.000>");
+    c().gcode(std::vector<std::string>{"%global.t.X=posx", "G0 X[global.t.X] Z[posz]"});
+    for (int i = 0; i < 3; ++i) {
+        line("ok");
+    }
+    EXPECT_TRUE(has(writes(), "G0 X5 Z-2\n")) << ::testing::PrintToString(writes());
+}
+
 TEST_P(ControllerTest, WizardStartWaitsForIdleAndAStepCompletesOnce) {
     c().feeder().hold();
     c().wizardStart("G1 X1");

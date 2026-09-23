@@ -10,6 +10,7 @@
 #include "gs/job/outline.hpp"
 #include "gs/probe/probing.hpp"
 #include "gs/surfacing/surfacing.hpp"
+#include "gs/toolchange/wizards.hpp"
 
 #include <map>
 #include <string>
@@ -61,11 +62,19 @@ struct AppSettings {
     // and the global switch (preferences.shortcuts.shouldHold, inverted).
     std::map<std::string, ShortcutBinding> shortcuts;
     bool shortcutsEnabled = true;
+    // Tool change wizards: the fixed sensor's position (machine
+    // coordinates, workspace.toolChangePosition), the first tool with it,
+    // and the optional position to change bits at.
+    toolchange::MachinePosition toolChangePosition;
+    std::string firstToolBehaviour = toolchange::kFirstToolBehaviours[0];
+    bool moveToManualPosition = false;
+    toolchange::MachinePosition manualPosition;
 };
 
-// The tool change strategies the port supports so far (gSender's option
-// names): the Re-zero and tool-sensor wizards are not ported yet.
-inline constexpr const char* kToolChangeOptions[] = {"Ignore", "Pause", "Code"};
+// The tool change strategies (gSender's option names, in its order).
+inline constexpr const char* kToolChangeOptions[] = {"Ignore",           "Pause",
+                                                     "Standard Re-zero", "Flexible Re-zero",
+                                                     "Fixed Tool Sensor", "Code"};
 
 AppSettings loadAppSettings(const config::ConfigStore& store);
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings);

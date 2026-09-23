@@ -116,6 +116,19 @@ json::object saveSurfacing(const surfacing::Options& s) {
     };
 }
 
+toolchange::MachinePosition loadPosition(const json::object& root, std::string_view key) {
+    toolchange::MachinePosition p;
+    if (const json::value* value = root.if_contains(key); value && value->is_object()) {
+        const json::object& o = value->as_object();
+        p = {number(o, "x", 0), number(o, "y", 0), number(o, "z", 0)};
+    }
+    return p;
+}
+
+json::object savePosition(const toolchange::MachinePosition& p) {
+    return {{"x", p.x}, {"y", p.y}, {"z", p.z}};
+}
+
 controller::JogSpeeds loadSpeeds(const json::object& root, std::string_view key, controller::JogSpeeds speeds) {
     const json::value* value = root.if_contains(key);
     if (!value || !value->is_object()) {
@@ -158,7 +171,11 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
         settings.toolChange.preHook = text(t, "preHook");
         settings.toolChange.postHook = text(t, "postHook");
         settings.toolChange.skipDialog = flag(t, "skipDialog", false);
+        settings.firstToolBehaviour = text(t, "firstToolBehaviour", settings.firstToolBehaviour);
+        settings.moveToManualPosition = flag(t, "moveToManualPosition", false);
+        settings.manualPosition = loadPosition(t, "manualPosition");
     }
+    settings.toolChangePosition = loadPosition(root, "toolChangePosition");
     settings.preferences.spindleDelay = number(root, "spindleDelay", 0);
     settings.preferences.showLineWarnings = flag(root, "showLineWarnings", false);
     settings.preferences.useAaxisForGrbl = flag(root, "useAaxisForGrbl", false);
@@ -225,7 +242,11 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                                                      {"passthrough", t.passthrough},
                                                      {"preHook", t.preHook},
                                                      {"postHook", t.postHook},
-                                                     {"skipDialog", t.skipDialog}}},
+                                                     {"skipDialog", t.skipDialog},
+                                                     {"firstToolBehaviour", settings.firstToolBehaviour},
+                                                     {"moveToManualPosition", settings.moveToManualPosition},
+                                                     {"manualPosition", savePosition(settings.manualPosition)}}},
+                         {"toolChangePosition", savePosition(settings.toolChangePosition)},
                          {"spindleDelay", settings.preferences.spindleDelay},
                          {"showLineWarnings", settings.preferences.showLineWarnings},
                          {"useAaxisForGrbl", settings.preferences.useAaxisForGrbl},
