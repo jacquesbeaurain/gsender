@@ -238,6 +238,66 @@ void Machine::disconnectFromMachine() {
     Q_EMIT connectionChanged();
 }
 
+// ---- tool change wizards ---------------------------------------------------------------
+
+bool Machine::isWizardStrategy(const std::string& option) {
+    return option == "Standard Re-zero" || option == "Flexible Re-zero" || option == "Fixed Tool Sensor";
+}
+
+std::optional<toolchange::Wizard> Machine::startToolChangeWizard(const std::string& option, int count,
+                                                                 bool fullFirstWizard) {
+    controller::Controller* c = controller();
+    if (!c || !isWizardStrategy(option)) {
+        return std::nullopt;
+    }
+    const toolchange::ProbeSettings probe = toolchange::toolChangeProbeSettings(settings_.probe);
+    toolchange::MachineFacts facts;
+    facts.reportInches = c->runner().setting("$13");
+    facts.reportInches = facts.reportInches.empty() ? "0" : facts.reportInches;
+    facts.softLimits = c->runner().setting("$20");
+    facts.zMaxTravel = c->runner().setting("$132");
+    facts.machineZ = c->runner().machinePosition()[2];
+    facts.tool = c->runner().modal().tool;
+
+    toolchange::Wizard wizard;
+    if (option == "Standard Re-zero") {
+        wizard = toolchange::standardRezero(probe, facts);
+    } else if (option == "Flexible Re-zero") {
+        wizard = toolchange::flexibleRezero(count, probe, facts);
+    } else {
+        // determineFixedSensorInstructions(): later tools always get the full
+        // wizard; the first one as the settings (or the operator) say.
+        const std::string& first = settings_.firstToolBehaviour;
+        const bool full = count > 1 || first == toolchange::kFirstToolBehaviours[0] ||
+                          (first == toolchange::kFirstToolBehaviours[1] && fullFirstWizard);
+        wizard = full ? toolchange::fixedToolSensor(count, probe, facts, settings_.toolChangePosition,
+                                                    settings_.manualPosition, settings_.moveToManualPosition)
+                      : toolchange::probeToolLength(probe, facts, settings_.toolChangePosition);
+    }
+    wizardReady_ = false;
+    if (wizard.startDirect) {
+        c->gcode(wizard.start);
+        wizardReady_ = true;
+    } else {
+        std::string text;
+        for (const std::string& line : wizard.start) {
+            text += line + "\n";
+        }
+        c->wizardStart(text, [this] {
+            wizardReady_ = true;
+            Q_EMIT toolChangeWizardReady();
+        });
+    }
+    return wizard;
+}
+
+void Machine::runWizardAction(int step, int substep, const std::vector<std::string>& gcode) {
+    if (controller::Controller* c = controller()) {
+        c->wizardStep(step, substep);
+        c->gcode(gcode);
+    }
+}
+
 // ---- file context and outline -------------------------------------------------------------
 
 expr::Value Machine::fileContext() const {
@@ -484,10 +544,17 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    },
                    [this](const GcodeError& e) { Q_EMIT notice(QString::fromStdString(e.message)); },
                    [this](const ToolChangeRequested& e) {
+                       if (isWizardStrategy(e.option)) {
+                           Q_EMIT toolChangeWizardRequested(QString::fromStdString(e.option), e.count,
+                                                            QString::fromStdString(e.comment));
+                           return;
+                       }
+                       // "Pause": gSender's toast.
                        Q_EMIT notice(tr("Tool change %1 at line %2 - change the tool, then resume the job.")
                                        .arg(QString::fromStdString(e.tool.value_or("")))
                                        .arg(e.line));
                    },
+                   [this](const WizardNext& e) { Q_EMIT wizardNext(e.step, e.substep); },
                    [this](const ToolChangeStarted&) { Q_EMIT notice(tr("Tool change: running the pre-hook...")); },
                    [this](const ToolChangePreHookComplete& e) {
                        Q_EMIT toolChangeWaiting(QString::fromStdString(e.comment));

@@ -202,7 +202,9 @@ public:
     void setToolChangeContext(const ToolChangeContext& context);
     void toolChangePre();
     void toolChangePost();
-    void wizardStart(const std::string& gcode);
+    // Runs `gcode` once the board is idle; `started` is told when it has
+    // been queued (a port addition, so a UI can hold its actions until then).
+    void wizardStart(const std::string& gcode, std::function<void()> started = {});
     void wizardStep(int step, int substep);
 
     // ---- grblHAL SD card ----

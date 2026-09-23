@@ -27,6 +27,8 @@ add_library(gs_app STATIC
     start_from_line_dialog.hpp
     surfacing_dialog.cpp
     surfacing_dialog.hpp
+    toolchange_dialog.cpp
+    toolchange_dialog.hpp
     toolpath_view.cpp
     toolpath_view.hpp
 )

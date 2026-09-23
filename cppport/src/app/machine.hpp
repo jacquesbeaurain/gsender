@@ -90,6 +90,21 @@ public:
     config::ConfigStore& config() noexcept { return config_; }
     runtime::EventLoop& eventLoop() noexcept;  // the UI thread's
 
+    // ---- tool change wizards ----
+    // True for the strategies that run a wizard at M6.
+    static bool isWizardStrategy(const std::string& option);
+    // Builds the strategy's wizard from the settings and machine, and sends
+    // its start-up G-code; `fullFirstWizard` decides the first tool with a
+    // fixed sensor when the settings leave it to the operator.
+    std::optional<toolchange::Wizard> startToolChangeWizard(const std::string& option, int count,
+                                                            bool fullFirstWizard = true);
+    // Whether the running wizard's start-up G-code has gone out; actions
+    // wait for it (it stores the position they return to).
+    bool isToolChangeWizardReady() const noexcept { return wizardReady_; }
+    // An action of the wizard: wizard:step, then its G-code; the controller
+    // answers with wizardNext once the lines are through.
+    void runWizardAction(int step, int substep, const std::vector<std::string>& gcode);
+
     // ---- file context and outline ----
     // The loaded file's box as expression context (xmin ... zmax, from the
     // toolpath with its rapids), as the visualizer sets controller.context
@@ -148,6 +163,10 @@ Q_SIGNALS:
     void appSettingsChanged();  // setSettings()
     // The connection closed while a job ran, around sender line `line`.
     void jobInterrupted(qint64 line);
+    // M6 with a wizard strategy: the job is paused for startToolChangeWizard().
+    void toolChangeWizardRequested(const QString& option, int count, const QString& comment);
+    void wizardNext(int step, int substep);  // an action's G-code is done
+    void toolChangeWizardReady();            // the start-up G-code went out
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);
@@ -177,6 +196,7 @@ private:
     bool analyzing_ = false;
     std::uint64_t analysisGeneration_ = 0;
     bool jobRunning_ = false;
+    bool wizardReady_ = false;
     std::int64_t lastLine_ = 1;
     std::shared_ptr<std::atomic<bool>> analysisCancel_;
 };

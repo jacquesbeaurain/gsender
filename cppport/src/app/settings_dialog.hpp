@@ -66,6 +66,10 @@ private:
     QCheckBox* skipDialog_;
     QPlainTextEdit* preHook_;
     QPlainTextEdit* postHook_;
+    QDoubleSpinBox* sensor_[3];
+    QComboBox* firstTool_;
+    QCheckBox* moveToManual_;
+    QDoubleSpinBox* manual_[3];
     // Probe
     QComboBox* plateType_;
     QDoubleSpinBox* standardBlock_;
