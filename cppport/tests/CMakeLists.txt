@@ -17,6 +17,7 @@ add_executable(gs_core_tests
     core/test_session.cpp
     core/test_config.cpp
     core/test_program_analysis.cpp
+    core/test_simulator.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 gs_precompile_headers(gs_core_tests

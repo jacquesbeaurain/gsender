@@ -384,3 +384,24 @@ reads the machine limits from the firmware settings as the UI did
 Faithful quirk: the estimator's trapezoid formula (from Slic3r) assumes a
 move reaches its programmed speed; for moves too short to do so it returns
 distance / speed, ignoring acceleration.
+
+## Step 16 — A simulated Grbl board (`gs/sim/grbl_simulator`)
+
+Not a port - new: `GrblSimulator` is a `DeviceLink` that behaves like a Grbl
+1.1 board, so the application can be developed, demonstrated and tested
+without hardware, and the whole stack can be tested end to end.
+
+It prints the startup banner on open, answers `?` (MPos/WPos per `$10`, FS,
+Ov, WCO), `$$`, `$#`, `$G`, `$I`, `$X`, `$H`, `$C`, `$J=`, settings writes,
+and executes a G-code subset (G0-G3 - arcs along their chord -, G4, G10 L2/L20,
+G17-G21, G28/G30, G38.x (always succeeding), G53-G59, G90/G91, G92/G92.1,
+M0-M9, M30) with time-based motion from distance and feed (overrides apply),
+a 15-block planner that delays the `ok` when full, feed hold/resume, jog
+cancel, soft reset (ALARM:3 when interrupting motion) and the usual error
+codes (2, 3, 5, 8, 9, 20, 22). Output is always delivered from the event
+loop, as a real device's would be.
+
+`tests/core/test_simulator.cpp` covers it and runs a square job through
+`Session` + `Controller` to completion: detection from the banner, the
+controller's soft reset and `$$` initialization, streaming, and the job-end
+detection after half a second of idle.
