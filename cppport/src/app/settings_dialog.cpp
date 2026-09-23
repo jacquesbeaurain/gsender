@@ -10,7 +10,10 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
+#include <QDate>
+#include <QFileDialog>
 #include <QFormLayout>
+#include <QMessageBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -261,6 +264,52 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     outlineSpeed_->setSpecialValueText(tr("Rapid (G0)"));
     generalForm->addRow(tr("Outline style"), outlineMode_);
     generalForm->addRow(tr("Outline speed"), outlineSpeed_);
+    // Application Preferences: export, import (the port's or gSender's
+    // files), restore defaults - each replaces what the dialog shows.
+    auto* filesRow = new QHBoxLayout;
+    auto* exportButton = new QPushButton(tr("Export Settings..."));
+    auto* importButton = new QPushButton(tr("Import Settings..."));
+    importButton->setToolTip(tr("A file exported here, or gSender's settings export"));
+    auto* restoreButton = new QPushButton(tr("Restore Defaults"));
+    filesRow->addWidget(exportButton);
+    filesRow->addWidget(importButton);
+    filesRow->addWidget(restoreButton);
+    filesRow->addStretch(1);
+    generalForm->addRow(tr("Settings"), filesRow);
+    connect(exportButton, &QPushButton::clicked, this, [this] {
+        const QString name = QString("gSender-cpp-settings-%1.json").arg(QDate::currentDate().toString(Qt::ISODate));
+        const QString path =
+            QFileDialog::getSaveFileName(this, tr("Export Settings"), name, tr("Settings (*.json);;All files (*)"));
+        QString error;
+        if (!path.isEmpty() && !machine_.exportSettings(path, &error)) {
+            QMessageBox::warning(this, tr("Export Settings"), error);
+        }
+    });
+    connect(importButton, &QPushButton::clicked, this, [this] {
+        const QString path =
+            QFileDialog::getOpenFileName(this, tr("Import Settings"), QString(), tr("Settings (*.json);;All files (*)"));
+        if (path.isEmpty() ||
+            QMessageBox::question(this, tr("Import Settings"),
+                                  tr("All your current settings will be replaced. Are you sure you want to import "
+                                     "your settings?")) != QMessageBox::Yes) {
+            return;
+        }
+        QString report;
+        if (machine_.importSettings(path, &report)) {
+            load();
+            QMessageBox::information(this, tr("Import Settings"), report);
+        } else {
+            QMessageBox::warning(this, tr("Import Settings"), report);
+        }
+    });
+    connect(restoreButton, &QPushButton::clicked, this, [this] {
+        if (QMessageBox::question(this, tr("Restore Settings"),
+                                  tr("All your current settings will be removed. Are you sure you want to restore "
+                                     "default settings?")) == QMessageBox::Yes) {
+            machine_.restoreDefaultSettings();
+            load();
+        }
+    });
     tabs_->addTab(general, tr("General"));
 
     auto* toolChange = new QWidget;

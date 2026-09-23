@@ -14,6 +14,8 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
+#include <string_view>
 #include <string>
 #include <vector>
 
@@ -125,5 +127,24 @@ inline constexpr const char* kToolChangeOptions[] = {"Ignore",           "Pause"
 
 AppSettings loadAppSettings(const config::ConfigStore& store);
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings);
+// The "app" object as stored in the config file and in exported settings.
+AppSettings appSettingsFromJson(const boost::json::object& app);
+boost::json::object appSettingsToJson(const AppSettings& settings);
+
+// A key combination as gSender records it (Mousetrap's "ctrl+alt+command+h",
+// "shift+pageup", "~") in Qt's portable text ("Ctrl+Alt+Meta+H",
+// "Shift+PgUp", "~"); "" stays unbound. Nullopt for what Qt cannot name.
+std::optional<std::string> keysFromMousetrap(std::string_view combo);
+
+// A gSender settings file - its Export ({settings, events}) or its store
+// file ({version, state}) - read as storeUpdate() does: upstream's keys over
+// the defaults, "AutoZero Touchplate" read as AutoZero. Nullopt when the
+// file is neither.
+struct GSenderSettings {
+    AppSettings settings;
+    std::optional<boost::json::object> events;  // the event hooks, when present
+    std::vector<std::string> unreadableShortcuts;  // commands whose keys Qt cannot name
+};
+std::optional<GSenderSettings> readGSenderSettings(const boost::json::value& file);
 
 }  // namespace gs::app

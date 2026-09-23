@@ -965,3 +965,32 @@ and an alarm on the simulator reaching the open dialog.
   counts are reported as upstream words them. The rules are in the core
   (`exportMacros`/`importMacros`, tested); files move between gSender and
   the port either way.
+
+## Step 36 — Settings export, import and restore; gSender settings import
+
+gSender's Application Preferences export the UI store and the event hooks
+(`{settings, events}`), import such a file (or its store file `{version,
+state}`) over the defaults, and restore defaults (clearing the hooks). The
+Settings dialog's General page now has the same three buttons:
+
+- **Export** writes `{"format": "gsender-cpp-settings", "version": 1, "app":
+  ..., "events": ...}` - the port's settings object as stored and the hooks.
+- **Import** reads that, or a gSender file: `readGSenderSettings` maps
+  upstream's keys onto the port's settings (units, decimals, safe height,
+  zero warning, park, outline, default firmware, recent files, jog limits
+  protection, A-axis passthrough, the stepper lock's stored value, the tool
+  change strategy, hooks and positions, the probe profile merged with the
+  probe widget's values - "AutoZero Touchplate" read as AutoZero, as
+  upstream does -, the jog presets and hold threshold, the connection, the
+  spindle/laser widget and its delay, surfacing, line warnings) over the
+  defaults, and its keyboard shortcuts: Mousetrap combinations
+  ("ctrl+alt+command+h", "shift+pageup") become Qt's ("Ctrl+Alt+Meta+H",
+  "Shift+PgUp"), and only bindings of the port's actions that differ from
+  its defaults are kept, as the shortcut editor stores them. The file's
+  event hooks replace the port's - deviation: upstream's import skips them
+  (that code is commented out).
+- **Restore Defaults** resets the settings and clears the event hooks.
+
+Each asks first and the dialog then shows the new values. Tests: the key
+conversion, a gSender export read field by field, and a round trip through
+export, restore and import, then a gSender file.
