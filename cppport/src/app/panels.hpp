@@ -52,6 +52,7 @@ private:
     QLabel* machinePos_[4];
     QPushButton* zero_[4];
     QWidget* rowA_[4];
+    QPushButton* units_;
     QList<QPushButton*> actions_;
 };
 

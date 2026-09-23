@@ -2,8 +2,10 @@
 // simulated board (real time, so kept short), and a main-window smoke test on
 // the offscreen platform.
 
+#include "jogger.hpp"
 #include "machine.hpp"
 #include "main_window.hpp"
+#include "panels.hpp"
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "settings_dialog.hpp"
@@ -17,6 +19,7 @@
 
 #include <QApplication>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QTableWidget>
 #include <QDeadlineTimer>
 #include <QTemporaryDir>
@@ -450,6 +453,58 @@ TEST_F(AppTest, TheOutlineTracesTheJobAndMacrosSeeTheFileBox) {
     ASSERT_TRUE(macro.has_value());
     ASSERT_TRUE(machine.controller()->runMacro(macro->id, machine.fileContext()));
     EXPECT_TRUE(waitFor([&] { return std::find(lines.begin(), lines.end(), "G0 X30") != lines.end(); }));
+}
+
+TEST_F(AppTest, AnInchWorkspaceShowsAndJogsInInches) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.metric = false;
+    machine.setSettings(settings);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+
+    // Jogging: the Normal preset (5 mm at 3000 mm/min) converted, sent in G20.
+    Jogger jogger(machine);
+    EXPECT_EQ(jogger.speeds().xyStep, 0.197);
+    EXPECT_EQ(jogger.speeds().feedrate, 118.11);
+    std::vector<QString> sent;
+    QObject::connect(&machine, &Machine::consoleLine, [&](const QString& text, bool fromHost) {
+        if (fromHost) {
+            sent.push_back(text.trimmed());
+        }
+    });
+    jogger.press({{'X', 1}});
+    jogger.release();
+    EXPECT_TRUE(waitFor([&] {
+        return std::find(sent.begin(), sent.end(), "$J=G20 G91 X0.197 F118.11") != sent.end();
+    }));
+    ASSERT_TRUE(waitFor([&] { return machine.simulator()->machinePosition()[0] > 0.197 * 25.4 - 1e-6 &&
+                                     machine.simulator()->activeState() == "Idle"; }));
+    EXPECT_NEAR(machine.simulator()->machinePosition()[0], 0.197 * 25.4, 1e-9);
+
+    // The probe routine and the surfacing program are written in inches.
+    const std::vector<std::string> routine = machine.probeRoutine({false, false, true}, probe::ProbeType::Diameter,
+                                                                  0.25, probe::kBottomLeft);
+    EXPECT_NE(std::find(routine.begin(), routine.end(), "G91 G20"), routine.end());
+    EXPECT_NE(std::find(routine.begin(), routine.end(), "%Z_THICKNESS=0.591"), routine.end());  // 15 mm
+    SurfacingDialog surfacing(machine);
+    EXPECT_EQ(surfacing.options().width, 3.937);  // 100 mm
+    surfacing.generate();
+    EXPECT_TRUE(surfacing.program().contains("G20 ;inches"));
+    surfacing.reject();
+    EXPECT_EQ(machine.settings().surfacing.width, 100);  // stored in mm again
+
+    // The position panel shows inches (3 decimals).
+    PositionPanel panel(machine);
+    ASSERT_TRUE(waitFor([&] {
+        const auto labels = panel.findChildren<QLabel*>();
+        return std::any_of(labels.begin(), labels.end(), [](QLabel* l) { return l->text() == "0.197"; });
+    }));
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {

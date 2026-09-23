@@ -188,6 +188,14 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     firmware_->setToolTip(tr("Assumed when a connected board does not identify itself"));
     networkPort_ = new QSpinBox;
     networkPort_->setRange(1, 65535);
+    units_ = new QComboBox;
+    units_->addItems({tr("Millimetres (mm)"), tr("Inches (in)")});
+    decimals_ = new QSpinBox;
+    decimals_->setRange(0, 5);
+    decimals_->setSpecialValueText(tr("Default"));
+    decimals_->setToolTip(tr("Decimal places of the position display (default: 2 in mm, 3 in inches)"));
+    generalForm->addRow(tr("Units"), units_);
+    generalForm->addRow(tr("Position decimals"), decimals_);
     generalForm->addRow(tr("Spindle delay"), spindleDelay_);
     generalForm->addRow(QString(), lineWarnings_);
     generalForm->addRow(QString(), aAxis_);
@@ -323,6 +331,8 @@ void SettingsDialog::load() {
     aAxis_->setChecked(s.preferences.useAaxisForGrbl);
     firmware_->setCurrentIndex(s.defaultFirmware == protocol::Firmware::GrblHal ? 1 : 0);
     networkPort_->setValue(s.networkPort);
+    units_->setCurrentIndex(s.metric ? 0 : 1);
+    decimals_->setValue(s.customDecimalPlaces);
     safeRetract_->setValue(s.safeRetractHeight);
     outlineMode_->setCurrentText(QString::fromUtf8(job::outlineModeName(s.outlineMode).data()));
     outlineSpeed_->setValue(s.outlineSpeed);
@@ -361,6 +371,8 @@ void SettingsDialog::save() {
     s.preferences.useAaxisForGrbl = aAxis_->isChecked();
     s.defaultFirmware = firmware_->currentIndex() == 1 ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     s.networkPort = networkPort_->value();
+    s.metric = units_->currentIndex() == 0;
+    s.customDecimalPlaces = decimals_->value();
     s.safeRetractHeight = safeRetract_->value();
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

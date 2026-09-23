@@ -51,7 +51,7 @@ public:
     // The current choice.
     const probe::ProbeCommand& command() const { return available_.at(selected_); }
     probe::ProbeType probeType() const;
-    double toolDiameter() const;  // mm; 0 for Auto and Tip
+    double toolDiameter() const;  // workspace units; 0 for Auto and Tip
     int corner() const;
     void selectCommand(int index);
     void stepCommand(int delta);  // the routine scroll shortcuts, wrapping

@@ -35,6 +35,10 @@ struct ShortcutBinding {
 };
 
 struct AppSettings {
+    // Workspace units (workspace.units): positions, jogging and the tools
+    // show and take inches when false; storage stays mm.
+    bool metric = true;
+    int customDecimalPlaces = 0;  // 0: upstream's defaults (2 mm, 3 in)
     // Controller behaviour
     controller::ToolChangeContext toolChange{"Ignore"};
     controller::Preferences preferences;

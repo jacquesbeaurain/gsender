@@ -5,6 +5,7 @@
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/units.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 #include "gs/transport/asio_link.hpp"
 
@@ -374,7 +375,7 @@ std::vector<std::string> Machine::probeRoutine(probe::Axes axes, probe::ProbeTyp
     facts.zMaxTravel = setting("$132", "0");
     facts.machineZ = c->runner().machinePosition()[2];
     const probe::ProbingOptions options =
-        probe::makeProbingOptions(settings_.probe, true, axes, type, toolDiameter, facts);
+        probe::makeProbingOptions(settings_.probe, settings_.metric, axes, type, toolDiameter, facts);
     return probe::probeCode(options, corner);
 }
 
@@ -401,7 +402,9 @@ void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, in
     const probe::ProbeSettings& p = settings_.probe;
     const double sx = corner == probe::kBottomLeft || corner == probe::kTopLeft ? 1 : -1;
     const double sy = corner == probe::kBottomLeft || corner == probe::kBottomRight ? 1 : -1;
-    double radius = type == probe::ProbeType::Diameter ? toolDiameter / 2 : 0;
+    // The tool diameter comes in the workspace units; the simulator is mm.
+    const double diameterMm = settings_.metric ? toolDiameter : units::in2mm(toolDiameter);
+    double radius = type == probe::ProbeType::Diameter ? diameterMm / 2 : 0;
     std::vector<sim::Solid> solids;
     switch (p.plateType) {
         case probe::PlateType::StandardBlock: {

@@ -2,6 +2,8 @@
 
 #include "machine.hpp"
 
+#include "gs/util/units.hpp"
+
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -39,12 +41,14 @@ StartFromLineDialog::StartFromLineDialog(Machine& machine, QWidget* parent) : QD
     line_->setValue(std::max(lastLine - 10, 1));
     safeHeight_ = new QDoubleSpinBox;
     safeHeight_->setRange(0, 500);
-    safeHeight_->setDecimals(2);
-    safeHeight_->setSuffix(" mm");
-    // The safe retract height when set, else 10 mm.
+    // The safe retract height when set, else 10 mm (0.4 in).
+    const bool metric = machine_.settings().metric;
     const double retract = machine_.settings().safeRetractHeight;
-    safeHeight_->setValue(retract == 0 ? 10 : retract);
-    safeHeight_->setToolTip(tr("Default value: 10 mm. The bit rises this far above the file's highest Z first."));
+    safeHeight_->setDecimals(metric ? 2 : 3);
+    safeHeight_->setSuffix(metric ? " mm" : " in");
+    safeHeight_->setValue(retract == 0 ? (metric ? 10 : 0.4) : (metric ? retract : units::convertToImperial(retract)));
+    safeHeight_->setToolTip(tr("Default value: %1. The bit rises this far above the file's highest Z first.")
+                                .arg(metric ? "10 mm" : "0.4 in"));
     form->addRow(tr("Resume job at line:"), line_);
     form->addRow(tr("With safe height:"), safeHeight_);
     layout->addLayout(form);
@@ -65,7 +69,7 @@ void StartFromLineDialog::setLine(int line) {
 }
 
 double StartFromLineDialog::safeHeight() const {
-    return safeHeight_->value();
+    return machine_.settings().metric ? safeHeight_->value() : safeHeight_->value() * 25.4;
 }
 
 bool StartFromLineDialog::start() {

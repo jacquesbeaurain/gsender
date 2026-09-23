@@ -1,6 +1,7 @@
 #include "gs/surfacing/surfacing.hpp"
 
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/units.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -421,13 +422,8 @@ private:
     bool metric_;
 };
 
-double convertToImperial(double value) {
-    return fixed3(value / 25.4);
-}
-
-double convertToMetric(double value) {
-    return js::stringToNumber(js::toFixed(value * 25.4, 2));
-}
+using units::convertToImperial;
+using units::convertToMetric;
 
 }  // namespace
 

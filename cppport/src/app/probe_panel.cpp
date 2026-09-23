@@ -146,7 +146,8 @@ ProbePanel::ProbePanel(Machine& machine, QWidget* parent) : QWidget(parent), mac
     toolLabel_ = new QLabel(tr("Tool"));
     tool_ = new QComboBox;
     tool_->setEditable(true);
-    tool_->setToolTip(tr("Bit diameter in mm; AutoZero can also find it (Auto) or probe with a V-bit tip (Tip)"));
+    tool_->setToolTip(tr("Bit diameter in the workspace units; AutoZero can also find it (Auto) or probe with a "
+                         "V-bit tip (Tip)"));
     form->addRow(toolLabel_, tool_);
 
     cornerLabel_ = new QLabel;
@@ -224,8 +225,9 @@ void ProbePanel::rebuildTools() {
         tool_->addItems({probe::probeTypeName(probe::ProbeType::Auto).data(),
                          probe::probeTypeName(probe::ProbeType::Tip).data()});
     }
+    const bool metric = machine_.settings().metric;
     for (const probe::ToolDiameter& tool : probe::defaultTools()) {
-        tool_->addItem(QString::number(tool.metric) + " mm");
+        tool_->addItem(metric ? QString::number(tool.metric) + " mm" : QString::number(tool.imperial) + " in");
     }
     const int keep = tool_->findText(current);
     tool_->setCurrentIndex(keep >= 0 ? keep : 0);
@@ -259,7 +261,7 @@ double ProbePanel::toolDiameter() const {
         return 0;
     }
     QString text = tool_->currentText().trimmed();
-    text.remove("mm").remove(' ');
+    text.remove("mm").remove("in").remove(' ');
     bool ok = false;
     const double value = text.toDouble(&ok);
     return ok && value > 0 ? value : 0;

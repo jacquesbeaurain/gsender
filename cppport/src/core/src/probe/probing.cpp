@@ -1,6 +1,7 @@
 #include "gs/probe/probing.hpp"
 
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/units.hpp"
 
 #include <array>
 #include <cmath>
@@ -19,18 +20,9 @@ double fixed(double value, int digits) {
     return js::stringToNumber(js::toFixed(value, digits));
 }
 
-double mm2in(double value) {
-    return value / 25.4;
-}
-
-// units.ts: convertToImperial / convertToMetric.
-double convertToImperial(double value) {
-    return fixed(value / 25.4, 3);
-}
-
-double convertToMetric(double value) {
-    return fixed(value * 25.4, 2);
-}
+using units::convertToImperial;
+using units::convertToMetric;
+using units::mm2in;
 
 // JS truthiness of a number.
 bool truthy(double value) {

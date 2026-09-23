@@ -117,9 +117,9 @@ public:
     void goToZero(std::string_view axes);
 
     // ---- probing ----
-    // The Probe widget's routine: the probe settings, the board's $13, $22
-    // and $132 and the machine position (the workspace is metric for now).
-    // Empty when disconnected.
+    // The Probe widget's routine: the probe settings (converted for inch
+    // workspaces), the board's $13, $22 and $132 and the machine position;
+    // `toolDiameter` in the workspace units. Empty when disconnected.
     std::vector<std::string> probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,
                                           int corner) const;
     // Runs a routine as the widget does: gcode:safe in mm, then the distance

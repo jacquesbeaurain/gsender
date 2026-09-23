@@ -7,6 +7,7 @@
 
 #include "gs/controller/actions.hpp"
 #include "gs/protocol/runner.hpp"
+#include "gs/util/units.hpp"
 #include "gs/transport/port_list.hpp"
 
 #include <QButtonGroup>
@@ -185,6 +186,17 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
     outer->addWidget(box);
     auto* layout = new QVBoxLayout(box);
     auto* grid = new QGridLayout;
+    // The units badge: click to switch the workspace between mm and inches.
+    units_ = new QPushButton;
+    units_->setFlat(true);
+    units_->setToolTip(tr("Workspace units - click to switch"));
+    connect(units_, &QPushButton::clicked, this, [this] {
+        AppSettings settings = machine_.settings();
+        settings.metric = !settings.metric;
+        machine_.setSettings(settings);
+    });
+    connect(&machine_, &Machine::appSettingsChanged, this, &PositionPanel::refresh);
+    grid->addWidget(units_, 0, 0);
     grid->addWidget(new QLabel(tr("Work")), 0, 1, Qt::AlignRight);
     grid->addWidget(new QLabel(tr("Machine")), 0, 2, Qt::AlignRight);
     QFont big = font();
@@ -255,6 +267,7 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
 void PositionPanel::refresh() {
     const controller::Controller* c = machine_.controller();
     const bool idle = workflowIdle(machine_);
+    units_->setText(machine_.settings().metric ? tr("Units: mm") : tr("Units: in"));
     for (QPushButton* button : actions_) {
         button->setEnabled(c != nullptr && (idle || button->text() == tr("Reset") || button->text() == tr("Unlock")));
     }
@@ -268,8 +281,16 @@ void PositionPanel::refresh() {
         }
         const auto& status = c->state().status;
         const char axis = "xyza"[i];
-        work_[i]->setText(QString::number(toMillimetres(*c, status.wpos.axis(axis)), 'f', 3));
-        machinePos_[i]->setText(QString::number(toMillimetres(*c, status.mpos.axis(axis)), 'f', 3));
+        if (i == 3) {  // degrees, as reported
+            work_[i]->setText(QString::number(status.wpos.axis(axis), 'f', 3));
+            machinePos_[i]->setText(QString::number(status.mpos.axis(axis), 'f', 3));
+        } else {
+            const AppSettings& s = machine_.settings();
+            work_[i]->setText(QString::fromStdString(
+                units::positionText(toMillimetres(*c, status.wpos.axis(axis)), s.metric, s.customDecimalPlaces)));
+            machinePos_[i]->setText(QString::fromStdString(
+                units::positionText(toMillimetres(*c, status.mpos.axis(axis)), s.metric, s.customDecimalPlaces)));
+        }
         if (i == 3) {
             showA = status.mpos.count >= 4 || c->state().axes.letters.find('A') != std::string::npos;
         }
@@ -371,6 +392,12 @@ QPushButton* JogPanel::jogButton(const QString& text, char axis, int direction) 
 
 void JogPanel::showSpeeds() {
     showing_ = true;
+    const bool metric = jogger_.metric();
+    for (QDoubleSpinBox* step : {xyStep_, zStep_}) {
+        step->setSuffix(metric ? " mm" : " in");
+    }
+    feed_->setSuffix(metric ? " mm/min" : " in/min");
+    feed_->setDecimals(metric ? 0 : 2);
     const controller::JogSpeeds& speeds = jogger_.speeds();
     xyStep_->setValue(speeds.xyStep);
     zStep_->setValue(speeds.zStep);
