@@ -1088,3 +1088,42 @@ The section's wizard is there too: Jog A- / Jog A+ send
 
 Not ported: the visualizer's rotary display (a rotary job's toolpath turned
 by the A position, the "Visualize non-center zeros" offset).
+
+## Step 39 — G-code Step Through (`gs/job/step_through`, `src/app/step_through_dialog`)
+
+gSender's newest file tool follows the loaded file line by line. The core
+walks the file once (`buildStepIndex`, on a pool thread with progress and
+cancellation, as upstream builds it in chunks): for every line the
+position reached once it ran (mm, the toolpath's frame), the modal groups
+(shared between lines, as upstream's modal table) with the feed and speed,
+and how many sender lines have run through it - the toolpath's segments
+carry sender-line numbers, so "done" is a comparison. The tools come from
+the analysis' spindle/tool events as ToolTimeline's `buildToolArray` groups
+them (a line with both M and T starts a tool, up to the next; the first
+draws in the cutting colour, then `TOOLPATH_COLOR_HEXES`), with the
+diameter read out of the comment ("D=6.", "6mm", 1/4", 0.25 inch) and the
+S nearest the change; without a tool change the first tool named runs the
+whole file. Upstream's unit tests for these helpers are ported.
+
+The dialog (Job panel > Step Through..., once the file is analysed) keeps
+upstream's single piece of state, the current line, which everything reads:
+the source list (virtualised, the current row marked and followed unless
+scrubbing, search with up to 5000 matches and Enter for the next, wrapping),
+the view (the visualizer's canvas, now a base class shared with the main
+view: lines before the current one grey or hidden, each tool's cuts in its
+colour, hidden tools left out, the cutter where the line leaves it), the
+whole current line (refreshed at rest), the tool cards (the active one
+outlined; a click goes to its first line, the eye hides its paths), the
+scrubber (a click jumps), Play/Pause (from the start again when at the end,
+at the file's estimated pace spread over its lines times 0.5x/1x/10x/100x),
+Reset, the +-100/+-1000 steps, the work position (2 decimals, A when the
+file uses it) and the $G-style modal cells, lit where the line changed
+them. Unloading the file closes it; loading another starts over.
+
+Deviations: positions and modes come from the port's interpreter (the one
+that draws the toolpath), so the cutter sits on the drawn path - upstream's
+viewer interpreter also moved its marker on G10/G28/G38.x/G92 lines and
+read G91.1 as G91; lines are counted as the rest of the app counts them (no
+empty line after the final newline). Not ported: rotary files turning the
+view by A (the main visualizer has no rotary display yet either) and the
+syntax colouring of the source.

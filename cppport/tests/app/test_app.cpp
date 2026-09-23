@@ -16,6 +16,7 @@
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
 #include "start_from_line_dialog.hpp"
+#include "step_through_dialog.hpp"
 #include "stats_dialog.hpp"
 #include "status_area.hpp"
 #include "surfacing_dialog.hpp"
@@ -1328,6 +1329,87 @@ TEST_F(AppTest, RotaryModePutsTheRotaryOnGrblsYAndBack) {
     settings.rotary.showControls = false;
     machine.setSettings(settings);
     EXPECT_FALSE(window.rotaryTabVisible());
+}
+
+TEST_F(AppTest, TheStepThroughFollowsTheFileLineByLine) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.loadProgram("step.nc",
+                        "G21 G90\n"              // 1
+                        "M6 T1 (6mm endmill)\n"  // 2
+                        "M3 S12000\n"            // 3
+                        "G0 X10 Y0\n"            // 4
+                        "G1 Z-1 F300\n"          // 5
+                        "\n"                     // 6
+                        "G1 X20\n"               // 7
+                        "M6 T2\n"                // 8
+                        "G1 Y10 F600\n");        // 9
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    StepThroughDialog dialog(machine);
+    ASSERT_TRUE(waitFor([&] { return dialog.indexReady(); }));
+    EXPECT_EQ(dialog.totalLines(), 9u);
+    EXPECT_EQ(dialog.currentLine(), 1u);
+    ASSERT_EQ(dialog.tools().size(), 2u);
+    EXPECT_EQ(dialog.tools()[0].endLine, 7u);
+    EXPECT_EQ(dialog.tools()[0].diameter, 6);
+    EXPECT_EQ(dialog.activeTool(), -1);  // before the first tool change
+
+    // A line: where it leaves the cutter, the modes it runs in, its tool.
+    dialog.goToLine(5);
+    EXPECT_EQ(dialog.positionText(), "X 10.00   Y 0.00   Z -1.00");
+    const job::StepModalReadout modals = dialog.modalReadout();
+    EXPECT_EQ(modals[0], "G1");
+    EXPECT_EQ(modals[8], "T1");
+    EXPECT_EQ(modals[9], "F300");
+    EXPECT_EQ(modals[10], "S12000");
+    EXPECT_EQ(dialog.activeTool(), 0);
+    dialog.goToLine(9);
+    EXPECT_EQ(dialog.activeTool(), 1);
+
+    // Steps stay in the file.
+    dialog.step(-100);
+    EXPECT_EQ(dialog.currentLine(), 1u);
+    dialog.step(1000);
+    EXPECT_EQ(dialog.currentLine(), 9u);
+
+    // Search: Enter goes to the next match after the line, wrapping.
+    dialog.setSearch(" g1 ");
+    EXPECT_EQ(dialog.matchCount(), 3u);
+    dialog.goToLine(5);
+    dialog.goToNextMatch();
+    EXPECT_EQ(dialog.currentLine(), 7u);
+    dialog.goToNextMatch();
+    dialog.goToNextMatch();
+    EXPECT_EQ(dialog.currentLine(), 5u);
+
+    // Playback from the end starts over and stops at the end.
+    dialog.goToLine(9);
+    dialog.setPlaybackSpeed(100);
+    dialog.togglePlay();
+    EXPECT_TRUE(dialog.isPlaying());
+    EXPECT_LT(dialog.currentLine(), 9u);
+    ASSERT_TRUE(waitFor([&] { return !dialog.isPlaying(); }));
+    EXPECT_EQ(dialog.currentLine(), 9u);
+
+    dialog.toggleTool(1);
+    EXPECT_TRUE(dialog.toolHidden(1));
+    dialog.setHideProcessed(true);
+    dialog.goToLine(7);
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.setHideProcessed(false);
+        dialog.toggleTool(1);
+        dialog.resize(1280, 820);
+        dialog.show();
+        dialog.goToLine(7);
+        runFor(50);
+        dialog.grab().save(QString::fromLocal8Bit(out) + "/step_through.png");
+    }
+
+    // Unloading the file closes it.
+    dialog.show();
+    machine.unloadProgram();
+    EXPECT_FALSE(dialog.isVisible());
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
