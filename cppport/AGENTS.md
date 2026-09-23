@@ -43,7 +43,10 @@ failure (`-Config debug`, Debug LibPack), and only when asked.
   `DISCOVERY_MODE PRE_TEST` so discovery runs after the runtime DLLs are
   copied next to the test executable (`gs_copy_runtime_dlls`). CTest starts
   one process per test case (3.6 s for 175 tests and growing); `-Test` runs
-  each `*_tests.exe` once instead (~0.15 s for the same suite).
+  each `*_tests.exe` once instead, all at the same time, with the
+  application tests split into GoogleTest shards (`-AppShards`, default 4;
+  1 runs them in one process). Output is one summary line per suite plus
+  any failures.
 
 ## Fast iteration
 
@@ -71,7 +74,7 @@ way:
   costs every one of them a recompile per edit.
 - **Loop.** While iterating: `-Filter` for the tests at hand, `-Target gs_core`
   to check library code compiles before writing its tests. Before each
-  commit: `./tools/build.ps1 -Test` (all suites, ~2.5 s).
+  commit: `./tools/build.ps1 -Test` (all suites, ~4.5 s).
 - **Commit cadence.** Commit each coherent, tested increment: a ported
   component with the tests that pin its behaviour. Don't hold several
   components back for one big commit, and don't hold a commit back for
@@ -127,10 +130,16 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 - The Machine/app tests run in real time against the simulator; keep them
   short (wait for a condition, never for a fixed long delay) and speed the
   simulated motion up where the timing is not the point
-  (`machine.simulator()->setSpeed(n)`). They are the slowest suite (~6 s:
-  connecting waits for the board, a forced stop waits 700 ms before its
-  reset); filter them out while iterating on the core
-  (`-Filter '-AppTest.*'`), or select one (`-Filter 'AppTest.Probe*'`).
+  (`machine.simulator()->setSpeed(n)`). They are the slowest suite (~17 s
+  in one process: waits for the controller's 250 ms status polls, a forced
+  stop's 700 ms before its reset, job ends after 500 ms idle); `-Test` runs
+  them as parallel shards, so each test must stand alone - its own
+  `QTemporaryDir` config and `Machine`, no fixed paths or ports. Filter
+  them out while iterating on the core (`-Filter '-AppTest.*'`), or select
+  one (`-Filter 'AppTest.Probe*'`).
+- Wait on what the controller has heard (`machine.machinePositionMm()`,
+  `c.state()`), not on the simulator's own state, before reading anything
+  the UI derives from it: the controller's view lags by up to a status poll.
 - `GS_TEST_SCREENSHOTS=<dir>` makes the dialog tests save what they render,
   to look at a dialog without a display.
 

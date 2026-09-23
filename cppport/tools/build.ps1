@@ -35,6 +35,8 @@ param(
     [switch]$Test,
     # GoogleTest filter, e.g. 'Controller*:Sender.*-*Slow*'; implies -Test.
     [string]$Filter,
+    # Parallel shards of the application tests (1: one process).
+    [int]$AppShards = 4,
     # Run the tests through CTest instead (a process per test case).
     [switch]$CTest,
     # CTest -R regex; implies -CTest.
@@ -144,17 +146,53 @@ try {
     if ($Test) {
         $gtestArgs = @('--gtest_brief=1')
         if ($Filter) { $gtestArgs += "--gtest_filter=$Filter" }
-        $failed = $false
+        # Every suite runs at once, and the application tests - real time
+        # against the simulator, mostly waiting - split into GoogleTest shards.
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        $runs = @()
         foreach ($exe in Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe') {
-            $timer = [Diagnostics.Stopwatch]::StartNew()
-            $output = @(& $exe.FullName @gtestArgs 2>&1 | ForEach-Object { "$_" })
-            $code = $LASTEXITCODE
-            # Brief GoogleTest output is failures plus the summary; drop the banner.
-            $output | Where-Object { $Full -or $_ -notmatch '^Running main\(\) from' } | ForEach-Object { Write-Host $_ }
+            $shards = if ($exe.BaseName -eq 'gs_app_tests') { [Math]::Max(1, $AppShards) } else { 1 }
+            for ($i = 0; $i -lt $shards; $i++) {
+                $info = [Diagnostics.ProcessStartInfo]::new($exe.FullName)
+                foreach ($arg in $gtestArgs) { $info.ArgumentList.Add($arg) }
+                $info.UseShellExecute = $false
+                $info.RedirectStandardOutput = $true
+                $info.RedirectStandardError = $true
+                if ($shards -gt 1) {
+                    $info.Environment['GTEST_TOTAL_SHARDS'] = "$shards"
+                    $info.Environment['GTEST_SHARD_INDEX'] = "$i"
+                }
+                $process = [Diagnostics.Process]::Start($info)
+                # Drain both pipes while the process runs, so it never blocks on a full one.
+                $runs += [pscustomobject]@{
+                    Name = $exe.BaseName; Shards = $shards; Process = $process
+                    Out = $process.StandardOutput.ReadToEndAsync(); Err = $process.StandardError.ReadToEndAsync()
+                }
+            }
+        }
+        $failed = $false
+        foreach ($group in $runs | Group-Object Name) {
+            $tests = 0
+            $code = 0
+            foreach ($run in $group.Group) {
+                $run.Process.WaitForExit()
+                if ($run.Process.ExitCode) { $code = $run.Process.ExitCode }
+                $lines = @(($run.Out.Result + $run.Err.Result) -split "`r?`n" | Where-Object { $_ })
+                foreach ($line in $lines) {
+                    if ($line -match '^\[==========\] (\d+) tests? from') { $tests += [int]$Matches[1] }
+                    # Brief output is failures plus the summary; drop the banner,
+                    # the per-shard summaries and "filter matched nothing" notes.
+                    if ($Full -or $line -notmatch '^(Running main\(\) from|\[==========\]|\[  PASSED  \]|WARNING: filter|Note: This is test shard)') {
+                        Write-Host $line
+                    }
+                }
+            }
             $status = if ($code) { "FAILED ($code)" } else { 'ok' }
-            Write-Host ("{0}: {1} ({2:N1}s)" -f $exe.BaseName, $status, $timer.Elapsed.TotalSeconds)
+            $shardNote = if ($group.Group[0].Shards -gt 1) { ", $($group.Group[0].Shards) shards" } else { '' }
+            Write-Host ("{0}: {1} ({2} tests{3})" -f $group.Name, $status, $tests, $shardNote)
             if ($code) { $failed = $true }
         }
+        Write-Host ("tests: {0} ({1:N1}s)" -f $(if ($failed) { 'FAILED' } else { 'ok' }), $timer.Elapsed.TotalSeconds)
         if ($failed) { throw 'Tests failed' }
     }
 
