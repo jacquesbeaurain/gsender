@@ -14,6 +14,9 @@
 #include "gs/transport/asio_link.hpp"
 
 #include <QDateTime>
+#include <QTimeZone>
+#include <QStandardPaths>
+#include <QDir>
 #include <QKeySequence>
 #include <QFile>
 #include <QFileInfo>
@@ -986,6 +989,42 @@ void Machine::handle(const controller::ControllerEvent& event) {
 }
 
 // ---- settings files ----------------------------------------------------------------------
+
+QString Machine::backupSettingsIfDue(const QString& appVersion, std::int64_t nowMs) {
+    const std::string& frequency = settings_.backupFrequency;
+    bool due = false;
+    if (frequency == "On Update") {
+        due = settings_.lastBackupVersion != appVersion.toStdString();
+    } else {
+        constexpr std::int64_t kDay = 1000LL * 60 * 60 * 24;
+        const std::int64_t interval = frequency == "Daily" ? kDay : frequency == "Weekly" ? 7 * kDay : 30 * kDay;
+        due = nowMs - settings_.lastBackupTime >= interval;
+    }
+    QFile source(QString::fromStdWString(config_.file().wstring()));
+    if (!due || !source.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QByteArray content = source.readAll();
+    QString folder = QString::fromStdString(settings_.backupLocation);
+    if (folder.isEmpty() || !QDir(folder).exists()) {
+        folder = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QDir().mkpath(folder);
+    }
+    // new Date().toISOString() with the colons replaced.
+    const QString stamp =
+        QDateTime::fromMSecsSinceEpoch(nowMs, QTimeZone::UTC).toString("yyyy-MM-ddTHH-mm-ss.zzzZ");
+    const QString path = QDir(folder).filePath("preferences-backup-" + stamp + ".json");
+    QFile backup(path);
+    if (!backup.open(QIODevice::WriteOnly) || backup.write(content) != content.size()) {
+        return {};
+    }
+    backup.close();
+    AppSettings settings = settings_;
+    settings.lastBackupTime = nowMs;
+    settings.lastBackupVersion = appVersion.toStdString();
+    setSettings(settings);
+    return path;
+}
 
 bool Machine::exportSettings(const QString& path, QString* error) const {
     const boost::json::object out{{"format", "gsender-cpp-settings"},

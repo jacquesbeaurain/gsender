@@ -101,6 +101,12 @@ public:
     const AppSettings& settings() const noexcept { return settings_; }
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
+    // On start (isTimeToBackup / backupPreviousState): when the backup
+    // frequency says so - "On Update" when `appVersion` differs from the one
+    // that last backed up - the settings file as it is is copied to
+    // preferences-backup-<ISO time>.json in the backup folder. The file
+    // written, or none.
+    QString backupSettingsIfDue(const QString& appVersion, std::int64_t nowMs);
     // The maintenance tasks whose hours have reached their range (the alert
     // at a job's end), and "Reset Timers" for them.
     std::vector<config::MaintenanceTask> dueMaintenanceTasks();

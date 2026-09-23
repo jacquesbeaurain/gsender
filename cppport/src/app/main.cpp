@@ -13,6 +13,7 @@
 #include "toolpath_view.hpp"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QStandardPaths>
@@ -57,6 +58,9 @@ int main(int argc, char** argv) {
 
     gs::app::QtEventLoop loop;
     gs::app::Machine machine(loop, configFile.toStdWString());
+    if (!parser.isSet(screenshot)) {
+        machine.backupSettingsIfDue(QApplication::applicationVersion(), QDateTime::currentMSecsSinceEpoch());
+    }
     gs::app::MainWindow window(machine);
     const QStringList dimensions = parser.value(size).split('x');
     window.resize(dimensions.value(0).toInt() > 0 ? dimensions.value(0).toInt() : 1400,

@@ -20,6 +20,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
@@ -292,6 +293,28 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     followTool_ = new QCheckBox(tr("Follow tool during runtime"));
     followTool_->setToolTip(tr("While a job is running, pan the camera to track the tool in X/Y, keeping the same "
                                "viewing angle and height."));
+    // Settings backups.
+    backupFrequency_ = new QComboBox;
+    backupFrequency_->addItems({"On Update", "Daily", "Weekly", "Monthly"});
+    backupFrequency_->setToolTip(tr("Choose how often gSender will backup your settings. Useful in case you need to "
+                                    "revert them in the future."));
+    auto* backupRow = new QHBoxLayout;
+    backupLocation_ = new QLineEdit;
+    backupLocation_->setPlaceholderText(tr("Application data folder"));
+    backupLocation_->setToolTip(tr("Choose the location to backup your settings to. Default: your OS's appData "
+                                   "location."));
+    auto* browse = new QPushButton(tr("Browse..."));
+    connect(browse, &QPushButton::clicked, this, [this] {
+        const QString folder = QFileDialog::getExistingDirectory(this, tr("Settings backup location"),
+                                                                 backupLocation_->text());
+        if (!folder.isEmpty()) {
+            backupLocation_->setText(folder);
+        }
+    });
+    backupRow->addWidget(backupLocation_, 1);
+    backupRow->addWidget(browse);
+    generalForm->addRow(tr("Run settings backup"), backupFrequency_);
+    generalForm->addRow(tr("Settings backup location"), backupRow);
     generalForm->addRow(tr("Visualizer theme"), visualizerTheme_);
     for (QCheckBox* box : {showBoundingBox_, boundingBoxLabels_, showMachineBed_, trimGridToBed_, followTool_}) {
         generalForm->addRow(QString(), box);
@@ -643,6 +666,8 @@ void SettingsDialog::load() {
     showMachineBed_->setChecked(s.showMachineBed);
     trimGridToBed_->setChecked(s.trimGridToBed);
     followTool_->setChecked(s.followTool);
+    backupFrequency_->setCurrentText(QString::fromStdString(s.backupFrequency));
+    backupLocation_->setText(QString::fromStdString(s.backupLocation));
     const double park[3] = {s.park.x, s.park.y, s.park.z};
     for (int i = 0; i < 3; ++i) {
         park_[i]->setValue(park[i]);
@@ -765,6 +790,8 @@ void SettingsDialog::save() {
     s.showMachineBed = showMachineBed_->isChecked();
     s.trimGridToBed = trimGridToBed_->isChecked();
     s.followTool = followTool_->isChecked();
+    s.backupFrequency = backupFrequency_->currentText().toStdString();
+    s.backupLocation = backupLocation_->text().trimmed().toStdString();
     s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

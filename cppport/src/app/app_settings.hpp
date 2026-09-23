@@ -153,6 +153,13 @@ struct AppSettings {
     bool showMachineBed = false;
     bool trimGridToBed = false;
     bool followTool = false;
+    // Settings backups (workspace.backupFreq / backupLoc / lastBackupTime):
+    // "On Update", "Daily", "Weekly" or "Monthly", into the folder given
+    // (the application data folder when empty or missing).
+    std::string backupFrequency = "On Update";
+    std::string backupLocation;
+    std::int64_t lastBackupTime = 0;    // ms since the epoch
+    std::string lastBackupVersion;      // the version that last backed up
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

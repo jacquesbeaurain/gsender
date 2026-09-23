@@ -1261,3 +1261,15 @@ Deviations: the bed is sized from the board's travel ($130/$131, 800 mm
 without them) where upstream used the selected machine profile's size; the
 camera stays orthographic (upstream's default Perspective projection is not
 ported).
+
+## Step 46 — Settings backups
+
+Upstream copies its settings file aside when the backup frequency says so
+(workspace.backupFreq: On Update - the default - Daily, Weekly, Monthly)
+to `preferences-backup-<ISO time, colons as dashes>.json` in
+workspace.backupLoc, or the application data folder when that is empty or
+gone. The port does the same with its own settings file, on start (not for
+screenshots): "On Update" backs up once per application version (upstream:
+when the stored settings are older than the application), the others after
+their interval since the last backup. Settings > General has both settings;
+gSender's are imported.
