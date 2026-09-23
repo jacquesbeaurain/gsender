@@ -9,6 +9,8 @@ add_library(gs_app STATIC
     panels.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
+    toolpath_view.cpp
+    toolpath_view.hpp
 )
 target_include_directories(gs_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gs_app

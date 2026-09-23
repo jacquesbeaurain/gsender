@@ -2,8 +2,8 @@
 
 #include "machine.hpp"
 #include "panels.hpp"
+#include "toolpath_view.hpp"
 
-#include <QLabel>
 #include <QMessageBox>
 #include <QSplitter>
 #include <QStatusBar>
@@ -24,10 +24,7 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     auto* left = new QWidget;
     auto* leftLayout = new QVBoxLayout(left);
     leftLayout->setContentsMargins(6, 0, 0, 6);
-    visualizer_ = new QLabel(tr("Toolpath view"));
-    visualizer_->setAlignment(Qt::AlignCenter);
-    visualizer_->setMinimumSize(480, 360);
-    visualizer_->setStyleSheet("background:#1e2227; color:#8a9199; border-radius:4px");
+    visualizer_ = new ToolpathView(machine_);
     leftLayout->addWidget(visualizer_, 1);
     leftLayout->addWidget(new JobPanel(machine_));
 
@@ -54,14 +51,6 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     connect(&machine_, &Machine::connectionFailed, this,
             [this](const QString& reason) { showError(tr("Connection"), reason); });
     connect(&machine_, &Machine::errorReported, this, &MainWindow::showError);
-    connect(&machine_, &Machine::programChanged, this, [this] {
-        visualizer_->setText(machine_.hasProgram()
-                                 ? tr("%1\n%2 rapid and %3 cutting segments")
-                                       .arg(machine_.programName())
-                                       .arg(machine_.toolpath().rapids.size() / 6)
-                                       .arg(machine_.toolpath().feeds.size() / 6)
-                                 : tr("Toolpath view"));
-    });
 }
 
 void MainWindow::showError(const QString& title, const QString& detail) {

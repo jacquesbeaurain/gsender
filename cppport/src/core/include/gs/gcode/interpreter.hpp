@@ -64,6 +64,9 @@ public:
         addLine(modal, from, to);
     }
     virtual void addArc(const Modal& modal, const Vec4& from, const Vec4& to, const Vec4& center) = 0;
+    // Called by drivers such as job::analyzeProgram() before the geometry of a
+    // line is reported, with that line's index in the driver's numbering.
+    virtual void atLine(std::size_t /*index*/) {}
 };
 
 struct AxisLimits {

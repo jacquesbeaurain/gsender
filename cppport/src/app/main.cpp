@@ -10,6 +10,7 @@
 #include "machine.hpp"
 #include "main_window.hpp"
 #include "qt_event_loop.hpp"
+#include "toolpath_view.hpp"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -44,7 +45,8 @@ int main(int argc, char** argv) {
     const QCommandLineOption wait("wait", "Milliseconds before the screenshot (default 1500).", "ms", "1500");
     const QCommandLineOption size("size", "Window size, e.g. 1400x900.", "WxH", "1400x900");
     const QCommandLineOption startJob("start", "Start the loaded job once the machine is ready.");
-    parser.addOptions({simulator, load, config, screenshot, wait, size, startJob});
+    const QCommandLineOption view("view", "Toolpath view: top or 3d.", "view", "top");
+    parser.addOptions({simulator, load, config, screenshot, wait, size, startJob, view});
     parser.process(app);
 
     // Own configuration file for now (see DEV_WALKTHROUGH.md, Step 13).
@@ -61,6 +63,9 @@ int main(int argc, char** argv) {
                   dimensions.value(1).toInt() > 0 ? dimensions.value(1).toInt() : 900);
     window.setDialogsEnabled(!parser.isSet(screenshot));
     window.show();
+    if (parser.value(view) == "3d") {
+        window.toolpathView().set3dView();
+    }
 
     if (parser.isSet(simulator)) {
         machine.connectTo(gs::app::Machine::kSimulatorPort);

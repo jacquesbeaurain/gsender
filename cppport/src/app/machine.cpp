@@ -33,8 +33,16 @@ class ToolpathSink final : public gcode::GeometrySink {
 public:
     Toolpath path;
 
+    void atLine(std::size_t index) override { line_ = static_cast<std::uint32_t>(index); }
+
     void addLine(const gcode::Modal& modal, const gcode::Vec4& from, const gcode::Vec4& to) override {
-        push(modal.motion == "G0" ? path.rapids : path.feeds, from, to);
+        if (modal.motion == "G0") {
+            push(path.rapids, from, to);
+            path.rapidLines.push_back(line_);
+        } else {
+            push(path.feeds, from, to);
+            path.feedLines.push_back(line_);
+        }
     }
 
     void addArc(const gcode::Modal& modal, const gcode::Vec4& from, const gcode::Vec4& to,
@@ -64,6 +72,7 @@ public:
                                     from.z + (to.z - from.z) * t, to.a};
             const gcode::Vec4 current = i == steps ? unplane(modal, to) : unplane(modal, point);
             push(path.feeds, previous, current);
+            path.feedLines.push_back(line_);
             previous = current;
         }
     }
@@ -78,6 +87,8 @@ private:
         }
         return v;
     }
+
+    std::uint32_t line_ = 0;
 
     static void push(std::vector<float>& out, const gcode::Vec4& from, const gcode::Vec4& to) {
         out.insert(out.end(), {static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z),

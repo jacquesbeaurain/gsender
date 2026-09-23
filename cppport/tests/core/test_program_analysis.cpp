@@ -78,15 +78,18 @@ class CountingSink final : public gcode::GeometrySink {
 public:
     int lines = 0;
     int arcs = 0;
+    std::vector<std::size_t> senderLines;
+    void atLine(std::size_t index) override { senderLines.push_back(index); }
     void addLine(const gcode::Modal&, const gcode::Vec4&, const gcode::Vec4&) override { ++lines; }
     void addArc(const gcode::Modal&, const gcode::Vec4&, const gcode::Vec4&, const gcode::Vec4&) override { ++arcs; }
 };
 
-TEST(ProgramAnalysis, GeometryGoesToTheSink) {
+TEST(ProgramAnalysis, GeometryGoesToTheSinkWithSenderLineNumbers) {
     CountingSink sink;
-    analyzeProgram("G0 X1\nG1 Y1 F100\nG2 X2 Y0 I0.5 J-0.5\n", {}, &sink);
+    analyzeProgram("G0 X1\n\nG1 Y1 F100\nG2 X2 Y0 I0.5 J-0.5\n", {}, &sink);
     EXPECT_EQ(sink.lines, 2);
     EXPECT_EQ(sink.arcs, 1);
+    EXPECT_EQ(sink.senderLines, (std::vector<std::size_t>{0, 1, 2}));  // the blank line is not streamed
 }
 
 TEST(ProgramAnalysis, ACancelledAnalysisStopsEarly) {

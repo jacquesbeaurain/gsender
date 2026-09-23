@@ -432,3 +432,18 @@ The UI talks to the core directly (no socket layer):
   a screenshot - used to check the UI in automation.
 
 The toolpath view is a placeholder in this step.
+
+## Step 18 — Toolpath view (`src/app/toolpath_view`)
+
+The visualizer draws the analysed program with QPainter: rapids dashed,
+cutting moves in blue, moves the job has passed (by acknowledged sender line)
+dimmed, a 10 mm grid, the work origin's axes and the tool at the work
+position. Orthographic camera with Top/3D presets, orbit (drag), pan
+(right/middle drag or Shift+drag), zoom about the cursor (wheel) and fit
+(double-click). The analysis sink records the sender line of every segment
+(`GeometrySink::atLine`, called by `analyzeProgram`) for the progress colours.
+
+QPainter rather than OpenGL for now: it also renders on the offscreen
+platform, so screenshots of the running application can check it
+(`--view 3d` selects the 3D preset). The toolpath data is renderer-neutral;
+an OpenGL view can replace this one if very large files need it.
