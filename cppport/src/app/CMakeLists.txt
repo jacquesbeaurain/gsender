@@ -17,6 +17,8 @@ add_library(gs_app STATIC
     jogger.hpp
     main_window.cpp
     main_window.hpp
+    notifications.cpp
+    notifications.hpp
     panels.cpp
     panels.hpp
     probe_panel.cpp

@@ -9,6 +9,7 @@
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "main_window.hpp"
+#include "notifications.hpp"
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
@@ -1482,6 +1483,110 @@ TEST_F(AppTest, TheGcodeEditorChangesTheJobAndFollowsItRunning) {
     editor.show();
     machine.unloadProgram();
     EXPECT_FALSE(editor.isVisible());
+}
+
+TEST_F(AppTest, NotificationsKeepTheLastHundredAndPopUpForTheirTime) {
+    NotificationCenter center;
+    for (int i = 0; i < 101; ++i) {
+        center.add(QString("note %1").arg(i), i % 2 ? NotificationType::Error : NotificationType::Info);
+    }
+    ASSERT_EQ(center.list().size(), 100u);
+    EXPECT_EQ(center.list().front().message, "note 1");  // the oldest went
+    EXPECT_EQ(center.unreadErrors(), 50);
+
+    // The bell's list filters by type; opening it reads everything.
+    NotificationButton bell(center);
+    bell.panel().setTab(1);
+    EXPECT_EQ(bell.panel().shownCount(), 50);
+    bell.panel().setTab(0);
+    EXPECT_EQ(bell.panel().shownCount(), 100);
+    bell.togglePanel();
+    EXPECT_EQ(center.unreadErrors(), 0);
+    bell.togglePanel();
+    center.clear();
+    EXPECT_TRUE(center.list().empty());
+
+    // Pop-ups: none when switched off, at most three, gone after their time.
+    QWidget host;
+    host.resize(800, 600);
+    ToastArea toasts(&host);
+    toasts.showToast("off", NotificationType::Info, kToastDisabled);
+    EXPECT_EQ(toasts.count(), 0);
+    for (const char* text : {"one", "two", "three", "four"}) {
+        toasts.showToast(text, NotificationType::Info, kToastUntilClose);
+    }
+    EXPECT_EQ(toasts.texts(), (QStringList{"two", "three", "four"}));
+    toasts.showToast("brief", NotificationType::Success, 50);
+    EXPECT_EQ(toasts.texts(), (QStringList{"three", "four", "brief"}));
+    ASSERT_TRUE(waitFor([&] { return toasts.count() == 2; }));
+    EXPECT_EQ(toasts.texts(), (QStringList{"three", "four"}));
+}
+
+TEST_F(AppTest, AJobsEndIsSummedUpWithItsErrorsAndTheMaintenanceDue) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    config::MaintenanceTask task;
+    task.name = "Clean the rails";
+    task.rangeStart = 0;  // due after any job
+    task.rangeEnd = 10;
+    task.currentTime = 5;
+    config::MaintenanceStore(machine.config()).add(task);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->state().status.activeState == "Idle";
+    }));
+    controller::Controller& c = *machine.controller();
+    // G99 is error 20; the moves after it are more than the planner holds,
+    // so the job is still sending when it is stopped.
+    std::string program = "G21\nG99\n";
+    for (int i = 1; i <= 40; ++i) {
+        program += "G1 X" + std::to_string(i) + " F300\n";
+    }
+    machine.loadProgram("errors.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    bool ended = false;
+    bool completed = true;
+    QStringList errors;
+    QObject::connect(&machine, &Machine::jobEnded, [&](bool done, double, const QStringList& seen) {
+        ended = true;
+        completed = done;
+        errors = seen;
+    });
+
+    // Grbl pauses on the error; stopped, the job ends with it.
+    controller::runJob(c);
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isPaused(); }));
+    // The error pops up and waits, unread, in the bell's list.
+    EXPECT_EQ(window.notifications().unreadErrors(), 1);
+    const QStringList popped = window.toasts().texts();
+    EXPECT_TRUE(std::any_of(popped.begin(), popped.end(), [](const QString& t) { return t.startsWith("Error 20: "); }))
+        << popped.join(" | ").toStdString();
+    controller::stopJob(c);
+    ASSERT_TRUE(waitFor([&] { return ended; }));
+    EXPECT_FALSE(completed);
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_TRUE(errors[0].startsWith("Error 20 on line")) << errors[0].toStdString();
+    const JobEndDialog summary(completed, 2500, errors);
+    EXPECT_TRUE(summary.summary().contains("Status: STOPPED"));
+    EXPECT_TRUE(summary.summary().contains("Time: 00:00:02"));
+    EXPECT_TRUE(summary.summary().contains("- Error 20"));
+
+    // The task is due: the alert lists it and resets its hours.
+    std::vector<config::MaintenanceTask> due = machine.dueMaintenanceTasks();
+    const auto rails = std::find_if(due.begin(), due.end(), [](const auto& t) { return t.name == "Clean the rails"; });
+    ASSERT_NE(rails, due.end());
+    const int id = rails->id;
+    MaintenanceAlertDialog alert(machine, due);
+    EXPECT_TRUE(alert.taskNames().contains("Clean the rails"));
+    alert.resetTimers();
+    for (const config::MaintenanceTask& after : config::MaintenanceStore(machine.config()).list()) {
+        if (after.id == id) {
+            EXPECT_EQ(after.currentTime, 0);
+        }
+    }
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

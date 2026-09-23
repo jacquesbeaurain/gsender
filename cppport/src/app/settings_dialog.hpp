@@ -67,6 +67,9 @@ private:
     QSpinBox* decimals_;
     QDoubleSpinBox* safeRetract_;
     QCheckBox* warnZero_;
+    QSpinBox* toastDuration_;
+    QCheckBox* jobEndModal_;
+    QCheckBox* maintenanceNotifications_;
     QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;

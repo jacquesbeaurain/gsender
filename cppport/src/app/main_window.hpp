@@ -9,6 +9,9 @@ namespace gs::app {
 class ConsolePanel;
 class Jogger;
 class Machine;
+class NotificationButton;
+class NotificationCenter;
+class ToastArea;
 class ProbePanel;
 class RotaryPanel;
 class ShortcutManager;
@@ -28,11 +31,17 @@ public:
     ShortcutManager& shortcuts() noexcept { return *shortcuts_; }
     Jogger& jogger() noexcept { return *jogger_; }
     RotaryPanel& rotaryPanel() noexcept { return *rotary_; }
+    NotificationCenter& notifications() noexcept { return *notifications_; }
+    ToastArea& toasts() noexcept { return *toasts_; }
+    NotificationButton& notificationButton() noexcept { return *bell_; }
     // The Rotary tab shows while the Rotary controls are on.
     bool rotaryTabVisible() const;
 
 private:
+    // An error: upstream's error pop-up (and the bell's list).
     void showError(const QString& title, const QString& detail);
+    // A message that needs reading (a message box, unless dialogs are off).
+    void showMessage(const QString& title, const QString& detail);
     void createMenus();
     void openFile();
     // A recent file: loaded again, or forgotten when it has gone.
@@ -49,6 +58,9 @@ private:
     SpindlePanel* spindle_;
     ProbePanel* probe_;
     RotaryPanel* rotary_;
+    NotificationCenter* notifications_;
+    ToastArea* toasts_;
+    NotificationButton* bell_;
     class QTabWidget* tabs_;
     bool dialogsEnabled_ = true;
 };

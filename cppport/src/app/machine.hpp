@@ -9,6 +9,7 @@
 #include "app_settings.hpp"
 
 #include "gs/config/config_store.hpp"
+#include "gs/config/history.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/locations.hpp"
 #include "gs/controller/session.hpp"
@@ -16,6 +17,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 #include <array>
 #include <atomic>
@@ -97,6 +99,10 @@ public:
     const AppSettings& settings() const noexcept { return settings_; }
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
+    // The maintenance tasks whose hours have reached their range (the alert
+    // at a job's end), and "Reset Timers" for them.
+    std::vector<config::MaintenanceTask> dueMaintenanceTasks();
+    void resetMaintenanceTimers(const std::vector<int>& ids);
     // Settings files (Settings > Export / Import / Restore Defaults). Export
     // writes the settings and event hooks; Import takes such a file or a
     // gSender one (its export or its store file) and replaces the settings
@@ -245,6 +251,10 @@ Q_SIGNALS:
     void programChanged();   // loaded, unloaded or analysed
     void errorReported(const QString& title, const QString& detail);
     void notice(const QString& text);  // tool changes, pauses and other prompts
+    void successNotice(const QString& text);  // what upstream toasts as a success
+    // A job ended - completed, or stopped - with the G-code errors it met
+    // (the Job End alert).
+    void jobEnded(bool completed, double durationMs, const QStringList& errors);
     void macrosChanged();
     void appSettingsChanged();  // setSettings()
     // The connection closed while a job ran, around sender line `line`.
@@ -288,6 +298,10 @@ private:
     bool analyzing_ = false;
     std::uint64_t analysisGeneration_ = 0;
     bool jobRunning_ = false;
+    // The G-code errors of the job running (upstream's saga keeps them,
+    // throttled to one per 250 ms).
+    QStringList jobErrors_;
+    std::int64_t lastJobErrorMs_ = -1;
     bool wizardReady_ = false;
     std::vector<protocol::SpindleLine> spindles_;
     std::int64_t lastLine_ = 1;

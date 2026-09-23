@@ -26,6 +26,7 @@ add_executable(gs_core_tests
     core/test_program_analysis.cpp
     core/test_outline.cpp
     core/test_step_through.cpp
+    core/test_datetime.cpp
     core/test_simulator.cpp
     core/test_spindle.cpp
     core/test_probing.cpp

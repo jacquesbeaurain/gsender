@@ -1154,3 +1154,37 @@ Jump to Line goes to the line typed (upstream's went one past it).
 The Edit... and Step Through... buttons sit beside the file's information in
 the Job panel. Unloading the file closes both; loading another replaces the
 editor's text.
+
+## Step 41 — Notifications, pop-ups and the job's-end alerts (`src/app/notifications`)
+
+Upstream sends every message through its toaster, which also keeps it: the
+last 100, typed (success, error, info, warning), unread until the bell's
+list is opened or closed. The port does the same with a `NotificationCenter`
+fed by the Machine's notices (`notice` for info, the new `successNotice`
+where upstream toasts a success) and by errors. The pop-ups (`ToastArea`)
+stack at the bottom right of the window, at most three, for
+workspace.toastDuration (Settings > General: 0 the default 5 s, -1 until
+closed, -2 none - the message is still kept). The bell sits in the menu
+bar's corner with the count of unread errors; its list has upstream's tabs
+(All, Errors, Info, Success), the newest first with date-fns' "5 minutes
+ago" wording (`util::timeAgo`), and Clear all. `DISPLAY_NOTIFICATIONS`
+toggles it.
+
+Controller errors and alarms now pop up as upstream's `toast.error("Error
+20: ...")` instead of opening a message box (the console still gets the
+whole report, with the line); connection and file errors likewise. The
+interrupted-job recovery message stays a message box. G-code errors during
+a job (`gcode_error`) are collected, throttled to one per 250 ms as the
+saga does, for the job's end rather than shown a second time.
+
+At a job's end (`Machine::jobEnded`) the Job End summary (status COMPLETE or
+STOPPED, the time as `HH:MM:SS` - `util::millisecondsToTimeStamp` - and the
+errors) and the Maintenance Alert (the tasks whose hours reached their
+range; Reset Timers starts them again) open, each switchable in Settings >
+General (widgets.visualizer.jobEndModal, maintenanceTaskNotifications; both
+imported from gSender's settings). As upstream, a job counts as complete
+once every line was acknowledged, even if it is stopped while the machine
+still works through its planner.
+
+Deviation: "time ago" counts months as 30 days (date-fns counts calendar
+months), which only matters past two months.
