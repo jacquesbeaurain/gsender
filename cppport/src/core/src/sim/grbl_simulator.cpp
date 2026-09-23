@@ -198,8 +198,9 @@ void GrblSimulator::realtime(unsigned char byte) {
             }
             return;
         case 0x18: {  // soft reset
-            const bool moving = state_ == State::Run || state_ == State::Jog || state_ == State::Home ||
-                                (state_ == State::Hold && !planner_.empty());
+            // A reset after a completed feed hold keeps the position without an
+            // alarm (why senders hold first); the simulated hold completes at once.
+            const bool moving = state_ == State::Run || state_ == State::Jog || state_ == State::Home;
             flushMotion();
             waiting_.clear();
             syncing_ = false;

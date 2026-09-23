@@ -237,6 +237,22 @@ void Machine::disconnectFromMachine() {
     Q_EMIT connectionChanged();
 }
 
+// ---- start from line ---------------------------------------------------------------------
+
+bool Machine::startFromLine(std::size_t line, double safeHeight) {
+    controller::Controller* c = controller();
+    if (!c || !hasProgram() || analyzing_ || !c->workflow().isIdle()) {
+        return false;
+    }
+    controller::StartOptions options;
+    options.lineToStartFrom = line;
+    options.zMax = analysis_.bounds.max.z;
+    options.safeHeight = safeHeight;
+    options.spindleDelay = settings_.preferences.spindleDelay;
+    c->start(options);
+    return true;
+}
+
 // ---- positions ------------------------------------------------------------------------
 
 void Machine::zeroAxis(char axis) {
@@ -353,10 +369,35 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    [this](const ConsoleInput& e) { Q_EMIT consoleLine(QString::fromStdString(e.text), true); },
                    [this](const StateChanged&) { Q_EMIT stateChanged(); },
                    [this](const SettingsChanged&) { Q_EMIT settingsChanged(); },
-                   [this](const WorkflowChanged&) { Q_EMIT workflowChanged(); },
-                   [this](const JobStarted&) { Q_EMIT workflowChanged(); },
-                   [this](const JobStopped&) { Q_EMIT workflowChanged(); },
+                   [this](const WorkflowChanged& e) {
+                       // A job ending: note where it got to before the sender
+                       // rewinds (upstream reads its last, up to 250 ms old,
+                       // sender status). A finished job offers line 1 again.
+                       controller::Controller* c = controller();
+                       if (e.state == WorkflowState::Idle && jobRunning_ && c) {
+                           const SenderStatus status = c->sender().status();
+                           lastLine_ = status.finishTime != 0
+                                           ? 1
+                                           : std::max<std::int64_t>(status.currentLineRunning, 1);
+                       }
+                       Q_EMIT workflowChanged();
+                   },
+                   [this](const JobStarted&) {
+                       jobRunning_ = true;
+                       Q_EMIT workflowChanged();
+                   },
+                   [this](const JobStopped&) {
+                       jobRunning_ = false;
+                       Q_EMIT workflowChanged();
+                   },
                    [this](const SenderStatusChanged&) { Q_EMIT senderStatusChanged(); },
+                   [this](const ControllerClosed& e) {
+                       if (jobRunning_ && e.currentLineRunning > 0) {
+                           jobRunning_ = false;
+                           lastLine_ = e.currentLineRunning;
+                           Q_EMIT jobInterrupted(e.currentLineRunning);
+                       }
+                   },
                    [this](const EstimateDataRequested&) { sendEstimates(); },
                    [this](const ErrorReported& e) {
                        const QString title = e.isAlarm ? tr("Alarm %1").arg(QString::fromStdString(e.code))

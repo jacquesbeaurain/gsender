@@ -3,6 +3,7 @@
 #include "controls.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
+#include "start_from_line_dialog.hpp"
 
 #include "gs/controller/actions.hpp"
 #include "gs/protocol/runner.hpp"
@@ -472,11 +473,13 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     open_ = new QPushButton(tr("Load File..."));
     unload_ = new QPushButton(tr("Close File"));
     start_ = new QPushButton(tr("Start"));
+    fromLine_ = new QPushButton(tr("From Line..."));
+    fromLine_->setToolTip(tr("Start From Line: resume a stopped or interrupted job"));
     pause_ = new QPushButton(tr("Pause"));
     resume_ = new QPushButton(tr("Resume"));
     stop_ = new QPushButton(tr("Stop"));
     start_->setStyleSheet("font-weight:600");
-    for (QPushButton* button : {open_, unload_, start_, pause_, resume_, stop_}) {
+    for (QPushButton* button : {open_, unload_, start_, fromLine_, pause_, resume_, stop_}) {
         button->setMinimumHeight(34);
         row->addWidget(button);
     }
@@ -501,6 +504,10 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
             }
         });
     }
+    connect(fromLine_, &QPushButton::clicked, this, [this] {
+        StartFromLineDialog dialog(machine_, this);
+        dialog.exec();
+    });
     connect(pause_, &QPushButton::clicked, this, [this] {
         if (auto* c = machine_.controller()) {
             controller::pauseJob(*c);
@@ -540,6 +547,7 @@ void JobPanel::refresh() {
     open_->setEnabled(idle);
     unload_->setEnabled(idle && machine_.hasProgram());
     start_->setEnabled(runnable && idle && activeState != "Hold");
+    fromLine_->setEnabled(runnable && idle && activeState == "Idle");
     pause_->setEnabled(c && controller::canPause(activeState, workflow));
     resume_->setEnabled(runnable && (workflow == controller::WorkflowState::Paused || activeState == "Hold"));
     stop_->setEnabled(c && controller::canStop(workflow));

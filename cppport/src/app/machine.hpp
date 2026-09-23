@@ -90,6 +90,16 @@ public:
     config::ConfigStore& config() noexcept { return config_; }
     runtime::EventLoop& eventLoop() noexcept;  // the UI thread's
 
+    // ---- start from line ----
+    // The sender line Start From Line offers: where the last job was stopped
+    // or cut off by a lost connection; 1 once a job completes (upstream's
+    // lastLine).
+    std::int64_t lastLine() const noexcept { return lastLine_; }
+    // gcode:start from `line`, first rising to `safeHeight` (mm) above the
+    // file's highest Z, with the spindle delay (StartFromLine.tsx). False
+    // without a program or an idle machine.
+    bool startFromLine(std::size_t line, double safeHeight);
+
     // ---- positions (DRO) ----
     void zeroAxis(char axis);  // work zero here, "G10 L20 P0 X0"
     void zeroAllAxes();        // X, Y, Z (and A on grblHAL)
@@ -127,6 +137,8 @@ Q_SIGNALS:
     void notice(const QString& text);  // tool changes, pauses and other prompts
     void macrosChanged();
     void appSettingsChanged();  // setSettings()
+    // The connection closed while a job ran, around sender line `line`.
+    void jobInterrupted(qint64 line);
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);
@@ -155,6 +167,8 @@ private:
     Toolpath toolpath_;
     bool analyzing_ = false;
     std::uint64_t analysisGeneration_ = 0;
+    bool jobRunning_ = false;
+    std::int64_t lastLine_ = 1;
     std::shared_ptr<std::atomic<bool>> analysisCancel_;
 };
 

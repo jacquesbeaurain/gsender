@@ -614,3 +614,24 @@ shortcuts.
 Not ported yet: macro shortcuts, gamepads, the Toggle Rotary Mode and
 Lightweight Mode shortcuts (no rotary mode or lightweight view yet), the
 go-to-corner shortcuts, and editing the presets outside the Jog tab.
+
+## Step 25 — Start From Line
+
+The controller already rebuilt the machine state for a mid-file start (modal
+state, position, feed and speed from the skipped lines, a rise to the safe
+height above the file's top, the spindle and its delay); the application now
+offers it. `Machine` remembers the line to offer, as upstream's JobControl
+does: where a stopped job was, or where a lost connection cut a running one
+off (`serialport:closeController` with the current line, which also raises a
+notice to reconnect and resume); 1 once a job completes. The line is read at
+the workflow's stop, before the sender rewinds - upstream uses its last
+sender status, which can be a poll (250 ms) old. "From Line..." in the job
+panel opens gSender's dialog: the job's size and stop line, the suggestion to
+resume about 10 lines earlier, the line and the safe height (the safe
+retract height, else 10 mm). An application test stops a simulated job and
+resumes it from a later line: the rise to Z10 comes first, the skipped
+lines never reach the board.
+
+The simulator no longer raises ALARM:3 for a soft reset during a feed hold:
+Grbl keeps the position after a completed hold, which is why a forced stop
+holds before resetting.

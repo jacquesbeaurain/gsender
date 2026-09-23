@@ -9,8 +9,10 @@
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
+#include "start_from_line_dialog.hpp"
 #include "surfacing_dialog.hpp"
 
+#include "gs/controller/actions.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
 #include <QApplication>
@@ -361,6 +363,43 @@ TEST_F(AppTest, TheShortcutEditorRefusesTakenKeysAndStoresOnlyChanges) {
     dialog.resetAll();
     dialog.save();
     EXPECT_TRUE(machine.settings().shortcuts.empty());
+}
+
+TEST_F(AppTest, StartFromLineResumesAStoppedJob) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->state().status.activeState == "Idle";
+    }));
+    // 30 moves of 1 mm at 600 mm/min: 0.1 s each.
+    std::string program = "G21 G90\nG1 F600\n";
+    for (int i = 1; i <= 30; ++i) {
+        program += "G1 X" + std::to_string(i) + "\n";
+    }
+    machine.loadProgram("job.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    controller::Controller& c = *machine.controller();
+    controller::runJob(c);
+    ASSERT_TRUE(waitFor([&] { return c.sender().currentLineRunning() >= 6; }));
+    controller::stopJob(c);
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isIdle() && c.state().status.activeState == "Idle"; }));
+    EXPECT_GE(machine.lastLine(), 6);  // where the job stopped
+
+    StartFromLineDialog dialog(machine);
+    EXPECT_EQ(dialog.line(), std::max<int>(static_cast<int>(machine.lastLine()) - 10, 1));
+    EXPECT_EQ(dialog.safeHeight(), 10);  // no safe retract height set
+    dialog.setLine(20);
+    machine.simulator()->setSpeed(20);
+    ASSERT_TRUE(dialog.start());
+    ASSERT_TRUE(waitFor([&] { return machine.simulator()->machinePosition()[0] > 29.99; }));
+    const std::vector<std::string>& lines = machine.simulator()->receivedLines();
+    const auto rise = std::find(lines.begin(), lines.end(), "G0 G90 G21 Z10");  // file top (0) + safe height
+    ASSERT_NE(rise, lines.end());
+    const auto resumed = std::find(rise, lines.end(), "G1 X19");  // line 21 of the file
+    EXPECT_NE(resumed, lines.end());
+    EXPECT_EQ(std::find(rise, lines.end(), "G1 X18"), lines.end());  // earlier lines are skipped
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {

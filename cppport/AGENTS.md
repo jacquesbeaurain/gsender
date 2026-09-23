@@ -125,10 +125,12 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   `build/ninja-release/bin/gsender.exe -platform offscreen --simulator
   --load <file> [--start] --screenshot out.png --wait 3000`, then look at it.
 - The Machine/app tests run in real time against the simulator; keep them
-  short (wait for a condition, never for a fixed long delay). They are the
-  slowest suite (~1.5 s - a Grbl controller waits 500 ms before resetting a
-  board it has not heard from); filter them out while iterating on the core
-  (`-Filter '-AppTest.*'`).
+  short (wait for a condition, never for a fixed long delay) and speed the
+  simulated motion up where the timing is not the point
+  (`machine.simulator()->setSpeed(n)`). They are the slowest suite (~6 s:
+  connecting waits for the board, a forced stop waits 700 ms before its
+  reset); filter them out while iterating on the core
+  (`-Filter '-AppTest.*'`), or select one (`-Filter 'AppTest.Probe*'`).
 - `GS_TEST_SCREENSHOTS=<dir>` makes the dialog tests save what they render,
   to look at a dialog without a display.
 

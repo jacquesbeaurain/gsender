@@ -73,6 +73,13 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     connect(&machine_, &Machine::connectionFailed, this,
             [this](const QString& reason) { showError(tr("Connection"), reason); });
     connect(&machine_, &Machine::errorReported, this, &MainWindow::showError);
+    // gSender's recovery prompt: the job can resume from where it stopped.
+    connect(&machine_, &Machine::jobInterrupted, this, [this](qint64 line) {
+        showError(tr("Job interrupted"),
+                  tr("The connection closed while the job was running, around line %1.\n\n"
+                     "Reconnect (and home if needed), then use Start From Line to resume.")
+                      .arg(line));
+    });
     // A "Code" tool change: the pre-hook ran, now the operator changes the
     // tool and continues (gSender's tool change dialog).
     connect(&machine_, &Machine::toolChangeWaiting, this, [this](const QString& comment) {
