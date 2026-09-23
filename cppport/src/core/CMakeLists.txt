@@ -24,6 +24,7 @@ add_library(gs_core STATIC
     src/config/json_path.cpp
     src/config/config_store.cpp
     src/config/records.cpp
+    src/job/program_analysis.cpp
 )
 add_library(gs::core ALIAS gs_core)
 

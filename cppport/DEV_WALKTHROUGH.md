@@ -368,3 +368,19 @@ TCP, including feeding a `Session` that identifies Grbl from its banner.
 
 **Needs a human with hardware:** serial connections to real Grbl and grblHAL
 boards (DTR reset, banner detection, streaming a job) have not been exercised.
+
+## Step 15 — Program analysis (`gs/job/program_analysis`)
+
+When a file loads, gSender's visualizer worker interpreted it and the UI sent
+the per-line time estimates to the controller (`updateEstimateData`) for the
+remaining-time countdown, while the file panel showed its statistics.
+`analyzeProgram()` does both with the port's interpreter: estimates are kept
+on the sender's numbering (one per non-blank line - gSender's drifted, see
+Step 5), plus bounds, tools, feeds, spindle speeds, used axes, invalid lines,
+tool changes, the final units and the file type. `interpreterOptionsFor()`
+reads the machine limits from the firmware settings as the UI did
+(accelerations `$120`-`$123`, rates `$110`-`$113`, ATC from `NEWOPT`).
+
+Faithful quirk: the estimator's trapezoid formula (from Slic3r) assumes a
+move reaches its programmed speed; for moves too short to do so it returns
+distance / speed, ignoring acceleration.
