@@ -125,8 +125,12 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 - The offscreen platform needs `QT_QPA_FONTDIR` on Windows (the app and the
   app tests point it at `%WINDIR%\Fonts`), otherwise text renders as boxes.
 - Check UI changes with a screenshot of the real application:
-  `build/ninja-release/bin/gsender.exe -platform offscreen --simulator
-  --load <file> [--start] --screenshot out.png --wait 3000`, then look at it.
+  `build/ninja-release/bin/gsender.exe -platform offscreen --config
+  <scratch>/rc.json --simulator --load <file> [--start] [--view 3d]
+  --screenshot out.png --wait 3000`, then look at it. Always pass `--config`
+  with a scratch file: without it the run reads and writes the user's own
+  `~/.gsender-cpp_rc` (recent files, settings). Edit that scratch file's
+  `app` object to screenshot other settings.
 - The Machine/app tests run in real time against the simulator; keep them
   short (wait for a condition, never for a fixed long delay) and speed the
   simulated motion up where the timing is not the point
