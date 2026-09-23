@@ -383,6 +383,12 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.promptExit = flag(root, "promptExit", false);
     settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
     settings.warnBadFile = flag(root, "warnBadFile", false);
+    settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
+    settings.showBoundingBox = flag(root, "showBoundingBox", true);
+    settings.boundingBoxLabels = flag(root, "boundingBoxLabels", false);
+    settings.showMachineBed = flag(root, "showMachineBed", false);
+    settings.trimGridToBed = flag(root, "trimGridToBed", false);
+    settings.followTool = flag(root, "followTool", false);
     settings.liteOption = text(root, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
@@ -464,6 +470,12 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"promptExit", settings.promptExit},
                          {"hideProcessedLines", settings.hideProcessedLines},
                          {"warnBadFile", settings.warnBadFile},
+                         {"visualizerTheme", settings.visualizerTheme},
+                         {"showBoundingBox", settings.showBoundingBox},
+                         {"boundingBoxLabels", settings.boundingBoxLabels},
+                         {"showMachineBed", settings.showMachineBed},
+                         {"trimGridToBed", settings.trimGridToBed},
+                         {"followTool", settings.followTool},
                          {"liteOption", settings.liteOption},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
@@ -693,6 +705,18 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.liteMode = flag(*visualizer, "liteMode", false);
         s.hideProcessedLines = flag(*visualizer, "hideProcessedLines", false);
         s.warnBadFile = flag(*visualizer, "showWarning", false);
+        s.visualizerTheme = text(*visualizer, "theme", "Dark");
+        s.boundingBoxLabels = flag(*visualizer, "boundingBoxLabels", false);
+        s.followTool = flag(*visualizer, "followToolDuringRuntime", false);
+        if (const json::object* objects = child(*visualizer, "objects")) {
+            if (const json::object* limits = child(*objects, "limits")) {
+                s.showBoundingBox = flag(*limits, "visible", true);
+            }
+            if (const json::object* bed = child(*objects, "machineBed")) {
+                s.showMachineBed = flag(*bed, "visible", false);
+                s.trimGridToBed = flag(*bed, "trimGridToBed", false);
+            }
+        }
         s.liteOption = text(*visualizer, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     }
 

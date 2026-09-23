@@ -1,6 +1,7 @@
 #include "settings_dialog.hpp"
 
 #include "machine.hpp"
+#include "visualizer_theme.hpp"
 
 #include "gs/config/records.hpp"
 #include "gs/protocol/firmware_data.hpp"
@@ -273,6 +274,26 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     warnBadFile_->setToolTip(tr("Report the invalid lines of a file when it loads."));
     for (QCheckBox* box : {autoReconnect_, revertWorkspace_, powerSaving_, promptExit_, hideProcessedLines_,
                            warnBadFile_}) {
+        generalForm->addRow(QString(), box);
+    }
+    // Visualizer options.
+    visualizerTheme_ = new QComboBox;
+    visualizerTheme_->addItems(visualizerThemeNames());
+    visualizerTheme_->setToolTip(tr("Independent colour control for the visualizer."));
+    showBoundingBox_ = new QCheckBox(tr("Show bounding box"));
+    showBoundingBox_->setToolTip(tr("Draw a wireframe around the extents of the loaded G-code file."));
+    boundingBoxLabels_ = new QCheckBox(tr("Show bounding box labels"));
+    boundingBoxLabels_->setToolTip(tr("Show X/Y/Z dimension labels on the bounding box."));
+    showMachineBed_ = new QCheckBox(tr("Show machine bed indicator"));
+    showMachineBed_->setToolTip(tr("Draw an outline of the machine's homed work area once homing is complete."));
+    trimGridToBed_ = new QCheckBox(tr("Trim grid to machine bed"));
+    trimGridToBed_->setToolTip(tr("When the machine bed indicator is shown, clip the background grid to just past "
+                                  "the bed's edges instead of a fixed square."));
+    followTool_ = new QCheckBox(tr("Follow tool during runtime"));
+    followTool_->setToolTip(tr("While a job is running, pan the camera to track the tool in X/Y, keeping the same "
+                               "viewing angle and height."));
+    generalForm->addRow(tr("Visualizer theme"), visualizerTheme_);
+    for (QCheckBox* box : {showBoundingBox_, boundingBoxLabels_, showMachineBed_, trimGridToBed_, followTool_}) {
         generalForm->addRow(QString(), box);
     }
     // The DRO's Park button (homing enabled, machine homed).
@@ -616,6 +637,12 @@ void SettingsDialog::load() {
     promptExit_->setChecked(s.promptExit);
     hideProcessedLines_->setChecked(s.hideProcessedLines);
     warnBadFile_->setChecked(s.warnBadFile);
+    visualizerTheme_->setCurrentText(QString::fromStdString(s.visualizerTheme));
+    showBoundingBox_->setChecked(s.showBoundingBox);
+    boundingBoxLabels_->setChecked(s.boundingBoxLabels);
+    showMachineBed_->setChecked(s.showMachineBed);
+    trimGridToBed_->setChecked(s.trimGridToBed);
+    followTool_->setChecked(s.followTool);
     const double park[3] = {s.park.x, s.park.y, s.park.z};
     for (int i = 0; i < 3; ++i) {
         park_[i]->setValue(park[i]);
@@ -732,6 +759,12 @@ void SettingsDialog::save() {
     s.promptExit = promptExit_->isChecked();
     s.hideProcessedLines = hideProcessedLines_->isChecked();
     s.warnBadFile = warnBadFile_->isChecked();
+    s.visualizerTheme = visualizerTheme_->currentText().toStdString();
+    s.showBoundingBox = showBoundingBox_->isChecked();
+    s.boundingBoxLabels = boundingBoxLabels_->isChecked();
+    s.showMachineBed = showMachineBed_->isChecked();
+    s.trimGridToBed = trimGridToBed_->isChecked();
+    s.followTool = followTool_->isChecked();
     s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

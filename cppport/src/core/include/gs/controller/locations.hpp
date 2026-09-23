@@ -110,4 +110,21 @@ std::string homeAxisCommand(char axis);
 // The DRO shows the single-axis homing switch for $22 bit 1.
 bool singleAxisHomingEnabled(std::string_view homing);
 
+// ---- the visualizer's machine bed (RapidPosition.ts) ----
+
+struct WorkRect {  // work coordinates, mm
+    double minX = 0;
+    double minY = 0;
+    double maxX = 0;
+    double maxY = 0;
+};
+
+// computeMachineBedWorkRect(): the travel from the homing corner ($23) away
+// from it (getAxisMaximumLocation), `width` by `depth`, in the work
+// coordinates of a workspace offset `wco` (machine minus work position).
+WorkRect machineBedWorkRect(std::string_view homingDirMask, double width, double depth, double wcoX, double wcoY);
+// computeKeepoutWorkRect(): grblHAL's ATC keepout ($684-$687 are machine
+// coordinates already).
+WorkRect keepoutWorkRect(double xMin, double xMax, double yMin, double yMax, double wcoX, double wcoY);
+
 }  // namespace gs::controller
