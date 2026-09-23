@@ -12,6 +12,7 @@ class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
+class QLineEdit;
 class QPlainTextEdit;
 class QPushButton;
 class QSpinBox;
@@ -83,6 +84,8 @@ private:
     QCheckBox* showMachineBed_;
     QCheckBox* trimGridToBed_;
     QCheckBox* followTool_;
+    QComboBox* backupFrequency_;
+    QLineEdit* backupLocation_;
     QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;

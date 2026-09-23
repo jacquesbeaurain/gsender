@@ -1631,6 +1631,31 @@ TEST_F(AppTest, AJobsWorkspaceComesBackAndBadFilesAreReported) {
     EXPECT_EQ(c.runner().modal().wcs, "G55");
 }
 
+TEST_F(AppTest, SettingsAreBackedUpWhenDue) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.backupLocation = dir.path().toStdString();
+    machine.setSettings(settings);
+    const std::int64_t now = 1'700'000'000'000;
+    // On Update: once per version.
+    const QString first = machine.backupSettingsIfDue("1.0.0", now);
+    ASSERT_FALSE(first.isEmpty());
+    EXPECT_TRUE(QFileInfo(first).fileName().startsWith("preferences-backup-2023-11-14T22-13-20.000Z"));
+    QFile copy(first);
+    ASSERT_TRUE(copy.open(QIODevice::ReadOnly));
+    EXPECT_TRUE(copy.readAll().contains("backupLocation"));
+    EXPECT_TRUE(machine.backupSettingsIfDue("1.0.0", now + 1000).isEmpty());
+    EXPECT_FALSE(machine.backupSettingsIfDue("1.1.0", now + 2000).isEmpty());
+    // Daily: after a day.
+    settings = machine.settings();
+    settings.backupFrequency = "Daily";
+    machine.setSettings(settings);
+    EXPECT_TRUE(machine.backupSettingsIfDue("1.1.0", now + 3000).isEmpty());
+    EXPECT_FALSE(machine.backupSettingsIfDue("1.1.0", now + 2000 + 24LL * 3600 * 1000).isEmpty());
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;

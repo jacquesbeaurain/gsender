@@ -389,6 +389,10 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.showMachineBed = flag(root, "showMachineBed", false);
     settings.trimGridToBed = flag(root, "trimGridToBed", false);
     settings.followTool = flag(root, "followTool", false);
+    settings.backupFrequency = text(root, "backupFrequency", "On Update");
+    settings.backupLocation = text(root, "backupLocation");
+    settings.lastBackupTime = static_cast<std::int64_t>(number(root, "lastBackupTime", 0));
+    settings.lastBackupVersion = text(root, "lastBackupVersion");
     settings.liteOption = text(root, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
@@ -476,6 +480,10 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"showMachineBed", settings.showMachineBed},
                          {"trimGridToBed", settings.trimGridToBed},
                          {"followTool", settings.followTool},
+                         {"backupFrequency", settings.backupFrequency},
+                         {"backupLocation", settings.backupLocation},
+                         {"lastBackupTime", settings.lastBackupTime},
+                         {"lastBackupVersion", settings.lastBackupVersion},
                          {"liteOption", settings.liteOption},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
@@ -607,6 +615,10 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.revertWorkspace = flag(w, "revertWorkspace", false);
     s.powerSaving = flag(w, "powerSaving", false);
     s.promptExit = flag(w, "promptExit", false);
+    if (const std::string frequency = text(w, "backupFreq"); !frequency.empty()) {
+        s.backupFrequency = frequency;
+    }
+    s.backupLocation = text(w, "backupLoc");
     if (const std::string firmware = text(w, "defaultFirmware"); !firmware.empty()) {
         s.defaultFirmware = firmware == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     }
