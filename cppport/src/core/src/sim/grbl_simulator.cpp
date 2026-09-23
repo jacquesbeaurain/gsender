@@ -330,9 +330,19 @@ void GrblSimulator::executeSystem(const std::string& line) {
         emitText("ok\r\n");
         return;
     }
-    if (command == "$H") {
-        if (setting("$22") != "1") {
+    // $H, or $HX/$HY/$HZ/$HA (single-axis homing, grblHAL's $22 bit 1).
+    const bool singleAxis = command.size() == 3 && command.starts_with("$H") &&
+                            std::string_view("XYZA").find(command[2]) != std::string_view::npos;
+    if (command == "$H" || singleAxis) {
+        const double homing = js::stringToNumber(setting("$22"));
+        const int flags = std::isfinite(homing) ? static_cast<int>(homing) : 0;
+        if ((flags & 1) == 0) {
             emitText("error:5\r\n");
+            return;
+        }
+        const int axis = singleAxis ? static_cast<int>(std::string_view("XYZA").find(command[2])) : -1;
+        if (axis >= 0 && (flags & 2) == 0) {
+            emitText("error:3\r\n");
             return;
         }
         if (state_ != State::Idle && state_ != State::Alarm) {
@@ -340,8 +350,13 @@ void GrblSimulator::executeSystem(const std::string& line) {
             return;
         }
         state_ = State::Home;
-        timers_.timeout(1500, [this] {
-            mpos_ = {};
+        const double seconds = axis >= 0 ? 0.5 : 1.5;
+        timers_.timeout(static_cast<std::int64_t>(seconds * 1000 / speed_), [this, axis] {
+            if (axis >= 0) {
+                mpos_[static_cast<std::size_t>(axis)] = 0;
+            } else {
+                mpos_ = {};
+            }
             state_ = State::Idle;
             emitText("ok\r\n");
         });

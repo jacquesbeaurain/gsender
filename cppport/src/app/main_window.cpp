@@ -1,6 +1,7 @@
 #include "main_window.hpp"
 
 #include "controls.hpp"
+#include "dro_panel.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "panels.hpp"
@@ -165,6 +166,27 @@ void MainWindow::installShortcuts() {
     }
     s.setHandler("ZERO_ALL_AXIS", dro([this] { machine_.zeroAllAxes(); }));
     s.setHandler("GO_TO_XY_AXIS_ZERO", dro([this] { machine_.goToZero("XY"); }));
+    // The corners need homing enabled (canRunShortcut(true)) - not a homed
+    // machine, unlike their buttons; Park needs the machine homed.
+    using controller::MachineCorner;
+    const std::pair<const char*, MachineCorner> corners[] = {
+        {"HOMING_GO_TO_BACK_LEFT_CORNER", MachineCorner::BackLeft},
+        {"HOMING_GO_TO_BACK_RIGHT_CORNER", MachineCorner::BackRight},
+        {"HOMING_GO_TO_FRONT_LEFT_CORNER", MachineCorner::FrontLeft},
+        {"HOMING_GO_TO_FRONT_RIGHT_CORNER", MachineCorner::FrontRight},
+    };
+    for (const auto& [id, corner] : corners) {
+        s.setHandler(id, dro([this, corner] {
+                         if (machine_.homingEnabled()) {
+                             machine_.goToCorner(corner);
+                         }
+                     }));
+    }
+    s.setHandler("HOMING_PARK", dro([this] {
+                     if (machine_.controller()->hasHomed()) {
+                         machine_.goToPark();
+                     }
+                 }));
 
     // Job control, with the buttons' rules.
     s.setHandler("START_JOB", [this] {

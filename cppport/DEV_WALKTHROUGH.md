@@ -612,8 +612,9 @@ visualizer gained Front/Right/Left views, view cycling and zoom for the
 shortcuts.
 
 Not ported yet: macro shortcuts, gamepads, the Toggle Rotary Mode and
-Lightweight Mode shortcuts (no rotary mode or lightweight view yet), the
-go-to-corner shortcuts, and editing the presets outside the Jog tab.
+Lightweight Mode shortcuts (no rotary mode or lightweight view yet), and
+editing the presets outside the Jog tab. (The go-to-corner and park
+shortcuts came with Step 29.)
 
 ## Step 25 — Start From Line
 
@@ -734,3 +735,58 @@ gained the strategies, the fixed sensor location, the first-tool behaviour
 and the optional tool change location (with "Use current" buttons). Tests:
 a core end-to-end run and an application run take a job through M6 with
 the Standard Re-zero wizard on the simulator and on to its last line.
+
+## Step 29 — The DRO's places and offsets (`gs/controller/locations`, `src/app/dro_panel`)
+
+The position panel now does what gSender's DRO does. The G-code builders
+are in the core, with upstream's `RapidPosition.test.ts` and
+`Parking.test.ts` ported and a table of every corner from every homing
+corner:
+
+- Corners (`getMovementGCode`): up to 1 mm below the top of Z - or the
+  pull-off when homing does not set the origin ($22 bit 3) - then, in
+  machine coordinates, the pull-off in from the switches at the homing
+  corner ($23), max travel ($130/$131) less the pull-off at the far sides.
+  Unhomed (no homing flag) everything is computed as if homing were back
+  right; grblHAL takes the flag from $22 bit 3. Nothing is sent when the
+  limits are missing, or when $23 inverts Z (upstream's "Other").
+- Park (`workspace.park`, machine coordinates) with the same lift, and the
+  settings' "Go to" for a stored position.
+- Go To Location: ABS and INC in work coordinates with the safe retract
+  (machine Z with homing, else a relative lift - lowered again for INC),
+  MCS as one `G53 G0` of X, Y (and A).
+- Typed work positions (`G10 P0 L20 X12.5` in the workspace units) and
+  single-axis homing (`$HX`, offered for $22 bit 1).
+
+Upstream behaviour kept: the corner and park lines carry `G21`, which stays
+modal; an INC move leaves G91 modal (gcode:safe restores only the units);
+MCS neither lifts nor moves Z (the port disables its Z field); the corner
+shortcuts need homing enabled but not a homed machine, their buttons both.
+
+Deviations:
+
+| Behaviour | gSender | Port | Why |
+|---|---|---|---|
+| Go To retract in an inch workspace | the mm height written into G20 lines (10 mm became 10 in) | converted to inches | a 254 mm lift or plunge |
+| INC after a lift, inch workspace | adds the mm work Z to an inch target | work Z in inches | same unit mix |
+| MCS prefill | raw mm figures, also in inches | the machine position in the workspace units | consistent fields |
+| Typed position, empty or invalid | sent as 0 (`Number("")`) | ignored | an Enter on an empty field zeroed the axis |
+| Typed position while the machine moves | the field re-mounts on every report | kept while it has the focus | typing is not interrupted |
+| DRO Home button | idle or jogging only | also in Alarm | the port has no alarm/unlock area yet |
+
+In the application the DRO (`dro_panel`, split out of `panels.cpp`) has the
+workspace selector (G54-G59 with upstream's colours, following the modal
+state, disabled while running), per-axis zero - or home, with the
+"Single axis" switch - buttons, editable work positions (Enter applies,
+Escape or leaving the field restores), machine positions, go-to-zero
+buttons, Go To..., the corner arrows and Park (shown with homing enabled,
+enabled once homed), Zero All, Home, Go to XY, Unlock and Reset. "Warn when
+setting zero" (General settings) makes the zero buttons ask first; the
+park location is set there too, with "Use current" and "Go to". The
+buttons follow upstream's canClick: connected, no job running, idle or
+jogging.
+
+The simulated board now reads $22 as a bitmask and homes single axes
+(`$HX`, with bit 1); its homing time scales with `setSpeed`. An application
+test selects G55, types a position, homes, goes to a corner and the park
+position, runs Go To in all three modes and homes X alone.

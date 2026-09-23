@@ -10,12 +10,14 @@
 
 #include "gs/config/config_store.hpp"
 #include "gs/config/records.hpp"
+#include "gs/controller/locations.hpp"
 #include "gs/controller/session.hpp"
 #include "gs/job/program_analysis.hpp"
 
 #include <QObject>
 #include <QString>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
@@ -130,6 +132,29 @@ public:
     // gotoZero / goXYAxes: `axes` "X", "Y", "Z", "A" or "XY", lifting to the
     // safe retract height first when one is set; gcode:safe in mm.
     void goToZero(std::string_view axes);
+    // The reported positions in mm ($13=1 boards report inches), X Y Z A;
+    // zeros when disconnected.
+    std::array<double, 4> workPositionMm() const;
+    std::array<double, 4> machinePositionMm() const;
+    // The DRO's canClick: connected, no job running, idle or jogging.
+    bool canMove() const;
+    bool homingEnabled() const;     // $22 > 0
+    bool singleAxisHoming() const;  // $22 bit 1: the DRO offers per-axis homing
+    void selectWorkspace(const QString& wcs);  // "G54" ... "G59"
+    // Makes the current position read `value` (workspace units) on `axis`:
+    // "G10 P0 L20 X..." in the workspace units.
+    void setWorkPosition(char axis, double value);
+    void homeAxis(char axis);  // "$HX"
+    // The DRO's corner buttons and Park (upstream offers them with homing
+    // enabled, once the machine has homed). A notice when the machine limits
+    // are unknown.
+    void goToCorner(controller::MachineCorner corner);
+    void goToPark();
+    // The settings' "Go to" for a stored machine position.
+    void goToMachinePosition(const toolchange::MachinePosition& position);
+    // Go To Location: the target (or distances) in the workspace units, A in
+    // degrees; gcode:safe in the workspace units.
+    void goToLocation(controller::GoToMode mode, double x, double y, double z, double a);
 
     // ---- probing ----
     // The Probe widget's routine: the probe settings (converted for inch

@@ -201,6 +201,8 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     settings.metric = text(root, "units", "mm") != "in";
     settings.customDecimalPlaces = static_cast<int>(number(root, "customDecimalPlaces", 0));
     settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
+    settings.warnZero = flag(root, "warnZero", false);
+    settings.park = loadPosition(root, "park");
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
     settings.outlineSpeed = number(root, "outlineSpeed", 0);
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
@@ -261,6 +263,8 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"units", settings.metric ? "mm" : "in"},
                          {"customDecimalPlaces", settings.customDecimalPlaces},
                          {"safeRetractHeight", settings.safeRetractHeight},
+                         {"warnZero", settings.warnZero},
+                         {"park", savePosition(settings.park)},
                          {"outlineMode", job::outlineModeName(settings.outlineMode)},
                          {"outlineSpeed", settings.outlineSpeed},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},

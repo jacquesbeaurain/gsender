@@ -38,24 +38,6 @@ private:
     QLabel* state_;
 };
 
-// Work and machine positions with zeroing, homing and unlocking (DRO widget).
-class PositionPanel final : public QWidget {
-    Q_OBJECT
-public:
-    explicit PositionPanel(Machine& machine, QWidget* parent = nullptr);
-
-private:
-    void refresh();
-
-    Machine& machine_;
-    QLabel* work_[4];
-    QLabel* machinePos_[4];
-    QPushButton* zero_[4];
-    QWidget* rowA_[4];
-    QPushButton* units_;
-    QList<QPushButton*> actions_;
-};
-
 // Step jogging on click, continuous jogging while held, with the speed
 // presets (Jogging widget). The keyboard shortcuts share the same Jogger.
 class JogPanel final : public QWidget {

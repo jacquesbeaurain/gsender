@@ -59,6 +59,8 @@ private:
     QComboBox* units_;
     QSpinBox* decimals_;
     QDoubleSpinBox* safeRetract_;
+    QCheckBox* warnZero_;
+    QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;
     QComboBox* toolChange_;
