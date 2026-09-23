@@ -32,6 +32,8 @@
 #include <QTableWidget>
 #include <QToolButton>
 #include <QDeadlineTimer>
+#include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
 
@@ -390,6 +392,50 @@ TEST_F(AppTest, AutomationsStoreEventHooksThatRunAroundJobs) {
     dialog.save();
     EXPECT_FALSE(hooks.find("gcode:start")->enabled);
     EXPECT_EQ(hooks.find("gcode:start")->commands, "G0 Z7");
+}
+
+TEST_F(AppTest, RecentFilesAndMacroFilesComeAndGo) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    const auto write = [&](const QString& name, const QByteArray& content) {
+        QFile file(dir.path() + "/" + name);
+        EXPECT_TRUE(file.open(QIODevice::WriteOnly));
+        file.write(content);
+        return QFileInfo(file).absoluteFilePath();
+    };
+
+    // Recent files: newest first, at most 8; loading one again moves it up.
+    for (int i = 0; i < 9; ++i) {
+        ASSERT_TRUE(machine.loadFile(write(QString("job%1.nc").arg(i), "G0 X1\n")));
+    }
+    const auto names = [&] {
+        QStringList out;
+        for (const RecentFile& file : machine.settings().recentFiles) {
+            out << QString::fromStdString(file.fileName);
+        }
+        return out;
+    };
+    EXPECT_EQ(names(), (QStringList{"job8.nc", "job7.nc", "job6.nc", "job5.nc", "job4.nc", "job3.nc", "job2.nc",
+                                    "job1.nc"}));
+    ASSERT_TRUE(machine.loadFile(dir.path() + "/job3.nc"));
+    EXPECT_EQ(names().first(), "job3.nc");
+    EXPECT_EQ(names().size(), 8);
+    machine.forgetRecentFile(QFileInfo(dir.path() + "/job3.nc").absoluteFilePath());
+    EXPECT_EQ(names().first(), "job8.nc");
+
+    // Macros go out to a file and come back into another configuration.
+    ASSERT_TRUE(machine.macros().create("Park", "G0 Z5\nG0 X0 Y0", "Lift").has_value());
+    MacrosPanel panel(machine);
+    QString message;
+    ASSERT_TRUE(panel.exportTo(dir.path() + "/macros.json", &message)) << message.toStdString();
+    Machine other(loop, (dir.path() + "/other_rc").toStdWString());
+    MacrosPanel otherPanel(other);
+    ASSERT_TRUE(otherPanel.importFrom(dir.path() + "/macros.json", &message));
+    EXPECT_EQ(message, "Successfully imported 1 macro(s)");
+    ASSERT_EQ(other.macros().list().size(), 1u);
+    EXPECT_EQ(other.macros().list()[0].content, "G0 Z5\nG0 X0 Y0");
+    EXPECT_FALSE(otherPanel.importFrom(write("junk.json", "{not json"), &message));
 }
 
 TEST_F(AppTest, HeldJogKeysJogUntilReleased) {

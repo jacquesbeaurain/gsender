@@ -227,6 +227,35 @@ protected:
     std::int64_t now = 1'700'000'000'000;
 };
 
+TEST_F(RecordsTest, MacrosExportAndImportAsTheMacrosWidget) {
+    MacroStore macros(store, ids(), clock());
+    const auto park = macros.create("Park", "G0 Z5\nG0 X0 Y0", "  Lift and go home  ");
+    ASSERT_TRUE(park.has_value());
+    const json::array exported = exportMacros(macros);
+    ASSERT_EQ(exported.size(), 1u);
+    EXPECT_EQ(exported[0].as_object().at("name"), "Park");
+    EXPECT_EQ(exported[0].as_object().at("description"), "Lift and go home");  // trimmed
+    EXPECT_EQ(exported[0].as_object().at("id"), json::string(park->id));
+
+    // A known id updates that macro; anything else is added; no name or no
+    // content is skipped.
+    const json::value incoming = json::parse(R"([
+        {"id": ")" + park->id + R"(", "name": "Park", "content": "G0 Z10\nG0 X0 Y0", "description": "Higher"},
+        {"id": "elsewhere", "name": "Probe", "content": "G38.2 Z-10", "description": ""},
+        {"name": "", "content": "G0 X0"},
+        {"name": "Empty"}
+    ])");
+    const MacroImport result = importMacros(macros, incoming);
+    EXPECT_EQ(result.imported, 1);
+    EXPECT_EQ(result.updated, 1);
+    const auto list = macros.list();
+    ASSERT_EQ(list.size(), 2u);
+    EXPECT_EQ(macros.find(park->id)->content, "G0 Z10\nG0 X0 Y0");
+    EXPECT_EQ(list[1].name, "Probe");
+    EXPECT_NE(list[1].id, "elsewhere");  // a new id
+    EXPECT_EQ(importMacros(macros, json::object{}).imported, 0);  // not an array
+}
+
 TEST_F(RecordsTest, MacrosAreRepairedWhenRead) {
     writeAll(file, R"({"macros":[{"name":"Probe","content":"G38.2 Z-10"},"junk"]})");
     store.reload();

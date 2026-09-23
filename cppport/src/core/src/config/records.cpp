@@ -1,6 +1,7 @@
 #include "gs/config/records.hpp"
 
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/strings.hpp"
 
 #include <boost/json.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -253,6 +254,51 @@ bool MacroStore::remove(std::string_view id) {
     }
     store_.set("macros", std::move(kept));
     return true;
+}
+
+json::array exportMacros(MacroStore& store) {
+    json::array out;
+    for (const MacroRecord& macro : store.list()) {
+        out.push_back(json::object{{"name", macro.name},
+                                   {"content", macro.content},
+                                   {"description", std::string(str::trim(macro.description))},
+                                   {"id", macro.id}});
+    }
+    return out;
+}
+
+MacroImport importMacros(MacroStore& store, const json::value& data) {
+    MacroImport result;
+    if (!data.is_array()) {
+        return result;
+    }
+    const auto text = [](const json::object& o, std::string_view key) {
+        const json::value* v = o.if_contains(key);
+        return v && v->is_string() ? std::string(v->as_string()) : std::string();
+    };
+    for (const json::value& entry : data.as_array()) {
+        if (!entry.is_object()) {
+            continue;
+        }
+        const json::object& macro = entry.as_object();
+        std::string name = text(macro, "name");
+        std::string content = text(macro, "content");
+        if (name.empty() || content.empty()) {
+            continue;
+        }
+        const std::string id = text(macro, "id");
+        if (!id.empty() && store.find(id)) {
+            MacroChanges changes;
+            changes.name = std::move(name);
+            changes.content = std::move(content);
+            changes.description = text(macro, "description");
+            store.update(id, changes);
+            ++result.updated;
+        } else if (store.create(std::move(name), std::move(content), text(macro, "description"))) {
+            ++result.imported;
+        }
+    }
+    return result;
 }
 
 // ---- event hooks -----------------------------------------------------------------------

@@ -920,9 +920,26 @@ bool Machine::loadFile(const QString& path, QString* error) {
         return false;
     }
     const QByteArray bytes = file.readAll();
-    loadProgram(QFileInfo(path).fileName(), std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
-                QFileInfo(path).absoluteFilePath());
+    const QFileInfo info(path);
+    loadProgram(info.fileName(), std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
+                info.absoluteFilePath());
+    AppSettings settings = settings_;
+    addRecentFile(settings.recentFiles, {info.fileName().toStdString(), info.absoluteFilePath().toStdString(),
+                                         info.size(), QDateTime::currentMSecsSinceEpoch()});
+    setSettings(settings);
     return true;
+}
+
+void Machine::forgetRecentFile(const QString& path) {
+    AppSettings settings = settings_;
+    std::erase_if(settings.recentFiles, [&path](const RecentFile& f) { return f.filePath == path.toStdString(); });
+    setSettings(settings);
+}
+
+void Machine::clearRecentFiles() {
+    AppSettings settings = settings_;
+    settings.recentFiles.clear();
+    setSettings(settings);
 }
 
 void Machine::loadProgram(const QString& name, std::string text, const QString& path) {

@@ -949,3 +949,19 @@ totals and "Clear Job History"; the maintenance tasks with Add, Edit, Mark
 Done (hours back to 0) and Delete; the alarm and error log (newest first)
 with Clear. Tests cover the stores (dates, counters, due states) and a job
 and an alarm on the simulator reaching the open dialog.
+
+## Step 35 — Recent files, macro import/export
+
+- **Recent files** (FileControl's recentfiles.ts): every file loaded from
+  disk is listed (`app.recentFiles`, upstream's `{fileName, filePath,
+  fileSize, timeUploaded}`), newest first, at most 8; loading one again moves
+  it up. File > Recent Files reloads one; a file that has gone gives
+  upstream's message and leaves the list (upstream kept it); Clear Recent
+  Files empties it.
+- **Macro import/export** (the Macros widget): Export writes gSender's JSON
+  - `[{name, content, description (trimmed), id}]` - and Import reads it
+  back: an entry whose id is already here updates that macro, others are
+  added with new ids, entries without a name or content are skipped, and the
+  counts are reported as upstream words them. The rules are in the core
+  (`exportMacros`/`importMacros`, tested); files move between gSender and
+  the port either way.
