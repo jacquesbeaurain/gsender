@@ -88,6 +88,14 @@ ConnectionBar::ConnectionBar(Machine& machine, QWidget* parent) : QWidget(parent
     connect(&machine_, &Machine::connectionChanged, this, &ConnectionBar::updateState);
     connect(&machine_, &Machine::stateChanged, this, &ConnectionBar::updateState);
     refreshPorts();
+    // Preselect what was used last.
+    const AppSettings& settings = machine_.settings();
+    if (const int index = ports_->findData(QString::fromStdString(settings.port)); index >= 0) {
+        ports_->setCurrentIndex(index);
+    } else if (!settings.port.empty()) {
+        ports_->setEditText(QString::fromStdString(settings.port));
+    }
+    baud_->setCurrentText(QString::number(settings.baudRate));
     updateState();
 }
 
@@ -122,7 +130,11 @@ void ConnectionBar::toggleConnection() {
     if (port.isEmpty()) {
         return;
     }
-    machine_.connectTo(port, baud_->currentText().toInt());
+    AppSettings settings = machine_.settings();
+    settings.port = port.toStdString();
+    settings.baudRate = baud_->currentText().toInt();
+    machine_.setSettings(settings);
+    machine_.connectTo(port, settings.baudRate, settings.networkPort);
 }
 
 void ConnectionBar::updateState() {

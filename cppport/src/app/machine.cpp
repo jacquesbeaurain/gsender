@@ -105,6 +105,8 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
         Q_EMIT errorReported(tr("Configuration"), QString::fromStdString(message));
     };
     config_.load(std::move(configFile));
+    settings_ = loadAppSettings(config_);
+    *preferences_ = settings_.preferences;
 }
 
 Machine::~Machine() {
@@ -129,11 +131,11 @@ void Machine::startSession(controller::DeviceLink& link) {
     controller::ControllerHooks hooks = config::makeControllerHooks(config_);
     hooks.preferences = preferences_;
     session_ = std::make_unique<controller::Session>(
-        loop_, link, controller::SessionOptions{}, std::move(hooks),
+        loop_, link, controller::SessionOptions{settings_.defaultFirmware}, std::move(hooks),
         [this](const controller::ControllerEvent& event) { handle(event); });
     session_->onController = [this](controller::Controller& c, bool) {
         connecting_ = false;
-        c.setToolChangeContext(toolChange_);
+        c.setToolChangeContext(settings_.toolChange);
         attachProgram();
         Q_EMIT connectionChanged();
     };
@@ -253,6 +255,10 @@ void Machine::handle(const controller::ControllerEvent& event) {
                                        .arg(QString::fromStdString(e.tool.value_or("")))
                                        .arg(e.line));
                    },
+                   [this](const ToolChangeStarted&) { Q_EMIT notice(tr("Tool change: running the pre-hook...")); },
+                   [this](const ToolChangePreHookComplete& e) {
+                       Q_EMIT toolChangeWaiting(QString::fromStdString(e.comment));
+                   },
                    [this](const ProgramPaused& e) {
                        Q_EMIT notice(tr("Program paused (%1) %2")
                                        .arg(QString::fromStdString(e.data), QString::fromStdString(e.comment)));
@@ -355,11 +361,13 @@ void Machine::sendEstimates() {
     }
 }
 
-void Machine::setToolChangeContext(const controller::ToolChangeContext& context) {
-    toolChange_ = context;
+void Machine::setSettings(const AppSettings& settings) {
+    settings_ = settings;
+    *preferences_ = settings_.preferences;  // the controller reads it live
     if (controller::Controller* c = controller()) {
-        c->setToolChangeContext(toolChange_);
+        c->setToolChangeContext(settings_.toolChange);
     }
+    saveAppSettings(config_, settings_);
 }
 
 void Machine::sendConsoleLine(const QString& line) {

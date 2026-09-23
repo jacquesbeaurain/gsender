@@ -5,8 +5,10 @@
 #include "machine.hpp"
 #include "main_window.hpp"
 #include "qt_event_loop.hpp"
+#include "settings_dialog.hpp"
 
 #include <QApplication>
+#include <QTableWidget>
 #include <QDeadlineTimer>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
@@ -149,6 +151,53 @@ TEST_F(AppTest, MacrosAreStoredAndRunOnTheMachine) {
         return std::find(sent.begin(), sent.end(), "G0 X0 Y0") != sent.end();
     }));
     EXPECT_NE(std::find(sent.begin(), sent.end(), "G0 Z5"), sent.end());
+}
+
+TEST_F(AppTest, SettingsPersistAndReachTheController) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    const std::wstring file = (dir.path() + "/rc").toStdWString();
+    {
+        Machine machine(loop, file);
+        AppSettings settings = machine.settings();
+        EXPECT_EQ(settings.toolChange.option, "Ignore");  // gSender's default
+        settings.toolChange.option = "Code";
+        settings.toolChange.preHook = "G0 Z20";
+        settings.preferences.spindleDelay = 1.5;
+        settings.port = "COM7";
+        machine.setSettings(settings);
+    }
+    Machine machine(loop, file);
+    EXPECT_EQ(machine.settings().toolChange.option, "Code");
+    EXPECT_EQ(machine.settings().toolChange.preHook, "G0 Z20");
+    EXPECT_EQ(machine.settings().preferences.spindleDelay, 1.5);
+    EXPECT_EQ(machine.preferences().spindleDelay, 1.5);
+    EXPECT_EQ(machine.settings().port, "COM7");
+
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    EXPECT_EQ(machine.controller()->toolChangeContext().option, "Code");
+    EXPECT_EQ(machine.controller()->toolChangeContext().preHook, "G0 Z20");
+}
+
+TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected() && machine.controller()->runner().hasSettings(); }, 5000));
+    SettingsDialog dialog(machine);
+    dialog.showPage(SettingsDialog::Page::Firmware);
+    dialog.show();
+    auto* table = dialog.findChild<QTableWidget*>();
+    ASSERT_NE(table, nullptr);
+    const int expected = static_cast<int>(machine.controller()->settings().settings.size());
+    EXPECT_TRUE(waitFor([&] { return table->rowCount() == expected; }));  // the next poll broadcasts them
+    EXPECT_EQ(table->item(0, 0)->text(), "$0");
+    EXPECT_NE(table->item(0, 3)->text().indexOf("Step pulse"), -1);  // described from the Grbl tables
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.grab().save(QString::fromLocal8Bit(out) + "/settings_firmware.png");
+    }
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

@@ -459,3 +459,20 @@ an OpenGL view can replace this one if very large files need it.
 - Macros tab: the macros of the config file (`MacroStore`) - run (also by
   double-click), create, edit, delete; runs go through the controller's
   `runMacro`, so `%` assignments and `[expressions]` work as in gSender.
+
+## Step 20 — Settings (`src/app/app_settings`, `settings_dialog`)
+
+The application's preferences - what gSender's UI kept in its own store and
+pushed to the server - are saved under `"app"` in the port's config file and
+applied to the controller: spindle delay, line warnings, Grbl A-axis
+passthrough, default firmware (for boards that do not identify themselves),
+network port, last port/baud, and the tool change context (strategy Ignore -
+gSender's default -, Pause or Code with pre/post hooks, M6 passthrough, skip
+dialog). A "Code" tool change prompts after the pre-hook; Continue runs the
+post-hook and resumes (`toolchange:post`). The re-zero and tool-sensor
+strategies (wizards with probing) are not ported yet.
+
+The Firmware tab lists the board's `$` settings with units and descriptions
+(grblHAL's own `$ES` descriptions first, then the extracted Grbl/grblHAL
+tables); changed values are written as `$n=value` followed by `$$`.
+Menus: File (load/close/quit), Machine (settings, firmware settings), Help.

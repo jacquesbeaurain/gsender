@@ -1,6 +1,8 @@
 # The Qt Widgets application. Its code lives in a library so tests can link it.
 
 add_library(gs_app STATIC
+    app_settings.cpp
+    app_settings.hpp
     controls.cpp
     controls.hpp
     machine.cpp
@@ -11,6 +13,8 @@ add_library(gs_app STATIC
     panels.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
+    settings_dialog.cpp
+    settings_dialog.hpp
     toolpath_view.cpp
     toolpath_view.hpp
 )
