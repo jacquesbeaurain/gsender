@@ -349,6 +349,7 @@ void MainWindow::installShortcuts() {
     s.setHandler("VISUALIZER_ZOOM_IN", [this] { visualizer_->zoom(1.25); });
     s.setHandler("VISUALIZER_ZOOM_OUT", [this] { visualizer_->zoom(0.8); });
     s.setHandler("VISUALIZER_ZOOM_FIT", [this] { visualizer_->fit(); });
+    s.setHandler("LIGHTWEIGHT_MODE", [this] { visualizer_->toggleLiteMode(); });
     s.setHandler("TOGGLE_SHORTCUTS", [this] {
         AppSettings settings = machine_.settings();
         settings.shortcutsEnabled = !settings.shortcutsEnabled;

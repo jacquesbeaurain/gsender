@@ -253,6 +253,11 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     generalForm->addRow(QString(), jobEndModal_);
     generalForm->addRow(QString(), maintenanceNotifications_);
     generalForm->addRow(tr("Pop-up notification duration"), toastDuration_);
+    liteOption_ = new QComboBox;
+    liteOption_->addItems({"Light", "Everything"});
+    liteOption_->setToolTip(tr("Enable with the feather when big files are slowing down your computer. (Light turns "
+                               "off 3D file view, Everything disables the visualizer)"));
+    generalForm->addRow(tr("Lightweight options"), liteOption_);
     // The DRO's Park button (homing enabled, machine homed).
     QHBoxLayout* parkRow = positionRow(park_);
     auto* parkGo = new QPushButton(tr("Go to"));
@@ -583,6 +588,7 @@ void SettingsDialog::load() {
     jobEndModal_->setChecked(s.jobEndModal);
     maintenanceNotifications_->setChecked(s.maintenanceNotifications);
     toastDuration_->setValue(s.toastDuration);
+    liteOption_->setCurrentText(QString::fromStdString(s.liteOption));
     const double park[3] = {s.park.x, s.park.y, s.park.z};
     for (int i = 0; i < 3; ++i) {
         park_[i]->setValue(park[i]);
@@ -692,6 +698,7 @@ void SettingsDialog::save() {
     s.jobEndModal = jobEndModal_->isChecked();
     s.maintenanceNotifications = maintenanceNotifications_->isChecked();
     s.toastDuration = toastDuration_->value();
+    s.liteOption = liteOption_->currentText().toStdString();
     s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

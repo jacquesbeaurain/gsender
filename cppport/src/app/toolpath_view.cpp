@@ -133,7 +133,17 @@ QPointF ToolpathCanvas::project(const Point3& p) const {
     return {width() / 2.0 + pan_.x() + rx * scale_, height() / 2.0 + pan_.y() - ry * scale_};
 }
 
+void ToolpathCanvas::setFlat(bool flat) {
+    flat_ = flat;
+    if (flat) {
+        setView(View::Top);
+    }
+}
+
 void ToolpathCanvas::setView(View view) {
+    if (flat_) {
+        view = View::Top;
+    }
     // Screen right = cos(yaw) x - sin(yaw) y; up = cos(pitch) (sin(yaw) x +
     // cos(yaw) y) + sin(pitch) z. Side views look along the machine axes
     // with Z up: front along +Y, right along -X, left along +X.
@@ -279,7 +289,7 @@ void ToolpathCanvas::mouseMoveEvent(QMouseEvent* event) {
     const QPoint position = event->position().toPoint();
     const QPoint delta = position - lastMouse_;
     lastMouse_ = position;
-    if (dragging_ == Qt::LeftButton && !(event->modifiers() & Qt::ShiftModifier)) {
+    if (dragging_ == Qt::LeftButton && !(event->modifiers() & Qt::ShiftModifier) && !flat_) {
         yaw_ += delta.x() * 0.5 * kDegree;
         pitch_ = std::clamp(pitch_ - delta.y() * 0.5 * kDegree, 0.0, 90 * kDegree);
         updateRotation();
@@ -313,6 +323,18 @@ void ToolpathCanvas::resizeEvent(QResizeEvent*) {
 // ---- the main visualizer ------------------------------------------------------------------
 
 ToolpathView::ToolpathView(Machine& machine, QWidget* parent) : ToolpathCanvas(parent), machine_(machine) {
+    lite_ = new QToolButton(this);
+    lite_->setText(tr("Lite"));
+    lite_->setCheckable(true);
+    lite_->setAutoRaise(true);
+    lite_->setToolTip(tr("Lightweight mode (Shift+M): for big files. Light draws the cuts flat, Everything turns "
+                         "the visualizer off (Settings > General)"));
+    lite_->setStyleSheet("QToolButton { color:#c8d0d8; padding:3px 8px; }"
+                         "QToolButton:hover { background:#2f363f; border-radius:3px; }"
+                         "QToolButton:checked { background:#3b82f6; color:white; border-radius:3px; }");
+    connect(lite_, &QToolButton::clicked, this, &ToolpathView::toggleLiteMode);
+    connect(&machine_, &Machine::appSettingsChanged, this, &ToolpathView::applyLiteMode);
+    applyLiteMode();
     connect(&machine_, &Machine::programChanged, this, &ToolpathView::programChanged);
     connect(&machine_, &Machine::senderStatusChanged, this, &ToolpathView::progressChanged);
     connect(&machine_, &Machine::workflowChanged, this, &ToolpathView::progressChanged);
@@ -333,6 +355,26 @@ std::optional<gcode::BoundingBox> ToolpathView::contentBounds() const {
 bool ToolpathView::rotaryJob() const {
     return machine_.hasProgram() && !machine_.isAnalyzing() &&
            machine_.analysis().fileType != gcode::FileType::Default;
+}
+
+void ToolpathView::resizeEvent(QResizeEvent* event) {
+    ToolpathCanvas::resizeEvent(event);
+    lite_->move(width() - lite_->width() - 8, 8);
+}
+
+void ToolpathView::toggleLiteMode() {
+    AppSettings settings = machine_.settings();
+    settings.liteMode = !settings.liteMode;
+    machine_.setSettings(settings);
+}
+
+void ToolpathView::applyLiteMode() {
+    const AppSettings& settings = machine_.settings();
+    lite_->setChecked(settings.liteMode);
+    lite_->adjustSize();
+    lite_->move(width() - lite_->width() - 8, 8);
+    setFlat(settings.liteMode && settings.liteOption == "Light");
+    update();
 }
 
 void ToolpathView::programChanged() {
@@ -371,21 +413,33 @@ void ToolpathView::paintEvent(QPaintEvent*) {
         }
     }
 
-    if (hasPath) {
+    // Lightweight: Light draws the cuts only (upstream's SVG view skips G0)
+    // and no tool; Everything draws nothing.
+    const AppSettings& settings = machine_.settings();
+    const bool lite = settings.liteMode;
+    const bool off = lite && settings.liteOption == "Everything";
+    if (hasPath && !off) {
         const Toolpath& path = machine_.toolpath();
         const QPen rapid(kRapid, 1, Qt::DashLine);
         const QPen rapidDone(kDone, 1, Qt::DashLine);
         const QPen cut(kCut, 1.5);
         const QPen cutDone(kDone, 1.5);
-        paintSegments(
-            painter, path.rapids, path.rapidLines,
-            [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &rapidDone : &rapid; }, rotaryAngle);
+        if (!lite) {
+            paintSegments(
+                painter, path.rapids, path.rapidLines,
+                [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &rapidDone : &rapid; },
+                rotaryAngle);
+        }
         paintSegments(
             painter, path.feeds, path.feedLines,
             [&](std::size_t, std::uint32_t line) { return line < doneLines_ ? &cutDone : &cut; }, rotaryAngle);
     }
-    if (tool) {
+    if (tool && !lite) {
         paintTool(painter, *tool);
+    }
+    if (off) {
+        painter.setPen(QColor(0xa8, 0xb0, 0xb8));
+        painter.drawText(rect(), Qt::AlignCenter, tr("Lightweight mode: the visualizer is off"));
     }
 
     QString caption;

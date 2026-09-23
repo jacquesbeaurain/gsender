@@ -99,6 +99,7 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"VISUALIZER_ZOOM_IN", "Zoom in", kVisualizer, "Shift+P"},
         {"VISUALIZER_ZOOM_OUT", "Zoom out", kVisualizer, "Shift+O"},
         {"VISUALIZER_ZOOM_FIT", "Zoom fit", kVisualizer, "Shift+I"},
+        {"LIGHTWEIGHT_MODE", "Lightweight mode", kVisualizer, "Shift+M"},
         {"TOGGLE_SHORTCUTS", "Toggle on/off shortcuts", kVisualizer, "^"},
         {"MIST_COOLANT", "Mist coolant (M7)", kCoolant, ""},
         {"FLOOD_COOLANT", "Flood coolant (M8)", kCoolant, ""},

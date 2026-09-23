@@ -43,6 +43,9 @@ public:
     void set3dView() { setView(View::Iso); }
     void fit();
     void zoom(double factor);  // about the middle of the view
+    // Held flat: every view is the top view and dragging only pans.
+    void setFlat(bool flat);
+    bool flat() const noexcept { return flat_; }
 
     static const QColor kBackground;
     static const QColor kRapid;
@@ -94,6 +97,7 @@ private:
     std::array<double, 9> rotation_{};  // cached from yaw/pitch
     QPoint lastMouse_;
     Qt::MouseButton dragging_ = Qt::NoButton;
+    bool flat_ = false;
 };
 
 // The main visualizer: the loaded job, its progress and the machine's tool.
@@ -103,17 +107,25 @@ class ToolpathView final : public ToolpathCanvas {
 public:
     explicit ToolpathView(Machine& machine, QWidget* parent = nullptr);
 
+    // Lightweight mode (the feather; LIGHTWEIGHT_MODE): Light draws only the
+    // cuts, flat from above, without the tool; Everything turns the drawing
+    // off.
+    void toggleLiteMode();
+
 protected:
     std::optional<gcode::BoundingBox> contentBounds() const override;
     void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     bool rotaryJob() const;
+    void applyLiteMode();
     void programChanged();
     void progressChanged();
 
     Machine& machine_;
     std::size_t doneLines_ = 0;  // sender lines acknowledged
+    QToolButton* lite_;
 };
 
 // A plan view of a toolpath that is not the loaded job (tool previews):

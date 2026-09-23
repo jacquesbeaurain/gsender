@@ -1602,6 +1602,17 @@ TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     const QImage image = window.grab().toImage();
     EXPECT_EQ(image.width(), 1200);
     EXPECT_FALSE(image.isNull());
+
+    // Lightweight mode (Shift+M): Light holds the view flat, from above.
+    window.toolpathView().set3dView();
+    ASSERT_TRUE(window.shortcuts().trigger("LIGHTWEIGHT_MODE"));
+    EXPECT_TRUE(machine.settings().liteMode);
+    EXPECT_TRUE(window.toolpathView().flat());
+    EXPECT_EQ(window.toolpathView().view(), ToolpathView::View::Top);
+    window.toolpathView().set3dView();
+    EXPECT_EQ(window.toolpathView().view(), ToolpathView::View::Top);
+    ASSERT_TRUE(window.shortcuts().trigger("LIGHTWEIGHT_MODE"));
+    EXPECT_FALSE(window.toolpathView().flat());
 }
 
 }  // namespace
