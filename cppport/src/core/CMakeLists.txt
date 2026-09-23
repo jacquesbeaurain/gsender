@@ -34,6 +34,7 @@ add_library(gs_core STATIC
     src/job/program_analysis.cpp
     src/job/outline.cpp
     src/probe/probing.cpp
+    src/rotary/rotary.cpp
     src/surfacing/surfacing.cpp
     src/toolchange/wizards.cpp
     src/sim/grbl_simulator.cpp

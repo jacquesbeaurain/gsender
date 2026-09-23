@@ -11,6 +11,7 @@ add_executable(gs_core_tests
     core/test_expression.cpp
     core/test_protocol_parser.cpp
     core/test_protocol_runner.cpp
+    core/test_rotary.cpp
     core/test_firmware_data.cpp
     core/test_event_loop.cpp
     core/test_streaming.cpp

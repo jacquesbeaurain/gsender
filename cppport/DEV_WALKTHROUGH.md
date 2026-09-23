@@ -994,3 +994,35 @@ Settings dialog's General page now has the same three buttons:
 Each asks first and the dialog then shows the new values. Tests: the key
 conversion, a gSender export read field by field, and a round trip through
 export, restore and import, then a gSender file.
+
+## Step 37 — Rotary, part 1: the core (`gs/rotary`)
+
+gSender's Rotary widget (a 4th axis turning the stock about X) rests on
+four pure pieces, ported to the core first:
+
+- **Rotary surfacing** (`StockTurningGenerator`): the stock's diameters are
+  halved into radii; one pass (without rehoming) runs as two half spirals
+  (out along X turning A one way, back turning it the other), more passes as
+  full spirals alternating direction, the last one finishing with the half
+  spirals when the count is odd; feeds are converted to degrees/min at the
+  radius. `tools/gen_rotary_fixtures.mjs` runs the real generator over 45
+  cases (mm and inches, default and rotary workspace mode, rehoming, dwell,
+  tool changes, one pass to many, nothing to cut) and the port matches every
+  line. JavaScript details kept: `X${-halfOfStockLength}` prints "-50"
+  where its positive twin prints "50.000"; the full spirals' Z step is
+  `-(x).toFixed(3)`, a number without trailing zeros, while the ramps'
+  is `(-x).toFixed(3)`; inch workspaces in rotary mode divide A by 25.4.
+  A stepdown that is not positive cuts one layer (upstream never ends).
+- **Rotary probing**: the Z-axis probing and Y-axis alignment routines, with
+  their distances in `$13`'s units (upstream's `getUnitModal`).
+- **Rotary mode** (`updateWorkspaceMode`): on Grbl the rotary drives Y - Y
+  is zeroed, `$101`/`$111` get the rotary's values and `$20`/`$21` go off
+  (the previous values are kept to restore), `$$`, then the toggle macro
+  (`G04 P0.5`, `G0 G90 Y[posy]`); on grblHAL the A and Y settings swap
+  (`$101`/`$103` ... `$131`/`$133`) both ways. Deviation: a setting the
+  board lacks is left out of the swap (upstream wrote "undefined").
+- **Mounting setup**: the ready-made programs that bore the rotary track's
+  holes (standard track, with a 400 or 460 mm extension, or two custom holes;
+  1/4" or 1/8" bit) are extracted by `tools/extract_data.mjs` into
+  `resources/data/rotary_mounting.json` and chosen as upstream's
+  `handleSubmit` does.
