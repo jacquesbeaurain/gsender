@@ -300,6 +300,44 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     toolForm->addRow(tr("Tool change location"), positionRow(manual_));
     tabs_->addTab(toolChange, tr("Tool Change"));
 
+    // Spindle/Laser (gSender's widgets.spindle): the ranges swapped into
+    // $30/$31 with the mode, and the laser's offset from the spindle. On
+    // grblHAL the laser's own settings ($730, $731, $770, $771) apply.
+    auto* spindleLaser = new QWidget;
+    auto* spindleForm = new QFormLayout(spindleLaser);
+    const auto numberBox = [](double min, double max, int decimals, const QString& suffix) {
+        auto* box = new QDoubleSpinBox;
+        box->setRange(min, max);
+        box->setDecimals(decimals);
+        box->setSuffix(suffix);
+        return box;
+    };
+    spindleMin_ = numberBox(0, 100000, 0, tr(" rpm"));
+    spindleMax_ = numberBox(0, 100000, 0, tr(" rpm"));
+    spindleMin_->setToolTip(tr("Written back as $31 when switching from laser to spindle mode"));
+    spindleMax_->setToolTip(tr("Written back as $30 when switching from laser to spindle mode"));
+    laserMin_ = numberBox(0, 100000, 3, QString());
+    laserMax_ = numberBox(0, 100000, 3, QString());
+    laserMin_->setToolTip(tr("Match this to the minimum S word setting in your laser CAM software. ($31 in laser "
+                             "mode; grblHAL $731, Default 0)"));
+    laserMax_->setToolTip(tr("Match this to the maximum S word setting in your laser CAM software. ($30 in laser "
+                             "mode; grblHAL $730, Default 255)"));
+    laserX_ = numberBox(-1000, 1000, 3, " mm");
+    laserY_ = numberBox(-1000, 1000, 3, " mm");
+    laserX_->setToolTip(tr("X-axis offset from the spindle (mark with a v-bit, then track the laser to that mark; "
+                           "grblHAL $770)"));
+    laserY_->setToolTip(tr("Y-axis offset from the spindle (grblHAL $771)"));
+    laserOutline_ = new QCheckBox(tr("Laser on during outline"));
+    laserOutline_->setToolTip(tr("Turn on the laser at its lowest power to see the job position better"));
+    spindleForm->addRow(tr("Minimum spindle speed"), spindleMin_);
+    spindleForm->addRow(tr("Maximum spindle speed"), spindleMax_);
+    spindleForm->addRow(tr("Minimum laser power"), laserMin_);
+    spindleForm->addRow(tr("Maximum laser power"), laserMax_);
+    spindleForm->addRow(tr("Laser X offset"), laserX_);
+    spindleForm->addRow(tr("Laser Y offset"), laserY_);
+    spindleForm->addRow(QString(), laserOutline_);
+    tabs_->addTab(spindleLaser, tr("Spindle/Laser"));
+
     // The touch plate profile and the Probe widget's settings (gSender's
     // Probe settings section), all in mm and mm/min.
     auto* probe = new QWidget;
@@ -457,6 +495,13 @@ void SettingsDialog::load() {
         manual_[i]->setValue(manual[i]);
     }
     firstTool_->setCurrentText(QString::fromStdString(s.firstToolBehaviour));
+    spindleMin_->setValue(s.spindle.spindleMin);
+    spindleMax_->setValue(s.spindle.spindleMax);
+    laserMin_->setValue(s.spindle.laser.minPower);
+    laserMax_->setValue(s.spindle.laser.maxPower);
+    laserX_->setValue(s.spindle.laser.xOffset);
+    laserY_->setValue(s.spindle.laser.yOffset);
+    laserOutline_->setChecked(s.spindle.laser.onOutline);
     moveToManual_->setChecked(s.moveToManualPosition);
 
     const probe::ProbeSettings& p = s.probe;
@@ -520,6 +565,13 @@ void SettingsDialog::save() {
     s.toolChangePosition = {sensor_[0]->value(), sensor_[1]->value(), sensor_[2]->value()};
     s.manualPosition = {manual_[0]->value(), manual_[1]->value(), manual_[2]->value()};
     s.firstToolBehaviour = firstTool_->currentText().toStdString();
+    s.spindle.spindleMin = spindleMin_->value();
+    s.spindle.spindleMax = spindleMax_->value();
+    s.spindle.laser.minPower = laserMin_->value();
+    s.spindle.laser.maxPower = laserMax_->value();
+    s.spindle.laser.xOffset = laserX_->value();
+    s.spindle.laser.yOffset = laserY_->value();
+    s.spindle.laser.onOutline = laserOutline_->isChecked();
     s.moveToManualPosition = moveToManual_->isChecked();
 
     probe::ProbeSettings& p = s.probe;

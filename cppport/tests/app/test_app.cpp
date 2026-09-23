@@ -3,6 +3,7 @@
 // the offscreen platform.
 
 #include "calibration_dialogs.hpp"
+#include "controls.hpp"
 #include "dro_panel.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
@@ -817,6 +818,69 @@ TEST_F(AppTest, TheCalibrationWizardsMoveMeasureAndRewriteStepsPerMm) {
     ASSERT_TRUE(waitFor([&] {
         return c.runner().setting("$100") == "200.082" && c.runner().setting("$101") == "200.000";
     }));
+}
+
+TEST_F(AppTest, TheSpindleTabSwitchesToLaserModeAndBack) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.spindle.laser.xOffset = 10;
+    settings.spindle.laser.yOffset = 5;
+    machine.setSettings(settings);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    controller::Controller& c = *machine.controller();
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    const auto sent = [&](const std::string& line) {
+        return std::find(received.begin(), received.end(), line) != received.end();
+    };
+    const auto workAt = [&](double x, double y) {
+        const std::array<double, 4> w = machine.workPositionMm();
+        return std::fabs(w[0] - x) < 1e-6 && std::fabs(w[1] - y) < 1e-6;
+    };
+    SpindlePanel panel(machine);
+    ASSERT_FALSE(machine.laserMode());
+
+    // To the laser: the work position shifts by the laser's offset, the
+    // laser's range replaces the spindle's (kept for later), $32=1.
+    panel.toggleMode();
+    ASSERT_TRUE(waitFor([&] { return sent("$32=1"); }));
+    for (const char* line : {"G10 L20 P1 X10 Y5", "$30=255", "$31=0"}) {
+        EXPECT_TRUE(sent(line)) << line;
+    }
+    EXPECT_TRUE(machine.laserMode());
+    EXPECT_EQ(machine.settings().spindle.spindleMax, 1000);  // the board's $30
+    ASSERT_TRUE(waitFor([&] { return workAt(10, 5) && c.state().status.activeState == "Idle"; }));
+
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        panel.resize(460, 380);
+        panel.show();
+        panel.grab().save(QString::fromLocal8Bit(out) + "/spindle_laser.png");
+    }
+
+    // Focus at the set power, then a live power change.
+    panel.startClockwise();
+    EXPECT_TRUE(panel.isLaserOn());
+    ASSERT_TRUE(waitFor([&] { return sent("G1F1 M3 S255"); }));
+    panel.setLaserPower(50);
+    ASSERT_TRUE(waitFor([&] { return sent("S127.5"); }));
+    EXPECT_EQ(machine.settings().spindle.laser.power, 50);
+    panel.stopSpindle();
+    ASSERT_TRUE(waitFor([&] { return sent("M5 S0"); }));
+
+    // Back to the spindle: the shift undone, the spindle's range back.
+    ASSERT_TRUE(waitFor([&] { return c.state().status.activeState == "Idle"; }));
+    panel.toggleMode();
+    ASSERT_TRUE(waitFor([&] { return sent("$32=0"); }));
+    EXPECT_TRUE(sent("G10 L20 P1 X0 Y0"));
+    EXPECT_TRUE(sent("$30=1000"));
+    EXPECT_FALSE(machine.laserMode());
+    EXPECT_EQ(machine.settings().spindle.laser.maxPower, 255);
+    ASSERT_TRUE(waitFor([&] { return workAt(0, 0); }));
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

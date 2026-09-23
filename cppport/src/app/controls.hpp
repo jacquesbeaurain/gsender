@@ -6,36 +6,69 @@
 #include <QDialog>
 #include <QWidget>
 
+class QComboBox;
 class QDoubleSpinBox;
+class QGroupBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPlainTextEdit;
 class QPushButton;
 class QSlider;
+class QTimer;
 
 namespace gs::app {
 
 class Machine;
 
+// The Spindle/Laser tab (gSender's Spindle widget, with the coolant
+// buttons): the spindle's speed and direction or - in laser mode - the
+// laser's power, focus and test; the mode switch; grblHAL's spindles.
 class SpindlePanel final : public QWidget {
     Q_OBJECT
 public:
     explicit SpindlePanel(Machine& machine, QWidget* parent = nullptr);
 
-    // The spindle shortcuts (CW / CCW / Stop): M3 or M4 at the set speed, M5.
+    // The buttons and their shortcuts, as upstream: CW or laser on (focus),
+    // CCW or laser test, stop / laser off, and the mode switch.
     void startClockwise();
     void startCounterClockwise();
     void stopSpindle();
+    void toggleMode();
+    // The speed (rpm) and laser power (%) controls: a change reaches a running
+    // spindle or lit laser 300 ms after the last one, as upstream's debounce.
+    void setSpeed(double rpm);
+    void setLaserPower(double percent);
+    bool isSpindleOn() const noexcept { return spindleOn_; }
+    bool isLaserOn() const noexcept { return laserOn_; }
 
 private:
-    void command(const QString& gcode);
+    void command(const std::string& gcode);
     void refresh();
+    void fillSpindles();
+    void applySpeed();
+    void applyPower();
+    bool canClick() const;  // connected, no job, idle
 
     Machine& machine_;
+    QPushButton* spindleMode_;
+    QPushButton* laserMode_;
+    QComboBox* spindleSelect_;
+    QGroupBox* spindleBox_;
+    QSlider* speedSlider_;
     QDoubleSpinBox* speed_;
+    QGroupBox* laserBox_;
+    QSlider* powerSlider_;
+    QDoubleSpinBox* power_;
+    QDoubleSpinBox* duration_;
     QLabel* state_;
-    QList<QPushButton*> buttons_;
+    QList<QPushButton*> buttons_;  // need an idle machine
+    QList<QPushButton*> stops_;    // work whenever connected
+    QTimer* speedTimer_;
+    QTimer* powerTimer_;
+    bool spindleOn_ = false;
+    bool laserOn_ = false;
+    bool syncing_ = false;
 };
 
 // Feed and spindle override sliders (10-200 %) and the rapid presets, sent as

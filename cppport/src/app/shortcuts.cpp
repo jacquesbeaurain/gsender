@@ -103,6 +103,7 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"MIST_COOLANT", "Mist coolant (M7)", kCoolant, ""},
         {"FLOOD_COOLANT", "Flood coolant (M8)", kCoolant, ""},
         {"STOP_COOLANT", "Stop coolant (M9)", kCoolant, ""},
+        {"TOGGLE_SPINDLE_LASER_MODE", "Toggle Between Spindle and Laser Mode", kSpindle, ""},
         {"CW_LASER_ON", "CW / Laser On", kSpindle, ""},
         {"CCW_LASER_TEST", "CCW / Laser Test", kSpindle, ""},
         {"STOP_LASER_OFF", "Stop / Laser Off", kSpindle, ""},

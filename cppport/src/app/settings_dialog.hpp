@@ -45,7 +45,7 @@ private:
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
-    enum class Page { General, ToolChange, Probe, Automations, Firmware };  // tab order
+    enum class Page { General, ToolChange, SpindleLaser, Probe, Automations, Firmware };  // tab order
     explicit SettingsDialog(Machine& machine, QWidget* parent = nullptr);
     void showPage(Page page);
     // The Automations page's hook for "gcode:start", "gcode:pause",
@@ -85,6 +85,14 @@ private:
     QComboBox* firstTool_;
     QCheckBox* moveToManual_;
     QDoubleSpinBox* manual_[3];
+    // Spindle/Laser
+    QDoubleSpinBox* spindleMin_;
+    QDoubleSpinBox* spindleMax_;
+    QDoubleSpinBox* laserMin_;
+    QDoubleSpinBox* laserMax_;
+    QDoubleSpinBox* laserX_;
+    QDoubleSpinBox* laserY_;
+    QCheckBox* laserOutline_;
     // Probe
     QComboBox* plateType_;
     QDoubleSpinBox* standardBlock_;

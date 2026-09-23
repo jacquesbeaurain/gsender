@@ -883,3 +883,39 @@ upstream's EventInput, the first commands create the hook (enabled), later
 edits update it, and a hook left without commands is disabled. Tests: a
 macro bound and triggered through the shortcut manager, and a start hook
 that reaches the simulated board before the job's first line.
+
+## Step 33 — Spindle/Laser (`gs/controller/spindle`, the Spindle/Laser tab)
+
+gSender's Spindle widget switches the board between spindle and laser mode
+and drives either. The mode switch is in the core (tested line by line):
+
+- to the laser: M5 first if the spindle turns, the workspace units, a
+  `G10 L20 P<wcs>` shift making the current position read the work position
+  plus the laser's offset from the spindle (so the laser works where the
+  spindle was), `$30`/`$31` set to the laser's power range, `$32=1`, the
+  device units back;
+- back to the spindle: the shift reversed, the spindle's range restored,
+  `$32=0`.
+
+Offsets round as upstream (2 decimals in mm, 3 in inches). On Grbl the
+laser's range and offset are the app's settings and the spindle's range is
+remembered while the laser has `$30`/`$31`; on grblHAL the laser has its
+own settings (`$730`/`$731`, offset `$770`/`$771` or `$741`/`$742`) and
+only `$32` changes - going back writes the spindle's range unless the board
+lists an SLB laser spindle (`SLB_LASER`/`PWM2`). As upstream's store, the
+new `$30`-`$32` count at once (no `$$` follows). Deviation: upstream also
+divided the position by 25.4 for `$13=1` though its positions are already
+mm.
+
+The tab (renamed Spindle/Laser) shows the mode switch and either the
+spindle's speed (within `$31`..`$30`) with CW/CCW/Stop, or the laser's power
+(% of its maximum) with Laser On (`G1F1 M3 S<power>` to focus), Laser Test
+(fires for the set duration, then off) and Laser Off; speed and power
+changes reach a running spindle or lit laser 300 ms after the last one
+(`S<value>`). grblHAL boards with several spindles get a selector (`M104 Q`,
+then the list again). The settings dialog has a Spindle/Laser page (ranges,
+laser offset, "Laser on during outline" - which makes Run Outline trace with
+the laser lit in laser mode); the TOGGLE_SPINDLE_LASER_MODE shortcut and the
+CW/CCW/stop shortcuts follow the mode. An application test switches the
+simulated board to laser mode and back, checking the shift, the ranges,
+focus and a live power change.
