@@ -237,6 +237,76 @@ void Machine::disconnectFromMachine() {
     Q_EMIT connectionChanged();
 }
 
+// ---- file context and outline -------------------------------------------------------------
+
+expr::Value Machine::fileContext() const {
+    // min/max over every vertex, rapids included (GcodeViewer.computeBBox).
+    double min[3] = {0, 0, 0};
+    double max[3] = {0, 0, 0};
+    bool any = false;
+    for (const std::vector<float>* segments : {&toolpath_.rapids, &toolpath_.feeds}) {
+        for (std::size_t i = 0; i + 2 < segments->size(); i += 3) {
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                const double v = (*segments)[i + axis];
+                min[axis] = any ? std::min(min[axis], v) : v;
+                max[axis] = any ? std::max(max[axis], v) : v;
+            }
+            any = true;
+        }
+    }
+    expr::Value context = expr::Value::object();
+    context.set("xmin", expr::Value(min[0]));
+    context.set("xmax", expr::Value(max[0]));
+    context.set("ymin", expr::Value(min[1]));
+    context.set("ymax", expr::Value(max[1]));
+    context.set("zmin", expr::Value(min[2]));
+    context.set("zmax", expr::Value(max[2]));
+    return context;
+}
+
+bool Machine::runOutline(QString* error) {
+    const auto fail = [error](const QString& why) {
+        if (error) {
+            *error = why;
+        }
+        return false;
+    };
+    controller::Controller* c = controller();
+    if (!c || !hasProgram() || analyzing_ || !c->workflow().isIdle() || c->state().status.activeState != "Idle") {
+        return fail(tr("Load a file and wait for an idle machine."));
+    }
+    job::OutlineInput input;
+    input.mode = settings_.outlineMode;
+    input.outlineSpeed = settings_.outlineSpeed;
+    input.bbox = analysis_.bounds;
+    input.content = programText_;
+    // The toolpath's vertices in program order, rapids included.
+    std::vector<std::pair<std::uint32_t, const float*>> segments;
+    for (std::size_t i = 0; i < toolpath_.rapidLines.size(); ++i) {
+        segments.emplace_back(toolpath_.rapidLines[i], &toolpath_.rapids[i * 6]);
+    }
+    for (std::size_t i = 0; i < toolpath_.feedLines.size(); ++i) {
+        segments.emplace_back(toolpath_.feedLines[i], &toolpath_.feeds[i * 6]);
+    }
+    std::stable_sort(segments.begin(), segments.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (const auto& [line, segment] : segments) {
+        input.vertices.insert(input.vertices.end(), segment, segment + 6);
+    }
+    // Lift 5 mm, or what is left above the machine position with homing.
+    const std::string homing = c->runner().setting("$22");
+    const bool homingEnabled = !homing.empty() && homing != "0";
+    const double zMpos = std::fabs(c->runner().machinePosition()[2]);
+    input.zTravel = homingEnabled ? std::min(zMpos - 1, 5.0) : 5.0;
+    const auto program = job::outlineProgram(input);
+    if (!program) {
+        return fail(tr("The file has no toolpath to outline."));
+    }
+    c->gcode(*program, fileContext());
+    Q_EMIT notice(tr("Running file outline"));
+    return true;
+}
+
 // ---- start from line ---------------------------------------------------------------------
 
 bool Machine::startFromLine(std::size_t line, double safeHeight) {

@@ -167,6 +167,7 @@ void MainWindow::installShortcuts() {
             controller::stopWithoutJob(*c);  // with no job it stops jogs
         }
     });
+    s.setHandler("RUN_OUTLINE", [this] { machine_.runOutline(); });
     s.setHandler("LOAD_FILE", [this] { openFile(); });
     s.setHandler("UNLOAD_FILE", [this] {
         controller::Controller* c = machine_.controller();

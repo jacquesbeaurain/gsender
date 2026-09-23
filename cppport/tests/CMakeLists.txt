@@ -19,6 +19,7 @@ add_executable(gs_core_tests
     core/test_session.cpp
     core/test_config.cpp
     core/test_program_analysis.cpp
+    core/test_outline.cpp
     core/test_simulator.cpp
     core/test_probing.cpp
     core/test_surfacing.cpp

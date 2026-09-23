@@ -635,3 +635,37 @@ lines never reach the board.
 The simulator no longer raises ALARM:3 for a soft reset during a feed hold:
 Grbl keeps the position after a completed hold, which is why a forced stop
 holds before resetting.
+
+## Step 26 — Run outline (`gs/job/outline`)
+
+gSender traces a job's footprint above the stock from a web worker
+(`Outline.worker.ts`): Detailed (default) takes the hull of the visualizer's
+vertices, Square the file's box (`[xmin]`... evaluated in the file context,
+or the numbers when there are no vertices), Rapidless Square the box of the
+cutting moves only (arcs by their axis extremes). The program lifts by the Z
+travel, traces with G0 (or G1 at the outline speed, or the laser at S1),
+returns to where it started (`%X0=posx...`, `X[X0] Y[Y0]`) and restores the
+distance mode (`[MM]`).
+
+Detailed calls `concaveman(points, Infinity)`. With infinite concavity
+nothing is ever dug in, so the result is concaveman's own convex hull, as a
+ring starting from its last point - which gSender then orients (reversing
+when sum((x2-x1)(y2+y1)) > 0) and rotates to begin at the vertex nearest the
+origin. The port reproduces that hull exactly: the four-extremes cull with
+point-in-polygon's ray casting, the monotone chain with collinear points
+dropped, and robust-predicates' `orient2d` (Shewchuk's adaptive exact
+predicate - toolpaths are full of collinear points, where a rounded
+determinant would keep or drop the wrong ones). `tools/gen_outline_fixtures.mjs`
+runs the real worker (with a fake `self`/`postMessage`) over random,
+collinear-heavy, circular, symmetric and degenerate point sets, boxes and
+programs with arcs and inches; the C++ output matches all of them.
+
+In the application the Outline button and the RUN_OUTLINE shortcut run it
+with the settings' style and speed (General page). The vertices are the
+port's own toolpath in program order, rapids included, so where arcs are
+tessellated differently from upstream's visualizer the hull can differ
+slightly. The Z travel is upstream's: 5 mm, or with homing what is left
+above the machine Z less 1 mm - which at machine Z 0 is -1, a dip of 1 mm and
+a final invalid `Z--1` (kept, see the tests). The file context (the
+toolpath's box, as the visualizer sets `controller.context`) now also goes to
+macros, so `[xmin]`... work in them as upstream.

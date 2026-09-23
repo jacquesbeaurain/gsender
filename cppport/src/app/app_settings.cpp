@@ -182,6 +182,8 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
         settings.jog.preventJoggingPastLimits = flag(j, "preventJoggingPastLimits", false);
     }
     settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
+    settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
+    settings.outlineSpeed = number(root, "outlineSpeed", 0);
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
             if (value.is_object()) {
@@ -234,6 +236,8 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"jog", jogObject(settings.jog)},
                          {"safeRetractHeight", settings.safeRetractHeight},
+                         {"outlineMode", job::outlineModeName(settings.outlineMode)},
+                         {"outlineSpeed", settings.outlineSpeed},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
                      });

@@ -193,6 +193,27 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     generalForm->addRow(QString(), aAxis_);
     generalForm->addRow(tr("Default firmware"), firmware_);
     generalForm->addRow(tr("Network port"), networkPort_);
+    safeRetract_ = new QDoubleSpinBox;
+    safeRetract_->setRange(0, 200);
+    safeRetract_->setDecimals(2);
+    safeRetract_->setSuffix(" mm");
+    safeRetract_->setSpecialValueText(tr("None"));
+    safeRetract_->setToolTip(tr("Z lifts this far before go-to-zero moves (machine Z with homing)"));
+    generalForm->addRow(tr("Safe retract height"), safeRetract_);
+    outlineMode_ = new QComboBox;
+    for (const job::OutlineMode mode :
+         {job::OutlineMode::Detailed, job::OutlineMode::Square, job::OutlineMode::RapidlessSquare}) {
+        outlineMode_->addItem(QString::fromUtf8(job::outlineModeName(mode).data()));
+    }
+    outlineMode_->setToolTip(tr("Detailed follows the toolpath's hull; Square its box; Rapidless Square the box "
+                                "of its cutting moves"));
+    outlineSpeed_ = new QDoubleSpinBox;
+    outlineSpeed_->setRange(0, 20000);
+    outlineSpeed_->setDecimals(0);
+    outlineSpeed_->setSuffix(" mm/min");
+    outlineSpeed_->setSpecialValueText(tr("Rapid (G0)"));
+    generalForm->addRow(tr("Outline style"), outlineMode_);
+    generalForm->addRow(tr("Outline speed"), outlineSpeed_);
     tabs_->addTab(general, tr("General"));
 
     auto* toolChange = new QWidget;
@@ -302,6 +323,9 @@ void SettingsDialog::load() {
     aAxis_->setChecked(s.preferences.useAaxisForGrbl);
     firmware_->setCurrentIndex(s.defaultFirmware == protocol::Firmware::GrblHal ? 1 : 0);
     networkPort_->setValue(s.networkPort);
+    safeRetract_->setValue(s.safeRetractHeight);
+    outlineMode_->setCurrentText(QString::fromUtf8(job::outlineModeName(s.outlineMode).data()));
+    outlineSpeed_->setValue(s.outlineSpeed);
     const int option = toolChange_->findText(QString::fromStdString(s.toolChange.option));
     toolChange_->setCurrentIndex(option >= 0 ? option : 0);
     passthrough_->setChecked(s.toolChange.passthrough);
@@ -337,6 +361,9 @@ void SettingsDialog::save() {
     s.preferences.useAaxisForGrbl = aAxis_->isChecked();
     s.defaultFirmware = firmware_->currentIndex() == 1 ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     s.networkPort = networkPort_->value();
+    s.safeRetractHeight = safeRetract_->value();
+    s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
+    s.outlineSpeed = outlineSpeed_->value();
     s.toolChange.option = toolChange_->currentText().toStdString();
     s.toolChange.passthrough = passthrough_->isChecked();
     s.toolChange.skipDialog = skipDialog_->isChecked();

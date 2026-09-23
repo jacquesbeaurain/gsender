@@ -56,6 +56,9 @@ private:
     QCheckBox* aAxis_;
     QComboBox* firmware_;
     QSpinBox* networkPort_;
+    QDoubleSpinBox* safeRetract_;
+    QComboBox* outlineMode_;
+    QDoubleSpinBox* outlineSpeed_;
     QComboBox* toolChange_;
     QCheckBox* passthrough_;
     QCheckBox* skipDialog_;

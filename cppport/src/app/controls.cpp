@@ -213,7 +213,8 @@ MacrosPanel::MacrosPanel(Machine& machine, QWidget* parent) : QWidget(parent), m
         QListWidgetItem* item = list_->currentItem();
         controller::Controller* c = machine_.controller();
         if (item && c) {
-            c->runMacro(item->data(Qt::UserRole).toString().toStdString());
+            // With the file's box ([xmin] ...), as upstream's macro:run.
+            c->runMacro(item->data(Qt::UserRole).toString().toStdString(), machine_.fileContext());
         }
     });
     connect(list_, &QListWidget::itemDoubleClicked, this, [this] { run_->click(); });
