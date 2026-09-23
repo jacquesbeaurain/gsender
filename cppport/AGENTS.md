@@ -98,8 +98,11 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 - Don't modify tracked files temporarily to probe tool behaviour (e.g.
   injecting a failing test); use a scratch copy or wait for a real case.
 - Use the `Edit` tool for replacements whose text contains escape sequences
-  (`\n`, `\\`); heredoc-fed Python/sed replacements of such text misfire.
-  Scripted edits are fine for plain text.
+  (`\n`, `\\`); heredoc-fed Python/sed replacements of such text misfire -
+  even with a quoted `<<'EOF'` delimiter the Bash tool turns `\\n` into a
+  real newline inside C++ string literals. For larger scripted edits, write
+  the script with the `Write` tool into the scratchpad and run it. Scripted
+  edits are fine for plain text.
 - Run `tools/build.ps1` through the PowerShell tool (PowerShell 7). Windows
   PowerShell 5 (`powershell.exe` from the Bash tool) refuses to run scripts
   under the default execution policy.

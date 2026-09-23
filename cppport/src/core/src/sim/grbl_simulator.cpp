@@ -45,7 +45,52 @@ double distance(const SimAxes& a, const SimAxes& b) {
     return std::sqrt(sum);
 }
 
+constexpr double kTouchEpsilon = 1e-6;  // mm
+
+// The part [t0, t1] of the move from `a` to `b` (fractions of it) inside
+// `solid` grown by the bit radius in XY; nullopt when the move misses it.
+std::optional<std::pair<double, double>> clip(const Solid& solid, double radius, const SimAxes& a, const SimAxes& b) {
+    double t0 = 0;
+    double t1 = 1;
+    for (std::size_t i = 0; i < 3; ++i) {
+        const double grow = i < 2 ? radius : 0;
+        const double lo = solid.min[i] - grow;
+        const double hi = solid.max[i] + grow;
+        const double d = b[i] - a[i];
+        if (std::fabs(d) < 1e-12) {
+            if (a[i] < lo - kTouchEpsilon || a[i] > hi + kTouchEpsilon) {
+                return std::nullopt;
+            }
+            continue;
+        }
+        double ta = (lo - a[i]) / d;
+        double tb = (hi - a[i]) / d;
+        if (ta > tb) {
+            std::swap(ta, tb);
+        }
+        t0 = std::max(t0, ta);
+        t1 = std::min(t1, tb);
+        if (t0 > t1) {
+            return std::nullopt;
+        }
+    }
+    return std::pair{t0, t1};
+}
+
 }  // namespace
+
+std::vector<Solid> touchPlateOnCorner(int corner, double cornerX, double cornerY, double stockTop, double thickness,
+                                      double wall, double size) {
+    // The stock lies towards +X from a left corner and +Y from a bottom one.
+    const double sx = corner == 0 || corner == 1 ? 1 : -1;
+    const double sy = corner == 0 || corner == 3 ? 1 : -1;
+    const double outerX = cornerX - wall * sx;
+    const double outerY = cornerY - wall * sy;
+    Solid plate;
+    plate.min = {std::min(outerX, outerX + size * sx), std::min(outerY, outerY + size * sy), stockTop - wall};
+    plate.max = {std::max(outerX, outerX + size * sx), std::max(outerY, outerY + size * sy), stockTop + thickness};
+    return {plate};
+}
 
 GrblSimulator::GrblSimulator(runtime::EventLoop& loop)
     : loop_(loop), timers_(loop), settings_(defaultSettings()) {}
@@ -72,6 +117,7 @@ void GrblSimulator::open() {
     tickTimer_ = 0;
     planner_.clear();
     waiting_.clear();
+    syncing_ = false;
     input_.clear();
     mpos_ = {};
     g92_ = {};
@@ -95,6 +141,7 @@ void GrblSimulator::close() {
     tickTimer_ = 0;
     planner_.clear();
     waiting_.clear();
+    syncing_ = false;
 }
 
 void GrblSimulator::banner() {
@@ -155,6 +202,7 @@ void GrblSimulator::realtime(unsigned char byte) {
                                 (state_ == State::Hold && !planner_.empty());
             flushMotion();
             waiting_.clear();
+            syncing_ = false;
             input_.clear();
             timers_.clearAll();
             tickTimer_ = 0;
@@ -199,8 +247,10 @@ void GrblSimulator::realtime(unsigned char byte) {
 
 void GrblSimulator::handleLine(std::string line) {
     received_.push_back(line);
-    // Lines queue behind one that waits for planner space (the serial FIFO).
-    if (!waiting_.empty() || (planner_.size() >= kPlannerSize && !line.empty() && line.front() != '$')) {
+    // Lines queue behind one that waits for planner space or a sync (the
+    // serial FIFO).
+    if (!waiting_.empty() || syncing_ ||
+        (planner_.size() >= kPlannerSize && !line.empty() && line.front() != '$')) {
         waiting_.push_back(std::move(line));
         return;
     }
@@ -217,7 +267,7 @@ void GrblSimulator::handleLine(std::string line) {
 }
 
 void GrblSimulator::acceptPending() {
-    while (!waiting_.empty() && planner_.size() < kPlannerSize) {
+    while (!waiting_.empty() && !syncing_ && planner_.size() < kPlannerSize) {
         std::string line = std::move(waiting_.front());
         waiting_.pop_front();
         const std::string text(str::trim(line));
@@ -374,6 +424,7 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
 
     const gcode::ParsedLine parsed = gcode::parseLine(line);
     std::optional<int> motion;
+    int probeKind = 382;  // G38.2 .. G38.5
     bool dwell = false;
     bool g53 = false;
     std::optional<int> g10;
@@ -399,7 +450,7 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
             case 'G': {
                 const int code = static_cast<int>(std::lround(v * 10));  // 38.2 -> 382
                 if (code == 0 || code == 10 || code == 20 || code == 30) motion = code / 10;
-                else if (code >= 382 && code <= 385) motion = 38;
+                else if (code >= 382 && code <= 385) { motion = 38; probeKind = code; }
                 else if (code == 40) dwell = true;
                 else if (code == 100) g10 = 10;
                 else if (code == 170 || code == 180 || code == 190) plane_ = code / 10;
@@ -497,11 +548,14 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
     const bool anyAxis = std::any_of(axes.begin(), axes.end(), [](const auto& a) { return a.has_value(); });
     const bool check = state_ == State::Check;
 
-    if (dwell) {
-        const double seconds = p.value_or(0);
-        if (!check && seconds > 0) {
-            enqueue(Move{end, seconds, 0, false, false, true});
-        }
+    bool deferOk = false;  // answered once a synchronous command completes
+    if (dwell && !check) {
+        // Grbl empties the planner, dwells, then answers.
+        Move wait{end, std::max(p.value_or(0), 0.0), 0, false, false, true};
+        wait.sync = true;
+        wait.after = "ok\r\n";
+        enqueue(std::move(wait));
+        deferOk = true;
     }
     if (g10) {
         const int index = static_cast<int>(p.value_or(0));
@@ -567,14 +621,12 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
                 emitText("error:22\r\n");  // undefined feed rate
                 return;
             }
-            if (!check) {
+            if (!check && mode == 38 && !jog) {
+                enqueueProbe(end, target, rate, probeKind);
+                deferOk = true;
+            } else if (!check) {
                 Move move{target, length / (rate / 60), rate};
                 move.jog = jog;
-                if (mode == 38) {
-                    probe_ = target;
-                    probeSuccess_ = true;
-                    move.after = "[PRB:" + axesText(target) + ":1]\r\n";
-                }
                 enqueue(std::move(move));
             }
         }
@@ -598,7 +650,68 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
             enqueue(std::move(marker));
         }
     }
-    emitText("ok\r\n");
+    if (!deferOk) {
+        emitText("ok\r\n");
+    }
+}
+
+// Grbl's mc_probe_cycle(): after the planner empties, a probe that starts in
+// the wrong pin state alarms at once; otherwise the bit moves until the pin
+// changes. G38.2/G38.4 alarm when it never does; G38.3/G38.5 just report.
+void GrblSimulator::enqueueProbe(const SimAxes& from, const SimAxes& target, double rate, int kind) {
+    const bool away = kind >= 384;
+    const bool reportOnly = kind == 383 || kind == 385;
+    Move move{from, 0, rate};
+    move.sync = true;
+    if (touching(from) != away) {
+        move.alarm = 4;
+        move.after = "ok\r\n";
+        enqueue(std::move(move));
+        return;
+    }
+    const std::optional<double> t = probeContact(from, target, away);
+    SimAxes stop = target;
+    if (t) {
+        for (std::size_t i = 0; i < 4; ++i) {
+            stop[i] = from[i] + (target[i] - from[i]) * *t;
+        }
+    }
+    move.target = stop;
+    move.seconds = distance(from, stop) / (rate / 60);
+    if (t || reportOnly) {
+        probe_ = stop;
+        probeSuccess_ = t.has_value();
+    } else {
+        probeSuccess_ = false;
+        move.alarm = 5;
+    }
+    move.after = "[PRB:" + axesText(probe_) + ":" + (probeSuccess_ ? "1" : "0") + "]\r\nok\r\n";
+    enqueue(std::move(move));
+}
+
+bool GrblSimulator::touching(const SimAxes& at) const {
+    return std::any_of(solids_.begin(), solids_.end(),
+                       [&](const Solid& solid) { return clip(solid, toolRadius_, at, at).has_value(); });
+}
+
+std::optional<double> GrblSimulator::probeContact(const SimAxes& from, const SimAxes& to, bool away) const {
+    std::optional<double> best;
+    for (const Solid& solid : solids_) {
+        const auto inside = clip(solid, toolRadius_, from, to);
+        if (!inside) {
+            continue;
+        }
+        // Towards: where the bit first enters a solid. Away: where it leaves
+        // the one it started in.
+        const double t = away ? inside->second : inside->first;
+        if (away && (inside->first > kTouchEpsilon || t >= 1)) {
+            continue;
+        }
+        if (!best || (away ? t > *best : t < *best)) {
+            best = t;
+        }
+    }
+    return best;
 }
 
 // ---- motion ---------------------------------------------------------------------------
@@ -609,6 +722,7 @@ void GrblSimulator::enqueue(Move move) {
         moveElapsed_ = 0;
     }
     const bool jogMove = move.jog;
+    syncing_ = syncing_ || move.sync;
     planner_.push_back(std::move(move));
     if (state_ == State::Idle) {
         state_ = jogMove ? State::Jog : State::Run;
@@ -654,8 +768,15 @@ void GrblSimulator::tick() {
         dt -= std::max(left, 0.0);
         mpos_ = move.target;
         const bool pause = move.pause;
+        if (move.alarm != 0) {
+            state_ = State::Alarm;
+            emitText("ALARM:" + std::to_string(move.alarm) + "\r\n");
+        }
         if (!move.after.empty()) {
             emitText(move.after);
+        }
+        if (move.sync) {
+            syncing_ = false;
         }
         planner_.pop_front();
         moveElapsed_ = 0;
@@ -714,6 +835,9 @@ std::string GrblSimulator::statusReport() const {
     const double feed = moving ? planner_.front().feed : 0;
     const double spindle = spindle_ == 5 ? 0 : spindleSpeed_;
     report += "|FS:" + js::numberToString(std::round(feed / units)) + "," + js::numberToString(spindle);
+    if (probeTriggered()) {
+        report += "|Pn:P";
+    }
     report += "|Ov:" + std::to_string(overrides_[0]) + "," + std::to_string(overrides_[1]) + "," +
               std::to_string(overrides_[2]);
     report += "|WCO:" + axesText(workOffset(), units) + ">";
