@@ -10,6 +10,7 @@ class ConsolePanel;
 class Jogger;
 class Machine;
 class ProbePanel;
+class RotaryPanel;
 class ShortcutManager;
 class SpindlePanel;
 class StatusArea;
@@ -26,6 +27,9 @@ public:
     ToolpathView& toolpathView() noexcept { return *visualizer_; }
     ShortcutManager& shortcuts() noexcept { return *shortcuts_; }
     Jogger& jogger() noexcept { return *jogger_; }
+    RotaryPanel& rotaryPanel() noexcept { return *rotary_; }
+    // The Rotary tab shows while the Rotary controls are on.
+    bool rotaryTabVisible() const;
 
 private:
     void showError(const QString& title, const QString& detail);
@@ -44,6 +48,7 @@ private:
     ShortcutManager* shortcuts_;
     SpindlePanel* spindle_;
     ProbePanel* probe_;
+    RotaryPanel* rotary_;
     class QTabWidget* tabs_;
     bool dialogsEnabled_ = true;
 };

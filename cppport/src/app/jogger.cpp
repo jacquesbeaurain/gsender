@@ -75,6 +75,7 @@ void Jogger::press(const controller::JogAxes& directions) {
     if (!canJog()) {
         return;
     }
+    rotaryJog_ = false;
     controller::JogAxes distances;
     for (const auto& [axis, direction] : directions) {
         const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(axis)));
@@ -82,6 +83,15 @@ void Jogger::press(const controller::JogAxes& directions) {
         distances.emplace_back(upper, step * direction);
     }
     helper_->keyDown(distances, speeds_.feedrate);
+}
+
+void Jogger::pressRotary(int direction) {
+    if (!canJog()) {
+        return;
+    }
+    rotaryJog_ = true;
+    const char axis = machine_.rotaryMode() ? 'Y' : 'A';
+    helper_->keyDown({{axis, speeds_.aStep * direction}}, speeds_.feedrate);
 }
 
 void Jogger::release() {
@@ -109,7 +119,9 @@ void Jogger::stepJog(const controller::JogAxes& distances, double feedrate) {
     const auto allowed = controller::filterAxesForLimits(distances, c->state().status.pinState,
                                                          machine_.settings().jog.preventJoggingPastLimits);
     if (allowed) {
-        c->gcode(controller::jogCommand(*allowed, feedrate, metric_));
+        const bool metric = metric_ || rotaryJog_;
+        c->gcode(controller::jogCommand(*allowed, metric_ ? feedrate : (rotaryJog_ ? units::in2mm(feedrate) : feedrate),
+                                        metric));
     }
 }
 
@@ -135,6 +147,10 @@ void Jogger::startContinuous(const controller::JogAxes& distances, double feedra
                 direction[i] = value;
             }
         }
+    }
+    if (rotaryJog_ && !metric_) {
+        c->jogStart(direction, units::in2mm(feedrate), controller::JogUnits::Millimetres);
+        return;
     }
     c->jogStart(direction, feedrate, metric_ ? controller::JogUnits::Millimetres : controller::JogUnits::Inches);
 }

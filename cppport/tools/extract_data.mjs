@@ -1,5 +1,6 @@
 // Extracts data tables from the gSender JavaScript/TypeScript sources into
-// cppport/resources/data/*.json, which gs_core embeds at build time.
+// cppport/resources/data/*.json, which gs_core embeds at build time, and
+// copies the images the app shows into cppport/resources/images.
 //
 //   node cppport/tools/extract_data.mjs
 //
@@ -8,7 +9,7 @@
 // upstream tables change and commit the regenerated JSON.
 
 import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -117,6 +118,19 @@ mkdirSync(outDir, { recursive: true });
 {
     const entry = 'src/app/src/features/Rotary/utils/mountingSetupMacros.ts';
     write('rotary_mounting.json', [entry], { holeTypes: load(entry).HOLE_TYPES });
+
+    // The track illustrations the mounting setup dialog shows.
+    const assets = join(repoRoot, 'src/app/src/features/Rotary/assets');
+    const images = resolve(here, '..', 'resources', 'images', 'rotary');
+    mkdirSync(images, { recursive: true });
+    for (const name of [
+        'custom-boring-track-top-view.png',
+        'extension-track-top-view.png',
+        'standard-track-top-view.png',
+    ]) {
+        copyFileSync(join(assets, name), join(images, name));
+        console.log(`copied ${relative(repoRoot, join(images, name))}`);
+    }
 }
 
 // Defaults the config store backfills into ~/.sender_rc. They are not

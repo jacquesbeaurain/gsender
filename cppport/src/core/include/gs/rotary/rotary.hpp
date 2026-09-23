@@ -43,6 +43,11 @@ struct StockTurningOptions {
 // A stepdown that is not positive cuts one layer (upstream never ends).
 std::string stockTurningProgram(const StockTurningOptions& options, bool metric, bool rotaryMode);
 
+// The tool stores mm and shows an inch workspace the five lengths and the
+// feed converted (units.ts convertToImperial / convertToMetric).
+StockTurningOptions toImperial(StockTurningOptions mm);
+StockTurningOptions toMetric(StockTurningOptions inches);
+
 // ---- rotary probing ----
 
 // getZAxisProbing() / getYAxisAlignmentProbing(): the routines the Rotary

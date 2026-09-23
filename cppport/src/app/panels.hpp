@@ -56,6 +56,9 @@ private:
     QDoubleSpinBox* xyStep_;
     QDoubleSpinBox* zStep_;
     QDoubleSpinBox* feed_;
+    QDoubleSpinBox* aStep_;
+    QList<QWidget*> aControls_;   // the A buttons and step
+    QPushButton* yButtons_[2];    // out of use in rotary mode
     QList<QPushButton*> buttons_;
     bool showing_ = false;
 };

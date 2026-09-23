@@ -611,10 +611,10 @@ on/off states, and stores only what differs from the defaults. The
 visualizer gained Front/Right/Left views, view cycling and zoom for the
 shortcuts.
 
-Not ported yet: macro shortcuts, gamepads, the Toggle Rotary Mode and
-Lightweight Mode shortcuts (no rotary mode or lightweight view yet), and
-editing the presets outside the Jog tab. (The go-to-corner and park
-shortcuts came with Step 29.)
+Not ported yet: gamepads, the Lightweight Mode shortcut (no lightweight
+view yet), and editing the presets outside the Jog tab. (The go-to-corner
+and park shortcuts came with Step 29, macro shortcuts with Step 32, the
+rotary ones with Step 38.)
 
 ## Step 25 — Start From Line
 
@@ -1026,3 +1026,65 @@ four pure pieces, ported to the core first:
   1/4" or 1/8" bit) are extracted by `tools/extract_data.mjs` into
   `resources/data/rotary_mounting.json` and chosen as upstream's
   `handleSubmit` does.
+
+## Step 38 — Rotary, part 2: the Rotary tab and rotary mode (`src/app/rotary_panel`)
+
+The Rotary tab shows while Settings > Rotary > "Rotary controls" is on
+(`widgets.rotary.tab.show`; turning it off leaves rotary mode, as upstream).
+It holds upstream's switch and four buttons with their rules:
+
+- **Rotary** (with "4-Axis" before it on grblHAL): entering rotary mode asks
+  first with upstream's list of what it will do (by firmware), then
+  `Machine::setRotaryMode` sends the core's commands - on Grbl saving the
+  board's `$101`/`$111`/`$20`/`$21` to restore on leaving, on grblHAL
+  swapping the A and Y settings and switching the controller's rotary mode
+  (which a grblHAL board also learns on connecting). Leaving does not ask.
+  Deviation: the switch is disabled while a job runs (upstream only needs a
+  connection) - a job should not have its steps/mm rewritten under it.
+- **Rotary Surfacing** (disabled on Grbl outside rotary mode) opens the
+  generator's dialog: options in the workspace units (stored in mm, the
+  five lengths and the feed converted with upstream's rounding), "Default
+  is ..." tooltips, a preview and the G-code tab; "Load to Main Visualizer"
+  loads `gSender_Rotary_Surfacing`. The preview wraps the toolpath around X
+  (`traceToolpath(program, true)`: y = z sin a, z = z cos a, 5-degree
+  chords) so the plan view shows the turned stock from above. Tools >
+  Rotary Surfacing opens it without the rule, as upstream's Tools page.
+- **Mounting Setup** (idle, not in rotary mode): the four questions with
+  upstream's illustrations (the track PNGs, copied by
+  `tools/extract_data.mjs` into `resources/images/rotary` and embedded in
+  gs_core with the data tables); loads `gSender_Rotary_Mounting_Setup`.
+- **Probe Rotary Z-Axis** (idle; on Grbl only in rotary mode) and **Y-Axis
+  Alignment** (idle, not in rotary mode) ask "Run", then run the routines
+  with gcode:safe in `$13`'s units.
+
+In rotary mode the rotary is Grbl's Y, in degrees: the DRO's A row shows
+and drives Y (zero, go to zero, typed positions) and the Y row is out of
+use; Go To offers A instead of Y; the jog panel's A+/A- buttons and A step
+(shown as upstream's Jogging decides: rotary controls on with grblHAL or
+rotary mode, or "Use A-axis for grbl") and the Jog A shortcuts jog Y.
+Deviation: rotary jogs are sent in G21 at the mm feed - upstream jogged the
+rotary's degrees in the workspace units, 25.4 times too far in an inch
+workspace.
+
+Shortcuts: `SWITCH_WORKSPACE_MODE` ("Toggle Rotary Mode", Ctrl+5) runs the
+switch (deviation: upstream's only flipped the stored mode, leaving the
+board's settings as they were); `TOGGLE_ROTARY_SURFACING` and
+`TOGGLE_MOUNTING_SETUP` open the tools when their buttons would.
+
+Settings > Rotary: the controls switch, Resolution and Max speed (upstream's
+"hybrid" settings: what rotary mode writes to Grbl's Y, or on grblHAL the
+board's own `$103`/`$113`, written back when changed), Force soft/hard
+limits (`$20`/`$21` in rotary mode) and "Use A-axis for grbl" (moved here
+from General, as upstream has it). The gSender import reads the surfacing
+options where upstream's tool saves them (`rotary.stockTurning.options`
+beside the widgets, as the text it was typed as), then the widget defaults.
+
+The simulator now drops a move that goes nowhere, as Grbl's planner does
+(`PLAN_EMPTY_BLOCK`): the rotary macro's `G0 G90 Y[posy]` left it "Run" for
+a tick, and a jog sent right after was refused with error:8.
+
+The section's wizard is there too: Jog A- / Jog A+ send
+`$J=G21G91A∓10F1000` (A becoming Y on Grbl, as any A word).
+
+Not ported: the visualizer's rotary display (a rotary job's toolpath turned
+by the A position, the "Visualize non-center zeros" offset).

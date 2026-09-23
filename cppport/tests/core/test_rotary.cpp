@@ -63,6 +63,24 @@ std::vector<std::string> split(const std::string& text) {
 
 }  // namespace
 
+TEST(RotarySurfacing, UnitConversionRoundsAsUpstream) {
+    rotary::StockTurningOptions mm;  // the defaults
+    const rotary::StockTurningOptions inches = rotary::toImperial(mm);
+    EXPECT_DOUBLE_EQ(inches.stockLength, 3.937);  // (100 / 25.4).toFixed(3)
+    EXPECT_DOUBLE_EQ(inches.startHeight, 1.969);
+    EXPECT_DOUBLE_EQ(inches.finalHeight, 1.575);
+    EXPECT_DOUBLE_EQ(inches.stepdown, 0.787);
+    EXPECT_DOUBLE_EQ(inches.bitDiameter, 0.25);
+    EXPECT_DOUBLE_EQ(inches.feedrate, 118.11);
+    EXPECT_EQ(inches.stepover, 15);  // a percentage, and the rpm, stay
+    EXPECT_EQ(inches.spindleRPM, 17000);
+    const rotary::StockTurningOptions back = rotary::toMetric(inches);
+    EXPECT_DOUBLE_EQ(back.stockLength, 100);  // (3.937 * 25.4).toFixed(2)
+    EXPECT_DOUBLE_EQ(back.startHeight, 50.01);
+    EXPECT_DOUBLE_EQ(back.bitDiameter, 6.35);
+    EXPECT_DOUBLE_EQ(back.feedrate, 2999.99);  // the round trip drifts, as upstream
+}
+
 TEST(RotarySurfacing, MatchesUpstreamForEveryGoldenCase) {
     const json::array& cases = goldenCases();
     ASSERT_GE(cases.size(), 40u);

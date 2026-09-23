@@ -43,16 +43,28 @@ Overloaded(Ts...) -> Overloaded<Ts...>;
 class ToolpathSink final : public gcode::GeometrySink {
 public:
     Toolpath path;
+    bool wrapRotary = false;
 
     void atLine(std::size_t index) override { line_ = static_cast<std::uint32_t>(index); }
 
     void addLine(const gcode::Modal& modal, const gcode::Vec4& from, const gcode::Vec4& to) override {
-        if (modal.motion == "G0") {
-            push(path.rapids, from, to);
-            path.rapidLines.push_back(line_);
-        } else {
-            push(path.feeds, from, to);
-            path.feedLines.push_back(line_);
+        const bool rapid = modal.motion == "G0";
+        std::vector<float>& out = rapid ? path.rapids : path.feeds;
+        std::vector<std::uint32_t>& lines = rapid ? path.rapidLines : path.feedLines;
+        // Wrapped, a turn of A is a helix: 5-degree chords.
+        const int steps =
+            wrapRotary ? std::clamp(static_cast<int>(std::ceil(std::fabs(to.a - from.a) / 5.0)), 1, 20000) : 1;
+        gcode::Vec4 previous = from;
+        for (int i = 1; i <= steps; ++i) {
+            const double t = static_cast<double>(i) / steps;
+            const gcode::Vec4 current = i == steps ? to
+                                                   : gcode::Vec4{from.x + (to.x - from.x) * t,
+                                                                 from.y + (to.y - from.y) * t,
+                                                                 from.z + (to.z - from.z) * t,
+                                                                 from.a + (to.a - from.a) * t};
+            push(out, previous, current);
+            lines.push_back(line_);
+            previous = current;
         }
     }
 
@@ -101,7 +113,17 @@ private:
 
     std::uint32_t line_ = 0;
 
-    static void push(std::vector<float>& out, const gcode::Vec4& from, const gcode::Vec4& to) {
+    gcode::Vec4 wrap(const gcode::Vec4& v) const {
+        if (!wrapRotary) {
+            return v;
+        }
+        const double angle = v.a * std::numbers::pi / 180;
+        return {v.x, v.z * std::sin(angle), v.z * std::cos(angle), v.a};
+    }
+
+    void push(std::vector<float>& out, const gcode::Vec4& fromPoint, const gcode::Vec4& toPoint) const {
+        const gcode::Vec4 from = wrap(fromPoint);
+        const gcode::Vec4 to = wrap(toPoint);
         out.insert(out.end(), {static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z),
                                static_cast<float>(to.x), static_cast<float>(to.y), static_cast<float>(to.z)});
     }
@@ -109,8 +131,9 @@ private:
 
 }  // namespace
 
-Toolpath traceToolpath(const std::string& program) {
+Toolpath traceToolpath(const std::string& program, bool wrapRotary) {
     ToolpathSink sink;
+    sink.wrapRotary = wrapRotary;
     job::analyzeProgram(program, {}, &sink);
     return std::move(sink.path);
 }
@@ -153,6 +176,10 @@ void Machine::startSession(controller::DeviceLink& link) {
     session_->onController = [this](controller::Controller& c, bool) {
         connecting_ = false;
         c.setToolChangeContext(settings_.toolChange);
+        // A grblHAL board learns whether the workspace is in rotary mode.
+        if (c.isGrblHal()) {
+            c.setRotaryMode(settings_.rotary.rotaryMode);
+        }
         attachProgram();
         Q_EMIT connectionChanged();
     };
@@ -536,8 +563,11 @@ void Machine::goToLocation(controller::GoToMode mode, double x, double y, double
     location.y = y;
     location.z = z;
     location.a = a;
-    // A goes along on a grblHAL board that reports one (rotary mode is not ported).
-    location.aAvailable = c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos;
+    // A goes along in rotary mode (the rotary replaces Y) or on a grblHAL
+    // board that reports one.
+    location.yAvailable = !settings_.rotary.rotaryMode;
+    location.aAvailable =
+        settings_.rotary.rotaryMode || (c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos);
     location.metric = settings_.metric;
     location.homingEnabled = js::stringToNumber(c->runner().setting("$22", "0")) != 0;
     location.safeRetractHeight = settings_.safeRetractHeight;
@@ -665,6 +695,46 @@ void Machine::selectSpindle(int id) {
     spindles_.clear();  // clearSpindles(): the list comes again
     Q_EMIT spindlesChanged();
     c->gcode(std::vector<std::string>{"M104 Q" + std::to_string(id), c->spindleListCommand()});
+}
+
+// ---- rotary ------------------------------------------------------------------------------
+
+bool Machine::setRotaryMode(bool rotaryMode) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return false;
+    }
+    AppSettings settings = settings_;
+    rotary::ModeSwitch change;
+    change.enable = rotaryMode;
+    change.grblHal = c->isGrblHal();
+    if (!change.grblHal) {
+        if (rotaryMode) {
+            // What Y had, to restore on leaving.
+            settings.rotary.defaults = rotary::currentFirmwareValues(c->settings().settings);
+            change.grblSettings = settings.rotary.firmware;
+        } else {
+            change.grblSettings = settings.rotary.defaults;
+        }
+    }
+    c->gcode(rotary::modeSwitchCommands(change, c->settings().settings));
+    if (change.grblHal) {
+        c->setRotaryMode(rotaryMode);
+    }
+    settings.rotary.rotaryMode = rotaryMode;
+    setSettings(settings);
+    return true;
+}
+
+bool Machine::runRotaryProbe(bool yAlignment) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return false;
+    }
+    const bool inches = c->runner().setting("$13") == "1";
+    c->gcodeSafe(yAlignment ? rotary::yAxisAlignmentProbing(inches) : rotary::zAxisProbing(inches),
+                 inches ? "G20" : "G21");
+    return true;
 }
 
 // ---- calibration tools --------------------------------------------------------------------

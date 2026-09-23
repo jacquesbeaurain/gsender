@@ -11,6 +11,7 @@
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
+#include "rotary_panel.hpp"
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
@@ -1196,6 +1197,137 @@ TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
         dialog.grab().save(QString::fromLocal8Bit(out) + "/settings_firmware.png");
     }
+}
+
+TEST_F(AppTest, RotaryModePutsTheRotaryOnGrblsYAndBack) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    EXPECT_FALSE(window.rotaryTabVisible());  // until the Rotary controls are on
+    AppSettings settings = machine.settings();
+    settings.rotary.showControls = true;
+    machine.setSettings(settings);
+    EXPECT_TRUE(window.rotaryTabVisible());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    controller::Controller& c = *machine.controller();
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    const auto sent = [&](const std::string& line) {
+        return std::find(received.begin(), received.end(), line) != received.end();
+    };
+    const std::string resolution = c.runner().setting("$101");
+    const std::string maxRate = c.runner().setting("$111");
+    RotaryPanel& panel = window.rotaryPanel();
+    QStringList asked;
+    bool answer = false;
+    panel.setConfirmer([&](const QString& title, const QString&, const QString&) {
+        asked << title;
+        return answer;
+    });
+    const auto enabled = [&](const char* name) { return panel.findChild<QPushButton*>(name)->isEnabled(); };
+
+    // Grbl has the rotary only in rotary mode; the mounting setup and the Y
+    // alignment are for the machine outside it.
+    ASSERT_TRUE(waitFor([&] { return enabled("mountingSetup"); }));
+    EXPECT_TRUE(enabled("alignYAxis"));
+    EXPECT_FALSE(enabled("rotarySurfacing"));
+    EXPECT_FALSE(enabled("probeRotaryZ"));
+    MountingSetupDialog mounting(machine);
+    rotary::MountingSetup setup;
+    setup.linesUp = true;
+    setup.holes = 10;
+    mounting.setSetup(setup);
+    const QByteArray screenshots = qgetenv("GS_TEST_SCREENSHOTS");
+    if (!screenshots.isEmpty()) {
+        mounting.resize(820, 520);
+        mounting.show();
+        mounting.grab().save(QString::fromLocal8Bit(screenshots) + "/rotary_mounting.png");
+    }
+    ASSERT_TRUE(mounting.loadIntoMachine());
+    EXPECT_EQ(machine.programName(), "gSender_Rotary_Mounting_Setup");
+    EXPECT_EQ(machine.programText(), *rotary::mountingProgram(setup));
+    EXPECT_FALSE(panel.alignYAxis());  // asked, declined: nothing runs
+    EXPECT_EQ(asked, QStringList{"Y-Axis Alignment probing"});
+
+    // Declined, rotary mode stays off.
+    asked.clear();
+    EXPECT_FALSE(panel.setRotaryMode(true));
+    EXPECT_EQ(asked, QStringList{"Enable Rotary Mode"});
+    EXPECT_FALSE(machine.rotaryMode());
+    EXPECT_FALSE(sent("G10 L20 P1 Y0"));
+
+    // Entering (the shortcut runs the switch): Y zeroed, the rotary's values
+    // written to Y, the board's own kept to restore.
+    answer = true;
+    ASSERT_TRUE(window.shortcuts().trigger("SWITCH_WORKSPACE_MODE"));
+    ASSERT_TRUE(waitFor([&] { return c.runner().setting("$101") == "19.75308642"; }));
+    for (const char* line : {"G10 L20 P1 Y0", "$111=8000.00", "$20=0", "$21=0", "G04 P0.5"}) {
+        EXPECT_TRUE(sent(line)) << line;
+    }
+    EXPECT_TRUE(machine.rotaryMode());
+    const auto stored = [&](const rotary::FirmwareValues& values, const char* key) {
+        for (const auto& [name, value] : values) {
+            if (name == key) {
+                return value;
+            }
+        }
+        return std::string();
+    };
+    EXPECT_EQ(stored(machine.settings().rotary.defaults, "$101"), resolution);
+    EXPECT_EQ(stored(machine.settings().rotary.defaults, "$111"), maxRate);
+    ASSERT_TRUE(waitFor([&] { return c.state().status.activeState == "Idle" && enabled("probeRotaryZ"); }));
+    EXPECT_TRUE(enabled("rotarySurfacing"));
+    EXPECT_FALSE(enabled("alignYAxis"));
+    EXPECT_FALSE(enabled("mountingSetup"));
+
+    // The A buttons jog the rotary on Y, in degrees whatever the units.
+    Jogger jogger(machine);
+    jogger.pressRotary(1);
+    jogger.release();
+    ASSERT_TRUE(waitFor([&] { return sent("$J=G21 G91 Y5 F3000"); }));
+    ASSERT_TRUE(waitFor([&] {
+        return c.state().status.activeState == "Idle" && std::fabs(machine.machinePositionMm()[1] - 5) < 1e-6;
+    })) << c.state().status.activeState << " Y " << machine.machinePositionMm()[1] << " sim Y "
+        << machine.simulator()->machinePosition()[1];
+
+    // The surfacing program turns the stock with A (translated to Y for
+    // Grbl) and becomes the job; its options are kept in mm.
+    RotarySurfacingDialog surfacing(machine);
+    rotary::StockTurningOptions options = surfacing.options();
+    options.stockLength = 120;
+    surfacing.setOptions(options);
+    surfacing.generate();
+    EXPECT_TRUE(surfacing.program().contains("(*** Layer 1 ***)"));
+    if (!screenshots.isEmpty()) {
+        surfacing.show();
+        surfacing.grab().save(QString::fromLocal8Bit(screenshots) + "/rotary_surfacing.png");
+        panel.resize(420, 200);
+        panel.show();
+        panel.grab().save(QString::fromLocal8Bit(screenshots) + "/rotary_panel.png");
+    }
+    ASSERT_TRUE(surfacing.loadIntoMachine());
+    EXPECT_EQ(machine.programName(), "gSender_Rotary_Surfacing");
+    surfacing.reject();
+    EXPECT_EQ(machine.settings().rotary.stockTurning.stockLength, 120);
+
+    // Leaving asks nothing and puts Y's own values back.
+    asked.clear();
+    ASSERT_TRUE(panel.setRotaryMode(false));
+    EXPECT_TRUE(asked.isEmpty());
+    ASSERT_TRUE(waitFor([&] { return c.runner().setting("$101") == resolution; }));
+    EXPECT_TRUE(sent("$111=" + maxRate));
+    EXPECT_FALSE(machine.rotaryMode());
+
+    // Turning the Rotary controls off hides the tab.
+    settings = machine.settings();
+    settings.rotary.showControls = false;
+    machine.setSettings(settings);
+    EXPECT_FALSE(window.rotaryTabVisible());
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

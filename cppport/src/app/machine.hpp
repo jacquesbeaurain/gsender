@@ -47,7 +47,10 @@ struct Toolpath {
 
 // The toolpath of a program that is not the loaded job (tool previews),
 // traced on the calling thread with the default machine limits.
-Toolpath traceToolpath(const std::string& program);
+// `wrapRotary`: A turns the stock about X, Z being the distance from the
+// rotary's centreline - the path is wrapped around X (y = z sin a,
+// z = z cos a) so a plan view shows the turned stock from above.
+Toolpath traceToolpath(const std::string& program, bool wrapRotary = false);
 
 class Machine final : public QObject {
     Q_OBJECT
@@ -189,6 +192,17 @@ public:
     const std::vector<protocol::SpindleLine>& spindles() const noexcept { return spindles_; }
     // grblHAL: switch spindle (M104 Q<id>) and list them again.
     void selectSpindle(int id);
+
+    // ---- rotary ----
+    bool rotaryMode() const noexcept { return settings_.rotary.rotaryMode; }
+    // Enters or leaves rotary mode (updateWorkspaceMode): the board's
+    // commands (on Grbl its Y settings for the rotary, saving the previous
+    // ones; on grblHAL the A/Y swap and the controller's rotary mode), then
+    // the mode saved. False when disconnected.
+    bool setRotaryMode(bool rotary);
+    // The Rotary widget's probing routines, run with gcode:safe in $13's
+    // units: the rotary's Z, or the Y alignment. False when disconnected.
+    bool runRotaryProbe(bool yAlignment);
 
     // ---- calibration tools ----
     // Movement Tuning's move (workspace units): a $J= jog at 1000 mm/min,

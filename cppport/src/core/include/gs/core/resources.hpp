@@ -1,6 +1,7 @@
 #pragma once
 
-// Data files compiled into gs_core (see cmake/GsEmbed.cmake).
+// Data files compiled into gs_core (see cmake/GsEmbed.cmake): the tables
+// under data/ and the images the app shows under images/.
 
 #include <optional>
 #include <string_view>

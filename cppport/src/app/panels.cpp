@@ -174,13 +174,26 @@ JogPanel::JogPanel(Machine& machine, Jogger& jogger, QWidget* parent)
     auto* layout = new QVBoxLayout(box);
 
     auto* grid = new QGridLayout;
-    grid->addWidget(jogButton("Y+", 'Y', +1), 0, 1);
+    yButtons_[0] = jogButton("Y+", 'Y', +1);
+    yButtons_[1] = jogButton("Y-", 'Y', -1);
+    grid->addWidget(yButtons_[0], 0, 1);
     grid->addWidget(jogButton("X-", 'X', -1), 1, 0);
     grid->addWidget(jogButton("X+", 'X', +1), 1, 2);
-    grid->addWidget(jogButton("Y-", 'Y', -1), 2, 1);
+    grid->addWidget(yButtons_[1], 2, 1);
     grid->addWidget(jogButton("Z+", 'Z', +1), 0, 4);
     grid->addWidget(jogButton("Z-", 'Z', -1), 2, 4);
     grid->setColumnMinimumWidth(3, 16);
+    // A (AJog): the rotary - on Y in rotary mode.
+    for (const int direction : {+1, -1}) {
+        auto* button = new QPushButton(direction > 0 ? "A+" : "A-");
+        button->setMinimumSize(56, 44);
+        connect(button, &QPushButton::pressed, this, [this, direction] { jogger_.pressRotary(direction); });
+        connect(button, &QPushButton::released, this, [this] { jogger_.release(); });
+        buttons_.append(button);
+        aControls_.append(button);
+        grid->addWidget(button, direction > 0 ? 0 : 2, 6);
+    }
+    grid->setColumnMinimumWidth(5, 16);
     layout->addLayout(grid);
 
     auto* presetRow = new QHBoxLayout;
@@ -211,14 +224,20 @@ JogPanel::JogPanel(Machine& machine, Jogger& jogger, QWidget* parent)
     xyStep_ = field(1000, 3, " mm");
     zStep_ = field(1000, 3, " mm");
     feed_ = field(20000, 0, " mm/min");
+    aStep_ = field(3600, 3, tr(" deg"));
     values->addWidget(new QLabel(tr("XY")));
     values->addWidget(xyStep_);
     values->addWidget(new QLabel(tr("Z")));
     values->addWidget(zStep_);
+    auto* aLabel = new QLabel(tr("A"));
+    values->addWidget(aLabel);
+    values->addWidget(aStep_);
+    aControls_.append(aLabel);
+    aControls_.append(aStep_);
     values->addWidget(new QLabel(tr("Speed")));
     values->addWidget(feed_);
     layout->addLayout(values);
-    for (QDoubleSpinBox* spin : {xyStep_, zStep_, feed_}) {
+    for (QDoubleSpinBox* spin : {xyStep_, zStep_, feed_, aStep_}) {
         connect(spin, &QDoubleSpinBox::valueChanged, this, [this] {
             if (showing_) {
                 return;
@@ -226,6 +245,7 @@ JogPanel::JogPanel(Machine& machine, Jogger& jogger, QWidget* parent)
             controller::JogSpeeds speeds = jogger_.speeds();
             speeds.xyStep = xyStep_->value();
             speeds.zStep = zStep_->value();
+            speeds.aStep = aStep_->value();
             speeds.feedrate = feed_->value();
             jogger_.setSpeeds(speeds);
         });
@@ -238,6 +258,7 @@ JogPanel::JogPanel(Machine& machine, Jogger& jogger, QWidget* parent)
     connect(&machine_, &Machine::connectionChanged, this, &JogPanel::updateEnabled);
     connect(&machine_, &Machine::workflowChanged, this, &JogPanel::updateEnabled);
     connect(&machine_, &Machine::stateChanged, this, &JogPanel::updateEnabled);
+    connect(&machine_, &Machine::appSettingsChanged, this, &JogPanel::updateEnabled);
     showSpeeds();
     updateEnabled();
 }
@@ -264,6 +285,7 @@ void JogPanel::showSpeeds() {
     const controller::JogSpeeds& speeds = jogger_.speeds();
     xyStep_->setValue(speeds.xyStep);
     zStep_->setValue(speeds.zStep);
+    aStep_->setValue(speeds.aStep);
     feed_->setValue(speeds.feedrate);
     presets_->button(static_cast<int>(jogger_.preset()))->setChecked(true);
     showing_ = false;
@@ -274,6 +296,17 @@ void JogPanel::updateEnabled() {
     const bool can = c && !c->workflow().isRunning() && c->state().status.activeState != "Alarm";
     for (QPushButton* button : buttons_) {
         button->setEnabled(can);
+    }
+    // A shows as upstream's Jogging decides: with the rotary controls on a
+    // grblHAL board or in rotary mode, or with Grbl's A words passed through.
+    const AppSettings& settings = machine_.settings();
+    const bool rotary = settings.rotary.rotaryMode;
+    const bool showA = ((c && c->isGrblHal()) || rotary) && settings.rotary.showControls;
+    for (QWidget* widget : aControls_) {
+        widget->setVisible(showA || settings.preferences.useAaxisForGrbl);
+    }
+    for (QPushButton* button : yButtons_) {
+        button->setEnabled(can && !rotary);  // the rotary is on Y
     }
 }
 

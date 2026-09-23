@@ -144,7 +144,7 @@ void GoToDialog::fill() {
         values_[i]->setValue(
             js::stringToNumber(units::positionText(position[static_cast<std::size_t>(i)], s.metric, s.customDecimalPlaces)));
     }
-    values_[3]->setValue(position[3]);
+    values_[3]->setValue(machine_.rotaryMode() ? position[1] : position[3]);
 }
 
 void GoToDialog::updateEnabled() {
@@ -162,7 +162,10 @@ void GoToDialog::updateEnabled() {
     }
     // MCS moves X, Y (and A) only; A needs a grblHAL board with an A axis.
     values_[2]->setEnabled(mode_ != controller::GoToMode::Machine);
-    values_[3]->setEnabled(c && c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos);
+    // Rotary mode: A (the rotary) instead of Y.
+    values_[1]->setEnabled(!machine_.rotaryMode());
+    values_[3]->setEnabled(machine_.rotaryMode() ||
+                           (c && c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos));
     go_->setEnabled(machine_.canMove());
 }
 
@@ -266,7 +269,8 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
         machinePos_[i]->setStyleSheet("color:#777");
         goZero_[i] = new QPushButton(QString(QChar(axis)));
         goZero_[i]->setToolTip(tr("Go to %1-axis zero").arg(axis));
-        connect(goZero_[i], &QPushButton::clicked, this, [this, axis] { machine_.goToZero(std::string(1, axis)); });
+        connect(goZero_[i], &QPushButton::clicked, this,
+                [this, i] { machine_.goToZero(std::string(1, rowAxis(i))); });
         grid->addWidget(axisButton_[i], i + 1, 0);
         grid->addWidget(work_[i], i + 1, 1);
         grid->addWidget(machinePos_[i], i + 1, 2);
@@ -343,7 +347,7 @@ void PositionPanel::enterWorkPosition(int axis, const QString& text) {
         refresh();
         return;
     }
-    machine_.setWorkPosition(kAxes[axis], value);
+    machine_.setWorkPosition(rowAxis(axis), value);
 }
 
 bool PositionPanel::eventFilter(QObject* watched, QEvent* event) {
@@ -365,8 +369,12 @@ bool PositionPanel::eventFilter(QObject* watched, QEvent* event) {
     return QWidget::eventFilter(watched, event);
 }
 
+char PositionPanel::rowAxis(int row) const {
+    return row == 3 && machine_.rotaryMode() ? 'Y' : kAxes[row];
+}
+
 void PositionPanel::axisClicked(int axis) {
-    const char letter = kAxes[axis];
+    const char letter = rowAxis(axis);
     if (homingMode_) {
         machine_.homeAxis(letter);
         return;
@@ -445,20 +453,26 @@ void PositionPanel::refresh() {
 
     const std::array<double, 4> wpos = machine_.workPositionMm();
     const std::array<double, 4> mpos = machine_.machinePositionMm();
+    const bool rotary = machine_.rotaryMode();
     for (int i = 0; i < 4; ++i) {
         const char axis = kAxes[i];
+        // In rotary mode the rotary drives Y: the A row shows and moves it
+        // (in degrees), the Y row is out of use.
+        const bool unused = rotary && i == 1;
         axisButton_[i]->setText(homingMode_ ? QString("H%1").arg(axis) : QString("%1%2").arg(axis).arg(0));
         axisButton_[i]->setToolTip(homingMode_ ? tr("Home your %1-axis").arg(axis) : tr("Zero your %1-axis").arg(axis));
-        axisButton_[i]->setEnabled(canMove);
-        work_[i]->setEnabled(canMove);
-        goZero_[i]->setEnabled(canMove);
-        const auto index = static_cast<std::size_t>(i);
+        axisButton_[i]->setEnabled(canMove && !unused);
+        work_[i]->setEnabled(canMove && !unused);
+        goZero_[i]->setEnabled(canMove && !unused);
+        const auto index = static_cast<std::size_t>(rotary && i == 3 ? 1 : i);
+        const bool shown = connected && !unused;
         if (!work_[i]->hasFocus()) {
-            work_[i]->setText(connected ? positionText(machine_, i, wpos[index]) : QStringLiteral("-"));
+            work_[i]->setText(shown ? positionText(machine_, i, wpos[index]) : QStringLiteral("-"));
         }
-        machinePos_[i]->setText(connected ? positionText(machine_, i, mpos[index]) : QStringLiteral("-"));
+        machinePos_[i]->setText(shown ? positionText(machine_, i, mpos[index]) : QStringLiteral("-"));
     }
-    const bool showA = c && (c->state().status.mpos.count >= 4 || c->state().axes.letters.find('A') != std::string::npos);
+    const bool showA = c && (rotary || c->state().status.mpos.count >= 4 ||
+                             c->state().axes.letters.find('A') != std::string::npos);
     for (QWidget* widget : rowA_) {
         widget->setVisible(showA);
     }

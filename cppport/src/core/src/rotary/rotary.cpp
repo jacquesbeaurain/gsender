@@ -2,6 +2,7 @@
 
 #include "gs/core/resources.hpp"
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/units.hpp"
 
 #include <boost/json.hpp>
 
@@ -219,6 +220,22 @@ const std::vector<std::string>& toggleMacro() {
 }
 
 }  // namespace
+
+StockTurningOptions toImperial(StockTurningOptions mm) {
+    for (double* value : {&mm.stockLength, &mm.startHeight, &mm.finalHeight, &mm.stepdown, &mm.bitDiameter,
+                          &mm.feedrate}) {
+        *value = units::convertToImperial(*value);
+    }
+    return mm;
+}
+
+StockTurningOptions toMetric(StockTurningOptions inches) {
+    for (double* value : {&inches.stockLength, &inches.startHeight, &inches.finalHeight, &inches.stepdown,
+                          &inches.bitDiameter, &inches.feedrate}) {
+        *value = units::convertToMetric(*value);
+    }
+    return inches;
+}
 
 std::string stockTurningProgram(const StockTurningOptions& options, bool metric, bool rotaryMode) {
     return StockTurning(options, metric, rotaryMode).generate();

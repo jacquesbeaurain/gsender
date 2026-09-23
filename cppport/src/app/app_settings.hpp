@@ -9,6 +9,7 @@
 #include "gs/controller/jogging.hpp"
 #include "gs/job/outline.hpp"
 #include "gs/probe/probing.hpp"
+#include "gs/rotary/rotary.hpp"
 #include "gs/surfacing/surfacing.hpp"
 #include "gs/toolchange/wizards.hpp"
 
@@ -58,6 +59,17 @@ struct SpindleSettings {
     LaserSettings laser;
 };
 
+// Rotary: widgets.rotary (the controls, the surfacing tool), workspace.mode
+// and workspace.rotaryAxis (the firmware values rotary mode writes on Grbl,
+// and the ones it saved to restore).
+struct RotarySettings {
+    bool showControls = false;  // "Rotary controls": the Rotary tab and A jogging
+    bool rotaryMode = false;    // workspace.mode ROTARY
+    rotary::FirmwareValues firmware = rotary::rotaryFirmwareSettings();
+    rotary::FirmwareValues defaults = rotary::defaultFirmwareSettings();
+    rotary::StockTurningOptions stockTurning;  // mm
+};
+
 // workspace.recentFiles: a file loaded from disk.
 struct RecentFile {
     std::string fileName;
@@ -92,6 +104,8 @@ struct AppSettings {
     surfacing::Options surfacing;
     // Spindle/Laser tab
     SpindleSettings spindle;
+    // Rotary tab and mode
+    RotarySettings rotary;
     // Jogging and positioning
     JogSettings jog;
     double safeRetractHeight = 0;  // mm lifted before go-to-zero moves; 0: none
