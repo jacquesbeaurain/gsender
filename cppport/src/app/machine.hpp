@@ -80,6 +80,7 @@ public:
     void unloadProgram();
     bool hasProgram() const noexcept { return !programName_.isEmpty(); }
     QString programName() const { return programName_; }
+    QString programPath() const { return programPath_; }  // the file it came from, if any
     const std::string& programText() const noexcept { return programText_; }
     bool isAnalyzing() const noexcept { return analyzing_; }
     const job::ProgramAnalysis& analysis() const noexcept { return analysis_; }

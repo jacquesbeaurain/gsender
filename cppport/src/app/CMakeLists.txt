@@ -9,6 +9,8 @@ add_library(gs_app STATIC
     controls.hpp
     dro_panel.cpp
     dro_panel.hpp
+    gcode_editor_dialog.cpp
+    gcode_editor_dialog.hpp
     machine.cpp
     machine.hpp
     jogger.cpp

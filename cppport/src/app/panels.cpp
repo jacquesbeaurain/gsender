@@ -2,6 +2,7 @@
 
 #include "controls.hpp"
 #include "jogger.hpp"
+#include "gcode_editor_dialog.hpp"
 #include "machine.hpp"
 #include "step_through_dialog.hpp"
 #include "start_from_line_dialog.hpp"
@@ -391,7 +392,10 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     info_ = new QLabel;
     info_->setWordWrap(true);
     info_->setTextFormat(Qt::RichText);
-    layout->addWidget(info_);
+    // The file's own tools beside its information, as upstream's file panel.
+    auto* infoRow = new QHBoxLayout;
+    infoRow->addWidget(info_, 1);
+    layout->addLayout(infoRow);
 
     auto* row = new QHBoxLayout;
     open_ = new QPushButton(tr("Load File..."));
@@ -401,13 +405,18 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     outline_->setToolTip(tr("Trace the job's outline above the stock"));
     fromLine_ = new QPushButton(tr("From Line..."));
     fromLine_->setToolTip(tr("Start From Line: resume a stopped or interrupted job"));
+    edit_ = new QPushButton(tr("Edit..."));
+    edit_->setToolTip(tr("G-code Editor: change the loaded file's lines"));
     stepThrough_ = new QPushButton(tr("Step Through..."));
     stepThrough_->setToolTip(tr("G-code Step Through: follow the file line by line"));
     pause_ = new QPushButton(tr("Pause"));
     resume_ = new QPushButton(tr("Resume"));
     stop_ = new QPushButton(tr("Stop"));
     start_->setStyleSheet("font-weight:600");
-    for (QPushButton* button : {open_, unload_, stepThrough_, start_, outline_, fromLine_, pause_, resume_, stop_}) {
+    for (QPushButton* button : {edit_, stepThrough_}) {
+        infoRow->addWidget(button, 0, Qt::AlignTop);
+    }
+    for (QPushButton* button : {open_, unload_, start_, outline_, fromLine_, pause_, resume_, stop_}) {
         button->setMinimumHeight(34);
         row->addWidget(button);
     }
@@ -441,6 +450,11 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     connect(fromLine_, &QPushButton::clicked, this, [this] {
         StartFromLineDialog dialog(machine_, this);
         dialog.exec();
+    });
+    connect(edit_, &QPushButton::clicked, this, [this] {
+        auto* dialog = new GcodeEditorDialog(machine_, window());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
     });
     connect(stepThrough_, &QPushButton::clicked, this, [this] {
         auto* dialog = new StepThroughDialog(machine_, window());
@@ -486,6 +500,7 @@ void JobPanel::refresh() {
     open_->setEnabled(idle);
     unload_->setEnabled(idle && machine_.hasProgram());
     stepThrough_->setEnabled(machine_.hasProgram() && !machine_.isAnalyzing());
+    edit_->setEnabled(machine_.hasProgram());
     start_->setEnabled(runnable && idle && activeState != "Hold");
     fromLine_->setEnabled(runnable && idle && activeState == "Idle");
     outline_->setEnabled(runnable && idle && activeState == "Idle");

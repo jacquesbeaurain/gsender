@@ -47,6 +47,10 @@ gcode::InterpreterOptions interpreterOptionsFor(const protocol::FirmwareSettings
 // Runs the whole program through the interpreter, reporting geometry to
 // `sink` when given. `cancelled` is polled every few thousand lines; a
 // cancelled analysis is incomplete.
+// The file's line (1-based) of each line the sender streams - the lines
+// with content - so a sender line (currentLineRunning) finds its text.
+std::vector<std::size_t> senderLineNumbers(std::string_view program);
+
 ProgramAnalysis analyzeProgram(std::string_view program, const gcode::InterpreterOptions& options = {},
                                gcode::GeometrySink* sink = nullptr,
                                const std::function<bool()>& cancelled = {});

@@ -34,6 +34,18 @@ gcode::InterpreterOptions interpreterOptionsFor(const protocol::FirmwareSettings
     return options;
 }
 
+std::vector<std::size_t> senderLineNumbers(std::string_view program) {
+    std::vector<std::size_t> numbers;
+    std::size_t line = 0;
+    for (std::string_view text : str::splitLines(program)) {
+        ++line;
+        if (!str::trim(text).empty()) {
+            numbers.push_back(line);
+        }
+    }
+    return numbers;
+}
+
 ProgramAnalysis analyzeProgram(std::string_view program, const gcode::InterpreterOptions& options,
                                gcode::GeometrySink* sink, const std::function<bool()>& cancelled) {
     ProgramAnalysis result;

@@ -1127,3 +1127,30 @@ read G91.1 as G91; lines are counted as the rest of the app counts them (no
 empty line after the final newline). Not ported: rotary files turning the
 view by A (the main visualizer has no rotary display yet either) and the
 syntax colouring of the source.
+
+## Step 40 — G-code Editor (`src/app/gcode_editor_dialog`)
+
+The file panel's other tool: the loaded file's lines edited in place and
+saved back as the job (the same name; the file on disk is left alone, as
+upstream re-uploads the text). Upstream renders one input per line (a
+browser's way to virtualise); here it is a `QPlainTextEdit` with a line
+number gutter, keeping upstream's commands: Jump to Line, Search (Ctrl+F;
+lines containing the text in any case, "i/n", Enter / Shift+Enter step
+through them, wrapping), Select All / Deselect All, Copy (the selected lines
+or everything), Delete Lines (whole lines with their line break), Revert
+and Save, both only with changes. Escape closes the search, then clears the
+selection; closing with unsaved changes asks first (upstream dropped them
+silently). CR LF files open with one line per line.
+
+While a job runs the text is read-only (Save, Revert, Copy and Delete are
+off) and follows the job: the gutter shows the lines done (green), running
+(the sender's running line and the two after it, yellow) and to come (blue),
+scrolling to keep the running line in view. Deviation: upstream compared
+the sender's running line count with file line numbers directly, drifting
+by every blank line before it (blank lines are not sent); the port maps
+sender lines back to file lines (`job::senderLineNumbers`). Deviation:
+Jump to Line goes to the line typed (upstream's went one past it).
+
+The Edit... and Step Through... buttons sit beside the file's information in
+the Job panel. Unloading the file closes both; loading another replaces the
+editor's text.
