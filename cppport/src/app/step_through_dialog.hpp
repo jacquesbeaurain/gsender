@@ -63,6 +63,7 @@ protected:
 
 private:
     const ToolSpan* spanFor(std::uint32_t line) const;
+    bool rotaryJob() const;
 
     Machine& machine_;
     gcode::Vec4 position_;

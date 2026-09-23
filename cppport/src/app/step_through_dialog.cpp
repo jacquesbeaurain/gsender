@@ -173,9 +173,17 @@ StepThroughView::StepThroughView(Machine& machine, QWidget* parent) : ToolpathCa
 }
 
 std::optional<gcode::BoundingBox> StepThroughView::contentBounds() const {
-    const bool empty = !machine_.hasProgram() || machine_.isAnalyzing() ||
-                       (machine_.toolpath().feeds.empty() && machine_.toolpath().rapids.empty());
-    return empty ? std::nullopt : std::optional<gcode::BoundingBox>(machine_.analysis().bounds);
+    const Toolpath& path = machine_.toolpath();
+    const bool empty = !machine_.hasProgram() || machine_.isAnalyzing() || (path.feeds.empty() && path.rapids.empty());
+    if (empty) {
+        return std::nullopt;
+    }
+    return rotaryJob() && path.bounded ? path.bounds : machine_.analysis().bounds;
+}
+
+bool StepThroughView::rotaryJob() const {
+    return machine_.hasProgram() && !machine_.isAnalyzing() &&
+           machine_.analysis().fileType != gcode::FileType::Default;
 }
 
 void StepThroughView::seekTo(const gcode::Vec4& position, std::size_t done, bool hideProcessed) {
@@ -235,8 +243,10 @@ void StepThroughView::paintEvent(QPaintEvent*) {
                 return span ? &spanPens_[static_cast<std::size_t>(span - spans_.data())] : &cut;
             };
         };
-        paintSegments(painter, path.rapids, path.rapidLines, pens(false));
-        paintSegments(painter, path.feeds, path.feedLines, pens(true));
+        // A rotary job turns with the line's A (setToolpathRotationA).
+        const double rotation = rotaryJob() ? position_.a : 0;
+        paintSegments(painter, path.rapids, path.rapidLines, pens(false), rotation);
+        paintSegments(painter, path.feeds, path.feedLines, pens(true), rotation);
     }
     paintTool(painter, {position_.x, position_.y, position_.z});
     if (!overlay_.isEmpty()) {

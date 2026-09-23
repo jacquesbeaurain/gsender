@@ -39,11 +39,12 @@ template <class... Ts>
 Overloaded(Ts...) -> Overloaded<Ts...>;
 
 // Collects the toolpath while the program is analysed: straight segments,
-// with arcs tessellated back out of their plane.
+// with arcs tessellated back out of their plane. A turns the stock about X:
+// as gviewer draws it, every point is turned by its A (y cos a - z sin a,
+// y sin a + z cos a), and a move that turns A is drawn in 5-degree chords.
 class ToolpathSink final : public gcode::GeometrySink {
 public:
     Toolpath path;
-    bool wrapRotary = false;
 
     void atLine(std::size_t index) override { line_ = static_cast<std::uint32_t>(index); }
 
@@ -51,9 +52,7 @@ public:
         const bool rapid = modal.motion == "G0";
         std::vector<float>& out = rapid ? path.rapids : path.feeds;
         std::vector<std::uint32_t>& lines = rapid ? path.rapidLines : path.feedLines;
-        // Wrapped, a turn of A is a helix: 5-degree chords.
-        const int steps =
-            wrapRotary ? std::clamp(static_cast<int>(std::ceil(std::fabs(to.a - from.a) / 5.0)), 1, 20000) : 1;
+        const int steps = std::clamp(static_cast<int>(std::ceil(std::fabs(to.a - from.a) / 5.0)), 1, 20000);
         gcode::Vec4 previous = from;
         for (int i = 1; i <= steps; ++i) {
             const double t = static_cast<double>(i) / steps;
@@ -113,17 +112,32 @@ private:
 
     std::uint32_t line_ = 0;
 
-    gcode::Vec4 wrap(const gcode::Vec4& v) const {
-        if (!wrapRotary) {
+    static gcode::Vec4 wrap(const gcode::Vec4& v) {
+        if (v.a == 0) {
             return v;
         }
         const double angle = v.a * std::numbers::pi / 180;
-        return {v.x, v.z * std::sin(angle), v.z * std::cos(angle), v.a};
+        const double c = std::cos(angle);
+        const double s = std::sin(angle);
+        return {v.x, v.y * c - v.z * s, v.y * s + v.z * c, v.a};
     }
 
-    void push(std::vector<float>& out, const gcode::Vec4& fromPoint, const gcode::Vec4& toPoint) const {
+    void extend(const gcode::Vec4& p) {
+        gcode::BoundingBox& box = path.bounds;
+        if (!path.bounded) {
+            box = {p, p};
+            path.bounded = true;
+            return;
+        }
+        box.min = {std::min(box.min.x, p.x), std::min(box.min.y, p.y), std::min(box.min.z, p.z), 0};
+        box.max = {std::max(box.max.x, p.x), std::max(box.max.y, p.y), std::max(box.max.z, p.z), 0};
+    }
+
+    void push(std::vector<float>& out, const gcode::Vec4& fromPoint, const gcode::Vec4& toPoint) {
         const gcode::Vec4 from = wrap(fromPoint);
         const gcode::Vec4 to = wrap(toPoint);
+        extend(from);
+        extend(to);
         out.insert(out.end(), {static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z),
                                static_cast<float>(to.x), static_cast<float>(to.y), static_cast<float>(to.z)});
     }
@@ -131,9 +145,8 @@ private:
 
 }  // namespace
 
-Toolpath traceToolpath(const std::string& program, bool wrapRotary) {
+Toolpath traceToolpath(const std::string& program) {
     ToolpathSink sink;
-    sink.wrapRotary = wrapRotary;
     job::analyzeProgram(program, {}, &sink);
     return std::move(sink.path);
 }

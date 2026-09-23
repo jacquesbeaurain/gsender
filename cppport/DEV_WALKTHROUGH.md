@@ -1086,8 +1086,8 @@ a tick, and a jog sent right after was refused with error:8.
 The section's wizard is there too: Jog A- / Jog A+ send
 `$J=G21G91A∓10F1000` (A becoming Y on Grbl, as any A word).
 
-Not ported: the visualizer's rotary display (a rotary job's toolpath turned
-by the A position, the "Visualize non-center zeros" offset).
+Not ported: the "Visualize non-center zeros" offset. (The visualizer's
+rotary display came with Step 42.)
 
 ## Step 39 — G-code Step Through (`gs/job/step_through`, `src/app/step_through_dialog`)
 
@@ -1124,9 +1124,8 @@ Deviations: positions and modes come from the port's interpreter (the one
 that draws the toolpath), so the cutter sits on the drawn path - upstream's
 viewer interpreter also moved its marker on G10/G28/G38.x/G92 lines and
 read G91.1 as G91; lines are counted as the rest of the app counts them (no
-empty line after the final newline). Not ported: rotary files turning the
-view by A (the main visualizer has no rotary display yet either) and the
-syntax colouring of the source.
+empty line after the final newline). Not ported: the syntax colouring of the
+source. (Rotary files turn with the line's A since Step 42.)
 
 ## Step 40 — G-code Editor (`src/app/gcode_editor_dialog`)
 
@@ -1188,3 +1187,19 @@ still works through its planner.
 
 Deviation: "time ago" counts months as 30 days (date-fns counts calendar
 months), which only matters past two months.
+
+## Step 42 — The visualizer's rotary display
+
+As gviewer draws them, A turns the stock about X: every toolpath point is
+turned by its A (y cos a - z sin a, y sin a + z cos a) and a move that turns
+A is drawn in 5-degree chords, so a rotary job shows as the turned stock
+(identity for everything without A). The tool previews use the same trace
+(the rotary surfacing preview therefore shows the helix from above). A
+rotary job (the analysis' file type) is framed by its drawn extent, and the
+main view turns it back by the rotary's angle as the job runs, so the part
+under the tool is on top (`setToolpathRotationA`); the Step Through view
+turns it by the current line's A.
+
+Deviation: in rotary mode the rotary's angle is read from Y (where the
+rotary is) and the tool is drawn over the centreline; upstream only read
+A, which Grbl's rotary mode never reports, and drew the tool at Y's degrees.
