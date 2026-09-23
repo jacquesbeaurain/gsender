@@ -41,7 +41,7 @@ private:
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
-    enum class Page { General, ToolChange, Firmware };
+    enum class Page { General, ToolChange, Probe, Firmware };
     explicit SettingsDialog(Machine& machine, QWidget* parent = nullptr);
     void showPage(Page page);
 
@@ -61,6 +61,25 @@ private:
     QCheckBox* skipDialog_;
     QPlainTextEdit* preHook_;
     QPlainTextEdit* postHook_;
+    // Probe
+    QComboBox* plateType_;
+    QDoubleSpinBox* standardBlock_;
+    QDoubleSpinBox* xyThickness_;
+    QDoubleSpinBox* autoZero_;
+    QDoubleSpinBox* zProbe_;
+    QDoubleSpinBox* probe3D_;
+    QDoubleSpinBox* tipDiameter3D_;
+    QDoubleSpinBox* xyRetract3D_;
+    QDoubleSpinBox* bitZero_;
+    QDoubleSpinBox* bitZeroZOnly_;
+    QDoubleSpinBox* fastFeed_;
+    QDoubleSpinBox* slowFeed_;
+    QDoubleSpinBox* retraction_;
+    QDoubleSpinBox* zRetractNormal_;
+    QDoubleSpinBox* zRetractAuto_;
+    QDoubleSpinBox* zProbeDistance_;
+    QDoubleSpinBox* moveSpeed_;
+    QCheckBox* connectivityTest_;
 };
 
 }  // namespace gs::app

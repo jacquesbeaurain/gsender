@@ -42,9 +42,11 @@ struct Solid {
 // A standard touch plate hooked over a stock corner (probe::Corner numbers:
 // 0 bottom left, clockwise). The stock corner is at (cornerX, cornerY) with
 // its top at stockTop; the plate's outer faces sit `wall` beyond the stock
-// edges and its top `thickness` above the stock, and it spans `size`.
+// edges, its top `thickness` above the stock and its lips `depth` below it,
+// and it spans `size`. With no wall and no thickness it is the stock itself.
 std::vector<Solid> touchPlateOnCorner(int corner, double cornerX, double cornerY, double stockTop,
-                                      double thickness = 15, double wall = 10, double size = 50);
+                                      double thickness = 15, double wall = 10, double size = 50,
+                                      double depth = 10);
 
 class GrblSimulator final : public controller::DeviceLink {
 public:
@@ -79,6 +81,10 @@ public:
     void setProbeSolids(std::vector<Solid> solids) { solids_ = std::move(solids); }
     void setToolRadius(double radius) { toolRadius_ = radius; }
     bool probeTriggered() const { return touching(mpos_); }  // Pn:P
+
+    // Motion and dwells run `factor` times faster than real time (demos,
+    // application tests).
+    void setSpeed(double factor) { speed_ = factor > 0 ? factor : 1.0; }
 
     static constexpr std::size_t kPlannerSize = 15;
     static constexpr std::int64_t kTickMs = 20;
@@ -158,6 +164,7 @@ private:
     bool probeSuccess_ = false;
     std::vector<Solid> solids_;
     double toolRadius_ = 0;
+    double speed_ = 1.0;
     std::array<int, 3> overrides_{100, 100, 100};
     std::vector<std::pair<std::string, std::string>> settings_;
 };

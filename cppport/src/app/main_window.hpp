@@ -1,5 +1,7 @@
 #pragma once
 
+#include "settings_dialog.hpp"
+
 #include <QMainWindow>
 
 namespace gs::app {
@@ -22,7 +24,7 @@ private:
     void showError(const QString& title, const QString& detail);
     void createMenus();
     void openFile();
-    void openSettings(int page);
+    void openSettings(SettingsDialog::Page page);
 
     Machine& machine_;
     ConsolePanel* console_;

@@ -219,6 +219,65 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     toolForm->addRow(tr("After change"), postHook_);
     tabs_->addTab(toolChange, tr("Tool Change"));
 
+    // The touch plate profile and the Probe widget's settings (gSender's
+    // Probe settings section), all in mm and mm/min.
+    auto* probe = new QWidget;
+    auto* probeColumns = new QHBoxLayout(probe);
+    auto* plateForm = new QFormLayout;
+    auto* motionForm = new QFormLayout;
+    probeColumns->addLayout(plateForm);
+    probeColumns->addLayout(motionForm);
+    const auto length = [](double max, const QString& suffix = " mm") {
+        auto* box = new QDoubleSpinBox;
+        box->setRange(0, max);
+        box->setDecimals(3);
+        box->setSuffix(suffix);
+        return box;
+    };
+    plateType_ = new QComboBox;
+    for (const probe::PlateType type : {probe::PlateType::StandardBlock, probe::PlateType::AutoZero,
+                                        probe::PlateType::ZProbe, probe::PlateType::Probe3D,
+                                        probe::PlateType::BitZero}) {
+        plateType_->addItem(QString::fromUtf8(probe::plateTypeName(type).data()));
+    }
+    standardBlock_ = length(100);
+    xyThickness_ = length(100);
+    autoZero_ = length(100);
+    zProbe_ = length(100);
+    probe3D_ = length(100);
+    tipDiameter3D_ = length(20);
+    xyRetract3D_ = length(100);
+    bitZero_ = length(100);
+    bitZeroZOnly_ = length(100);
+    plateForm->addRow(tr("Touch plate"), plateType_);
+    plateForm->addRow(tr("Block Z thickness"), standardBlock_);
+    plateForm->addRow(tr("Block XY thickness"), xyThickness_);
+    plateForm->addRow(tr("AutoZero Z thickness"), autoZero_);
+    plateForm->addRow(tr("Z probe thickness"), zProbe_);
+    plateForm->addRow(tr("3D probe Z offset"), probe3D_);
+    plateForm->addRow(tr("3D probe tip diameter"), tipDiameter3D_);
+    plateForm->addRow(tr("3D probe XY retract"), xyRetract3D_);
+    plateForm->addRow(tr("BitZero inset thickness"), bitZero_);
+    plateForm->addRow(tr("BitZero Z-only thickness"), bitZeroZOnly_);
+    fastFeed_ = length(10000, " mm/min");
+    slowFeed_ = length(10000, " mm/min");
+    retraction_ = length(100);
+    zRetractNormal_ = length(100);
+    zRetractAuto_ = length(100);
+    zProbeDistance_ = length(500);
+    moveSpeed_ = length(20000, " mm/min");
+    moveSpeed_->setSpecialValueText(tr("Rapid (G0)"));
+    connectivityTest_ = new QCheckBox(tr("Check the probe circuit before probing"));
+    motionForm->addRow(tr("Fast find"), fastFeed_);
+    motionForm->addRow(tr("Slow find"), slowFeed_);
+    motionForm->addRow(tr("Retraction"), retraction_);
+    motionForm->addRow(tr("Final Z retract"), zRetractNormal_);
+    motionForm->addRow(tr("AutoZero Z retract"), zRetractAuto_);
+    motionForm->addRow(tr("Z probe distance"), zProbeDistance_);
+    motionForm->addRow(tr("Return move speed"), moveSpeed_);
+    motionForm->addRow(QString(), connectivityTest_);
+    tabs_->addTab(probe, tr("Probe"));
+
     tabs_->addTab(new FirmwareSettingsTable(machine_), tr("Firmware"));
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
@@ -249,6 +308,26 @@ void SettingsDialog::load() {
     skipDialog_->setChecked(s.toolChange.skipDialog);
     preHook_->setPlainText(QString::fromStdString(s.toolChange.preHook));
     postHook_->setPlainText(QString::fromStdString(s.toolChange.postHook));
+
+    const probe::ProbeSettings& p = s.probe;
+    plateType_->setCurrentText(QString::fromUtf8(probe::plateTypeName(p.plateType).data()));
+    standardBlock_->setValue(p.zThickness.standardBlock);
+    xyThickness_->setValue(p.xyThickness);
+    autoZero_->setValue(p.zThickness.autoZero);
+    zProbe_->setValue(p.zThickness.zProbe);
+    probe3D_->setValue(p.zThickness.probe3D);
+    tipDiameter3D_->setValue(p.tipDiameter3D);
+    xyRetract3D_->setValue(p.xyRetract3D);
+    bitZero_->setValue(p.zThickness.bitZero);
+    bitZeroZOnly_->setValue(p.zThickness.bitZeroZOnly);
+    fastFeed_->setValue(p.probeFastFeedrate);
+    slowFeed_->setValue(p.probeFeedrate);
+    retraction_->setValue(p.retractionDistance);
+    zRetractNormal_->setValue(p.zRetractNormal);
+    zRetractAuto_->setValue(p.zRetractAuto);
+    zProbeDistance_->setValue(p.zProbeDistance);
+    moveSpeed_->setValue(p.probeMovementSpeed);
+    connectivityTest_->setChecked(p.connectivityTest);
 }
 
 void SettingsDialog::save() {
@@ -263,6 +342,26 @@ void SettingsDialog::save() {
     s.toolChange.skipDialog = skipDialog_->isChecked();
     s.toolChange.preHook = preHook_->toPlainText().toStdString();
     s.toolChange.postHook = postHook_->toPlainText().toStdString();
+
+    probe::ProbeSettings& p = s.probe;
+    p.plateType = probe::plateTypeFromName(plateType_->currentText().toStdString()).value_or(p.plateType);
+    p.zThickness.standardBlock = standardBlock_->value();
+    p.xyThickness = xyThickness_->value();
+    p.zThickness.autoZero = autoZero_->value();
+    p.zThickness.zProbe = zProbe_->value();
+    p.zThickness.probe3D = probe3D_->value();
+    p.tipDiameter3D = tipDiameter3D_->value();
+    p.xyRetract3D = xyRetract3D_->value();
+    p.zThickness.bitZero = bitZero_->value();
+    p.zThickness.bitZeroZOnly = bitZeroZOnly_->value();
+    p.probeFastFeedrate = fastFeed_->value();
+    p.probeFeedrate = slowFeed_->value();
+    p.retractionDistance = retraction_->value();
+    p.zRetractNormal = zRetractNormal_->value();
+    p.zRetractAuto = zRetractAuto_->value();
+    p.zProbeDistance = zProbeDistance_->value();
+    p.probeMovementSpeed = moveSpeed_->value();
+    p.connectivityTest = connectivityTest_->isChecked();
     machine_.setSettings(s);
 }
 

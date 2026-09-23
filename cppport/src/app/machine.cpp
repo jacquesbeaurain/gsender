@@ -225,6 +225,82 @@ void Machine::disconnectFromMachine() {
     Q_EMIT connectionChanged();
 }
 
+// ---- probing ----------------------------------------------------------------------------
+
+std::vector<std::string> Machine::probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,
+                                               int corner) const {
+    controller::Controller* c = controller();
+    if (!c) {
+        return {};
+    }
+    // The widget reads `settings.$13 ?? '0'` and the like.
+    const auto setting = [&](const char* key, const char* fallback) {
+        const std::string value = c->runner().setting(key);
+        return value.empty() ? std::string(fallback) : value;
+    };
+    probe::MachineFacts facts;
+    facts.grblHal = c->firmware() == protocol::Firmware::GrblHal;
+    facts.reportInches = setting("$13", "0");
+    facts.homing = setting("$22", "0");
+    facts.zMaxTravel = setting("$132", "0");
+    facts.machineZ = c->runner().machinePosition()[2];
+    const probe::ProbingOptions options =
+        probe::makeProbingOptions(settings_.probe, true, axes, type, toolDiameter, facts);
+    return probe::probeCode(options, corner);
+}
+
+bool Machine::runProbe(std::vector<std::string> code) {
+    controller::Controller* c = controller();
+    if (!c || code.empty() || !c->workflow().isIdle()) {
+        return false;
+    }
+    code.push_back(c->runner().modal().distance);
+    c->gcodeSafe(code, "G21");
+    return true;
+}
+
+bool Machine::probeTriggered() const {
+    controller::Controller* c = controller();
+    return c && c->state().status.probeActive;
+}
+
+void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner) {
+    if (!simulator_) {
+        return;
+    }
+    const sim::SimAxes at = simulator_->machinePosition();
+    const probe::ProbeSettings& p = settings_.probe;
+    const double sx = corner == probe::kBottomLeft || corner == probe::kTopLeft ? 1 : -1;
+    const double sy = corner == probe::kBottomLeft || corner == probe::kBottomRight ? 1 : -1;
+    double radius = type == probe::ProbeType::Diameter ? toolDiameter / 2 : 0;
+    std::vector<sim::Solid> solids;
+    switch (p.plateType) {
+        case probe::PlateType::StandardBlock: {
+            // The bit 5 mm in from the plate's outer faces.
+            const double thickness = p.zThickness.standardBlock;
+            solids = sim::touchPlateOnCorner(corner, at[0] + 5 * sx, at[1] + 5 * sy, at[2] - 10 - thickness, thickness,
+                                             p.xyThickness);
+            break;
+        }
+        case probe::PlateType::ZProbe: {
+            const double top = at[2] - 10;
+            solids = {sim::Solid{{at[0] - 25, at[1] - 25, top - p.zThickness.zProbe}, {at[0] + 25, at[1] + 25, top}}};
+            break;
+        }
+        case probe::PlateType::Probe3D:
+            // A touch probe closes its circuit on the stock itself; the tip
+            // starts 5 mm in from the corner.
+            radius = p.tipDiameter3D / 2;
+            solids = sim::touchPlateOnCorner(corner, at[0] - 5 * sx, at[1] - 5 * sy, at[2] - 10, 0, 0, 100, 30);
+            break;
+        case probe::PlateType::AutoZero:
+        case probe::PlateType::BitZero:
+            break;
+    }
+    simulator_->setProbeSolids(std::move(solids));
+    simulator_->setToolRadius(radius);
+}
+
 // ---- controller events ----------------------------------------------------------------
 
 void Machine::handle(const controller::ControllerEvent& event) {
@@ -368,6 +444,7 @@ void Machine::setSettings(const AppSettings& settings) {
         c->setToolChangeContext(settings_.toolChange);
     }
     saveAppSettings(config_, settings_);
+    Q_EMIT appSettingsChanged();
 }
 
 void Machine::sendConsoleLine(const QString& line) {

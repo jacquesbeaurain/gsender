@@ -6,6 +6,7 @@
 
 #include "gs/config/config_store.hpp"
 #include "gs/controller/controller.hpp"
+#include "gs/probe/probing.hpp"
 
 #include <string>
 
@@ -20,6 +21,8 @@ struct AppSettings {
     int baudRate = 115200;
     int networkPort = 23;
     protocol::Firmware defaultFirmware = protocol::Firmware::Grbl;
+    // Probe widget and touch plate profile (mm)
+    probe::ProbeSettings probe;
 };
 
 // The tool change strategies the port supports so far (gSender's option

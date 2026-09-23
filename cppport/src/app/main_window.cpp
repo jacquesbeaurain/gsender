@@ -3,6 +3,7 @@
 #include "controls.hpp"
 #include "machine.hpp"
 #include "panels.hpp"
+#include "probe_panel.hpp"
 #include "settings_dialog.hpp"
 #include "toolpath_view.hpp"
 
@@ -42,6 +43,7 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     auto* tabs = new QTabWidget;
     tabs->addTab(new JogPanel(machine_), tr("Jog"));
     tabs->addTab(new SpindlePanel(machine_), tr("Spindle && Coolant"));
+    tabs->addTab(new ProbePanel(machine_), tr("Probe"));
     tabs->addTab(new MacrosPanel(machine_), tr("Macros"));
     rightLayout->addWidget(tabs);
     console_ = new ConsolePanel(machine_);
@@ -96,9 +98,9 @@ void MainWindow::createMenus() {
     quit->setShortcut(QKeySequence::Quit);
 
     QMenu* machine = menuBar()->addMenu(tr("&Machine"));
-    QAction* settings = machine->addAction(tr("&Settings..."), this, [this] { openSettings(0); });
+    QAction* settings = machine->addAction(tr("&Settings..."), this, [this] { openSettings(SettingsDialog::Page::General); });
     settings->setShortcut(QKeySequence::Preferences);
-    machine->addAction(tr("&Firmware Settings..."), this, [this] { openSettings(2); });
+    machine->addAction(tr("&Firmware Settings..."), this, [this] { openSettings(SettingsDialog::Page::Firmware); });
 
     QMenu* help = menuBar()->addMenu(tr("&Help"));
     help->addAction(tr("&About"), this, [this] {
@@ -125,9 +127,9 @@ void MainWindow::openFile() {
     }
 }
 
-void MainWindow::openSettings(int page) {
+void MainWindow::openSettings(SettingsDialog::Page page) {
     SettingsDialog dialog(machine_, this);
-    dialog.showPage(static_cast<SettingsDialog::Page>(page));
+    dialog.showPage(page);
     dialog.exec();
 }
 
