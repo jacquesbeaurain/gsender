@@ -31,10 +31,13 @@ namespace gs::app {
 
 class QtEventLoop;
 
-// Toolpath segments for the visualizer: x0,y0,z0, x1,y1,z1 per segment.
+// Toolpath segments for the visualizer: x0,y0,z0, x1,y1,z1 per segment, and
+// the sender line each segment belongs to (for progress colouring).
 struct Toolpath {
     std::vector<float> rapids;
     std::vector<float> feeds;
+    std::vector<std::uint32_t> rapidLines;
+    std::vector<std::uint32_t> feedLines;
 };
 
 class Machine final : public QObject {

@@ -47,10 +47,14 @@ ProgramAnalysis analyzeProgram(std::string_view program, const gcode::Interprete
             result.cancelled = true;
             return result;
         }
-        interpreter.processLine(line);
         // The sender streams only the lines with content; keep the
-        // estimates on its numbering.
-        if (!str::trim(line).empty()) {
+        // estimates (and the geometry's line numbers) on its numbering.
+        const bool streamed = !str::trim(line).empty();
+        if (sink && streamed) {
+            sink->atLine(result.estimates.size());
+        }
+        interpreter.processLine(line);
+        if (streamed) {
             result.estimates.push_back(interpreter.lastLineTime());
         }
     }
