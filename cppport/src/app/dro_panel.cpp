@@ -434,7 +434,7 @@ void PositionPanel::refresh() {
     park_->setVisible(homing);
     park_->setEnabled(canMove && homed);
     home_->setVisible(homing);
-    home_->setEnabled(connected && !running && (canMove || state == "Alarm"));
+    home_->setEnabled(canMove);  // in an alarm, the status area's button homes
     const bool single = homing && machine_.singleAxisHoming();
     singleAxis_->setVisible(single);
     singleAxis_->setEnabled(canMove);

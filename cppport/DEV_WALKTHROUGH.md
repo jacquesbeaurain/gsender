@@ -772,7 +772,6 @@ Deviations:
 | MCS prefill | raw mm figures, also in inches | the machine position in the workspace units | consistent fields |
 | Typed position, empty or invalid | sent as 0 (`Number("")`) | ignored | an Enter on an empty field zeroed the axis |
 | Typed position while the machine moves | the field re-mounts on every report | kept while it has the focus | typing is not interrupted |
-| DRO Home button | idle or jogging only | also in Alarm | the port has no alarm/unlock area yet |
 
 In the application the DRO (`dro_panel`, split out of `panels.cpp`) has the
 workspace selector (G54-G59 with upstream's colours, following the modal
@@ -790,3 +789,43 @@ The simulated board now reads $22 as a bitmask and homes single axes
 (`$HX`, with bit 1); its homing time scales with `setSpeed`. An application
 test selects G55, types a position, homes, goes to a corner and the park
 position, runs Go To in all three modes and homes X alone.
+
+## Step 30 — Status area and Machine Information (`src/app/status_area`)
+
+gSender shows the machine state as a coloured pill over the visualizer
+(MachineStatus): the state's name ("Running", "Jogging", "Tool Change"...;
+"Disconnected" without one), in an alarm its code with a "?" for the
+description (grblHAL's own `$EA` text first, then the firmware tables), a
+lock icon beside it, and under it in an alarm a button that unlocks - or
+runs homing for the homing lock. The port overlays the same on its
+visualizer, with upstream's colours.
+
+The two buttons follow different rules upstream, both kept (core
+`actions`, with upstream's `isHomingFailureAlarm` tests ported):
+
+| | Alarm button (MachineStatus) | Lock icon (UnlockButton) |
+|---|---|---|
+| ALARM 1, 2, 14 | reset (soft reset + `$X`) | `$X` |
+| ALARM 10, 17 | reset | reset |
+| Homing lock, ALARM 11 | homing | `$X`, then the configuration is read again |
+| ALARM 6-9 (homing failed) | ask: Rehome or Unlock Anyway | ask |
+| other alarms | `$X` | `$X` |
+| Hold | cycle start | cycle start |
+| any other state | `$X` | cycle start |
+
+The homing-failure question explains that the position is unknown (and for
+ALARM 8/9 that a switch or its wiring is at fault, with how to disable
+homing meanwhile). Deviation: closing it does nothing - upstream's dialog
+treated any close as "Unlock Anyway".
+
+Machine Information ("i" beside the state, or the DISPLAY_MACHINE_INFO
+shortcut) lists the firmware version, the CNC modals (probe style,
+coordinate system, plane, units, distance, feed, spindle, coolant), the
+input pins (limits, probe, door, cycle start, hold, reset) and the tool,
+and offers "Lock stepper motors": `$1=255` keeps the motors powered, the
+previous idle delay is remembered and restored (50 when none was).
+
+The DRO's Home button now follows upstream (idle or jogging): in an alarm
+the status area's button homes. The simulated board can raise any alarm
+(`triggerAlarm`); the application test runs ALARM 3 and 9 through the
+buttons, and the stepper lock round trip.

@@ -13,6 +13,7 @@
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
 #include "start_from_line_dialog.hpp"
+#include "status_area.hpp"
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
 
@@ -594,6 +595,73 @@ TEST_F(AppTest, TheDroSelectsWorkspacesAndGoesToPlaces) {
     ASSERT_TRUE(waitFor([&] { return homeX->isEnabled(); }));
     homeX->click();
     ASSERT_TRUE(waitFor([&] { return machineAt(0, -60, -5); }));
+}
+
+TEST_F(AppTest, TheStatusAreaUnlocksAlarmsAndShowsMachineInformation) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    QWidget view;
+    view.resize(800, 600);
+    StatusArea status(machine, &view);
+    EXPECT_EQ(status.stateText(), "Disconnected");
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+    controller::Controller& c = *machine.controller();
+    EXPECT_TRUE(waitFor([&] { return status.stateText() == "Idle"; }));
+    EXPECT_FALSE(status.alarmButtonShown());
+
+    // An alarm shows its code and description; its button unlocks.
+    machine.simulator()->triggerAlarm(3);
+    ASSERT_TRUE(waitFor([&] { return status.stateText() == "Alarm (3)"; }));
+    EXPECT_TRUE(status.alarmButtonShown());
+    EXPECT_EQ(status.alarmButtonText(), "Click to Unlock Machine");
+    EXPECT_TRUE(machine.alarmDescription("3").startsWith("Reset while in motion."));
+    status.clickAlarmButton();
+    ASSERT_TRUE(waitFor([&] { return status.stateText() == "Idle"; }));
+
+    // A failed homing cycle asks first: cancelled nothing happens, "Rehome" homes.
+    QStringList asked;
+    StatusArea::HomingFailureChoice choice = StatusArea::HomingFailureChoice::Cancel;
+    status.setHomingFailureChooser([&](const QString& code) {
+        asked << code;
+        return choice;
+    });
+    machine.simulator()->triggerAlarm(9);
+    ASSERT_TRUE(waitFor([&] { return status.stateText() == "Alarm (9)"; }));
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        view.show();
+        view.grab().save(QString::fromLocal8Bit(out) + "/status_alarm.png");
+    }
+    status.clickLockIcon();
+    runFor(100);
+    EXPECT_EQ(c.state().status.activeState, "Alarm");
+    choice = StatusArea::HomingFailureChoice::Rehome;
+    status.clickAlarmButton();
+    EXPECT_EQ(asked, (QStringList{"9", "9"}));
+    ASSERT_TRUE(waitFor([&] { return c.hasHomed() && status.stateText() == "Idle"; }));
+
+    // Machine Information: modals, pins, and the stepper lock ($1=255, the
+    // idle delay restored afterwards).
+    MachineInfoDialog info(machine);
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        info.show();
+        info.grab().save(QString::fromLocal8Bit(out) + "/machine_info.png");
+    }
+    EXPECT_EQ(info.row("Coordinate system"), "G54");
+    EXPECT_EQ(info.row("Units"), "G21");
+    EXPECT_EQ(info.row("X limit"), "Off");
+    EXPECT_FALSE(machine.stepperLocked());
+    machine.setStepperLock(true);
+    ASSERT_TRUE(waitFor([&] { return machine.stepperLocked(); }));
+    EXPECT_EQ(machine.settings().stepperRestoreValue, "25");
+    machine.setStepperLock(false);
+    ASSERT_TRUE(waitFor([&] { return c.runner().setting("$1") == "25"; }));
+    EXPECT_TRUE(machine.settings().stepperRestoreValue.empty());
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

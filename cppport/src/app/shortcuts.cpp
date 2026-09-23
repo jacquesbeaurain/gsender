@@ -23,6 +23,7 @@ const QString kOverrides = QStringLiteral("Overrides");
 const QString kCoolant = QStringLiteral("Coolant");
 const QString kSpindle = QStringLiteral("Spindle/Laser");
 const QString kProbing = QStringLiteral("Probing");
+const QString kToolbar = QStringLiteral("Toolbar");
 
 }  // namespace
 
@@ -106,6 +107,7 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"OPEN_PROBE", "Display probe popup", kProbing, ""},
         {"PROBE_ROUTINE_SCROLL_RIGHT", "Probe Routine scroll right", kProbing, ""},
         {"PROBE_ROUTINE_SCROLL_LEFT", "Probe Routine scroll left", kProbing, ""},
+        {"DISPLAY_MACHINE_INFO", "Display Machine Info", kToolbar, ""},
     };
     return actions;
 }

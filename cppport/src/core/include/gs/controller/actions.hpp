@@ -1,9 +1,9 @@
 #pragma once
 
 // What gSender's widgets do with the controller - the job control buttons,
-// the DRO's zeroing and go-to-zero, the workspace shortcuts - ported from
-// the React components so buttons and keyboard shortcuts share one set of
-// rules.
+// the DRO's zeroing and go-to-zero, the workspace shortcuts, the status
+// area's unlock buttons - ported from the React components so buttons and
+// keyboard shortcuts share one set of rules.
 
 #include "gs/controller/streaming.hpp"
 
@@ -65,5 +65,42 @@ enum class ControllerCommand {
 // and soft limits) every allowed command just unlocks, as upstream does.
 // False when nothing was sent.
 bool runControllerCommand(Controller& c, ControllerCommand command);
+
+// ---- the status area (MachineStatus, UnlockButton) ----
+
+// The state as the status area names it: "Run" is "Running", "Jog"
+// "Jogging", "Home" "Homing", "Tool" "Tool Change"; "Disconnected" when
+// there is none.
+std::string statusLabel(std::string_view activeState);
+
+// ALARM 6-9: the homing cycle failed, so the position cannot be trusted.
+bool isHomingFailureAlarm(std::string_view alarmCode);
+// ALARM 8 and 9: a limit switch was not found or would not release.
+bool isLimitSwitchFaultAlarm(std::string_view alarmCode);
+
+enum class UnlockAction {
+    ResetLimit,            // reset:limit - soft reset, then $X
+    Home,                  // the homing cycle
+    ConfirmHomingFailure,  // ask first: re-home, or unlock anyway
+    Unlock,                // $X
+    CycleStart,            // ~
+};
+
+// The button under the status in an alarm (MachineStatus's unlock()):
+// limit-type alarms (1, 2, 10, 14, 17) reset, the homing lock ("Homing",
+// 11) homes, a failed homing cycle (6-9) asks, others unlock; in a hold it
+// resumes.
+UnlockAction alarmButtonAction(std::string_view activeState, std::string_view alarmCode);
+// Its label says "Run Homing" rather than "Unlock Machine".
+bool alarmButtonHomes(std::string_view activeState, std::string_view alarmCode);
+// The lock icon beside the status (UnlockButton's unlockFirmware()): in an
+// alarm 10 and 17 reset, 6-9 ask, anything else unlocks - the homing lock
+// too, re-reading the configuration afterwards (lockIconRepopulates); in
+// any other state it sends a cycle start.
+UnlockAction lockIconAction(std::string_view activeState, std::string_view alarmCode);
+bool lockIconRepopulates(std::string_view activeState, std::string_view alarmCode);
+// Sends `action`; ConfirmHomingFailure is the caller's to resolve (into
+// Home or Unlock) and sends nothing.
+void runUnlockAction(Controller& c, UnlockAction action);
 
 }  // namespace gs::controller

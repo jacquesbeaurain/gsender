@@ -116,6 +116,9 @@ public:
     bool isReady() const noexcept { return ready_; }
     bool hasHomed() const noexcept { return hasHomedSet_; }
     bool homingFlag() const noexcept { return homingFlagSet_; }
+    // An alarm's description ("9", or "Homing" for Grbl's homing lock):
+    // grblHAL's own ($EA) first, then the firmware tables.
+    std::optional<protocol::CodeInfo> alarmInfo(const std::string& code) const;
     const protocol::RunnerState& state() const noexcept { return runner_.state(); }
     const protocol::FirmwareSettings& settings() const noexcept { return runner_.settings(); }
     const ToolChangeContext& toolChangeContext() const noexcept { return toolChangeContext_; }
@@ -265,7 +268,6 @@ private:
     void report(ControllerEvent event) const;
     void emitState(std::optional<std::string> tool = std::nullopt);
     std::optional<protocol::CodeInfo> errorInfo(int code) const;
-    std::optional<protocol::CodeInfo> alarmInfo(const std::string& code) const;
     std::pair<std::string, std::string> errorOrigin(bool checkHoming);
     Preferences preferences() const;
     // grblHAL [AXS:] probing

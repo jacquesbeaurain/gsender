@@ -156,6 +156,15 @@ public:
     // degrees; gcode:safe in the workspace units.
     void goToLocation(controller::GoToMode mode, double x, double y, double z, double a);
 
+    // ---- status and machine information ----
+    // An alarm code's description, as the status area's "?" shows it.
+    QString alarmDescription(const std::string& code) const;
+    // Machine Info's "Lock stepper motors": $1=255 keeps the motors powered
+    // between moves; the previous $1 is kept and restored on unlocking (50
+    // when none was kept).
+    bool stepperLocked() const;
+    void setStepperLock(bool lock);
+
     // ---- probing ----
     // The Probe widget's routine: the probe settings (converted for inch
     // workspaces), the board's $13, $22 and $132 and the machine position;

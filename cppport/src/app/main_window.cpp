@@ -9,6 +9,7 @@
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
+#include "status_area.hpp"
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
 #include "toolpath_view.hpp"
@@ -42,6 +43,7 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     auto* leftLayout = new QVBoxLayout(left);
     leftLayout->setContentsMargins(6, 0, 0, 6);
     visualizer_ = new ToolpathView(machine_);
+    statusArea_ = new StatusArea(machine_, visualizer_);
     leftLayout->addWidget(visualizer_, 1);
     leftLayout->addWidget(new JobPanel(machine_));
 
@@ -214,6 +216,7 @@ void MainWindow::installShortcuts() {
         }
     });
     s.setHandler("RUN_OUTLINE", [this] { machine_.runOutline(); });
+    s.setHandler("DISPLAY_MACHINE_INFO", [this] { statusArea_->toggleMachineInfo(); });
     s.setHandler("LOAD_FILE", [this] { openFile(); });
     s.setHandler("UNLOAD_FILE", [this] {
         controller::Controller* c = machine_.controller();

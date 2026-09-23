@@ -536,6 +536,39 @@ void Machine::goToLocation(controller::GoToMode mode, double x, double y, double
     c->gcodeSafe(controller::goToLocationCommands(location), settings_.metric ? "G21" : "G20");
 }
 
+// ---- status and machine information ------------------------------------------------------
+
+QString Machine::alarmDescription(const std::string& code) const {
+    if (const controller::Controller* c = controller()) {
+        if (const auto alarm = c->alarmInfo(code)) {
+            return QString::fromStdString(alarm->description);
+        }
+    }
+    return tr("No matching description found");
+}
+
+bool Machine::stepperLocked() const {
+    const controller::Controller* c = controller();
+    return c && c->runner().setting("$1") == "255";
+}
+
+void Machine::setStepperLock(bool lock) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    AppSettings settings = settings_;
+    if (lock) {
+        settings.stepperRestoreValue = c->runner().setting("$1");
+        c->gcode(std::vector<std::string>{"$1=255", "$$"});
+    } else {
+        const std::string value = settings.stepperRestoreValue.empty() ? "50" : settings.stepperRestoreValue;
+        c->gcode(std::vector<std::string>{"$1=" + value, "$$"});
+        settings.stepperRestoreValue.clear();
+    }
+    setSettings(settings);
+}
+
 // ---- probing ----------------------------------------------------------------------------
 
 std::vector<std::string> Machine::probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,

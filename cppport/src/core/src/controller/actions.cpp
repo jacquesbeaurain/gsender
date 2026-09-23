@@ -99,6 +99,99 @@ std::vector<std::string> goToZeroCommands(std::string_view axes, bool homingEnab
     return commands;
 }
 
+namespace {
+
+// The alarm code as upstream's number; -1 for "Homing" or none.
+int alarmNumber(std::string_view code) {
+    const double number = js::stringToNumber(code);
+    return !code.empty() && std::isfinite(number) ? static_cast<int>(number) : -1;
+}
+
+bool isHomingLock(std::string_view code) {
+    return code == "Homing" || alarmNumber(code) == 11;
+}
+
+}  // namespace
+
+std::string statusLabel(std::string_view activeState) {
+    if (activeState.empty()) {
+        return "Disconnected";
+    }
+    if (activeState == "Run") {
+        return "Running";
+    }
+    if (activeState == "Jog") {
+        return "Jogging";
+    }
+    if (activeState == "Home") {
+        return "Homing";
+    }
+    if (activeState == "Tool") {
+        return "Tool Change";
+    }
+    return std::string(activeState);  // Idle, Hold, Check, Sleep, Alarm, Door
+}
+
+bool isHomingFailureAlarm(std::string_view alarmCode) {
+    const int code = alarmNumber(alarmCode);
+    return code >= 6 && code <= 9;
+}
+
+bool isLimitSwitchFaultAlarm(std::string_view alarmCode) {
+    const int code = alarmNumber(alarmCode);
+    return code == 8 || code == 9;
+}
+
+UnlockAction alarmButtonAction(std::string_view activeState, std::string_view alarmCode) {
+    if (activeState == "Alarm") {
+        const int code = alarmNumber(alarmCode);
+        if (code == 1 || code == 2 || code == 10 || code == 14 || code == 17) {
+            return UnlockAction::ResetLimit;
+        }
+        if (isHomingLock(alarmCode)) {
+            return UnlockAction::Home;
+        }
+        if (isHomingFailureAlarm(alarmCode)) {
+            return UnlockAction::ConfirmHomingFailure;
+        }
+    } else if (activeState == "Hold") {
+        return UnlockAction::CycleStart;
+    }
+    return UnlockAction::Unlock;
+}
+
+bool alarmButtonHomes(std::string_view activeState, std::string_view alarmCode) {
+    return activeState == "Alarm" && isHomingLock(alarmCode);
+}
+
+UnlockAction lockIconAction(std::string_view activeState, std::string_view alarmCode) {
+    if (activeState != "Alarm") {
+        return UnlockAction::CycleStart;
+    }
+    const int code = alarmNumber(alarmCode);
+    if (code == 17 || code == 10) {
+        return UnlockAction::ResetLimit;
+    }
+    if (isHomingFailureAlarm(alarmCode)) {
+        return UnlockAction::ConfirmHomingFailure;
+    }
+    return UnlockAction::Unlock;
+}
+
+bool lockIconRepopulates(std::string_view activeState, std::string_view alarmCode) {
+    return activeState == "Alarm" && isHomingLock(alarmCode);
+}
+
+void runUnlockAction(Controller& c, UnlockAction action) {
+    switch (action) {
+        case UnlockAction::ResetLimit: c.resetLimit(); break;
+        case UnlockAction::Home: c.home(); break;
+        case UnlockAction::Unlock: c.unlock(); break;
+        case UnlockAction::CycleStart: c.cycleStart(); break;
+        case UnlockAction::ConfirmHomingFailure: break;
+    }
+}
+
 bool runControllerCommand(Controller& c, ControllerCommand command) {
     const std::string& activeState = c.state().status.activeState;
     const std::string& alarmCode = c.state().status.alarmCode;

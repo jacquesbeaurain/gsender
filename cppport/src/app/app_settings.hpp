@@ -59,6 +59,9 @@ struct AppSettings {
     // The park position (workspace.park, machine coordinates, mm): the DRO's
     // Park button goes there once the machine has homed.
     toolchange::MachinePosition park;
+    // Machine Info's stepper lock: the $1 to restore on unlocking
+    // (workspace.diagnostics.stepperMotor.storedValue); empty: none.
+    std::string stepperRestoreValue;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;
