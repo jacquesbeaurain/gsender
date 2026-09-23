@@ -92,6 +92,13 @@ TEST(ProgramAnalysis, GeometryGoesToTheSinkWithSenderLineNumbers) {
     EXPECT_EQ(sink.senderLines, (std::vector<std::size_t>{0, 1, 2}));  // the blank line is not streamed
 }
 
+TEST(ProgramAnalysis, SenderLinesKnowTheirFileLines) {
+    // Blank lines are not streamed; comments are.
+    EXPECT_EQ(job::senderLineNumbers("G21\n\n  \n(comment)\r\nG0 X1\n"),
+              (std::vector<std::size_t>{1, 4, 5}));
+    EXPECT_TRUE(job::senderLineNumbers("").empty());
+}
+
 TEST(ProgramAnalysis, ACancelledAnalysisStopsEarly) {
     std::string program;
     for (int i = 0; i < 20000; ++i) {

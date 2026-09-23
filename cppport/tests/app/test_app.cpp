@@ -5,6 +5,7 @@
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
+#include "gcode_editor_dialog.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "main_window.hpp"
@@ -1410,6 +1411,77 @@ TEST_F(AppTest, TheStepThroughFollowsTheFileLineByLine) {
     dialog.show();
     machine.unloadProgram();
     EXPECT_FALSE(dialog.isVisible());
+}
+
+TEST_F(AppTest, TheGcodeEditorChangesTheJobAndFollowsItRunning) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.loadProgram("edit.nc", "G21 G90\r\nG0 X5\r\n\r\nG1 X10 F500\r\nG1 Y5\r\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    GcodeEditorDialog editor(machine);
+    const QString original = "G21 G90\nG0 X5\n\nG1 X10 F500\nG1 Y5";
+    EXPECT_EQ(editor.text(), original);  // one line per line, whatever the endings
+    EXPECT_FALSE(editor.hasChanges());
+
+    // Search: any case, wrapping both ways.
+    editor.setSearch("g1");
+    EXPECT_EQ(editor.matchCount(), 2);
+    EXPECT_EQ(editor.currentMatch(), 0);
+    editor.nextMatch();
+    editor.nextMatch();
+    EXPECT_EQ(editor.currentMatch(), 0);
+    editor.previousMatch();
+    EXPECT_EQ(editor.currentMatch(), 1);
+    editor.setSearch("");
+
+    // Selected lines: copied, deleted, reverted.
+    editor.selectLines(2, 3);
+    EXPECT_EQ(editor.selectedLineCount(), 2);
+    EXPECT_EQ(editor.copyText(), "G0 X5\n");
+    editor.deleteSelectedLines();
+    EXPECT_EQ(editor.text(), "G21 G90\nG1 X10 F500\nG1 Y5");
+    EXPECT_TRUE(editor.hasChanges());
+    ASSERT_TRUE(editor.revert());
+    EXPECT_EQ(editor.text(), original);
+    EXPECT_FALSE(editor.hasChanges());
+
+    // The last line goes with the break before it; saved, it is the job.
+    editor.selectLines(5, 5);
+    editor.deleteSelectedLines();
+    const QString edited = "G21 G90\nG0 X5\n\nG1 X10 F500";
+    EXPECT_EQ(editor.text(), edited);
+    ASSERT_TRUE(editor.save());
+    EXPECT_EQ(machine.programText(), edited.toStdString());
+    EXPECT_EQ(machine.programName(), "edit.nc");
+    EXPECT_FALSE(editor.hasChanges());
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    EXPECT_EQ(editor.text(), edited);
+
+    // While the job runs the text is read-only and follows the running line
+    // (the blank line 3 is not sent: the sender's lines map back to the
+    // file's).
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->state().status.activeState == "Idle";
+    }));
+    controller::runJob(*machine.controller());
+    ASSERT_TRUE(waitFor([&] { return editor.jobRunning() && editor.runningLine() == 4; }));
+    EXPECT_TRUE(editor.editor().isReadOnly());
+    EXPECT_FALSE(editor.save());
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        editor.resize(760, 420);
+        editor.show();
+        editor.grab().save(QString::fromLocal8Bit(out) + "/gcode_editor.png");
+    }
+    ASSERT_TRUE(waitFor([&] { return !editor.jobRunning(); }));
+    EXPECT_EQ(editor.runningLine(), 0u);
+    EXPECT_FALSE(editor.editor().isReadOnly());
+
+    // Unloading the file closes the editor.
+    editor.show();
+    machine.unloadProgram();
+    EXPECT_FALSE(editor.isVisible());
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
