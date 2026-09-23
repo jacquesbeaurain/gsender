@@ -7,6 +7,7 @@
 // the UI thread; the transport and the program analysis report back to it.
 
 #include "gs/config/config_store.hpp"
+#include "gs/config/records.hpp"
 #include "gs/controller/session.hpp"
 #include "gs/job/program_analysis.hpp"
 
@@ -74,6 +75,7 @@ public:
     void sendConsoleLine(const QString& line);
 
     controller::Preferences& preferences() noexcept { return *preferences_; }
+    config::MacroStore macros() { return config::MacroStore(config_); }
     // Sent to every new controller, as gSender's UI sent its workspace
     // settings ("toolchange:context"); gSender's default option is Ignore.
     void setToolChangeContext(const controller::ToolChangeContext& context);
@@ -91,6 +93,7 @@ Q_SIGNALS:
     void programChanged();   // loaded, unloaded or analysed
     void errorReported(const QString& title, const QString& detail);
     void notice(const QString& text);  // tool changes, pauses and other prompts
+    void macrosChanged();
 
 private:
     void startSession(controller::DeviceLink& link);

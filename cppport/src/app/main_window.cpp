@@ -1,5 +1,6 @@
 #include "main_window.hpp"
 
+#include "controls.hpp"
 #include "machine.hpp"
 #include "panels.hpp"
 #include "toolpath_view.hpp"
@@ -7,6 +8,7 @@
 #include <QMessageBox>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 namespace gs::app {
@@ -32,7 +34,11 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     auto* rightLayout = new QVBoxLayout(right);
     rightLayout->setContentsMargins(0, 0, 6, 6);
     rightLayout->addWidget(new PositionPanel(machine_));
-    rightLayout->addWidget(new JogPanel(machine_));
+    auto* tabs = new QTabWidget;
+    tabs->addTab(new JogPanel(machine_), tr("Jog"));
+    tabs->addTab(new SpindlePanel(machine_), tr("Spindle && Coolant"));
+    tabs->addTab(new MacrosPanel(machine_), tr("Macros"));
+    rightLayout->addWidget(tabs);
     console_ = new ConsolePanel(machine_);
     rightLayout->addWidget(console_, 1);
 
