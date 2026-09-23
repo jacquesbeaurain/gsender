@@ -77,6 +77,10 @@ std::string statusLabel(std::string_view activeState);
 bool isHomingFailureAlarm(std::string_view alarmCode);
 // ALARM 8 and 9: a limit switch was not found or would not release.
 bool isLimitSwitchFaultAlarm(std::string_view alarmCode);
+// isHomingRequiredAlarm(): the "homing required" alarm a board raises on
+// connecting with homing enabled - Grbl's "Homing", grblHAL's ALARM:11 - is
+// an expected prompt, neither reported as an error nor kept in the history.
+bool isHomingRequiredAlarm(bool isAlarm, std::string_view code, bool grblHal);
 
 enum class UnlockAction {
     ResetLimit,            // reset:limit - soft reset, then $X

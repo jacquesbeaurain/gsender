@@ -10,6 +10,7 @@
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
+#include "stats_dialog.hpp"
 #include "status_area.hpp"
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
@@ -354,6 +355,10 @@ void MainWindow::createMenus() {
         dialog->show();
     });
     tools->addSeparator();
+    tools->addAction(tr("S&tatistics..."), this, [this] {
+        StatsDialog dialog(machine_, this);
+        dialog.exec();
+    });
     tools->addAction(tr("&Keyboard Shortcuts..."), this, [this] {
         ShortcutsDialog dialog(machine_, this);
         dialog.exec();
