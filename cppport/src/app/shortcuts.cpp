@@ -51,6 +51,7 @@ const std::vector<ShortcutAction>& shortcutActions() {
         {"START_JOB", "Start job", kCarving, "~"},
         {"PAUSE_JOB", "Pause job", kCarving, "!"},
         {"STOP_JOB", "Global Stop", kCarving, "@"},
+        {"RUN_OUTLINE", "Run outline", kCarving, ""},
         {"LOAD_FILE", "Load file", kCarving, "Shift+L"},
         {"UNLOAD_FILE", "Unload file", kCarving, "Shift+K"},
         {"JOG_X_P", "Jog X+ (right)", kJogging, "Shift+Right", true},

@@ -402,6 +402,56 @@ TEST_F(AppTest, StartFromLineResumesAStoppedJob) {
     EXPECT_EQ(std::find(rise, lines.end(), "G1 X18"), lines.end());  // earlier lines are skipped
 }
 
+TEST_F(AppTest, TheOutlineTracesTheJobAndMacrosSeeTheFileBox) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(20);
+    machine.loadProgram("rect.nc", "G21 G90\nG0 X10 Y5\nG1 X30 F2000\nG1 Y15\nG1 X10\nG1 Y5\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    EXPECT_EQ(machine.fileContext().get("xmax").asNumber(), 30);
+    EXPECT_EQ(machine.fileContext().get("xmin").asNumber(), 0);  // the rapid from the origin counts
+
+    // With homing ($22=1) the lift is what is left above the machine Z, less
+    // 1 mm, at most 5 (getZUpTravel): start 10 mm down.
+    machine.sendConsoleLine("G53 G0 Z-10");
+    ASSERT_TRUE(waitFor([&] {  // as the controller last heard it
+        return machine.controller()->runner().machinePosition()[2] < -9.99 &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+
+    ASSERT_TRUE(machine.runOutline());
+    const std::vector<std::string>& lines = machine.simulator()->receivedLines();
+    ASSERT_TRUE(waitFor([&] {
+        return std::find(lines.begin(), lines.end(), "G21 G91 G0 Z-5") != lines.end() &&
+               machine.simulator()->activeState() == "Idle";
+    })) << [&] {
+        std::string all;
+        for (const std::string& line : lines) {
+            all += line + " | ";
+        }
+        return all;
+    }();
+    const auto lift = std::find(lines.begin(), lines.end(), "G21 G91 G0 Z5");
+    ASSERT_NE(lift, lines.end());
+    // The hull of the rectangle and the rapid in from the origin, from the
+    // origin round, and back.
+    const std::vector<std::string> hull{"X0 Y0", "X30 Y5", "X30 Y15", "X10 Y15", "X0 Y0"};
+    EXPECT_NE(std::search(lift, lines.end(), hull.begin(), hull.end()), lines.end());
+    EXPECT_NEAR(machine.simulator()->machinePosition()[2], -10, 1e-9);  // lowered again
+
+    // Macros see the same box.
+    const auto macro = machine.macros().create("Right edge", "G0 X[xmax]", "");
+    ASSERT_TRUE(macro.has_value());
+    ASSERT_TRUE(machine.controller()->runMacro(macro->id, machine.fileContext()));
+    EXPECT_TRUE(waitFor([&] { return std::find(lines.begin(), lines.end(), "G0 X30") != lines.end(); }));
+}
+
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     QTemporaryDir dir;
     QtEventLoop loop;

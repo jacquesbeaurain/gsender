@@ -7,6 +7,7 @@
 #include "gs/config/config_store.hpp"
 #include "gs/controller/controller.hpp"
 #include "gs/controller/jogging.hpp"
+#include "gs/job/outline.hpp"
 #include "gs/probe/probing.hpp"
 #include "gs/surfacing/surfacing.hpp"
 
@@ -49,6 +50,9 @@ struct AppSettings {
     // Jogging and positioning
     JogSettings jog;
     double safeRetractHeight = 0;  // mm lifted before go-to-zero moves; 0: none
+    // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
+    job::OutlineMode outlineMode = job::OutlineMode::Detailed;
+    double outlineSpeed = 0;
     // Keyboard shortcuts: changes from the defaults, by gSender's command id,
     // and the global switch (preferences.shortcuts.shouldHold, inverted).
     std::map<std::string, ShortcutBinding> shortcuts;

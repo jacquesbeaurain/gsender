@@ -90,6 +90,15 @@ public:
     config::ConfigStore& config() noexcept { return config_; }
     runtime::EventLoop& eventLoop() noexcept;  // the UI thread's
 
+    // ---- file context and outline ----
+    // The loaded file's box as expression context (xmin ... zmax, from the
+    // toolpath with its rapids), as the visualizer sets controller.context
+    // for macros and outlines; zeros without a file.
+    expr::Value fileContext() const;
+    // "Run outline": traces the job's outline (the settings' style and
+    // speed) above the stock. False, with the reason, when it cannot run.
+    bool runOutline(QString* error = nullptr);
+
     // ---- start from line ----
     // The sender line Start From Line offers: where the last job was stopped
     // or cut off by a lost connection; 1 once a job completes (upstream's

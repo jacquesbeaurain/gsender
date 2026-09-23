@@ -473,13 +473,15 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     open_ = new QPushButton(tr("Load File..."));
     unload_ = new QPushButton(tr("Close File"));
     start_ = new QPushButton(tr("Start"));
+    outline_ = new QPushButton(tr("Outline"));
+    outline_->setToolTip(tr("Trace the job's outline above the stock"));
     fromLine_ = new QPushButton(tr("From Line..."));
     fromLine_->setToolTip(tr("Start From Line: resume a stopped or interrupted job"));
     pause_ = new QPushButton(tr("Pause"));
     resume_ = new QPushButton(tr("Resume"));
     stop_ = new QPushButton(tr("Stop"));
     start_->setStyleSheet("font-weight:600");
-    for (QPushButton* button : {open_, unload_, start_, fromLine_, pause_, resume_, stop_}) {
+    for (QPushButton* button : {open_, unload_, start_, outline_, fromLine_, pause_, resume_, stop_}) {
         button->setMinimumHeight(34);
         row->addWidget(button);
     }
@@ -504,6 +506,12 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
             }
         });
     }
+    connect(outline_, &QPushButton::clicked, this, [this] {
+        QString error;
+        if (!machine_.runOutline(&error)) {
+            Q_EMIT machine_.notice(error);
+        }
+    });
     connect(fromLine_, &QPushButton::clicked, this, [this] {
         StartFromLineDialog dialog(machine_, this);
         dialog.exec();
@@ -548,6 +556,7 @@ void JobPanel::refresh() {
     unload_->setEnabled(idle && machine_.hasProgram());
     start_->setEnabled(runnable && idle && activeState != "Hold");
     fromLine_->setEnabled(runnable && idle && activeState == "Idle");
+    outline_->setEnabled(runnable && idle && activeState == "Idle");
     pause_->setEnabled(c && controller::canPause(activeState, workflow));
     resume_->setEnabled(runnable && (workflow == controller::WorkflowState::Paused || activeState == "Hold"));
     stop_->setEnabled(c && controller::canStop(workflow));
