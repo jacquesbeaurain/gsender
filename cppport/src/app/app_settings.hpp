@@ -142,6 +142,17 @@ struct AppSettings {
     // loaded file reported (widgets.visualizer.showWarning).
     bool hideProcessedLines = false;
     bool warnBadFile = false;
+    // Visualizer options: the colour scheme (widgets.visualizer.theme), the
+    // job's bounding box and its labels (objects.limits.visible,
+    // boundingBoxLabels), the homed machine's bed and the grid trimmed to
+    // it (objects.machineBed.visible / trimGridToBed), and the camera
+    // following the tool while a job runs (followToolDuringRuntime).
+    std::string visualizerTheme = "Dark";
+    bool showBoundingBox = true;
+    bool boundingBoxLabels = false;
+    bool showMachineBed = false;
+    bool trimGridToBed = false;
+    bool followTool = false;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

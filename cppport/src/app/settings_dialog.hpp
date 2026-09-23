@@ -77,6 +77,12 @@ private:
     QCheckBox* promptExit_;
     QCheckBox* hideProcessedLines_;
     QCheckBox* warnBadFile_;
+    QComboBox* visualizerTheme_;
+    QCheckBox* showBoundingBox_;
+    QCheckBox* boundingBoxLabels_;
+    QCheckBox* showMachineBed_;
+    QCheckBox* trimGridToBed_;
+    QCheckBox* followTool_;
     QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;

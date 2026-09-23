@@ -4,6 +4,7 @@
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/units.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -58,6 +59,26 @@ MachineCorner homingCorner(std::string_view homingDirMask) {
         case 3: return MachineCorner::FrontLeft;
         default: return MachineCorner::Other;
     }
+}
+
+WorkRect machineBedWorkRect(std::string_view homingDirMask, double width, double depth, double wcoX, double wcoY) {
+    // getAxisMaximumLocation(): from the home corner towards the opposite one.
+    double signX = 1;
+    double signY = 1;
+    switch (homingCorner(homingDirMask)) {
+        case MachineCorner::BackRight: signX = -1; signY = -1; break;
+        case MachineCorner::BackLeft: signY = -1; break;
+        case MachineCorner::FrontRight: signX = -1; break;
+        default: break;
+    }
+    const double cornerX = signX * width;
+    const double cornerY = signY * depth;
+    return {std::min(0.0, cornerX) - wcoX, std::min(0.0, cornerY) - wcoY, std::max(0.0, cornerX) - wcoX,
+            std::max(0.0, cornerY) - wcoY};
+}
+
+WorkRect keepoutWorkRect(double xMin, double xMax, double yMin, double yMax, double wcoX, double wcoY) {
+    return {xMin - wcoX, yMin - wcoY, xMax - wcoX, yMax - wcoY};
 }
 
 double LocationSettings::pullOffDistance() const {

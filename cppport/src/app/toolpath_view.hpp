@@ -8,10 +8,13 @@
 // automated screenshots); the data it draws is renderer-independent, so an
 // OpenGL implementation can replace it if large files need one.
 
+#include "visualizer_theme.hpp"
+
 #include "gs/gcode/interpreter.hpp"
 
 #include <QColor>
 #include <QPointF>
+#include <QRectF>
 #include <QWidget>
 
 #include <array>
@@ -46,6 +49,8 @@ public:
     // Held flat: every view is the top view and dragging only pans.
     void setFlat(bool flat);
     bool flat() const noexcept { return flat_; }
+    void setTheme(const VisualizerTheme& theme);
+    const VisualizerTheme& theme() const noexcept { return *theme_; }
 
     static const QColor kBackground;
     static const QColor kRapid;
@@ -63,9 +68,11 @@ protected:
     // The box fit() frames: the program's, or nothing (a 100 mm square).
     virtual std::optional<gcode::BoundingBox> contentBounds() const = 0;
 
-    // Background, the 10 mm grid around `bounds` (or the origin) and the
-    // work origin's axes.
-    void paintScene(QPainter& painter, const std::optional<gcode::BoundingBox>& bounds);
+    // Background, the grid (10 mm, every fifth line major) around `bounds`
+    // (or the origin) - over `gridArea` instead when given - and the work
+    // origin's axes.
+    void paintScene(QPainter& painter, const std::optional<gcode::BoundingBox>& bounds,
+                    const std::optional<QRectF>& gridArea = std::nullopt);
     // Segments (x0,y0,z0,x1,y1,z1 each) and their sender lines; `pen` gives
     // each one's pen by index and line, nullptr to leave it out. Segments
     // are batched by pen. `rotationA`: a rotary job's path turned back by
@@ -75,6 +82,12 @@ protected:
                        double rotationA = 0);
     void paintTool(QPainter& painter, const Point3& position);
     void paintCaption(QPainter& painter, const QString& caption);
+    // A wireframe box, a rectangle on the XY plane, a label at a point.
+    void paintBox(QPainter& painter, const gcode::BoundingBox& box, const QColor& color);
+    void paintRect(QPainter& painter, const QRectF& area, const QColor& color);
+    void paintLabel(QPainter& painter, const Point3& at, const QString& text, const QColor& color);
+    // The camera over (x, y), angles and scale kept.
+    void centreOn(double x, double y);
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -85,6 +98,7 @@ protected:
 
 private:
     void updateRotation();
+    void styleButtons();
 
     // Camera: rotation about Z (yaw) then tilt towards the viewer (pitch),
     // orthographic, `scale_` pixels per millimetre, centred on `target_`.
@@ -98,6 +112,12 @@ private:
     QPoint lastMouse_;
     Qt::MouseButton dragging_ = Qt::NoButton;
     bool flat_ = false;
+    const VisualizerTheme* theme_;
+    std::vector<QToolButton*> buttons_;
+
+protected:
+    // The canvas' own buttons follow the theme; subclasses add theirs.
+    void addThemedButton(QToolButton* button);
 };
 
 // The main visualizer: the loaded job, its progress and the machine's tool.
@@ -119,7 +139,7 @@ protected:
 
 private:
     bool rotaryJob() const;
-    void applyLiteMode();
+    void applySettings();
     void programChanged();
     void progressChanged();
 

@@ -33,6 +33,29 @@ std::string xyMove(MachineCorner corner, const LocationSettings& settings, bool 
 
 // ---- RapidPosition.test.ts ----
 
+TEST(Locations, TheMachineBedRunsFromTheHomingCorner) {
+    // Back right ($23=0): travel towards -X and -Y.
+    WorkRect bed = machineBedWorkRect("0", 800, 600, 0, 0);
+    EXPECT_EQ(bed.minX, -800);
+    EXPECT_EQ(bed.maxX, 0);
+    EXPECT_EQ(bed.minY, -600);
+    EXPECT_EQ(bed.maxY, 0);
+    // Front left ($23=3) and a work offset: the bed seen from the workspace.
+    bed = machineBedWorkRect("3", 800, 600, 100, 50);
+    EXPECT_EQ(bed.minX, -100);
+    EXPECT_EQ(bed.maxX, 700);
+    EXPECT_EQ(bed.minY, -50);
+    EXPECT_EQ(bed.maxY, 550);
+    // Back left: +X, -Y.
+    bed = machineBedWorkRect("1", 10, 20, 0, 0);
+    EXPECT_EQ(bed.minX, 0);
+    EXPECT_EQ(bed.maxX, 10);
+    EXPECT_EQ(bed.minY, -20);
+    const WorkRect keepout = keepoutWorkRect(-50, -10, -30, -5, -100, -100);
+    EXPECT_EQ(keepout.minX, 50);
+    EXPECT_EQ(keepout.maxY, 95);
+}
+
 TEST(RapidPosition, ReadsTheOriginResetBitOfHoming) {
     LocationSettings settings;
     for (const auto& [homing, set] : std::vector<std::pair<std::string, bool>>{

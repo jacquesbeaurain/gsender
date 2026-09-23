@@ -170,6 +170,7 @@ private:
 
 StepThroughView::StepThroughView(Machine& machine, QWidget* parent) : ToolpathCanvas(parent), machine_(machine) {
     setMinimumSize(320, 240);
+    setTheme(visualizerTheme(QString::fromStdString(machine_.settings().visualizerTheme)));
 }
 
 std::optional<gcode::BoundingBox> StepThroughView::contentBounds() const {
@@ -224,10 +225,13 @@ void StepThroughView::paintEvent(QPaintEvent*) {
     paintScene(painter, bounds);
     if (bounds) {
         const Toolpath& path = machine_.toolpath();
-        const QPen rapid(kRapid, 1, Qt::DashLine);
-        const QPen rapidDone(kDone, 1, Qt::DashLine);
-        const QPen cut(kCut, 1.5);
-        const QPen cutDone(kDone, 1.5);
+        const VisualizerTheme& colors = theme();
+        QColor rapidColor = colors.rapid;
+        rapidColor.setAlphaF(0.3f);
+        const QPen rapid(rapidColor, 1, Qt::DashLine);
+        const QPen rapidDone(colors.processed, 1, Qt::DashLine);
+        const QPen cut(colors.cutting, 1.5);
+        const QPen cutDone(colors.processed, 1.5);
         const auto pens = [&](bool feed) {
             return [&, feed](std::size_t, std::uint32_t line) -> const QPen* {
                 const ToolSpan* span = spanFor(line);
@@ -530,7 +534,7 @@ void StepThroughDialog::loadTools() {
     tools_ = machine_.isAnalyzing()
                  ? std::vector<job::StepperTool>{}
                  : job::stepperTools(analysis.spindleToolEvents, lines_.size(), analysis.tools,
-                                     ToolpathCanvas::kCut.name().toStdString());
+                                     view_->theme().cutting.name().toStdString());
     hiddenTools_.assign(tools_.size(), false);
     toolsEmpty_->setVisible(tools_.empty());
     const bool metric = machine_.settings().metric;

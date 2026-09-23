@@ -1234,3 +1234,30 @@ More of upstream's Basics and Visualizer settings, on Settings > General
   lines are left out rather than greyed; the Step Through starts with it.
 - **Warn if bad file** (widgets.visualizer.showWarning): a loaded file's
   invalid lines are reported - how many and the first five.
+
+## Step 45 — Visualizer options: themes, bounding box, machine bed, follow tool
+
+Settings > General gains upstream's Visualizer options (kept and imported):
+
+- **Visualizer theme** - gviewer's presets as gSender builds them
+  (`visualizer_theme`): Dark (the Workshop high-contrast colours), Light,
+  Flexoki Dark, Tokyo Night, Gruvbox Light, Ayu Dark, Ayu Light. They colour
+  the background, the grid (10 mm, every fifth line major), the axes, the
+  rapids (at 30 %), the cuts, the processed lines, the tool and the view
+  buttons, in the main view and the Step Through (whose first tool takes the
+  theme's cutting colour).
+- **Show bounding box** (on) and its **labels**: the job's extent as a
+  wireframe at 65 %, and the six min/max coordinates ("0" or 3 decimals, mm
+  or in) where gviewer places them.
+- **Show machine bed indicator** once homing is enabled and the machine has
+  homed: the travel from the homing corner in work coordinates
+  (`controller::machineBedWorkRect`), and grblHAL's ATC keepout
+  ($683-$687); **Trim grid to machine bed** clips the grid to the 10 mm (1")
+  lines just past it.
+- **Follow tool during runtime**: while a job runs the camera stays over the
+  tool, keeping its angle and scale.
+
+Deviations: the bed is sized from the board's travel ($130/$131, 800 mm
+without them) where upstream used the selected machine profile's size; the
+camera stays orthographic (upstream's default Perspective projection is not
+ported).
