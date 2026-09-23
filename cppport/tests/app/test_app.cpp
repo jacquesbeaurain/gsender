@@ -1589,6 +1589,48 @@ TEST_F(AppTest, AJobsEndIsSummedUpWithItsErrorsAndTheMaintenanceDue) {
     }
 }
 
+TEST_F(AppTest, AJobsWorkspaceComesBackAndBadFilesAreReported) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.warnBadFile = true;
+    machine.setSettings(settings);
+    int invalid = 0;
+    QStringList sample;
+    QObject::connect(&machine, &Machine::invalidLinesFound, [&](int count, const QStringList& lines) {
+        invalid = count;
+        sample = lines;
+    });
+    machine.loadProgram("bad.nc", "G1 X5 E0.2 F100\nG1 X6\n");
+    ASSERT_TRUE(waitFor([&] { return invalid > 0; }));
+    EXPECT_EQ(invalid, 1);
+    EXPECT_EQ(sample, QStringList{"G1 X5 E0.2 F100"});
+
+    // A job that moves to G55 leaves the machine in the workspace it started
+    // in (G54) - unless M2/M30 may reset it (workspace.revertWorkspace).
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    controller::Controller& c = *machine.controller();
+    machine.loadProgram("wcs.nc", "G55\nG0 X1\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    controller::runJob(c);
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isIdle() && c.runner().modal().wcs == "G54"; }, 8000))
+        << c.runner().modal().wcs;
+    settings = machine.settings();
+    settings.revertWorkspace = true;
+    machine.setSettings(settings);
+    controller::runJob(c);
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return c.workflow().isIdle(); }, 8000));
+    runFor(600);
+    EXPECT_EQ(c.runner().modal().wcs, "G55");
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;

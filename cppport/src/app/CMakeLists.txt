@@ -21,6 +21,8 @@ add_library(gs_app STATIC
     notifications.hpp
     panels.cpp
     panels.hpp
+    power.cpp
+    power.hpp
     probe_panel.cpp
     probe_panel.hpp
     qt_event_loop.cpp

@@ -6,6 +6,7 @@
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "notifications.hpp"
+#include "power.hpp"
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "rotary_panel.hpp"
@@ -19,6 +20,7 @@
 #include "toolpath_view.hpp"
 
 #include <QApplication>
+#include <QCloseEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMenuBar>
@@ -30,6 +32,8 @@
 #include <QVBoxLayout>
 
 #include "gs/controller/actions.hpp"
+#include "gs/transport/asio_link.hpp"
+#include "gs/transport/port_list.hpp"
 
 namespace gs::app {
 
@@ -101,6 +105,20 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     };
     connect(&machine_, &Machine::notice, this, announce(NotificationType::Info));
     connect(&machine_, &Machine::successNotice, this, announce(NotificationType::Success));
+    // "Warn if bad file": the invalid lines of a loaded file.
+    connect(&machine_, &Machine::invalidLinesFound, this, [this](int count, const QStringList& sample) {
+        QString detail = tr("Detected %1 invalid lines on file load. Your job may not run correctly.\n\n"
+                            "Sample invalid lines found include:")
+                             .arg(count);
+        for (const QString& line : sample) {
+            detail += "\n- " + line;
+        }
+        showMessage(tr("Invalid Lines Detected"), detail);
+    });
+    // Power saving: the display kept awake unless sleeping is allowed.
+    const auto applyPower = [this] { setDisplaySleepAllowed(machine_.settings().powerSaving); };
+    connect(&machine_, &Machine::appSettingsChanged, this, applyPower);
+    applyPower();
     // The alerts at a job's end (workspace/Alerts).
     connect(&machine_, &Machine::jobEnded, this,
             [this](bool completed, double durationMs, const QStringList& errors) {
@@ -503,6 +521,33 @@ void MainWindow::openSettings(SettingsDialog::Page page) {
     SettingsDialog dialog(machine_, this);
     dialog.showPage(page);
     dialog.exec();
+}
+
+bool MainWindow::reconnectAutomatically() {
+    const AppSettings& settings = machine_.settings();
+    if (!settings.autoReconnect || settings.port.empty() || machine_.isConnected() || machine_.isConnecting()) {
+        return false;
+    }
+    const QString port = QString::fromStdString(settings.port);
+    bool known = port == Machine::kSimulatorPort || transport::looksLikeIpAddress(settings.port);
+    for (const transport::SerialPortInfo& info : transport::listSerialPorts()) {
+        known = known || info.path == settings.port;
+    }
+    if (!known) {
+        return false;
+    }
+    machine_.connectTo(port, settings.baudRate, settings.networkPort);
+    return true;
+}
+
+void MainWindow::closeEvent(QCloseEvent* event) {
+    if (machine_.settings().promptExit && dialogsEnabled_ &&
+        QMessageBox::question(this, tr("Exit gSender"), tr("Are you sure you want to exit?"),
+                              QMessageBox::No | QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes) {
+        event->ignore();
+        return;
+    }
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::showError(const QString& title, const QString& detail) {

@@ -34,8 +34,15 @@ public:
     NotificationCenter& notifications() noexcept { return *notifications_; }
     ToastArea& toasts() noexcept { return *toasts_; }
     NotificationButton& notificationButton() noexcept { return *bell_; }
+    // "Reconnect automatically": the last machine used, when the setting is
+    // on and its port is there (a serial port listed, an address, or the
+    // simulator). False when nothing was tried.
+    bool reconnectAutomatically();
     // The Rotary tab shows while the Rotary controls are on.
     bool rotaryTabVisible() const;
+
+protected:
+    void closeEvent(QCloseEvent* event) override;  // workspace.promptExit
 
 private:
     // An error: upstream's error pop-up (and the bell's list).

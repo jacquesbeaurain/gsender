@@ -480,7 +480,8 @@ StepThroughDialog::StepThroughDialog(Machine& machine, QWidget* parent) : QDialo
             refresh();
         }
     });
-    setHideProcessed(false);
+    // Seeded from the visualizer's setting; toggled here only.
+    setHideProcessed(machine_.settings().hideProcessedLines);
     load();
 }
 

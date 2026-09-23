@@ -71,6 +71,12 @@ private:
     QCheckBox* jobEndModal_;
     QCheckBox* maintenanceNotifications_;
     QComboBox* liteOption_;
+    QCheckBox* autoReconnect_;
+    QCheckBox* revertWorkspace_;
+    QCheckBox* powerSaving_;
+    QCheckBox* promptExit_;
+    QCheckBox* hideProcessedLines_;
+    QCheckBox* warnBadFile_;
     QDoubleSpinBox* park_[3];
     QComboBox* outlineMode_;
     QDoubleSpinBox* outlineSpeed_;

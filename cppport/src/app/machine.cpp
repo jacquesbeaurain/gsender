@@ -895,6 +895,12 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    },
                    [this](const JobStopped&) {
                        jobRunning_ = false;
+                       // The workspace the job started in comes back, unless
+                       // M2/M30 may leave G54 (workspace.revertWorkspace).
+                       if (controller::Controller* c = controller(); c && !settings_.revertWorkspace) {
+                           c->gcode(c->state().status.activeState == "Check" ? "[global.state.testWCS]"
+                                                                             : "[global.state.workspace]");
+                       }
                        Q_EMIT workflowChanged();
                    },
                    [this](const SenderStatusChanged&) { Q_EMIT senderStatusChanged(); },
@@ -1189,6 +1195,14 @@ void Machine::analysisFinished(std::uint64_t generation, job::ProgramAnalysis an
     analyzing_ = false;
     sendEstimates();
     Q_EMIT programChanged();
+    // maybeWarnInvalidLines()
+    if (settings_.warnBadFile && !analysis_.invalidLines.empty()) {
+        QStringList sample;
+        for (std::size_t i = 0; i < analysis_.invalidLines.size() && i < 5; ++i) {
+            sample << QString::fromStdString(analysis_.invalidLines[i]);
+        }
+        Q_EMIT invalidLinesFound(static_cast<int>(analysis_.invalidLines.size()), sample);
+    }
 }
 
 void Machine::unloadProgram() {

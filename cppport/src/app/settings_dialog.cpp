@@ -258,6 +258,23 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     liteOption_->setToolTip(tr("Enable with the feather when big files are slowing down your computer. (Light turns "
                                "off 3D file view, Everything disables the visualizer)"));
     generalForm->addRow(tr("Lightweight options"), liteOption_);
+    autoReconnect_ = new QCheckBox(tr("Reconnect automatically"));
+    autoReconnect_->setToolTip(tr("Automatically reconnect to the last machine you used when you open gSender."));
+    revertWorkspace_ = new QCheckBox(tr("Revert workspace"));
+    revertWorkspace_->setToolTip(tr("Allow g-code 'job finishing' commands like M2 and M30 to reset your CNCs "
+                                    "workspace back to G54 at the end of each job."));
+    powerSaving_ = new QCheckBox(tr("Power saving"));
+    powerSaving_->setToolTip(tr("Allow screen to blank/sleep."));
+    promptExit_ = new QCheckBox(tr("Prompt on exit"));
+    promptExit_->setToolTip(tr("Pop up a confirmation window when exiting the program."));
+    hideProcessedLines_ = new QCheckBox(tr("Hide processed lines"));
+    hideProcessedLines_->setToolTip(tr("Hide processed g-code lines in the visualizer."));
+    warnBadFile_ = new QCheckBox(tr("Warn if bad file"));
+    warnBadFile_->setToolTip(tr("Report the invalid lines of a file when it loads."));
+    for (QCheckBox* box : {autoReconnect_, revertWorkspace_, powerSaving_, promptExit_, hideProcessedLines_,
+                           warnBadFile_}) {
+        generalForm->addRow(QString(), box);
+    }
     // The DRO's Park button (homing enabled, machine homed).
     QHBoxLayout* parkRow = positionRow(park_);
     auto* parkGo = new QPushButton(tr("Go to"));
@@ -329,7 +346,11 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
             load();
         }
     });
-    tabs_->addTab(general, tr("General"));
+    auto* generalScroll = new QScrollArea;
+    generalScroll->setWidget(general);
+    generalScroll->setWidgetResizable(true);
+    generalScroll->setFrameShape(QFrame::NoFrame);
+    tabs_->addTab(generalScroll, tr("General"));
 
     auto* toolChange = new QWidget;
     auto* toolForm = new QFormLayout(toolChange);
@@ -589,6 +610,12 @@ void SettingsDialog::load() {
     maintenanceNotifications_->setChecked(s.maintenanceNotifications);
     toastDuration_->setValue(s.toastDuration);
     liteOption_->setCurrentText(QString::fromStdString(s.liteOption));
+    autoReconnect_->setChecked(s.autoReconnect);
+    revertWorkspace_->setChecked(s.revertWorkspace);
+    powerSaving_->setChecked(s.powerSaving);
+    promptExit_->setChecked(s.promptExit);
+    hideProcessedLines_->setChecked(s.hideProcessedLines);
+    warnBadFile_->setChecked(s.warnBadFile);
     const double park[3] = {s.park.x, s.park.y, s.park.z};
     for (int i = 0; i < 3; ++i) {
         park_[i]->setValue(park[i]);
@@ -699,6 +726,12 @@ void SettingsDialog::save() {
     s.maintenanceNotifications = maintenanceNotifications_->isChecked();
     s.toastDuration = toastDuration_->value();
     s.liteOption = liteOption_->currentText().toStdString();
+    s.autoReconnect = autoReconnect_->isChecked();
+    s.revertWorkspace = revertWorkspace_->isChecked();
+    s.powerSaving = powerSaving_->isChecked();
+    s.promptExit = promptExit_->isChecked();
+    s.hideProcessedLines = hideProcessedLines_->isChecked();
+    s.warnBadFile = warnBadFile_->isChecked();
     s.park = {park_[0]->value(), park_[1]->value(), park_[2]->value()};
     s.outlineMode = job::outlineModeFromName(outlineMode_->currentText().toStdString()).value_or(s.outlineMode);
     s.outlineSpeed = outlineSpeed_->value();

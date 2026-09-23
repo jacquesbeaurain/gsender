@@ -257,6 +257,9 @@ Q_SIGNALS:
     // A job ended - completed, or stopped - with the G-code errors it met
     // (the Job End alert).
     void jobEnded(bool completed, double durationMs, const QStringList& errors);
+    // A loaded file has lines the interpreter could not read (with "Warn if
+    // bad file" on): how many, and the first five.
+    void invalidLinesFound(int count, const QStringList& sample);
     void macrosChanged();
     void appSettingsChanged();  // setSettings()
     // The connection closed while a job ran, around sender line `line`.
