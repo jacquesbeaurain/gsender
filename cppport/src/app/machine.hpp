@@ -69,7 +69,10 @@ public:
     controller::Controller* controller() const;
 
     // ---- program ----
+    // Loads a file from disk and lists it among the recent files.
     bool loadFile(const QString& path, QString* error = nullptr);
+    void forgetRecentFile(const QString& path);
+    void clearRecentFiles();
     void loadProgram(const QString& name, std::string text, const QString& path = {});
     void unloadProgram();
     bool hasProgram() const noexcept { return !programName_.isEmpty(); }

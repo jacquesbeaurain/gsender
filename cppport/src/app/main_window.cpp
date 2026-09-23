@@ -18,6 +18,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
@@ -327,6 +328,23 @@ void MainWindow::createMenus() {
     QMenu* file = menuBar()->addMenu(tr("&File"));
     QAction* open = file->addAction(tr("&Load File..."), this, &MainWindow::openFile);
     open->setShortcut(QKeySequence::Open);
+    QMenu* recent = file->addMenu(tr("&Recent Files"));
+    connect(recent, &QMenu::aboutToShow, this, [this, recent] {
+        recent->clear();
+        for (const RecentFile& entry : machine_.settings().recentFiles) {
+            const QString path = QString::fromStdString(entry.filePath);
+            QAction* action = recent->addAction(QString::fromStdString(entry.fileName));
+            action->setStatusTip(path);
+            action->setToolTip(path);
+            connect(action, &QAction::triggered, this, [this, path] { openRecent(path); });
+        }
+        if (recent->isEmpty()) {
+            recent->addAction(tr("(none)"))->setEnabled(false);
+        }
+        recent->addSeparator();
+        QAction* clear = recent->addAction(tr("Clear Recent Files"), &machine_, &Machine::clearRecentFiles);
+        clear->setEnabled(!machine_.settings().recentFiles.empty());
+    });
     file->addAction(tr("&Close File"), &machine_, &Machine::unloadProgram);
     file->addSeparator();
     QAction* quit = file->addAction(tr("&Quit"), qApp, &QApplication::quit);
@@ -381,6 +399,23 @@ void MainWindow::openFile() {
     const QString path = QFileDialog::getOpenFileName(
         this, tr("Load G-code"), QString(), tr("G-code (*.nc *.gcode *.gc *.ngc *.tap *.cnc *.txt);;All files (*)"));
     if (path.isEmpty()) {
+        return;
+    }
+    QString error;
+    if (!machine_.loadFile(path, &error)) {
+        showError(tr("Load file"), tr("Cannot open %1: %2").arg(path, error));
+    }
+}
+
+void MainWindow::openRecent(const QString& path) {
+    controller::Controller* c = machine_.controller();
+    if (c && !c->workflow().isIdle()) {
+        return;
+    }
+    if (!QFileInfo::exists(path)) {
+        // Upstream's message; the entry goes, there being nothing to load.
+        showError(tr("Load file"), tr("Unable to load file - file may have been moved or deleted."));
+        machine_.forgetRecentFile(path);
         return;
     }
     QString error;

@@ -2,6 +2,8 @@
 
 #include <boost/json.hpp>
 
+#include <algorithm>
+
 namespace gs::app {
 namespace {
 
@@ -20,6 +22,36 @@ double number(const json::object& object, std::string_view key, double fallback)
 bool flag(const json::object& object, std::string_view key, bool fallback) {
     const json::value* value = object.if_contains(key);
     return value && value->is_bool() ? value->as_bool() : fallback;
+}
+
+std::vector<RecentFile> loadRecentFiles(const json::value* value) {
+    std::vector<RecentFile> files;
+    if (!value || !value->is_array()) {
+        return files;
+    }
+    for (const json::value& entry : value->as_array()) {
+        if (!entry.is_object()) {
+            continue;
+        }
+        const json::object& o = entry.as_object();
+        RecentFile file{text(o, "fileName"), text(o, "filePath"), static_cast<std::int64_t>(number(o, "fileSize", 0)),
+                        static_cast<std::int64_t>(number(o, "timeUploaded", 0))};
+        if (!file.filePath.empty()) {
+            files.push_back(std::move(file));
+        }
+    }
+    return files;
+}
+
+json::array saveRecentFiles(const std::vector<RecentFile>& files) {
+    json::array out;
+    for (const RecentFile& file : files) {
+        out.push_back(json::object{{"fileName", file.fileName},
+                                   {"filePath", file.filePath},
+                                   {"fileSize", file.fileSize},
+                                   {"timeUploaded", file.timeUploaded}});
+    }
+    return out;
 }
 
 SpindleSettings loadSpindle(const json::object& o) {
@@ -191,6 +223,18 @@ const controller::JogSpeeds& JogSettings::speeds(controller::JogPreset preset) c
     return normal;
 }
 
+void addRecentFile(std::vector<RecentFile>& files, RecentFile file) {
+    // Known: its date renews (updateRecentFileDate). Either way it goes in
+    // front, so files loaded within the same millisecond keep newest first.
+    std::erase_if(files, [&file](const RecentFile& f) { return f.filePath == file.filePath; });
+    files.insert(files.begin(), std::move(file));
+    std::stable_sort(files.begin(), files.end(),
+                     [](const RecentFile& a, const RecentFile& b) { return a.timeUploaded > b.timeUploaded; });
+    if (files.size() > kRecentFileLimit) {
+        files.resize(kRecentFileLimit);
+    }
+}
+
 AppSettings loadAppSettings(const config::ConfigStore& store) {
     AppSettings settings;
     const json::value app = store.get("app", json::object());
@@ -241,6 +285,7 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     settings.warnZero = flag(root, "warnZero", false);
     settings.park = loadPosition(root, "park");
     settings.stepperRestoreValue = text(root, "stepperRestoreValue");
+    settings.recentFiles = loadRecentFiles(root.if_contains("recentFiles"));
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
     settings.outlineSpeed = number(root, "outlineSpeed", 0);
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
@@ -305,6 +350,7 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"warnZero", settings.warnZero},
                          {"park", savePosition(settings.park)},
                          {"stepperRestoreValue", settings.stepperRestoreValue},
+                         {"recentFiles", saveRecentFiles(settings.recentFiles)},
                          {"outlineMode", job::outlineModeName(settings.outlineMode)},
                          {"outlineSpeed", settings.outlineSpeed},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},

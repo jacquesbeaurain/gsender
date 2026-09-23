@@ -12,8 +12,10 @@
 #include "gs/surfacing/surfacing.hpp"
 #include "gs/toolchange/wizards.hpp"
 
+#include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace gs::app {
 
@@ -54,6 +56,21 @@ struct SpindleSettings {
     LaserSettings laser;
 };
 
+// workspace.recentFiles: a file loaded from disk.
+struct RecentFile {
+    std::string fileName;
+    std::string filePath;
+    std::int64_t fileSize = 0;
+    std::int64_t timeUploaded = 0;  // ms since the epoch
+    bool operator==(const RecentFile&) const = default;
+};
+
+inline constexpr std::size_t kRecentFileLimit = 8;  // RECENT_FILE_LIMIT
+
+// addRecentFile(): a file loaded again moves to the top with its new time;
+// newest first, the oldest dropped past the limit.
+void addRecentFile(std::vector<RecentFile>& files, RecentFile file);
+
 struct AppSettings {
     // Workspace units (workspace.units): positions, jogging and the tools
     // show and take inches when false; storage stays mm.
@@ -83,6 +100,8 @@ struct AppSettings {
     // Machine Info's stepper lock: the $1 to restore on unlocking
     // (workspace.diagnostics.stepperMotor.storedValue); empty: none.
     std::string stepperRestoreValue;
+    // Files loaded last, newest first.
+    std::vector<RecentFile> recentFiles;
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;

@@ -2,11 +2,17 @@
 
 #include "machine.hpp"
 
+#include "gs/config/records.hpp"
+
+#include <boost/json.hpp>
 #include "gs/controller/spindle.hpp"
 #include "gs/util/jsnumber.hpp"
 
 #include <QComboBox>
+#include <QDate>
 #include <QDialogButtonBox>
+#include <QFile>
+#include <QFileDialog>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
 #include <QFormLayout>
@@ -438,6 +444,41 @@ MacrosPanel::MacrosPanel(Machine& machine, QWidget* parent) : QWidget(parent), m
         row->addWidget(button);
     }
     layout->addLayout(row);
+    auto* files = new QHBoxLayout;
+    auto* import = new QPushButton(tr("Import..."));
+    import->setToolTip(tr("Import macros from a file"));
+    auto* exportButton = new QPushButton(tr("Export..."));
+    exportButton->setToolTip(tr("Export macros to a file"));
+    files->addWidget(import);
+    files->addWidget(exportButton);
+    files->addStretch(1);
+    layout->addLayout(files);
+    connect(import, &QPushButton::clicked, this, [this] {
+        const QString path =
+            QFileDialog::getOpenFileName(this, tr("Import Macros"), QString(), tr("Macros (*.json);;All files (*)"));
+        if (path.isEmpty()) {
+            return;
+        }
+        QString message;
+        if (importFrom(path, &message)) {
+            QMessageBox::information(this, tr("Import Macros"), message);
+        } else {
+            QMessageBox::warning(this, tr("Import Macros"), message);
+        }
+    });
+    connect(exportButton, &QPushButton::clicked, this, [this] {
+        if (machine_.macros().list().empty()) {
+            QMessageBox::information(this, tr("Export Macros"), tr("No Macros to Export"));
+            return;
+        }
+        const QString name = QString("gSender-macros-%1.json").arg(QDate::currentDate().toString(Qt::ISODate));
+        const QString path =
+            QFileDialog::getSaveFileName(this, tr("Export Macros"), name, tr("Macros (*.json);;All files (*)"));
+        QString message;
+        if (!path.isEmpty() && !exportTo(path, &message)) {
+            QMessageBox::warning(this, tr("Export Macros"), message);
+        }
+    });
 
     connect(run_, &QPushButton::clicked, this, [this] {
         QListWidgetItem* item = list_->currentItem();
@@ -465,6 +506,47 @@ MacrosPanel::MacrosPanel(Machine& machine, QWidget* parent) : QWidget(parent), m
         connect(&machine_, signal, this, &MacrosPanel::refresh);
     }
     reload();
+}
+
+bool MacrosPanel::importFrom(const QString& path, QString* message) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        *message = tr("Cannot open %1: %2").arg(path, file.errorString());
+        return false;
+    }
+    const QByteArray bytes = file.readAll();
+    boost::system::error_code error;
+    const boost::json::value macros =
+        boost::json::parse(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())), error);
+    if (error || !macros.is_array()) {
+        *message = tr("Error Importing Macros: not a macros file.");
+        return false;
+    }
+    config::MacroStore store = machine_.macros();
+    const config::MacroImport result = config::importMacros(store, macros);
+    Q_EMIT machine_.macrosChanged();
+    if (result.imported > 0) {
+        *message = tr("Successfully imported %1 macro(s)").arg(result.imported) +
+                   (result.updated > 0 ? tr(", updated %1 existing macro(s)").arg(result.updated) : QString());
+    } else if (result.updated > 0) {
+        *message = tr("Updated %1 existing macro(s)").arg(result.updated);
+    } else {
+        *message = tr("No macros found to import.");
+    }
+    return true;
+}
+
+bool MacrosPanel::exportTo(const QString& path, QString* message) {
+    config::MacroStore store = machine_.macros();
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        *message = tr("Cannot write %1: %2").arg(path, file.errorString());
+        return false;
+    }
+    const std::string text = boost::json::serialize(config::exportMacros(store));
+    file.write(text.data(), static_cast<qint64>(text.size()));
+    *message = tr("Exported %1 macro(s)").arg(store.list().size());
+    return true;
 }
 
 void MacrosPanel::reload() {

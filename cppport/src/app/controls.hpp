@@ -95,6 +95,11 @@ class MacrosPanel final : public QWidget {
 public:
     explicit MacrosPanel(Machine& machine, QWidget* parent = nullptr);
 
+    // Import/Export (gSender's JSON: [{name, content, description, id}]):
+    // false with the reason in `message`, else what was done.
+    bool importFrom(const QString& path, QString* message);
+    bool exportTo(const QString& path, QString* message);
+
 private:
     void reload();
     void refresh();

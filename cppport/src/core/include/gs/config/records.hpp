@@ -68,6 +68,19 @@ private:
     Clock clock_;
 };
 
+// Macros as gSender's Macros widget exports them: [{name, content,
+// description (trimmed), id}].
+boost::json::array exportMacros(MacroStore& store);
+
+struct MacroImport {
+    int imported = 0;  // added (with new ids)
+    int updated = 0;   // an existing macro with the same id replaced
+};
+// importMacros(): entries with a name and content; one whose id is already
+// here updates that macro, any other is added with a new id. Anything but
+// an array imports nothing.
+MacroImport importMacros(MacroStore& store, const boost::json::value& data);
+
 // ---- event hooks ("events": an object keyed by event, e.g. "gcode:start") ----
 
 struct EventRecord {

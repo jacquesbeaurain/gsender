@@ -31,6 +31,8 @@ private:
     void showError(const QString& title, const QString& detail);
     void createMenus();
     void openFile();
+    // A recent file: loaded again, or forgotten when it has gone.
+    void openRecent(const QString& path);
     void openSettings(SettingsDialog::Page page);
     void installShortcuts();
 
