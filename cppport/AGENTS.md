@@ -97,6 +97,12 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   commands through `Select-Object -First N` / `head`.
 - Don't modify tracked files temporarily to probe tool behaviour (e.g.
   injecting a failing test); use a scratch copy or wait for a real case.
+- Use the `Edit` tool for replacements whose text contains escape sequences
+  (`\n`, `\\`); heredoc-fed Python/sed replacements of such text misfire.
+  Scripted edits are fine for plain text.
+- Run `tools/build.ps1` through the PowerShell tool (PowerShell 7). Windows
+  PowerShell 5 (`powershell.exe` from the Bash tool) refuses to run scripts
+  under the default execution policy.
 
 ## FreeCAD LibPack facts (26.3.0 / 3.5.5, x64)
 
