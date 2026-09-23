@@ -64,6 +64,8 @@ protected:
 
 private:
     void refresh();
+    // The axis a row drives: in rotary mode the A row is the rotary on Y.
+    char rowAxis(int row) const;
     void axisClicked(int axis);
     void zeroAll();
     bool confirmZero(const QString& title, const QString& question);

@@ -34,6 +34,11 @@ public:
     // Tap/hold jogging along `directions` (axis letter -> +1 or -1); the
     // distances come from the speeds (X and Y xyStep, Z zStep, A aStep).
     void press(const controller::JogAxes& directions);
+    // The A buttons (AJog): A by the A step - in rotary mode the rotary, on
+    // Y. Degrees are not lengths: these jogs go in G21 at the mm feed.
+    // Deviation: upstream jogged the rotary's Y in the workspace units, 25.4x
+    // too far in an inch workspace.
+    void pressRotary(int direction);
     void release();
     bool isPressed() const;
     // canClickShortcut(): connected, no job running, idle or jogging.
@@ -54,6 +59,7 @@ private:
     controller::JogSpeeds speeds_;
     int threshold_ = 0;
     bool metric_ = true;
+    bool rotaryJog_ = false;  // the jog in progress is A (or the rotary)
     std::unique_ptr<controller::JogHelper> helper_;
 };
 

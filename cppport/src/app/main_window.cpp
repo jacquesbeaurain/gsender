@@ -7,6 +7,7 @@
 #include "machine.hpp"
 #include "panels.hpp"
 #include "probe_panel.hpp"
+#include "rotary_panel.hpp"
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
@@ -61,6 +62,13 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     tabs_->addTab(spindle_, tr("Spindle/Laser"));
     tabs_->addTab(probe_, tr("Probe"));
     tabs_->addTab(new MacrosPanel(machine_), tr("Macros"));
+    rotary_ = new RotaryPanel(machine_);
+    tabs_->addTab(rotary_, tr("Rotary"));
+    const auto showRotary = [this] {
+        tabs_->setTabVisible(tabs_->indexOf(rotary_), machine_.settings().rotary.showControls);
+    };
+    connect(&machine_, &Machine::appSettingsChanged, this, showRotary);
+    showRotary();
     rightLayout->addWidget(tabs_);
     console_ = new ConsolePanel(machine_);
     rightLayout->addWidget(console_, 1);
@@ -251,8 +259,22 @@ void MainWindow::installShortcuts() {
     jog("JOG_X_M_Y_P", {{'X', -1}, {'Y', 1}});
     jog("JOG_X_Y_P", {{'X', 1}, {'Y', 1}});
     jog("JOG_X_Y_M", {{'X', -1}, {'Y', -1}});
-    jog("JOG_A_PLUS", {{'A', 1}});
-    jog("JOG_A_MINUS", {{'A', -1}});
+    // A: the rotary (on Y in rotary mode). Grbl has no A of its own unless
+    // its A words go through as they are.
+    const auto rotaryJog = [this](const QString& id, int direction) {
+        shortcuts_->setHandler(
+            id,
+            [this, direction] {
+                controller::Controller* c = machine_.controller();
+                if (c && c->isGrbl() && !machine_.rotaryMode() && !machine_.settings().preferences.useAaxisForGrbl) {
+                    return;
+                }
+                jogger_->pressRotary(direction);
+            },
+            [this] { jogger_->release(); });
+    };
+    rotaryJog("JOG_A_PLUS", 1);
+    rotaryJog("JOG_A_MINUS", -1);
     s.setHandler("STOP_CONT_JOG", [this] { jogger_->release(); });
     s.setHandler("SET_R_JOG_PRESET", [this] { jogger_->selectPreset(controller::JogPreset::Rapid); });
     s.setHandler("SET_N_JOG_PRESET", [this] { jogger_->selectPreset(controller::JogPreset::Normal); });
@@ -322,6 +344,16 @@ void MainWindow::installShortcuts() {
     });
     s.setHandler("PROBE_ROUTINE_SCROLL_RIGHT", [this] { probe_->stepCommand(1); });
     s.setHandler("PROBE_ROUTINE_SCROLL_LEFT", [this] { probe_->stepCommand(-1); });
+
+    // Rotary. Deviation: upstream's shortcut only flipped the stored mode,
+    // leaving the board's settings as they were; it runs the switch here.
+    s.setHandler("SWITCH_WORKSPACE_MODE", [this] { rotary_->toggleRotaryMode(); });
+    s.setHandler("TOGGLE_ROTARY_SURFACING", [this] { rotary_->openSurfacing(); });
+    s.setHandler("TOGGLE_MOUNTING_SETUP", [this] { rotary_->openMountingSetup(); });
+}
+
+bool MainWindow::rotaryTabVisible() const {
+    return tabs_->isTabVisible(tabs_->indexOf(rotary_));
 }
 
 void MainWindow::createMenus() {
@@ -358,6 +390,10 @@ void MainWindow::createMenus() {
     QMenu* tools = menuBar()->addMenu(tr("&Tools"));
     tools->addAction(tr("&Surfacing..."), this, [this] {
         SurfacingDialog dialog(machine_, this);
+        dialog.exec();
+    });
+    tools->addAction(tr("&Rotary Surfacing..."), this, [this] {
+        RotarySurfacingDialog dialog(machine_, this);
         dialog.exec();
     });
     // The calibration wizards stay open beside the main window, whose jog

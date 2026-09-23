@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 
 namespace gs::app {
 namespace {
@@ -55,6 +56,84 @@ json::array saveRecentFiles(const std::vector<RecentFile>& files) {
                                    {"timeUploaded", file.timeUploaded}});
     }
     return out;
+}
+
+rotary::FirmwareValues loadFirmwareValues(const json::value* value, rotary::FirmwareValues values) {
+    if (!value || !value->is_object()) {
+        return values;
+    }
+    for (auto& [key, current] : values) {
+        if (const json::value* v = value->as_object().if_contains(key)) {
+            // Settings are strings; a switch may have stored a boolean.
+            current = v->is_string()   ? std::string(v->as_string())
+                      : v->is_bool()   ? (v->as_bool() ? "1" : "0")
+                      : v->is_number() ? js::numberToString(v->to_number<double>())
+                                       : current;
+        }
+    }
+    return values;
+}
+
+json::object saveFirmwareValues(const rotary::FirmwareValues& values) {
+    json::object out;
+    for (const auto& [key, value] : values) {
+        out[key] = value;
+    }
+    return out;
+}
+
+// A number that may have been stored as the text of an input (upstream's
+// rotary surfacing tool saves its fields as typed).
+double numberOrText(const json::object& object, std::string_view key, double fallback) {
+    const json::value* value = object.if_contains(key);
+    if (value && value->is_string()) {
+        const double parsed = js::stringToNumber(value->as_string());
+        return std::isfinite(parsed) ? parsed : fallback;
+    }
+    return number(object, key, fallback);
+}
+
+rotary::StockTurningOptions loadStockTurning(const json::object& o) {
+    rotary::StockTurningOptions t;
+    t.stockLength = numberOrText(o, "stockLength", t.stockLength);
+    t.stepdown = numberOrText(o, "stepdown", t.stepdown);
+    t.bitDiameter = numberOrText(o, "bitDiameter", t.bitDiameter);
+    t.spindleRPM = numberOrText(o, "spindleRPM", t.spindleRPM);
+    t.feedrate = numberOrText(o, "feedrate", t.feedrate);
+    t.stepover = numberOrText(o, "stepover", t.stepover);
+    t.startHeight = numberOrText(o, "startHeight", t.startHeight);
+    t.finalHeight = numberOrText(o, "finalHeight", t.finalHeight);
+    t.enableRehoming = flag(o, "enableRehoming", t.enableRehoming);
+    t.shouldDwell = flag(o, "shouldDwell", t.shouldDwell);
+    t.toolNumber = static_cast<int>(numberOrText(o, "toolNumber", t.toolNumber));
+    return t;
+}
+
+json::object saveStockTurning(const rotary::StockTurningOptions& t) {
+    return {{"stockLength", t.stockLength}, {"stepdown", t.stepdown},       {"bitDiameter", t.bitDiameter},
+            {"spindleRPM", t.spindleRPM},   {"feedrate", t.feedrate},       {"stepover", t.stepover},
+            {"startHeight", t.startHeight}, {"finalHeight", t.finalHeight}, {"enableRehoming", t.enableRehoming},
+            {"shouldDwell", t.shouldDwell}, {"toolNumber", t.toolNumber}};
+}
+
+RotarySettings loadRotary(const json::object& o) {
+    RotarySettings r;
+    r.showControls = flag(o, "showControls", false);
+    r.rotaryMode = text(o, "mode", "DEFAULT") == "ROTARY";
+    r.firmware = loadFirmwareValues(o.if_contains("firmwareSettings"), r.firmware);
+    r.defaults = loadFirmwareValues(o.if_contains("defaultFirmwareSettings"), r.defaults);
+    if (const json::value* turning = o.if_contains("stockTurning"); turning && turning->is_object()) {
+        r.stockTurning = loadStockTurning(turning->as_object());
+    }
+    return r;
+}
+
+json::object saveRotary(const RotarySettings& r) {
+    return {{"showControls", r.showControls},
+            {"mode", r.rotaryMode ? "ROTARY" : "DEFAULT"},
+            {"firmwareSettings", saveFirmwareValues(r.firmware)},
+            {"defaultFirmwareSettings", saveFirmwareValues(r.defaults)},
+            {"stockTurning", saveStockTurning(r.stockTurning)}};
 }
 
 SpindleSettings loadSpindle(const json::object& o) {
@@ -274,6 +353,9 @@ AppSettings appSettingsFromJson(const json::object& root) {
     if (const json::value* spindle = root.if_contains("spindle"); spindle && spindle->is_object()) {
         settings.spindle = loadSpindle(spindle->as_object());
     }
+    if (const json::value* rotaryObject = root.if_contains("rotary"); rotaryObject && rotaryObject->is_object()) {
+        settings.rotary = loadRotary(rotaryObject->as_object());
+    }
     if (const json::value* jog = root.if_contains("jog"); jog && jog->is_object()) {
         const json::object& j = jog->as_object();
         settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
@@ -350,6 +432,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"probe", saveProbe(settings.probe)},
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"spindle", saveSpindle(settings.spindle)},
+                         {"rotary", saveRotary(settings.rotary)},
                          {"jog", jogObject(settings.jog)},
                          {"units", settings.metric ? "mm" : "in"},
                          {"customDecimalPlaces", settings.customDecimalPlaces},
@@ -491,8 +574,29 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     }
     s.recentFiles = loadRecentFiles(w.if_contains("recentFiles"));
     s.jog.preventJoggingPastLimits = flag(w, "preventJoggingPastLimits", false);
-    if (const json::object* rotary = child(w, "rotaryAxis")) {
-        s.preferences.useAaxisForGrbl = flag(*rotary, "useAaxisForGrbl", false);
+    s.rotary.rotaryMode = text(w, "mode", "DEFAULT") == "ROTARY";
+    if (const json::object* rotaryAxis = child(w, "rotaryAxis")) {
+        s.preferences.useAaxisForGrbl = flag(*rotaryAxis, "useAaxisForGrbl", false);
+        s.rotary.firmware = loadFirmwareValues(rotaryAxis->if_contains("firmwareSettings"), s.rotary.firmware);
+        s.rotary.defaults = loadFirmwareValues(rotaryAxis->if_contains("defaultFirmwareSettings"), s.rotary.defaults);
+    }
+    // The surfacing options: the tool reads and saves rotary.stockTurning
+    // (beside the widgets, not the widgets.rotary defaults); the defaults
+    // when it never saved.
+    const auto stockTurning = [](const json::object* rotaryObject) -> const json::object* {
+        const json::object* turning = rotaryObject ? child(*rotaryObject, "stockTurning") : nullptr;
+        return turning ? child(*turning, "options") : nullptr;
+    };
+    const json::object* rotaryWidget = child(g, "rotary");
+    if (const json::object* tab = rotaryWidget ? child(*rotaryWidget, "tab") : nullptr) {
+        s.rotary.showControls = flag(*tab, "show", false);
+    }
+    const json::object* options = stockTurning(child(*state, "rotary"));
+    if (!options) {
+        options = stockTurning(rotaryWidget);
+    }
+    if (options) {
+        s.rotary.stockTurning = loadStockTurning(*options);
     }
     if (const json::object* diagnostics = child(w, "diagnostics")) {
         if (const json::object* stepper = child(*diagnostics, "stepperMotor")) {

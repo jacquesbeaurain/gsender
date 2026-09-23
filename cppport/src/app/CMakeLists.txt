@@ -21,6 +21,8 @@ add_library(gs_app STATIC
     probe_panel.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
+    rotary_panel.cpp
+    rotary_panel.hpp
     settings_dialog.cpp
     settings_dialog.hpp
     shortcuts.cpp

@@ -56,5 +56,6 @@ gs_precompile_headers(gs_core
     <boost/json.hpp> <boost/regex.hpp>)
 
 set(GS_RESOURCE_DIR "${PROJECT_SOURCE_DIR}/resources")
-file(GLOB_RECURSE GS_RESOURCE_FILES CONFIGURE_DEPENDS "${GS_RESOURCE_DIR}/data/*.json")
+file(GLOB_RECURSE GS_RESOURCE_FILES CONFIGURE_DEPENDS
+    "${GS_RESOURCE_DIR}/data/*.json" "${GS_RESOURCE_DIR}/images/*.png")
 gs_embed_resources(gs_core BASE_DIR "${GS_RESOURCE_DIR}" FILES ${GS_RESOURCE_FILES})

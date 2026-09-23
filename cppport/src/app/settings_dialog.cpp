@@ -4,6 +4,7 @@
 
 #include "gs/config/records.hpp"
 #include "gs/protocol/firmware_data.hpp"
+#include "gs/util/jsnumber.hpp"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -27,6 +28,7 @@
 #include <QVBoxLayout>
 
 #include <charconv>
+#include <cmath>
 #include <optional>
 
 namespace gs::app {
@@ -188,7 +190,6 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     spindleDelay_->setSuffix(" s");
     spindleDelay_->setToolTip(tr("Dwell after each spindle start (M3/M4) in loaded jobs"));
     lineWarnings_ = new QCheckBox(tr("Report the offending line when a job line errors"));
-    aAxis_ = new QCheckBox(tr("Grbl: send A-axis words as they are (no A to Y translation)"));
     firmware_ = new QComboBox;
     firmware_->addItems({"Grbl", "grblHAL"});
     firmware_->setToolTip(tr("Assumed when a connected board does not identify itself"));
@@ -226,7 +227,6 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     generalForm->addRow(tr("Position decimals"), decimals_);
     generalForm->addRow(tr("Spindle delay"), spindleDelay_);
     generalForm->addRow(QString(), lineWarnings_);
-    generalForm->addRow(QString(), aAxis_);
     generalForm->addRow(tr("Default firmware"), firmware_);
     generalForm->addRow(tr("Network port"), networkPort_);
     safeRetract_ = new QDoubleSpinBox;
@@ -446,6 +446,47 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     motionForm->addRow(QString(), connectivityTest_);
     tabs_->addTab(probe, tr("Probe"));
 
+    // Rotary (gSender's Rotary section): the Rotary tab, what rotary mode
+    // writes to Grbl's Y (upstream's "hybrid" settings: on grblHAL the board's
+    // own A axis settings instead) and the A words for 4-axis Grbl.
+    auto* rotaryPage = new QWidget;
+    auto* rotaryForm = new QFormLayout(rotaryPage);
+    rotaryControls_ = new QCheckBox(tr("Rotary controls"));
+    rotaryControls_->setToolTip(
+        tr("Show the Rotary tab and related functions on the main Carve page. Turning it off leaves rotary mode."));
+    rotaryResolution_ = numberBox(0.000001, 100000, 8, tr(" step/deg"));
+    rotaryResolution_->setToolTip(tr("Travel resolution in steps per degree. ($103, Default 19.75308642)"));
+    rotaryMaxSpeed_ = numberBox(1, 1000000, 3, tr(" deg/min"));
+    rotaryMaxSpeed_->setToolTip(tr("Max axis speed, also used for G0 rapids. ($113, Default 8000)"));
+    forceSoftLimits_ = new QCheckBox(tr("Force soft limits"));
+    forceSoftLimits_->setToolTip(tr("Enable soft limits when toggling into rotary mode. (grbl only)"));
+    forceHardLimits_ = new QCheckBox(tr("Force hard limits"));
+    forceHardLimits_->setToolTip(tr("Enable hard limits when toggling into rotary mode. (grbl only)"));
+    aAxis_ = new QCheckBox(tr("Use A-axis for grbl"));
+    aAxis_->setToolTip(tr("Enables A-axis controls and commands to be sent for devices running modified 4-axis "
+                          "grbl, rather than translating A into Y. (grbl only)"));
+    rotaryForm->addRow(QString(), rotaryControls_);
+    rotaryForm->addRow(tr("Resolution"), rotaryResolution_);
+    rotaryForm->addRow(tr("Max speed"), rotaryMaxSpeed_);
+    rotaryForm->addRow(QString(), forceSoftLimits_);
+    rotaryForm->addRow(QString(), forceHardLimits_);
+    rotaryForm->addRow(QString(), aAxis_);
+    // The section's wizard (AJogWizard): A jogged 10 degrees either way, to
+    // check the direction and the resolution.
+    auto* jogRow = new QHBoxLayout;
+    for (const char* distance : {"-10", "10"}) {
+        auto* jog = new QPushButton(distance[0] == '-' ? tr("Jog A-") : tr("Jog A+"));
+        connect(jog, &QPushButton::clicked, this, [this, distance] {
+            if (controller::Controller* c = machine_.controller()) {
+                c->gcode(std::string("$J=G21G91A") + distance + "F1000");
+            }
+        });
+        jogRow->addWidget(jog);
+    }
+    jogRow->addStretch(1);
+    rotaryForm->addRow(tr("Test"), jogRow);
+    tabs_->addTab(rotaryPage, tr("Rotary"));
+
     // Automations: G-code run around a job - the config file's event hooks,
     // which the controller runs at gcode:start/pause/resume/stop.
     auto* automations = new QWidget;
@@ -572,6 +613,34 @@ void SettingsDialog::load() {
     zProbeDistance_->setValue(p.zProbeDistance);
     moveSpeed_->setValue(p.probeMovementSpeed);
     connectivityTest_->setChecked(p.connectivityTest);
+
+    rotaryControls_->setChecked(s.rotary.showControls);
+    const auto firmwareValue = [&s](const char* key) {
+        for (const auto& [name, value] : s.rotary.firmware) {
+            if (name == key) {
+                return value;
+            }
+        }
+        return std::string();
+    };
+    const auto number = [](const std::string& text) {
+        const double value = js::stringToNumber(text);
+        return std::isfinite(value) ? value : 0.0;
+    };
+    controller::Controller* c = machine_.controller();
+    rotaryFromBoard_ = c && c->isGrblHal() && !c->runner().setting("$103").empty() &&
+                       !c->runner().setting("$113").empty();
+    if (rotaryFromBoard_) {
+        boardResolution_ = number(c->runner().setting("$103"));
+        boardMaxSpeed_ = number(c->runner().setting("$113"));
+        rotaryResolution_->setValue(boardResolution_);
+        rotaryMaxSpeed_->setValue(boardMaxSpeed_);
+    } else {
+        rotaryResolution_->setValue(number(firmwareValue("$101")));
+        rotaryMaxSpeed_->setValue(number(firmwareValue("$111")));
+    }
+    forceSoftLimits_->setChecked(firmwareValue("$20") == "1");
+    forceHardLimits_->setChecked(firmwareValue("$21") == "1");
 }
 
 void SettingsDialog::save() {
@@ -642,7 +711,50 @@ void SettingsDialog::save() {
     p.zProbeDistance = zProbeDistance_->value();
     p.probeMovementSpeed = moveSpeed_->value();
     p.connectivityTest = connectivityTest_->isChecked();
+
+    const auto setFirmwareValue = [&s](const char* key, std::string value) {
+        for (auto& [name, current] : s.rotary.firmware) {
+            if (name == key) {
+                current = std::move(value);
+                return;
+            }
+        }
+        s.rotary.firmware.emplace_back(key, std::move(value));
+    };
+    // Written the way upstream's inputs store them: numbers as typed, the
+    // switches as "1"/"0".
+    std::vector<std::string> boardChanges;
+    controller::Controller* c = machine_.controller();
+    if (rotaryFromBoard_) {
+        if (rotaryResolution_->value() != boardResolution_) {
+            boardChanges.push_back("$103=" + js::numberToString(rotaryResolution_->value()));
+        }
+        if (rotaryMaxSpeed_->value() != boardMaxSpeed_) {
+            boardChanges.push_back("$113=" + js::numberToString(rotaryMaxSpeed_->value()));
+        }
+    } else {
+        setFirmwareValue("$101", js::numberToString(rotaryResolution_->value()));
+        setFirmwareValue("$111", js::numberToString(rotaryMaxSpeed_->value()));
+    }
+    setFirmwareValue("$20", forceSoftLimits_->isChecked() ? "1" : "0");
+    setFirmwareValue("$21", forceHardLimits_->isChecked() ? "1" : "0");
+    // Turning the Rotary controls off leaves rotary mode (without a board to
+    // tell, only the mode changes - as upstream).
+    const bool leaveRotary = s.rotary.showControls && !rotaryControls_->isChecked() && s.rotary.rotaryMode;
+    s.rotary.showControls = rotaryControls_->isChecked();
+    if (leaveRotary && !c) {
+        s.rotary.rotaryMode = false;
+    }
     machine_.setSettings(s);
+    if (leaveRotary && c) {
+        machine_.setRotaryMode(false);
+    }
+    if (c && !boardChanges.empty()) {
+        boardChanges.push_back("$$");
+        c->gcode(boardChanges);
+        boardResolution_ = rotaryResolution_->value();  // sent: not again on the next Apply
+        boardMaxSpeed_ = rotaryMaxSpeed_->value();
+    }
 }
 
 }  // namespace gs::app

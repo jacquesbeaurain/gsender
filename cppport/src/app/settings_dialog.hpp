@@ -1,7 +1,7 @@
 #pragma once
 
-// Preferences (general, tool change, probe, automations) and the firmware's $
-// settings.
+// Preferences (general, tool change, spindle/laser, probe, rotary,
+// automations) and the firmware's $ settings.
 
 #include <QDialog>
 #include <QString>
@@ -45,7 +45,7 @@ private:
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
-    enum class Page { General, ToolChange, SpindleLaser, Probe, Automations, Firmware };  // tab order
+    enum class Page { General, ToolChange, SpindleLaser, Probe, Rotary, Automations, Firmware };  // tab order
     explicit SettingsDialog(Machine& machine, QWidget* parent = nullptr);
     void showPage(Page page);
     // The Automations page's hook for "gcode:start", "gcode:pause",
@@ -112,6 +112,17 @@ private:
     QDoubleSpinBox* zProbeDistance_;
     QDoubleSpinBox* moveSpeed_;
     QCheckBox* connectivityTest_;
+    // Rotary
+    QCheckBox* rotaryControls_;
+    QDoubleSpinBox* rotaryResolution_;
+    QDoubleSpinBox* rotaryMaxSpeed_;
+    QCheckBox* forceSoftLimits_;
+    QCheckBox* forceHardLimits_;
+    // On grblHAL the resolution and speed are the board's A axis ($103,
+    // $113), as loaded; on Grbl the values rotary mode writes to Y.
+    bool rotaryFromBoard_ = false;
+    double boardResolution_ = 0;
+    double boardMaxSpeed_ = 0;
 };
 
 }  // namespace gs::app

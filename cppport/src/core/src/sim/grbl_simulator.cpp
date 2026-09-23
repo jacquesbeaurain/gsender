@@ -636,7 +636,9 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
             if (!std::isfinite(rate)) {
                 rate = maxRate(0);
             }
-            if (!check) {
+            // Grbl's planner drops a move that goes nowhere (PLAN_EMPTY_BLOCK):
+            // the machine stays idle.
+            if (!check && length > 0) {
                 enqueue(Move{target, length / (rate / 60), rate, true});
             }
         } else {
@@ -648,7 +650,7 @@ void GrblSimulator::executeGcode(const std::string& line, bool jog) {
             if (!check && mode == 38 && !jog) {
                 enqueueProbe(end, target, rate, probeKind);
                 deferOk = true;
-            } else if (!check) {
+            } else if (!check && length > 0) {
                 Move move{target, length / (rate / 60), rate};
                 move.jog = jog;
                 enqueue(std::move(move));
