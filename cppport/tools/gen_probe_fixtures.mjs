@@ -9,66 +9,11 @@
 // (or the probe widget's option building) changes upstream, and commit the
 // regenerated JSON.
 
-import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { loadModule, seededRandom, stubs, writeCases } from './lib/bundle.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, '..', '..');
-const outFile = resolve(here, '..', 'tests', 'data', 'probing_golden.json');
-const require = createRequire(join(repoRoot, 'package.json'));
-const esbuild = require('esbuild');
-
-// SoftLimits.js reads $132 and the machine position from the Redux store;
-// the stub serves them from globalThis.__probeState per case.
-const stubRedux = {
-    name: 'stub-redux',
-    setup(build) {
-        build.onResolve({ filter: /(^|[\\/])store[\\/]redux$/ }, () => ({ path: 'redux', namespace: 'stub' }));
-        build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
-            contents: 'export default { getState: () => globalThis.__probeState };',
-            loader: 'js',
-        }));
-    },
-};
-
-async function load(entry) {
-    const result = await esbuild.build({
-        entryPoints: [join(repoRoot, entry)],
-        bundle: true,
-        write: false,
-        format: 'cjs',
-        platform: 'node',
-        logLevel: 'silent',
-        plugins: [stubRedux],
-        alias: { app: join(repoRoot, 'src/app/src') },
-        define: { 'import.meta.env': '{}' }, // Vite's, read by modules the constants pull in
-        loader: { '.ts': 'ts', '.tsx': 'tsx', '.js': 'jsx' },
-    });
-    const module = { exports: {} };
-    new Function('module', 'exports', 'require', result.outputFiles[0].text)(module, module.exports, require);
-    return module.exports;
-}
-
-// Some modules the constants pull in read browser storage at import time.
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-
-const probing = await load('src/app/src/lib/Probing.ts');
-const units = await load('src/app/src/lib/units.ts');
-const { convertToImperial } = units;
-
-// Deterministic choices (mulberry32), so the fixture only changes when
-// Probing.ts does.
-let seed = 0x5eed1234;
-function random() {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = seed;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-const pick = (values) => values[Math.floor(random() * values.length)];
+const probing = await loadModule('src/app/src/lib/Probing.ts', [stubs.redux]);
+const { convertToImperial } = await loadModule('src/app/src/lib/units.ts');
+const { pick } = seededRandom(0x5eed1234);
 
 // Mirrors generateProbeCommands() in src/app/src/features/Probe/index.tsx:
 // settings are stored in mm and converted for imperial workspaces.
@@ -198,7 +143,7 @@ for (const [plateType, probeType] of plates) {
             };
             // Soft limits: $132 and the machine Z the store would hold.
             const machine = { $132: pick(['170.000', '100.000', '-80.5']), mposZ: pick([0, -12.3, -80.123, -95.75]) };
-            globalThis.__probeState = {
+            globalThis.__reduxState = {
                 controller: { settings: { settings: { $132: machine.$132 } }, mpos: { z: machine.mposZ } },
             };
             const options = buildOptions(settings);
@@ -216,7 +161,4 @@ for (const [plateType, probeType] of plates) {
     }
 }
 
-mkdirSync(dirname(outFile), { recursive: true });
-const payload = { _source: ['src/app/src/lib/Probing.ts', 'src/app/src/features/Probe/index.tsx'], cases };
-writeFileSync(outFile, `${JSON.stringify(payload)}\n`, 'utf8');
-console.log(`wrote ${relative(repoRoot, outFile)} (${cases.length} cases)`);
+writeCases('probing_golden.json', ['src/app/src/lib/Probing.ts', 'src/app/src/features/Probe/index.tsx'], cases);
