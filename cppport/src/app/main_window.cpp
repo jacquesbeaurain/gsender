@@ -1,5 +1,6 @@
 #include "main_window.hpp"
 
+#include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
 #include "jogger.hpp"
@@ -331,6 +332,19 @@ void MainWindow::createMenus() {
         SurfacingDialog dialog(machine_, this);
         dialog.exec();
     });
+    // The calibration wizards stay open beside the main window, whose jog
+    // controls position the machine between their steps.
+    tools->addAction(tr("&Movement Tuning..."), this, [this] {
+        auto* dialog = new MovementTuningDialog(machine_, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+    tools->addAction(tr("&XY Squaring..."), this, [this] {
+        auto* dialog = new SquaringDialog(machine_, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+    tools->addSeparator();
     tools->addAction(tr("&Keyboard Shortcuts..."), this, [this] {
         ShortcutsDialog dialog(machine_, this);
         dialog.exec();

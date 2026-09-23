@@ -22,6 +22,7 @@ add_library(gs_core STATIC
     src/controller/jogging.cpp
     src/controller/locations.cpp
     src/controller/helpers.cpp
+    src/calibration/calibration.cpp
     src/controller/actions.cpp
     src/controller/controller.cpp
     src/controller/session.cpp

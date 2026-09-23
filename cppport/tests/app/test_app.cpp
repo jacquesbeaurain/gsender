@@ -2,6 +2,7 @@
 // simulated board (real time, so kept short), and a main-window smoke test on
 // the offscreen platform.
 
+#include "calibration_dialogs.hpp"
 #include "dro_panel.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
@@ -662,6 +663,85 @@ TEST_F(AppTest, TheStatusAreaUnlocksAlarmsAndShowsMachineInformation) {
     machine.setStepperLock(false);
     ASSERT_TRUE(waitFor([&] { return c.runner().setting("$1") == "25"; }));
     EXPECT_TRUE(machine.settings().stepperRestoreValue.empty());
+}
+
+TEST_F(AppTest, TheCalibrationWizardsMoveMeasureAndRewriteStepsPerMm) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+    controller::Controller& c = *machine.controller();
+    const auto idleAt = [&](double x, double y) {
+        const std::array<double, 4> p = machine.machinePositionMm();
+        return c.state().status.activeState == "Idle" && std::fabs(p[0] - x) < 1e-6 && std::fabs(p[1] - y) < 1e-6;
+    };
+    const QByteArray shots = qgetenv("GS_TEST_SCREENSHOTS");
+
+    // Movement Tuning: X told to move 100 mm, measured 102: $100 = 200 x 100/102.
+    MovementTuningDialog tuning(machine);
+    EXPECT_FALSE(tuning.moveAxis());  // not started
+    ASSERT_TRUE(tuning.start());
+    tuning.markLocation();
+    ASSERT_TRUE(tuning.moveAxis());
+    ASSERT_TRUE(waitFor([&] { return idleAt(100, 0); }));
+    tuning.setTravelled(102);
+    tuning.confirmTravelled();
+    EXPECT_EQ(tuning.step(), MovementTuningDialog::Result);
+    EXPECT_TRUE(tuning.resultText().contains("off by <b>-2 mm.</b>")) << tuning.resultText().toStdString();
+    EXPECT_EQ(tuning.recommendedStepsPerMm(), 196.08);
+    if (!shots.isEmpty()) {
+        tuning.show();
+        tuning.grab().save(QString::fromLocal8Bit(shots) + "/movement_tuning.png");
+    }
+    tuning.updateFirmware();
+    ASSERT_TRUE(waitFor([&] { return c.runner().setting("$100") == "196.08"; }));
+
+    // XY Squaring: mark, move X, mark, move Y, mark; measure the triangle.
+    SquaringDialog squaring(machine);
+    ASSERT_TRUE(squaring.canGoNext());
+    squaring.next();
+    EXPECT_TRUE(squaring.completeRow(0));
+    EXPECT_FALSE(squaring.completeRow(2));  // the X move comes first
+    squaring.setRowValue(1, 50);
+    EXPECT_TRUE(squaring.completeRow(1));
+    ASSERT_TRUE(waitFor([&] { return idleAt(150, 0); }));
+    EXPECT_TRUE(squaring.completeRow(2));
+    squaring.setRowValue(3, 50);
+    if (!shots.isEmpty()) {
+        squaring.show();
+        squaring.grab().save(QString::fromLocal8Bit(shots) + "/squaring_marking.png");
+    }
+    EXPECT_TRUE(squaring.completeRow(3));
+    ASSERT_TRUE(waitFor([&] { return idleAt(150, 50); }));
+    EXPECT_TRUE(squaring.completeRow(4));
+    squaring.next();
+    EXPECT_FALSE(squaring.completeRow(0));  // nothing measured yet
+    squaring.setRowValue(0, 49);
+    EXPECT_TRUE(squaring.completeRow(0));
+    squaring.setRowValue(1, 50);
+    EXPECT_TRUE(squaring.completeRow(1));
+    squaring.setRowValue(2, 71);
+    EXPECT_TRUE(squaring.completeRow(2));
+    squaring.next();
+    ASSERT_EQ(squaring.mainStep(), 3);
+    // 49 x 50 with a 71 diagonal: 1.6 degrees out, 0.99 mm on the diagonal.
+    EXPECT_EQ(squaring.result().verdict, calibration::Squareness::SlightlyOut);
+    EXPECT_EQ(squaring.result().diagonalError, "0.99");
+    const calibration::StepsAdjustment adjustment = squaring.adjustment();
+    EXPECT_TRUE(adjustment.x.needed);  // X moved 50 but measured 49
+    EXPECT_FALSE(adjustment.y.needed);
+    if (!shots.isEmpty()) {
+        squaring.grab().save(QString::fromLocal8Bit(shots) + "/squaring_results.png");
+    }
+    squaring.updateFirmware();
+    ASSERT_TRUE(waitFor([&] {
+        return c.runner().setting("$100") == "200.082" && c.runner().setting("$101") == "200.000";
+    }));
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

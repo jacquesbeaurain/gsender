@@ -829,3 +829,36 @@ The DRO's Home button now follows upstream (idle or jogging): in an alarm
 the status area's button homes. The simulated board can raise any alarm
 (`triggerAlarm`); the application test runs ALARM 3 and 9 through the
 buttons, and the stepper lock round trip.
+
+## Step 31 — Calibration tools (`gs/calibration`, `src/app/calibration_dialogs`)
+
+gSender's Tools include two calibration wizards; their arithmetic and G-code
+are in the core, with upstream's `movement_tuning.test.tsx` and
+`XY_Squaring.test.tsx` ported:
+
+- **Movement Tuning**: mark where an axis is, move it (100 mm, 4 in; Z
+  -50 mm downwards) with a `$J=` jog at 1000 mm/min, measure how far it
+  really went, and scale its steps/mm: `$100 x moved / measured`, to two
+  decimals (0 when nothing was measured), written as `$100=98.04` and `$$`.
+- **XY Squaring**: mark point 1, move X (300 mm, 12 in), mark 2, move Y,
+  mark 3 (`G91 G21 G0 X300` - left in G91, as upstream), then measure the
+  triangle's sides. The corner's deviation from 90 degrees comes from the law
+  of cosines; square within 0.1 degree, "slightly out" when the diagonal is
+  within 2 mm (0.079 in) of a square one, else "needs adjustment" - with the
+  rail correction. Where the measured X or Y side differs from the move by
+  more than 0.1 %, the new steps/mm are offered (`$100=`/`$101=` to three
+  decimals, both written).
+
+Deviations: in an inch workspace the tuning jog's feed is 1000 mm/min in
+inches (upstream wrote F1000 into the G20 jog); a tuning move that is not
+sent (machine busy, or towards a triggered limit with the protection on)
+does not advance the wizard; the squaring threshold follows the current
+units (upstream fixed them when its module loaded).
+
+In the application both wizards (Tools menu) stay open beside the main
+window, whose jog controls position the machine between steps. Rows show
+pending, current and done; moves need an idle machine, measurements a
+positive value. XY Squaring draws its triangle - the marked points, the move
+being made, the measured sides - and ends with the verdict and the
+recommended steps/mm, written after a confirmation. An application test
+runs both on the simulator and checks the rewritten `$100`/`$101`.
