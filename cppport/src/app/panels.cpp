@@ -1,11 +1,14 @@
 #include "panels.hpp"
 
 #include "controls.hpp"
+#include "jogger.hpp"
 #include "machine.hpp"
 
+#include "gs/controller/actions.hpp"
 #include "gs/protocol/runner.hpp"
 #include "gs/transport/port_list.hpp"
 
+#include <QButtonGroup>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QEvent>
@@ -21,7 +24,6 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollBar>
-#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -208,7 +210,7 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
         grid->addWidget(machinePos_[i], i + 1, 2);
         grid->addWidget(zero_[i], i + 1, 3);
         connect(zero_[i], &QPushButton::clicked, this,
-                [this, i] { command(QString("G10 L20 P0 %1").arg(kAxisNames[i]) + "0"); });
+                [this, i] { machine_.zeroAxis(kAxisNames[i][0]); });
     }
     rowA_[0] = work_[3];
     rowA_[1] = machinePos_[3];
@@ -223,8 +225,8 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
         actions_.append(button);
         return button;
     };
-    add(tr("Zero All"), 0, 0, [this] { command("G10 L20 P0 X0 Y0 Z0"); });
-    add(tr("Go to XY Zero"), 0, 1, [this] { command("G90 G0 X0 Y0"); });
+    add(tr("Zero All"), 0, 0, [this] { machine_.zeroAllAxes(); });
+    add(tr("Go to XY Zero"), 0, 1, [this] { machine_.goToZero("XY"); });
     add(tr("Home"), 1, 0, [this] {
         if (auto* c = machine_.controller()) {
             c->home();
@@ -247,12 +249,6 @@ PositionPanel::PositionPanel(Machine& machine, QWidget* parent) : QWidget(parent
     connect(&machine_, &Machine::connectionChanged, this, &PositionPanel::refresh);
     connect(&machine_, &Machine::workflowChanged, this, &PositionPanel::refresh);
     refresh();
-}
-
-void PositionPanel::command(const QString& gcode) {
-    if (auto* c = machine_.controller()) {
-        c->gcode(gcode.toStdString());
-    }
 }
 
 void PositionPanel::refresh() {
@@ -284,7 +280,8 @@ void PositionPanel::refresh() {
 
 // ---- jogging ------------------------------------------------------------------------------
 
-JogPanel::JogPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
+JogPanel::JogPanel(Machine& machine, Jogger& jogger, QWidget* parent)
+    : QWidget(parent), machine_(machine), jogger_(jogger) {
     auto* box = new QGroupBox(tr("Jog"));
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
@@ -292,94 +289,98 @@ JogPanel::JogPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     auto* layout = new QVBoxLayout(box);
 
     auto* grid = new QGridLayout;
-    grid->addWidget(jogButton("Y+", 1, +1), 0, 1);
-    grid->addWidget(jogButton("X-", 0, -1), 1, 0);
-    grid->addWidget(jogButton("X+", 0, +1), 1, 2);
-    grid->addWidget(jogButton("Y-", 1, -1), 2, 1);
-    grid->addWidget(jogButton("Z+", 2, +1), 0, 4);
-    grid->addWidget(jogButton("Z-", 2, -1), 2, 4);
+    grid->addWidget(jogButton("Y+", 'Y', +1), 0, 1);
+    grid->addWidget(jogButton("X-", 'X', -1), 1, 0);
+    grid->addWidget(jogButton("X+", 'X', +1), 1, 2);
+    grid->addWidget(jogButton("Y-", 'Y', -1), 2, 1);
+    grid->addWidget(jogButton("Z+", 'Z', +1), 0, 4);
+    grid->addWidget(jogButton("Z-", 'Z', -1), 2, 4);
     grid->setColumnMinimumWidth(3, 16);
     layout->addLayout(grid);
 
-    auto* settings = new QHBoxLayout;
-    step_ = new QComboBox;
-    for (const char* step : {"0.1", "1", "10", "100"}) {
-        step_->addItem(step);
+    auto* presetRow = new QHBoxLayout;
+    presets_ = new QButtonGroup(this);
+    const std::pair<controller::JogPreset, QString> presets[] = {
+        {controller::JogPreset::Rapid, tr("Rapid")},
+        {controller::JogPreset::Normal, tr("Normal")},
+        {controller::JogPreset::Precise, tr("Precise")},
+    };
+    for (const auto& [preset, name] : presets) {
+        auto* button = new QPushButton(name);
+        button->setCheckable(true);
+        presets_->addButton(button, static_cast<int>(preset));
+        presetRow->addWidget(button);
     }
-    step_->setCurrentText("10");
-    feed_ = new QDoubleSpinBox;
-    feed_->setRange(10, 20000);
-    feed_->setDecimals(0);
-    feed_->setSingleStep(100);
-    feed_->setValue(3000);
-    feed_->setSuffix(" mm/min");
-    settings->addWidget(new QLabel(tr("Step (mm)")));
-    settings->addWidget(step_);
-    settings->addWidget(new QLabel(tr("Speed")));
-    settings->addWidget(feed_);
-    settings->addStretch();
-    layout->addLayout(settings);
+    connect(presets_, &QButtonGroup::idClicked, this,
+            [this](int id) { jogger_.selectPreset(static_cast<controller::JogPreset>(id)); });
+    layout->addLayout(presetRow);
+
+    auto* values = new QHBoxLayout;
+    const auto field = [](double max, int decimals, const QString& suffix) {
+        auto* spin = new QDoubleSpinBox;
+        spin->setRange(0.001, max);
+        spin->setDecimals(decimals);
+        spin->setSuffix(suffix);
+        return spin;
+    };
+    xyStep_ = field(1000, 3, " mm");
+    zStep_ = field(1000, 3, " mm");
+    feed_ = field(20000, 0, " mm/min");
+    values->addWidget(new QLabel(tr("XY")));
+    values->addWidget(xyStep_);
+    values->addWidget(new QLabel(tr("Z")));
+    values->addWidget(zStep_);
+    values->addWidget(new QLabel(tr("Speed")));
+    values->addWidget(feed_);
+    layout->addLayout(values);
+    for (QDoubleSpinBox* spin : {xyStep_, zStep_, feed_}) {
+        connect(spin, &QDoubleSpinBox::valueChanged, this, [this] {
+            if (showing_) {
+                return;
+            }
+            controller::JogSpeeds speeds = jogger_.speeds();
+            speeds.xyStep = xyStep_->value();
+            speeds.zStep = zStep_->value();
+            speeds.feedrate = feed_->value();
+            jogger_.setSpeeds(speeds);
+        });
+    }
     auto* hint = new QLabel(tr("Click to step, hold to jog continuously."));
     hint->setStyleSheet("color:#777");
     layout->addWidget(hint);
 
-    holdTimer_ = new QTimer(this);
-    holdTimer_->setSingleShot(true);
-    holdTimer_->setInterval(300);
-    connect(holdTimer_, &QTimer::timeout, this, [this] {
-        controller::Controller* c = machine_.controller();
-        if (!c || heldAxis_ < 0) {
-            return;
-        }
-        controller::Axes4 direction;
-        direction[static_cast<std::size_t>(heldAxis_)] = heldDirection_;
-        continuous_ = true;
-        c->jogStart(direction, feed_->value());
-    });
+    connect(&jogger_, &Jogger::changed, this, &JogPanel::showSpeeds);
     connect(&machine_, &Machine::connectionChanged, this, &JogPanel::updateEnabled);
     connect(&machine_, &Machine::workflowChanged, this, &JogPanel::updateEnabled);
     connect(&machine_, &Machine::stateChanged, this, &JogPanel::updateEnabled);
+    showSpeeds();
     updateEnabled();
 }
 
-QPushButton* JogPanel::jogButton(const QString& text, int axis, int direction) {
+QPushButton* JogPanel::jogButton(const QString& text, char axis, int direction) {
     auto* button = new QPushButton(text);
     button->setMinimumSize(56, 44);
-    connect(button, &QPushButton::pressed, this, [this, axis, direction] { pressed(axis, direction); });
-    connect(button, &QPushButton::released, this, &JogPanel::released);
+    connect(button, &QPushButton::pressed, this, [this, axis, direction] {
+        jogger_.press({{axis, static_cast<double>(direction)}});
+    });
+    connect(button, &QPushButton::released, this, [this] { jogger_.release(); });
     buttons_.append(button);
     return button;
 }
 
-void JogPanel::pressed(int axis, int direction) {
-    heldAxis_ = axis;
-    heldDirection_ = direction;
-    continuous_ = false;
-    holdTimer_->start();
-}
-
-void JogPanel::released() {
-    holdTimer_->stop();
-    controller::Controller* c = machine_.controller();
-    if (c && continuous_) {
-        c->jogStop();
-    } else if (c && heldAxis_ >= 0) {
-        // A click moves one step, as gSender's jog buttons do.
-        const double distance = step_->currentText().toDouble() * heldDirection_;
-        c->gcode(QString("$J=G21G91%1%2F%3")
-                     .arg(kAxisNames[heldAxis_])
-                     .arg(distance)
-                     .arg(feed_->value(), 0, 'f', 0)
-                     .toStdString());
-    }
-    heldAxis_ = -1;
-    continuous_ = false;
+void JogPanel::showSpeeds() {
+    showing_ = true;
+    const controller::JogSpeeds& speeds = jogger_.speeds();
+    xyStep_->setValue(speeds.xyStep);
+    zStep_->setValue(speeds.zStep);
+    feed_->setValue(speeds.feedrate);
+    presets_->button(static_cast<int>(jogger_.preset()))->setChecked(true);
+    showing_ = false;
 }
 
 void JogPanel::updateEnabled() {
     controller::Controller* c = machine_.controller();
-    const bool can = c && !c->workflow().isRunning() &&
-                     c->state().status.activeState != "Alarm";
+    const bool can = c && !c->workflow().isRunning() && c->state().status.activeState != "Alarm";
     for (QPushButton* button : buttons_) {
         button->setEnabled(can);
     }
@@ -492,24 +493,22 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
 
     connect(open_, &QPushButton::clicked, this, &JobPanel::openFile);
     connect(unload_, &QPushButton::clicked, &machine_, &Machine::unloadProgram);
-    connect(start_, &QPushButton::clicked, this, [this] {
-        if (auto* c = machine_.controller()) {
-            c->start();
-        }
-    });
+    // The rules of gSender's job control buttons (gs/controller/actions).
+    for (QPushButton* button : {start_, resume_}) {
+        connect(button, &QPushButton::clicked, this, [this] {
+            if (auto* c = machine_.controller()) {
+                controller::runJob(*c);
+            }
+        });
+    }
     connect(pause_, &QPushButton::clicked, this, [this] {
         if (auto* c = machine_.controller()) {
-            c->pause();
-        }
-    });
-    connect(resume_, &QPushButton::clicked, this, [this] {
-        if (auto* c = machine_.controller()) {
-            c->resume();
+            controller::pauseJob(*c);
         }
     });
     connect(stop_, &QPushButton::clicked, this, [this] {
         if (auto* c = machine_.controller()) {
-            c->stop(/*force=*/true);
+            controller::stopJob(*c);
         }
     });
     for (auto signal : {&Machine::programChanged, &Machine::workflowChanged, &Machine::connectionChanged,
@@ -534,16 +533,16 @@ void JobPanel::openFile() {
 
 void JobPanel::refresh() {
     controller::Controller* c = machine_.controller();
-    const bool running = c && c->workflow().isRunning();
-    const bool paused = c && c->workflow().isPaused();
-    const bool idle = !running && !paused;
-    const bool machineIdle = c && c->state().status.activeState == "Idle";
+    const controller::WorkflowState workflow = c ? c->workflow().state() : controller::WorkflowState::Idle;
+    const std::string activeState = c ? c->state().status.activeState : std::string();
+    const bool idle = workflow == controller::WorkflowState::Idle;
+    const bool runnable = c && machine_.hasProgram() && !machine_.isAnalyzing() && controller::canRun(activeState, workflow);
     open_->setEnabled(idle);
     unload_->setEnabled(idle && machine_.hasProgram());
-    start_->setEnabled(c && idle && machineIdle && machine_.hasProgram() && !machine_.isAnalyzing());
-    pause_->setEnabled(running);
-    resume_->setEnabled(paused);
-    stop_->setEnabled(running || paused);
+    start_->setEnabled(runnable && idle && activeState != "Hold");
+    pause_->setEnabled(c && controller::canPause(activeState, workflow));
+    resume_->setEnabled(runnable && (workflow == controller::WorkflowState::Paused || activeState == "Hold"));
+    stop_->setEnabled(c && controller::canStop(workflow));
 
     if (!machine_.hasProgram()) {
         info_->setText(tr("<b>No file loaded</b>"));

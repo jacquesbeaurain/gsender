@@ -12,10 +12,11 @@ class QLineEdit;
 class QPlainTextEdit;
 class QProgressBar;
 class QPushButton;
-class QTimer;
+class QButtonGroup;
 
 namespace gs::app {
 
+class Jogger;
 class Machine;
 
 // Port / baud selection and connect/disconnect (gSender's Connection widget).
@@ -45,7 +46,6 @@ public:
 
 private:
     void refresh();
-    void command(const QString& gcode);
 
     Machine& machine_;
     QLabel* work_[4];
@@ -55,26 +55,26 @@ private:
     QList<QPushButton*> actions_;
 };
 
-// Step jogging on click, continuous jogging while held (Jogging widget).
+// Step jogging on click, continuous jogging while held, with the speed
+// presets (Jogging widget). The keyboard shortcuts share the same Jogger.
 class JogPanel final : public QWidget {
     Q_OBJECT
 public:
-    explicit JogPanel(Machine& machine, QWidget* parent = nullptr);
+    JogPanel(Machine& machine, Jogger& jogger, QWidget* parent = nullptr);
 
 private:
-    QPushButton* jogButton(const QString& text, int axis, int direction);
-    void pressed(int axis, int direction);
-    void released();
+    QPushButton* jogButton(const QString& text, char axis, int direction);
+    void showSpeeds();
     void updateEnabled();
 
     Machine& machine_;
-    QComboBox* step_;
+    Jogger& jogger_;
+    QButtonGroup* presets_;
+    QDoubleSpinBox* xyStep_;
+    QDoubleSpinBox* zStep_;
     QDoubleSpinBox* feed_;
-    QTimer* holdTimer_;
     QList<QPushButton*> buttons_;
-    int heldAxis_ = -1;
-    int heldDirection_ = 0;
-    bool continuous_ = false;
+    bool showing_ = false;
 };
 
 // Firmware output and a command line (Console widget).

@@ -7,6 +7,8 @@ add_library(gs_app STATIC
     controls.hpp
     machine.cpp
     machine.hpp
+    jogger.cpp
+    jogger.hpp
     main_window.cpp
     main_window.hpp
     panels.cpp
@@ -17,6 +19,10 @@ add_library(gs_app STATIC
     qt_event_loop.hpp
     settings_dialog.cpp
     settings_dialog.hpp
+    shortcuts.cpp
+    shortcuts.hpp
+    shortcuts_dialog.cpp
+    shortcuts_dialog.hpp
     surfacing_dialog.cpp
     surfacing_dialog.hpp
     toolpath_view.cpp

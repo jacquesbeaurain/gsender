@@ -71,6 +71,18 @@ SpindlePanel::SpindlePanel(Machine& machine, QWidget* parent) : QWidget(parent),
     refresh();
 }
 
+void SpindlePanel::startClockwise() {
+    command(QString("M3 S%1").arg(speed_->value(), 0, 'f', 0));
+}
+
+void SpindlePanel::startCounterClockwise() {
+    command(QString("M4 S%1").arg(speed_->value(), 0, 'f', 0));
+}
+
+void SpindlePanel::stopSpindle() {
+    command("M5");
+}
+
 void SpindlePanel::command(const QString& gcode) {
     if (auto* c = machine_.controller()) {
         c->gcode(gcode.toStdString());

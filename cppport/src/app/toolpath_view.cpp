@@ -137,18 +137,36 @@ QPointF ToolpathView::project(const Point3& p) const {
     return {width() / 2.0 + pan_.x() + rx * scale_, height() / 2.0 + pan_.y() - ry * scale_};
 }
 
-void ToolpathView::setTopView() {
-    yaw_ = 0;
-    pitch_ = 0;
+void ToolpathView::setView(View view) {
+    // Screen right = cos(yaw) x - sin(yaw) y; up = cos(pitch) (sin(yaw) x +
+    // cos(yaw) y) + sin(pitch) z. Side views look along the machine axes
+    // with Z up: front along +Y, right along -X, left along +X.
+    switch (view) {
+        case View::Iso: yaw_ = -35 * kDegree; pitch_ = 55 * kDegree; break;
+        case View::Top: yaw_ = 0; pitch_ = 0; break;
+        case View::Front: yaw_ = 0; pitch_ = 90 * kDegree; break;
+        case View::Right: yaw_ = -90 * kDegree; pitch_ = 90 * kDegree; break;
+        case View::Left: yaw_ = 90 * kDegree; pitch_ = 90 * kDegree; break;
+    }
+    view_ = view;
     updateRotation();
     fit();
 }
 
-void ToolpathView::set3dView() {
-    yaw_ = -35 * kDegree;
-    pitch_ = 55 * kDegree;
-    updateRotation();
-    fit();
+void ToolpathView::cycleView() {
+    switch (view_) {
+        case View::Iso: setView(View::Top); break;
+        case View::Top: setView(View::Front); break;
+        case View::Front: setView(View::Right); break;
+        case View::Right: setView(View::Left); break;
+        case View::Left: setView(View::Iso); break;
+    }
+}
+
+void ToolpathView::zoom(double factor) {
+    scale_ = std::clamp(scale_ * factor, 0.01, 5000.0);
+    pan_ *= factor;  // keep the middle of the view where it is
+    update();
 }
 
 void ToolpathView::fit() {

@@ -116,7 +116,33 @@ json::object saveSurfacing(const surfacing::Options& s) {
     };
 }
 
+controller::JogSpeeds loadSpeeds(const json::object& root, std::string_view key, controller::JogSpeeds speeds) {
+    const json::value* value = root.if_contains(key);
+    if (!value || !value->is_object()) {
+        return speeds;
+    }
+    const json::object& o = value->as_object();
+    speeds.xyStep = number(o, "xyStep", speeds.xyStep);
+    speeds.zStep = number(o, "zStep", speeds.zStep);
+    speeds.aStep = number(o, "aStep", speeds.aStep);
+    speeds.feedrate = number(o, "feedrate", speeds.feedrate);
+    return speeds;
+}
+
+json::object saveSpeeds(const controller::JogSpeeds& s) {
+    return {{"xyStep", s.xyStep}, {"zStep", s.zStep}, {"aStep", s.aStep}, {"feedrate", s.feedrate}};
+}
+
 }  // namespace
+
+const controller::JogSpeeds& JogSettings::speeds(controller::JogPreset preset) const {
+    switch (preset) {
+        case controller::JogPreset::Rapid: return rapid;
+        case controller::JogPreset::Precise: return precise;
+        case controller::JogPreset::Normal: break;
+    }
+    return normal;
+}
 
 AppSettings loadAppSettings(const config::ConfigStore& store) {
     AppSettings settings;
@@ -147,8 +173,46 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
         settings.surfacing = loadSurfacing(surfacing->as_object());
     }
+    if (const json::value* jog = root.if_contains("jog"); jog && jog->is_object()) {
+        const json::object& j = jog->as_object();
+        settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
+        settings.jog.normal = loadSpeeds(j, "normal", settings.jog.normal);
+        settings.jog.precise = loadSpeeds(j, "precise", settings.jog.precise);
+        settings.jog.threshold = static_cast<int>(number(j, "threshold", settings.jog.threshold));
+        settings.jog.preventJoggingPastLimits = flag(j, "preventJoggingPastLimits", false);
+    }
+    settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
+    if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
+        for (const auto& [id, value] : shortcuts->as_object()) {
+            if (value.is_object()) {
+                settings.shortcuts[std::string(id)] =
+                    ShortcutBinding{text(value.as_object(), "keys"), flag(value.as_object(), "isActive", true)};
+            }
+        }
+    }
+    settings.shortcutsEnabled = flag(root, "shortcutsEnabled", true);
     return settings;
 }
+
+namespace {
+
+json::object jogObject(const JogSettings& jog) {
+    return {{"rapid", saveSpeeds(jog.rapid)},
+            {"normal", saveSpeeds(jog.normal)},
+            {"precise", saveSpeeds(jog.precise)},
+            {"threshold", jog.threshold},
+            {"preventJoggingPastLimits", jog.preventJoggingPastLimits}};
+}
+
+json::object shortcutsObject(const std::map<std::string, ShortcutBinding>& shortcuts) {
+    json::object out;
+    for (const auto& [id, binding] : shortcuts) {
+        out[id] = json::object{{"keys", binding.keys}, {"isActive", binding.active}};
+    }
+    return out;
+}
+
+}  // namespace
 
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
     const controller::ToolChangeContext& t = settings.toolChange;
@@ -168,6 +232,10 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
                          {"probe", saveProbe(settings.probe)},
                          {"surfacing", saveSurfacing(settings.surfacing)},
+                         {"jog", jogObject(settings.jog)},
+                         {"safeRetractHeight", settings.safeRetractHeight},
+                         {"shortcuts", shortcutsObject(settings.shortcuts)},
+                         {"shortcutsEnabled", settings.shortcutsEnabled},
                      });
 }
 

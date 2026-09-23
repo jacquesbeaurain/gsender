@@ -7,11 +7,14 @@
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "settings_dialog.hpp"
+#include "shortcuts.hpp"
+#include "shortcuts_dialog.hpp"
 #include "surfacing_dialog.hpp"
 
 #include "gs/sim/grbl_simulator.hpp"
 
 #include <QApplication>
+#include <QKeyEvent>
 #include <QTableWidget>
 #include <QDeadlineTimer>
 #include <QTemporaryDir>
@@ -260,6 +263,104 @@ TEST_F(AppTest, TheSurfacingToolGeneratesAndLoadsAJob) {
     dialog.reject();  // closing keeps the settings
     EXPECT_EQ(machine.settings().surfacing.width, 150);
     EXPECT_EQ(machine.settings().surfacing.type, surfacing::Pattern::ZigZag);
+}
+
+TEST_F(AppTest, ShortcutKeysBindSymbolsWithoutShift) {
+    const QKeyEvent tilde(QEvent::KeyPress, Qt::Key_AsciiTilde, Qt::ShiftModifier, "~");
+    EXPECT_EQ(QKeySequence(shortcutKey(tilde)), QKeySequence("~"));
+    const QKeyEvent zero(QEvent::KeyPress, Qt::Key_W, Qt::ShiftModifier, "W");
+    EXPECT_EQ(QKeySequence(shortcutKey(zero)), QKeySequence("Shift+W"));
+    const QKeyEvent jog(QEvent::KeyPress, Qt::Key_Right, Qt::ShiftModifier | Qt::KeypadModifier);
+    EXPECT_EQ(QKeySequence(shortcutKey(jog)), QKeySequence("Shift+Right"));
+}
+
+TEST_F(AppTest, ShortcutsUseTheUsersKeysOverTheDefaults) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    QWidget window;
+    ShortcutManager shortcuts(machine, window);
+    EXPECT_EQ(shortcuts.actionFor(QKeySequence("~")[0]), "START_JOB");
+    EXPECT_EQ(shortcuts.actionFor(QKeySequence("Shift+PgUp")[0]), "JOG_Z_P");
+
+    AppSettings settings = machine.settings();
+    settings.shortcuts["START_JOB"] = {"F9", true};
+    settings.shortcuts["STOP_JOB"] = {"@", false};  // switched off
+    machine.setSettings(settings);
+    EXPECT_EQ(shortcuts.actionFor(QKeySequence("F9")[0]), "START_JOB");
+    EXPECT_TRUE(shortcuts.actionFor(QKeySequence("~")[0]).isEmpty());
+    EXPECT_TRUE(shortcuts.actionFor(QKeySequence("@")[0]).isEmpty());
+
+    int toggles = 0;
+    shortcuts.setHandler("TOGGLE_SHORTCUTS", [&] { ++toggles; });
+    shortcuts.setHandler("START_JOB", [] {});
+    settings.shortcutsEnabled = false;
+    machine.setSettings(settings);
+    EXPECT_FALSE(shortcuts.trigger("START_JOB"));  // all off...
+    EXPECT_TRUE(shortcuts.trigger("TOGGLE_SHORTCUTS"));  // ...but the switch itself
+    EXPECT_EQ(toggles, 1);
+}
+
+TEST_F(AppTest, HeldJogKeysJogUntilReleased) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    window.show();
+    window.activateWindow();
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->state().status.activeState == "Idle";
+    }));
+    ASSERT_TRUE(waitFor([&] { return QApplication::activeWindow() == &window; }, 2000));
+    QWidget* target = QApplication::focusWidget() ? QApplication::focusWidget() : &window;
+    const auto key = [&](QEvent::Type type, bool autoRepeat = false) {
+        QKeyEvent event(type, Qt::Key_Right, Qt::ShiftModifier, QString(), autoRepeat);
+        QCoreApplication::sendEvent(target, &event);
+        return event.isAccepted();
+    };
+
+    // A tap steps by the Normal preset's 5 mm.
+    key(QEvent::KeyPress);
+    key(QEvent::KeyRelease);
+    ASSERT_TRUE(waitFor([&] { return machine.simulator()->activeState() == "Idle" &&
+                                     machine.simulator()->machinePosition()[0] > 4.99; }));
+    EXPECT_NEAR(machine.simulator()->machinePosition()[0], 5.0, 1e-9);
+
+    // A hold jogs continuously; auto-repeat is swallowed; release stops.
+    key(QEvent::KeyPress);
+    runFor(350);
+    key(QEvent::KeyPress, true);
+    EXPECT_EQ(machine.simulator()->activeState(), "Jog");
+    key(QEvent::KeyRelease);
+    ASSERT_TRUE(waitFor([&] { return machine.simulator()->activeState() == "Idle"; }));
+    EXPECT_GT(machine.simulator()->machinePosition()[0], 5.0);
+}
+
+TEST_F(AppTest, TheShortcutEditorRefusesTakenKeysAndStoresOnlyChanges) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    ShortcutsDialog dialog(machine);
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.show();
+        dialog.grab().save(QString::fromLocal8Bit(out) + "/shortcuts.png");
+    }
+    QString conflict;
+    EXPECT_FALSE(dialog.setKeys("START_JOB", QKeySequence("@"), &conflict));
+    EXPECT_EQ(conflict, "Global Stop");
+    EXPECT_TRUE(dialog.setKeys("START_JOB", QKeySequence("F9")));
+    EXPECT_TRUE(dialog.setKeys("PAUSE_JOB", QKeySequence("!")));  // its default: no change
+    dialog.setActive("STOP_JOB", false);
+    dialog.save();
+    const auto& stored = machine.settings().shortcuts;
+    EXPECT_EQ(stored.size(), 2u);
+    EXPECT_EQ(stored.at("START_JOB").keys, "F9");
+    EXPECT_FALSE(stored.at("STOP_JOB").active);
+    dialog.resetAll();
+    dialog.save();
+    EXPECT_TRUE(machine.settings().shortcuts.empty());
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {

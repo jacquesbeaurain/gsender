@@ -3,6 +3,8 @@
 #include "qt_event_loop.hpp"
 
 #include "gs/config/records.hpp"
+#include "gs/controller/actions.hpp"
+#include "gs/util/jsnumber.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 #include "gs/transport/asio_link.hpp"
 
@@ -226,9 +228,44 @@ void Machine::teardown() {
     connecting_ = false;
 }
 
+runtime::EventLoop& Machine::eventLoop() noexcept {
+    return loop_;
+}
+
 void Machine::disconnectFromMachine() {
     teardown();
     Q_EMIT connectionChanged();
+}
+
+// ---- positions ------------------------------------------------------------------------
+
+void Machine::zeroAxis(char axis) {
+    if (controller::Controller* c = controller()) {
+        c->gcode(controller::zeroAxisCommand(axis));
+    }
+}
+
+void Machine::zeroAllAxes() {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    const bool hasA = c->state().axes.letters.find('A') != std::string::npos;
+    for (const std::string& command : controller::zeroAllCommands(c->isGrblHal(), hasA)) {
+        c->gcode(command);
+    }
+}
+
+void Machine::goToZero(std::string_view axes) {
+    controller::Controller* c = controller();
+    if (!c) {
+        return;
+    }
+    const std::string homing = c->runner().setting("$22");
+    const bool homingEnabled = !homing.empty() && js::stringToNumber(homing) != 0;
+    c->gcodeSafe(controller::goToZeroCommands(axes, homingEnabled, settings_.safeRetractHeight,
+                                              c->runner().machinePosition()[2]),
+                 "G21");
 }
 
 // ---- probing ----------------------------------------------------------------------------
