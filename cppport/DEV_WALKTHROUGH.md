@@ -447,3 +447,15 @@ QPainter rather than OpenGL for now: it also renders on the offscreen
 platform, so screenshots of the running application can check it
 (`--view 3d` selects the 3D preset). The toolpath data is renderer-neutral;
 an OpenGL view can replace this one if very large files need it.
+
+## Step 19 — Overrides, spindle/coolant and macros (`src/app/controls`)
+
+- Overrides bar under the job progress: feed and spindle sliders (10-200 %)
+  sent on release through the controller's override commands (realtime
+  bytes, 25 ms apart), 100 % resets, rapid presets 25/50/100 %; the controls
+  follow the overrides the firmware reports.
+- Spindle & coolant tab: M3/M4 at a speed, M5, M7/M8/M9, with the modal state
+  shown.
+- Macros tab: the macros of the config file (`MacroStore`) - run (also by
+  double-click), create, edit, delete; runs go through the controller's
+  `runMacro`, so `%` assignments and `[expressions]` work as in gSender.

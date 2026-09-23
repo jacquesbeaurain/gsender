@@ -128,6 +128,29 @@ TEST_F(AppTest, TheMachineConnectsToTheSimulatorAndAnalysesPrograms) {
     EXPECT_TRUE(machine.hasProgram());  // the file stays loaded
 }
 
+TEST_F(AppTest, MacrosAreStoredAndRunOnTheMachine) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    const auto macro = machine.macros().create("Park", "G0 Z5\nG0 X0 Y0", "Lift and go home");
+    ASSERT_TRUE(macro.has_value());
+    EXPECT_EQ(machine.macros().list().size(), 1u);
+
+    std::vector<QString> sent;
+    QObject::connect(&machine, &Machine::consoleLine, [&](const QString& text, bool fromHost) {
+        if (fromHost) {
+            sent.push_back(text.trimmed());
+        }
+    });
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    ASSERT_TRUE(machine.controller()->runMacro(macro->id));
+    EXPECT_TRUE(waitFor([&] {
+        return std::find(sent.begin(), sent.end(), "G0 X0 Y0") != sent.end();
+    }));
+    EXPECT_NE(std::find(sent.begin(), sent.end(), "G0 Z5"), sent.end());
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;

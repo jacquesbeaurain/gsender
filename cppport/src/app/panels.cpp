@@ -1,5 +1,6 @@
 #include "panels.hpp"
 
+#include "controls.hpp"
 #include "machine.hpp"
 
 #include "gs/protocol/runner.hpp"
@@ -475,6 +476,7 @@ JobPanel::JobPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine
     progressRow->addWidget(progress_, 1);
     progressRow->addWidget(timing_);
     layout->addLayout(progressRow);
+    layout->addWidget(new OverridesBar(machine_));
 
     connect(open_, &QPushButton::clicked, this, &JobPanel::openFile);
     connect(unload_, &QPushButton::clicked, &machine_, &Machine::unloadProgram);
