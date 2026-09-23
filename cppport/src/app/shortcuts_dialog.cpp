@@ -20,15 +20,20 @@ namespace {
 
 enum Column { kAction, kKeys, kCategory, kActive };
 
-QString defaultKeys(const QString& id) {
-    const ShortcutAction* action = findShortcutAction(id);
+QString defaultKeys(const std::vector<ShortcutAction>& actions, const QString& id) {
+    const ShortcutAction* action = findShortcutAction(actions, id);
     return action ? action->defaultKeys : QString();
+}
+
+bool defaultActive(const std::vector<ShortcutAction>& actions, const QString& id) {
+    const ShortcutAction* action = findShortcutAction(actions, id);
+    return !action || action->defaultActive;
 }
 
 }  // namespace
 
 ShortcutsDialog::ShortcutsDialog(Machine& machine, QWidget* parent)
-    : QDialog(parent), machine_(machine), edits_(machine.settings().shortcuts) {
+    : QDialog(parent), machine_(machine), actions_(shortcutActions(machine)), edits_(machine.settings().shortcuts) {
     setWindowTitle(tr("Keyboard Shortcuts"));
     resize(760, 620);
     auto* layout = new QVBoxLayout(this);
@@ -38,7 +43,7 @@ ShortcutsDialog::ShortcutsDialog(Machine& machine, QWidget* parent)
     enabled_->setChecked(machine_.settings().shortcutsEnabled);
     category_ = new QComboBox;
     category_->addItem(tr("All"));
-    for (const ShortcutAction& action : shortcutActions()) {
+    for (const ShortcutAction& action : actions_) {
         if (category_->findText(action.category) < 0) {
             category_->addItem(action.category);
         }
@@ -82,18 +87,18 @@ QKeySequence ShortcutsDialog::keys(const QString& id) const {
     if (const auto it = edits_.find(id.toStdString()); it != edits_.end()) {
         return QKeySequence::fromString(QString::fromStdString(it->second.keys), QKeySequence::PortableText);
     }
-    return QKeySequence::fromString(defaultKeys(id), QKeySequence::PortableText);
+    return QKeySequence::fromString(defaultKeys(actions_, id), QKeySequence::PortableText);
 }
 
 bool ShortcutsDialog::isActive(const QString& id) const {
     const auto it = edits_.find(id.toStdString());
-    return it == edits_.end() || it->second.active;
+    return it == edits_.end() ? defaultActive(actions_, id) : it->second.active;
 }
 
 bool ShortcutsDialog::setKeys(const QString& id, const QKeySequence& keys, QString* conflict) {
     const QKeySequence single = keys.isEmpty() ? QKeySequence() : QKeySequence(keys[0]);
     if (!single.isEmpty()) {
-        for (const ShortcutAction& other : shortcutActions()) {
+        for (const ShortcutAction& other : actions_) {
             if (other.id != id && isActive(other.id) && this->keys(other.id) == single) {
                 if (conflict) {
                     *conflict = other.title;
@@ -102,8 +107,11 @@ bool ShortcutsDialog::setKeys(const QString& id, const QKeySequence& keys, QStri
             }
         }
     }
+    // New keys switch the shortcut on (upstream's EditArea saves isActive:
+    // true) - which is how a macro's shortcut starts working.
+    const bool active = !single.isEmpty() || isActive(id);
     ShortcutBinding& binding = edits_[id.toStdString()];
-    binding.active = isActive(id);
+    binding.active = active;
     binding.keys = single.toString(QKeySequence::PortableText).toStdString();
     fill();
     return true;
@@ -125,12 +133,12 @@ void ShortcutsDialog::save() {
     // Keep only what differs from gSender's defaults.
     std::map<std::string, ShortcutBinding> changes;
     for (const auto& [id, binding] : edits_) {
-        const QString defaults = defaultKeys(QString::fromStdString(id));
+        const QString defaults = defaultKeys(actions_, QString::fromStdString(id));
         const QString keys = QKeySequence::fromString(QString::fromStdString(binding.keys), QKeySequence::PortableText)
                                  .toString(QKeySequence::PortableText);
         const QString normalDefaults =
             QKeySequence::fromString(defaults, QKeySequence::PortableText).toString(QKeySequence::PortableText);
-        if (!binding.active || keys != normalDefaults) {
+        if (binding.active != defaultActive(actions_, QString::fromStdString(id)) || keys != normalDefaults) {
             changes[id] = binding;
         }
     }
@@ -144,7 +152,7 @@ void ShortcutsDialog::fill() {
     filling_ = true;
     const QString category = category_->currentIndex() > 0 ? category_->currentText() : QString();
     table_->setRowCount(0);
-    for (const ShortcutAction& action : shortcutActions()) {
+    for (const ShortcutAction& action : actions_) {
         if (!category.isEmpty() && action.category != category) {
             continue;
         }
@@ -186,8 +194,9 @@ void ShortcutsDialog::editRow(int row) {
     QPushButton* restore = buttons->addButton(tr("Default"), QDialogButtonBox::ResetRole);
     layout->addWidget(buttons);
     connect(clear, &QPushButton::clicked, keysEdit, &QKeySequenceEdit::clear);
-    connect(restore, &QPushButton::clicked, keysEdit,
-            [keysEdit, id] { keysEdit->setKeySequence(QKeySequence::fromString(defaultKeys(id), QKeySequence::PortableText)); });
+    connect(restore, &QPushButton::clicked, keysEdit, [this, keysEdit, id] {
+        keysEdit->setKeySequence(QKeySequence::fromString(defaultKeys(actions_, id), QKeySequence::PortableText));
+    });
     connect(buttons, &QDialogButtonBox::accepted, &edit, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &edit, &QDialog::reject);
     if (edit.exec() != QDialog::Accepted) {

@@ -2,6 +2,7 @@
 
 #include "machine.hpp"
 
+#include "gs/config/records.hpp"
 #include "gs/protocol/firmware_data.hpp"
 
 #include <QCheckBox>
@@ -10,11 +11,13 @@
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -356,6 +359,42 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     motionForm->addRow(QString(), connectivityTest_);
     tabs_->addTab(probe, tr("Probe"));
 
+    // Automations: G-code run around a job - the config file's event hooks,
+    // which the controller runs at gcode:start/pause/resume/stop.
+    auto* automations = new QWidget;
+    auto* automationsLayout = new QVBoxLayout(automations);
+    static const char* const kHooks[][3] = {
+        {"gcode:start", QT_TR_NOOP("File start"), QT_TR_NOOP("Runs when you start a job, before the file itself runs.")},
+        {"gcode:pause", QT_TR_NOOP("File pause"),
+         QT_TR_NOOP("If you'd like to stop accessories or move out of the way when you pause during a job.")},
+        {"gcode:resume", QT_TR_NOOP("File resume"),
+         QT_TR_NOOP("Ensure that anything you set up for File pause is undone when you resume.")},
+        {"gcode:stop", QT_TR_NOOP("File stop/end"),
+         QT_TR_NOOP("A catch-all to ensure that stopped or ended jobs always safely turn everything off.")},
+    };
+    for (const auto& hook : kHooks) {
+        auto* box = new QGroupBox(tr(hook[1]));
+        auto* boxLayout = new QVBoxLayout(box);
+        auto* about = new QLabel(tr(hook[2]));
+        about->setWordWrap(true);
+        auto* enabled = new QCheckBox(tr("Enabled"));
+        auto* commands = new QPlainTextEdit;
+        commands->setFont(mono);
+        commands->setPlaceholderText(tr("; No commands set"));
+        commands->setFixedHeight(72);
+        boxLayout->addWidget(about);
+        boxLayout->addWidget(enabled);
+        boxLayout->addWidget(commands);
+        automationsLayout->addWidget(box);
+        events_.push_back({QString::fromLatin1(hook[0]), enabled, commands});
+    }
+    automationsLayout->addStretch(1);
+    auto* automationsScroll = new QScrollArea;
+    automationsScroll->setWidget(automations);
+    automationsScroll->setWidgetResizable(true);
+    automationsScroll->setFrameShape(QFrame::NoFrame);
+    tabs_->addTab(automationsScroll, tr("Automations"));
+
     tabs_->addTab(new FirmwareSettingsTable(machine_), tr("Firmware"));
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
@@ -373,7 +412,22 @@ void SettingsDialog::showPage(Page page) {
     tabs_->setCurrentIndex(static_cast<int>(page));
 }
 
+void SettingsDialog::setEventHook(const QString& event, const QString& commands, bool enabled) {
+    for (EventEditor& editor : events_) {
+        if (editor.event == event) {
+            editor.commands->setPlainText(commands);
+            editor.enabled->setChecked(enabled);
+        }
+    }
+}
+
 void SettingsDialog::load() {
+    const config::EventStore hooks(machine_.config());
+    for (EventEditor& editor : events_) {
+        const auto record = hooks.find(editor.event.toStdString());
+        editor.enabled->setChecked(record && record->enabled);
+        editor.commands->setPlainText(record ? QString::fromStdString(record->commands) : QString());
+    }
     const AppSettings& s = machine_.settings();
     spindleDelay_->setValue(s.preferences.spindleDelay);
     lineWarnings_->setChecked(s.preferences.showLineWarnings);
@@ -427,6 +481,24 @@ void SettingsDialog::load() {
 }
 
 void SettingsDialog::save() {
+    // Event hooks: upstream's EventInput creates a hook with its first
+    // commands (trigger "gcode"); a hook left without commands is disabled.
+    config::EventStore hooks(machine_.config());
+    for (const EventEditor& editor : events_) {
+        const std::string key = editor.event.toStdString();
+        const std::string commands = editor.commands->toPlainText().toStdString();
+        const bool enabled = editor.enabled->isChecked();
+        if (const auto record = hooks.find(key)) {
+            if (record->commands != commands || record->enabled != enabled) {
+                config::EventChanges changes;
+                changes.commands = commands;
+                changes.enabled = enabled;
+                hooks.update(key, changes);
+            }
+        } else if (!commands.empty()) {
+            hooks.create(key, "gcode", commands, enabled);
+        }
+    }
     AppSettings s = machine_.settings();
     s.preferences.spindleDelay = spindleDelay_->value();
     s.preferences.showLineWarnings = lineWarnings_->isChecked();

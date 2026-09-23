@@ -2,6 +2,8 @@
 
 #include "machine.hpp"
 
+#include "gs/config/records.hpp"
+
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QComboBox>
@@ -113,12 +115,25 @@ const std::vector<ShortcutAction>& shortcutActions() {
 }
 
 const ShortcutAction* findShortcutAction(const QString& id) {
-    for (const ShortcutAction& action : shortcutActions()) {
+    return findShortcutAction(shortcutActions(), id);
+}
+
+const ShortcutAction* findShortcutAction(const std::vector<ShortcutAction>& actions, const QString& id) {
+    for (const ShortcutAction& action : actions) {
         if (action.id == id) {
             return &action;
         }
     }
     return nullptr;
+}
+
+std::vector<ShortcutAction> shortcutActions(Machine& machine) {
+    std::vector<ShortcutAction> actions = shortcutActions();
+    for (const config::MacroRecord& macro : machine.macros().list()) {
+        actions.push_back({QString::fromStdString(macro.id), QString::fromStdString(macro.name), kMacroCategory,
+                           QString(), false, false, false});
+    }
+    return actions;
 }
 
 QKeyCombination shortcutKey(const QKeyEvent& event) {
@@ -136,6 +151,7 @@ ShortcutManager::ShortcutManager(Machine& machine, QWidget& window, QObject* par
     : QObject(parent), machine_(machine), window_(window) {
     rebuild();
     connect(&machine_, &Machine::appSettingsChanged, this, &ShortcutManager::rebuild);
+    connect(&machine_, &Machine::macrosChanged, this, &ShortcutManager::rebuild);
     qApp->installEventFilter(this);
 }
 
@@ -151,14 +167,21 @@ QKeySequence ShortcutManager::keys(const QString& id) const {
     if (const auto it = user.find(id.toStdString()); it != user.end()) {
         return QKeySequence::fromString(QString::fromStdString(it->second.keys), QKeySequence::PortableText);
     }
-    const ShortcutAction* action = findShortcutAction(id);
-    return action ? QKeySequence::fromString(action->defaultKeys, QKeySequence::PortableText) : QKeySequence();
+    const ShortcutAction* known = action(id);
+    return known ? QKeySequence::fromString(known->defaultKeys, QKeySequence::PortableText) : QKeySequence();
 }
 
 bool ShortcutManager::isActive(const QString& id) const {
     const auto& user = machine_.settings().shortcuts;
-    const auto it = user.find(id.toStdString());
-    return it == user.end() || it->second.active;
+    if (const auto it = user.find(id.toStdString()); it != user.end()) {
+        return it->second.active;
+    }
+    const ShortcutAction* known = action(id);
+    return !known || known->defaultActive;
+}
+
+const ShortcutAction* ShortcutManager::action(const QString& id) const {
+    return findShortcutAction(actions_, id);
 }
 
 bool ShortcutManager::enabled() const {
@@ -170,8 +193,9 @@ void ShortcutManager::setHandler(const QString& id, std::function<void()> press,
 }
 
 void ShortcutManager::rebuild() {
+    actions_ = shortcutActions(machine_);
     bindings_.clear();
-    for (const ShortcutAction& action : shortcutActions()) {
+    for (const ShortcutAction& action : actions_) {
         const QKeySequence sequence = keys(action.id);
         if (!sequence.isEmpty() && isActive(action.id)) {
             bindings_.emplace(sequence[0].toCombined(), action.id);  // the first one keeps a key
@@ -188,12 +212,16 @@ bool ShortcutManager::trigger(const QString& id) {
     if (!enabled() && id != QLatin1String("TOGGLE_SHORTCUTS")) {
         return false;
     }
+    const ShortcutAction* known = action(id);
     const auto it = handlers_.find(id);
     if (it == handlers_.end() || !it->second.press) {
+        if (known && known->category == kMacroCategory && macroHandler_) {
+            macroHandler_(id);
+            return true;
+        }
         return false;
     }
-    const ShortcutAction* action = findShortcutAction(id);
-    if (action && action->hold) {
+    if (known && known->hold) {
         release();
         held_ = id;
     }

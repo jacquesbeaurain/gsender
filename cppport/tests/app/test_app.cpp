@@ -18,6 +18,7 @@
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
 
+#include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
@@ -312,6 +313,80 @@ TEST_F(AppTest, ShortcutsUseTheUsersKeysOverTheDefaults) {
     EXPECT_FALSE(shortcuts.trigger("START_JOB"));  // all off...
     EXPECT_TRUE(shortcuts.trigger("TOGGLE_SHORTCUTS"));  // ...but the switch itself
     EXPECT_EQ(toggles, 1);
+}
+
+TEST_F(AppTest, MacrosGetShortcutsThatStartSwitchedOff) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    const auto macro = machine.macros().create("Lift", "G0 Z5", "");
+    ASSERT_TRUE(macro.has_value());
+    const QString id = QString::fromStdString(macro->id);
+    QWidget window;
+    ShortcutManager shortcuts(machine, window);
+    QStringList ran;
+    shortcuts.setMacroHandler([&](const QString& macroId) { ran << macroId; });
+
+    // Listed under Macros, unbound and off - as upstream adds them.
+    ShortcutsDialog dialog(machine);
+    EXPECT_FALSE(dialog.isActive(id));
+    EXPECT_TRUE(dialog.keys(id).isEmpty());
+    // Binding keys switches it on; only that is stored.
+    ASSERT_TRUE(dialog.setKeys(id, QKeySequence("Ctrl+M")));
+    EXPECT_TRUE(dialog.isActive(id));
+    dialog.save();
+    EXPECT_EQ(machine.settings().shortcuts.size(), 1u);
+    EXPECT_EQ(shortcuts.actionFor(QKeySequence("Ctrl+M")[0]), id);
+    EXPECT_TRUE(shortcuts.trigger(id));
+    EXPECT_EQ(ran, QStringList{id});
+
+    // A macro added later appears too.
+    const auto second = machine.macros().create("Park", "G0 X0 Y0", "");
+    ASSERT_TRUE(second.has_value());
+    Q_EMIT machine.macrosChanged();
+    const std::vector<ShortcutAction> actions = shortcutActions(machine);
+    const ShortcutAction* listed = findShortcutAction(actions, QString::fromStdString(second->id));
+    ASSERT_NE(listed, nullptr);
+    EXPECT_EQ(listed->title, "Park");
+    EXPECT_EQ(listed->category, kMacroCategory);
+    EXPECT_FALSE(shortcuts.isActive(QString::fromStdString(second->id)));
+}
+
+TEST_F(AppTest, AutomationsStoreEventHooksThatRunAroundJobs) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    SettingsDialog dialog(machine);
+    dialog.setEventHook("gcode:start", "G0 Z7", true);
+    dialog.setEventHook("gcode:pause", "", true);  // no commands: nothing stored
+    dialog.save();
+    const config::EventStore hooks(machine.config());
+    ASSERT_TRUE(hooks.find("gcode:start").has_value());
+    EXPECT_TRUE(hooks.find("gcode:start")->enabled);
+    EXPECT_EQ(hooks.find("gcode:start")->trigger, "gcode");
+    EXPECT_FALSE(hooks.find("gcode:pause").has_value());
+
+    // The start hook runs before the job.
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+    machine.loadProgram("job.nc", "G21 G90\nG0 X5\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    controller::runJob(*machine.controller());
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    ASSERT_TRUE(waitFor([&] { return std::find(received.begin(), received.end(), "G0 X5") != received.end(); }));
+    const auto hook = std::find(received.begin(), received.end(), "G0 Z7");
+    ASSERT_NE(hook, received.end());
+    EXPECT_LT(hook, std::find(received.begin(), received.end(), "G0 X5"));
+
+    // Switching it off keeps its code.
+    dialog.setEventHook("gcode:start", "G0 Z7", false);
+    dialog.save();
+    EXPECT_FALSE(hooks.find("gcode:start")->enabled);
+    EXPECT_EQ(hooks.find("gcode:start")->commands, "G0 Z7");
 }
 
 TEST_F(AppTest, HeldJogKeysJogUntilReleased) {

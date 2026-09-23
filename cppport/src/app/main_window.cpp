@@ -218,6 +218,14 @@ void MainWindow::installShortcuts() {
     });
     s.setHandler("RUN_OUTLINE", [this] { machine_.runOutline(); });
     s.setHandler("DISPLAY_MACHINE_INFO", [this] { statusArea_->toggleMachineInfo(); });
+    // A macro's shortcut runs it when the machine is idle (upstream's MACRO
+    // event), with the loaded file as context.
+    s.setMacroHandler([this](const QString& id) {
+        controller::Controller* c = machine_.controller();
+        if (c && c->state().status.activeState == "Idle") {
+            c->runMacro(id.toStdString(), machine_.fileContext());
+        }
+    });
     s.setHandler("LOAD_FILE", [this] { openFile(); });
     s.setHandler("UNLOAD_FILE", [this] {
         controller::Controller* c = machine_.controller();

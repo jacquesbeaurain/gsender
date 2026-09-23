@@ -1,8 +1,12 @@
 #pragma once
 
-// Preferences (general, tool change) and the firmware's $ settings.
+// Preferences (general, tool change, probe, automations) and the firmware's $
+// settings.
 
 #include <QDialog>
+#include <QString>
+
+#include <vector>
 
 class QCheckBox;
 class QComboBox;
@@ -41,13 +45,16 @@ private:
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
-    enum class Page { General, ToolChange, Probe, Firmware };
+    enum class Page { General, ToolChange, Probe, Automations, Firmware };  // tab order
     explicit SettingsDialog(Machine& machine, QWidget* parent = nullptr);
     void showPage(Page page);
+    // The Automations page's hook for "gcode:start", "gcode:pause",
+    // "gcode:resume" or "gcode:stop" (as typed into it).
+    void setEventHook(const QString& event, const QString& commands, bool enabled);
+    void save();  // OK / Apply
 
 private:
     void load();
-    void save();
 
     Machine& machine_;
     QTabWidget* tabs_;
@@ -68,6 +75,12 @@ private:
     QCheckBox* skipDialog_;
     QPlainTextEdit* preHook_;
     QPlainTextEdit* postHook_;
+    struct EventEditor {
+        QString event;
+        QCheckBox* enabled;
+        QPlainTextEdit* commands;
+    };
+    std::vector<EventEditor> events_;
     QDoubleSpinBox* sensor_[3];
     QComboBox* firstTool_;
     QCheckBox* moveToManual_;

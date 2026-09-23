@@ -28,11 +28,19 @@ struct ShortcutAction {
     QString defaultKeys;  // QKeySequence portable text; empty: unbound
     bool hold = false;    // runs while held (jogging)
     bool grblHalOnly = false;
+    bool defaultActive = true;  // macros start switched off, as upstream
 };
+
+inline const QString kMacroCategory = QStringLiteral("Macros");
 
 // Every action the port has, in upstream's table order.
 const std::vector<ShortcutAction>& shortcutActions();
 const ShortcutAction* findShortcutAction(const QString& id);
+// The table followed by one action per macro (its id, its name, category
+// "Macros"): unbound and switched off until the user binds it, as upstream
+// adds macros to its commandKeys.
+std::vector<ShortcutAction> shortcutActions(Machine& machine);
+const ShortcutAction* findShortcutAction(const std::vector<ShortcutAction>& actions, const QString& id);
 
 // A key event as shortcuts see it: Shift dropped from symbols typed with it
 // ("~" rather than "Shift+~", as Mousetrap binds characters), keypad
@@ -54,6 +62,8 @@ public:
 
     // What an action does. Hold actions also get a release.
     void setHandler(const QString& id, std::function<void()> press, std::function<void()> release = {});
+    // What a macro's shortcut does (given the macro id).
+    void setMacroHandler(std::function<void(const QString& id)> handler) { macroHandler_ = std::move(handler); }
     // The action bound to `key`, if any (inactive bindings excluded).
     QString actionFor(QKeyCombination key) const;
     // Runs an action's press as its key would (TOGGLE_SHORTCUTS aside, only
@@ -72,10 +82,13 @@ private:
 
     void rebuild();
     bool typingInto(QObject* watched) const;
+    const ShortcutAction* action(const QString& id) const;
 
     Machine& machine_;
     QWidget& window_;
+    std::vector<ShortcutAction> actions_;  // the table and the macros
     std::map<QString, Handler> handlers_;
+    std::function<void(const QString&)> macroHandler_;
     std::map<int, QString> bindings_;  // QKeyCombination::toCombined() -> action
     QString held_;
     int heldKey_ = 0;  // Qt::Key of the held action

@@ -5,12 +5,14 @@
 // a reset to the defaults. Changes apply on OK.
 
 #include "app_settings.hpp"
+#include "shortcuts.hpp"
 
 #include <QDialog>
 #include <QKeySequence>
 
 #include <map>
 #include <string>
+#include <vector>
 
 class QCheckBox;
 class QComboBox;
@@ -41,6 +43,7 @@ private:
     void editRow(int row);
 
     Machine& machine_;
+    std::vector<ShortcutAction> actions_;  // the table and the macros
     std::map<std::string, ShortcutBinding> edits_;
     QTableWidget* table_;
     QComboBox* category_;
