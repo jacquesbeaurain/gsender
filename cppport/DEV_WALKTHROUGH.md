@@ -340,3 +340,31 @@ the controller the way `macro:run` and `EventTrigger.js` read them.
 `~/.sender_rc` (users keep their macros and hooks, but both applications may
 write it) or uses its own file, importing `~/.sender_rc` once on first start.
 The store takes any path; the application picks one.
+
+## Step 14 — Transport (`src/transport`, `gs_transport`)
+
+`AsioLink` is the `DeviceLink` to a real board, ported from
+`SerialConnection.js` onto Boost.Asio (the LibPack has no QtSerialPort):
+
+- **Serial:** 8N1 at the chosen baud rate (115200 by default); Asio's
+  flow-control option asserts DTR and RTS - or RTS/CTS handshaking with
+  `rtscts` - as node-serialport did, so Arduino-based Grbl boards reset on
+  connect and print their banner.
+- **TCP:** `host:port` (port 23 by default) with a 2 s connect timeout; a
+  path that looks like an IPv4 address means network, with upstream's regex
+  quirk kept (`looksLikeIpAddress`).
+- One I/O thread per link. Writes and immediate writes share one queue, so
+  the board sees them in call order, as before. Received bytes and completions
+  go back to the owner thread through a `Dispatcher` (in the app, the event
+  loop's `post`); nothing is delivered after the link is destroyed. A link
+  lost to the peer or an I/O error reports `onClosed`; `close()` is silent.
+- `listSerialPorts()` enumerates COM ports with SetupAPI (manufacturer,
+  friendly name, PnP id, USB vendor/product ids); `isRecognizedPort()` applies
+  the engine's vendor/product allow-lists. Linux/macOS enumeration is not
+  written yet.
+
+Tests (`tests/transport`, their own executable) run the link over loopback
+TCP, including feeding a `Session` that identifies Grbl from its banner.
+
+**Needs a human with hardware:** serial connections to real Grbl and grblHAL
+boards (DTR reset, banner detection, streaming a job) have not been exercised.
