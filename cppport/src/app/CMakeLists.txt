@@ -11,6 +11,8 @@ add_library(gs_app STATIC
     main_window.hpp
     panels.cpp
     panels.hpp
+    probe_panel.cpp
+    probe_panel.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
     settings_dialog.cpp

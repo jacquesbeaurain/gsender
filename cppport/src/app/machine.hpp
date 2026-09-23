@@ -85,6 +85,23 @@ public:
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
 
+    // ---- probing ----
+    // The Probe widget's routine: the probe settings, the board's $13, $22
+    // and $132 and the machine position (the workspace is metric for now).
+    // Empty when disconnected.
+    std::vector<std::string> probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,
+                                          int corner) const;
+    // Runs a routine as the widget does: gcode:safe in mm, then the distance
+    // mode as it was. False when disconnected or not idle.
+    bool runProbe(std::vector<std::string> code);
+    bool probeTriggered() const;  // the probe pin (Pn:P)
+    // Simulator only: puts the plate where the operator would - the bit over
+    // it for `corner`, 10 mm above - so the routine has something to touch.
+    // AutoZero and BitZero plates are not modelled (their probes miss).
+    bool isSimulated() const noexcept { return simulator_ != nullptr; }
+    void placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner);
+    sim::GrblSimulator* simulator() const noexcept { return simulator_.get(); }
+
 Q_SIGNALS:
     void connectionChanged();
     void connectionFailed(const QString& reason);
@@ -97,6 +114,7 @@ Q_SIGNALS:
     void errorReported(const QString& title, const QString& detail);
     void notice(const QString& text);  // tool changes, pauses and other prompts
     void macrosChanged();
+    void appSettingsChanged();  // setSettings()
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);

@@ -22,6 +22,58 @@ bool flag(const json::object& object, std::string_view key, bool fallback) {
     return value && value->is_bool() ? value->as_bool() : fallback;
 }
 
+probe::ProbeSettings loadProbe(const json::object& o) {
+    probe::ProbeSettings p;
+    p.plateType = probe::plateTypeFromName(text(o, "touchplateType")).value_or(p.plateType);
+    if (const json::value* z = o.if_contains("zThickness"); z && z->is_object()) {
+        const json::object& t = z->as_object();
+        p.zThickness.standardBlock = number(t, "standardBlock", p.zThickness.standardBlock);
+        p.zThickness.autoZero = number(t, "autoZero", p.zThickness.autoZero);
+        p.zThickness.zProbe = number(t, "zProbe", p.zThickness.zProbe);
+        p.zThickness.probe3D = number(t, "probe3D", p.zThickness.probe3D);
+        p.zThickness.bitZero = number(t, "bitZero", p.zThickness.bitZero);
+        p.zThickness.bitZeroZOnly = number(t, "bitZeroZOnly", p.zThickness.bitZeroZOnly);
+    }
+    p.xyThickness = number(o, "xyThickness", p.xyThickness);
+    p.probeFeedrate = number(o, "probeFeedrate", p.probeFeedrate);
+    p.probeFastFeedrate = number(o, "probeFastFeedrate", p.probeFastFeedrate);
+    p.retractionDistance = number(o, "retractionDistance", p.retractionDistance);
+    p.zRetractNormal = number(o, "zRetractNormal", p.zRetractNormal);
+    p.zRetractAuto = number(o, "zRetractAuto", p.zRetractAuto);
+    p.zProbeDistance = number(o, "zProbeDistance", p.zProbeDistance);
+    p.tipDiameter3D = number(o, "tipDiameter3D", p.tipDiameter3D);
+    p.xyRetract3D = number(o, "xyRetract3D", p.xyRetract3D);
+    p.probeMovementSpeed = number(o, "probeMovementSpeed", p.probeMovementSpeed);
+    p.connectivityTest = flag(o, "connectivityTest", p.connectivityTest);
+    p.direction = static_cast<int>(number(o, "direction", p.direction)) & 3;
+    return p;
+}
+
+json::object saveProbe(const probe::ProbeSettings& p) {
+    const probe::PlateThickness& z = p.zThickness;
+    return {
+        {"touchplateType", probe::plateTypeName(p.plateType)},
+        {"zThickness", json::object{{"standardBlock", z.standardBlock},
+                                    {"autoZero", z.autoZero},
+                                    {"zProbe", z.zProbe},
+                                    {"probe3D", z.probe3D},
+                                    {"bitZero", z.bitZero},
+                                    {"bitZeroZOnly", z.bitZeroZOnly}}},
+        {"xyThickness", p.xyThickness},
+        {"probeFeedrate", p.probeFeedrate},
+        {"probeFastFeedrate", p.probeFastFeedrate},
+        {"retractionDistance", p.retractionDistance},
+        {"zRetractNormal", p.zRetractNormal},
+        {"zRetractAuto", p.zRetractAuto},
+        {"zProbeDistance", p.zProbeDistance},
+        {"tipDiameter3D", p.tipDiameter3D},
+        {"xyRetract3D", p.xyRetract3D},
+        {"probeMovementSpeed", p.probeMovementSpeed},
+        {"connectivityTest", p.connectivityTest},
+        {"direction", p.direction},
+    };
+}
+
 }  // namespace
 
 AppSettings loadAppSettings(const config::ConfigStore& store) {
@@ -47,6 +99,9 @@ AppSettings loadAppSettings(const config::ConfigStore& store) {
     settings.networkPort = static_cast<int>(number(root, "networkPort", 23));
     settings.defaultFirmware =
         text(root, "defaultFirmware", "Grbl") == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
+    if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
+        settings.probe = loadProbe(probe->as_object());
+    }
     return settings;
 }
 
@@ -66,6 +121,7 @@ void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
                          {"networkPort", settings.networkPort},
                          {"defaultFirmware",
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
+                         {"probe", saveProbe(settings.probe)},
                      });
 }
 

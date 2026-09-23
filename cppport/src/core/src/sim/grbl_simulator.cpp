@@ -80,14 +80,14 @@ std::optional<std::pair<double, double>> clip(const Solid& solid, double radius,
 }  // namespace
 
 std::vector<Solid> touchPlateOnCorner(int corner, double cornerX, double cornerY, double stockTop, double thickness,
-                                      double wall, double size) {
+                                      double wall, double size, double depth) {
     // The stock lies towards +X from a left corner and +Y from a bottom one.
     const double sx = corner == 0 || corner == 1 ? 1 : -1;
     const double sy = corner == 0 || corner == 3 ? 1 : -1;
     const double outerX = cornerX - wall * sx;
     const double outerY = cornerY - wall * sy;
     Solid plate;
-    plate.min = {std::min(outerX, outerX + size * sx), std::min(outerY, outerY + size * sy), stockTop - wall};
+    plate.min = {std::min(outerX, outerX + size * sx), std::min(outerY, outerY + size * sy), stockTop - depth};
     plate.max = {std::max(outerX, outerX + size * sx), std::max(outerY, outerY + size * sy), stockTop + thickness};
     return {plate};
 }
@@ -746,7 +746,7 @@ void GrblSimulator::flushMotion() {
 
 void GrblSimulator::tick() {
     const std::int64_t now = loop_.nowMs();
-    double dt = static_cast<double>(now - lastTick_) / 1000.0;
+    double dt = static_cast<double>(now - lastTick_) / 1000.0 * speed_;
     lastTick_ = now;
     if (state_ == State::Hold || state_ == State::Alarm || state_ == State::Home) {
         return;

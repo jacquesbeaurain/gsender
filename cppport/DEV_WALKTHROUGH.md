@@ -513,3 +513,33 @@ complete, as Grbl's buffer synchronisation does, so the lines after a dwell or
 probe are parsed at the settled position. An end-to-end test runs the widget's standard
 block XYZ routine on each corner and checks that work zero lands on the
 stock corner.
+
+## Step 22 — Probe tab (`src/app/probe_panel`)
+
+The Probe widget as a tab beside Jog/Spindle/Macros: the plate type, the
+routines the plate offers (Z, XYZ, XY, X, Y - only Z for a Z probe), the bit
+(common diameters, or typed; AutoZero adds Auto and Tip) shown only for
+routines that compensate for it, and the corner - a small plan view of the
+stock with the plate; a click moves it clockwise. Upstream keeps the corner in
+`widgets.probe.direction` without a control (its UI no longer calls
+`nextProbeDirection`); the port shows it.
+
+"Probe" opens the run step: gSender's instructions, a circuit light fed by
+the probe pin (`Pn:P`), and Start, enabled once the pin has triggered while
+the dialog is open, or when the circuit check is off in the settings, or
+after "Confirm manually" (upstream's CONFIRM_PROBE shortcut). Start builds the
+routine from the settings, `$13`/`$22`/`$132` and the machine position
+(`Machine::probeRoutine`) and runs it with `gcode:safe` in mm, restoring the
+distance mode (`Machine::runProbe`).
+
+On the simulator the dialog first places a plate where the operator would:
+a standard block with the bit 5 mm in from its outer faces and 10 mm above,
+a Z probe puck under the bit, or - for a 3D probe - the stock corner itself.
+AutoZero and BitZero plates are not modelled yet, so their probes miss
+(ALARM:5). `GrblSimulator::setSpeed` runs motion faster than real time; the
+application test runs the XYZ routine at 200x and checks the zeroed corner.
+
+The Settings dialog has a Probe page for the plate profile and the probe
+feeds, retractions and distances (stored in mm under `app.probe`). The
+workspace is metric for now; the imperial conversions exist in the core
+(`makeProbingOptions`) for when inch workspaces are added.

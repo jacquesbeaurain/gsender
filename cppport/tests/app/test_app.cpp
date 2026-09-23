@@ -4,8 +4,11 @@
 
 #include "machine.hpp"
 #include "main_window.hpp"
+#include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "settings_dialog.hpp"
+
+#include "gs/sim/grbl_simulator.hpp"
 
 #include <QApplication>
 #include <QTableWidget>
@@ -165,6 +168,10 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
         settings.toolChange.preHook = "G0 Z20";
         settings.preferences.spindleDelay = 1.5;
         settings.port = "COM7";
+        settings.probe.plateType = probe::PlateType::AutoZero;
+        settings.probe.xyThickness = 9.5;
+        settings.probe.connectivityTest = false;
+        settings.probe.direction = probe::kTopRight;
         machine.setSettings(settings);
     }
     Machine machine(loop, file);
@@ -173,11 +180,57 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
     EXPECT_EQ(machine.settings().preferences.spindleDelay, 1.5);
     EXPECT_EQ(machine.preferences().spindleDelay, 1.5);
     EXPECT_EQ(machine.settings().port, "COM7");
+    EXPECT_EQ(machine.settings().probe.plateType, probe::PlateType::AutoZero);
+    EXPECT_EQ(machine.settings().probe.xyThickness, 9.5);
+    EXPECT_FALSE(machine.settings().probe.connectivityTest);
+    EXPECT_EQ(machine.settings().probe.direction, probe::kTopRight);
 
     machine.connectTo(Machine::kSimulatorPort);
     ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
     EXPECT_EQ(machine.controller()->toolChangeContext().option, "Code");
     EXPECT_EQ(machine.controller()->toolChangeContext().preHook, "G0 Z20");
+}
+
+TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(200);
+
+    ProbePanel panel(machine);
+    panel.selectCommand(1);
+    ASSERT_EQ(panel.command().id, "XYZ Touch");
+    EXPECT_EQ(panel.probeType(), probe::ProbeType::Diameter);
+    EXPECT_EQ(panel.toolDiameter(), 6.35);
+    EXPECT_EQ(panel.corner(), probe::kBottomLeft);
+
+    RunProbeDialog* dialog = panel.openRunDialog();  // puts the simulated plate under the bit
+    ASSERT_NE(dialog, nullptr);
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        panel.resize(520, 220);
+        panel.show();
+        panel.grab().save(QString::fromLocal8Bit(out) + "/probe_panel.png");
+        dialog->grab().save(QString::fromLocal8Bit(out) + "/probe_run.png");
+    }
+    EXPECT_FALSE(dialog->start());  // the circuit is not checked yet
+    dialog->confirmCircuit();
+    ASSERT_TRUE(dialog->start());
+    const sim::SimAxes start = machine.simulator()->machinePosition();
+    ASSERT_TRUE(waitFor([&] {
+        controller::Controller* c = machine.controller();
+        return c->feeder().size() == 0 && !c->feeder().isPending() && machine.simulator()->activeState() == "Idle";
+    }, 10000));
+    // The plate's inner corner sat 5 mm beyond the bit (towards +X+Y), its
+    // top 10 mm below and 15 mm above the stock.
+    const sim::SimAxes offset = machine.simulator()->workOffset();
+    EXPECT_NEAR(offset[0], start[0] + 5, 1e-6);
+    EXPECT_NEAR(offset[1], start[1] + 5, 1e-6);
+    EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
 }
 
 TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
