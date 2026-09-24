@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -89,6 +90,20 @@ public:
     // a failed homing cycle would.
     void triggerAlarm(int code);
 
+    // ---- grblHAL ----
+    // A grblHAL board instead of Grbl 1.1 (set before open()): its banner and
+    // $I (with the SD card and YMODEM options), complete reports on 0x87 and
+    // the extended queries answered empty - and an SD card: $FM, the $F / $F+
+    // listings, $FD= deletes, $F= runs (reported as SD: in the status while
+    // they last, their lines unanswered) and YMODEM uploads.
+    void setGrblHal(bool grblHal) { grblHal_ = grblHal; }
+    bool isGrblHal() const noexcept { return grblHal_; }
+    // The card's files by name (no leading "/").
+    const std::map<std::string, std::string>& sdFiles() const noexcept { return sdFiles_; }
+    void putSdFile(const std::string& name, std::string data) { sdFiles_[name] = std::move(data); }
+    bool isRunningSdFile() const noexcept { return sdRun_.has_value(); }
+    bool isReceivingYmodem() const noexcept { return ymodem_.has_value(); }
+
     static constexpr std::size_t kPlannerSize = 15;
     static constexpr std::int64_t kTickMs = 20;
 
@@ -106,10 +121,33 @@ private:
         bool sync = false;       // G4/G38.x: input waits until this completes
         int alarm = 0;           // raised once reached (a failed probe)
         std::string after;       // output once the move completes
+        bool muted = false;      // from an SD card run: its ok is not sent
+    };
+
+    // A file run from the SD card ($F=).
+    struct SdRun {
+        std::string name;  // as $F= named it (the status report shows it)
+        std::deque<std::string> lines;
+        std::size_t size = 0;
+        std::size_t consumed = 0;
+    };
+
+    // A YMODEM upload being received.
+    struct YModemReceive {
+        std::string packet;  // the packet so far
+        bool open = false;   // a header named the file
+        std::string name;
+        std::size_t size = 0;
+        std::string data;
+        unsigned char expected = 1;  // the next data packet's number
     };
 
     void emitText(std::string text);
     void banner();
+    bool executeGrblHal(const std::string& command, const std::string& line);
+    void feedSdRun();
+    void receiveYmodem(unsigned char byte);
+    void ymodemPacket();
     void realtime(unsigned char byte);
     void handleLine(std::string line);
     void executeSystem(const std::string& line);
@@ -122,6 +160,7 @@ private:
     void tick();
     void flushMotion();
     std::string statusReport() const;
+    std::string completeStatusReport() const;
     std::string parserState() const;
     double maxRate(std::size_t axis) const;
     bool touching(const SimAxes& at) const;
@@ -170,6 +209,13 @@ private:
     double speed_ = 1.0;
     std::array<int, 3> overrides_{100, 100, 100};
     std::vector<std::pair<std::string, std::string>> settings_;
+
+    bool grblHal_ = false;
+    std::map<std::string, std::string> sdFiles_;
+    std::optional<SdRun> sdRun_;
+    bool muted_ = false;  // executing an SD run's line
+    std::optional<YModemReceive> ymodem_;
+    runtime::TimerId ymodemTimer_ = 0;
 };
 
 }  // namespace gs::sim

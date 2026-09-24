@@ -61,18 +61,24 @@ class Machine final : public QObject {
     Q_OBJECT
 
 public:
-    // The port name that connects to the built-in simulated Grbl board.
+    // The port names that connect to the built-in simulated boards: Grbl,
+    // and grblHAL with an SD card.
     static const QString kSimulatorPort;
+    static const QString kSimulatorHalPort;
+    static bool isSimulatorPort(const QString& port) { return port == kSimulatorPort || port == kSimulatorHalPort; }
 
     Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent = nullptr);
     ~Machine() override;
 
     // ---- connection ----
-    // A COM port, an IPv4 address (TCP, `networkPort`) or kSimulatorPort.
+    // A COM port, an IPv4 address (TCP, `networkPort`) or a simulator.
     void connectTo(const QString& port, int baudRate = 115200, int networkPort = 23);
     void disconnectFromMachine();
     bool isConnecting() const noexcept { return connecting_; }
     bool isConnected() const;  // the firmware is known and a controller runs
+    // grblHAL runs a file from its SD card (its status names the file); no
+    // job may start meanwhile.
+    bool isRunningSdFile() const;
     QString port() const { return port_; }
     controller::Controller* controller() const;
 
@@ -286,6 +292,12 @@ Q_SIGNALS:
     // A "Code" tool change ran its pre-hook: change the tool, then call
     // controller()->toolChangePost() to run the post-hook and resume.
     void toolChangeWaiting(const QString& comment);
+    // An SD card upload (ymodem:*): started, the progress of the file being
+    // sent, done - or failed, with why.
+    void sdUploadStarted();
+    void sdUploadProgress(int percent);
+    void sdUploadCompleted();
+    void sdUploadFailed(const QString& message);
 
 private:
     void startSession(controller::DeviceLink& link);

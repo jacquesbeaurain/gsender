@@ -14,6 +14,7 @@
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "rotary_panel.hpp"
+#include "sd_card_dialog.hpp"
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
@@ -1727,6 +1728,138 @@ TEST_F(AppTest, SettingsAreBackedUpWhenDue) {
     machine.setSettings(settings);
     EXPECT_TRUE(machine.backupSettingsIfDue("1.1.0", now + 3000).isEmpty());
     EXPECT_FALSE(machine.backupSettingsIfDue("1.1.0", now + 2000 + 24LL * 3600 * 1000).isEmpty());
+}
+
+TEST(SdCard, FilesAreCheckedAndSizedAsUpstreamDoes) {
+    EXPECT_EQ(formatSdFileSize(0), "0 B");
+    EXPECT_EQ(formatSdFileSize(1023), "1023 B");
+    EXPECT_EQ(formatSdFileSize(1024), "1.0 KB");
+    EXPECT_EQ(formatSdFileSize(1536), "1.5 KB");
+    EXPECT_EQ(formatSdFileSize(5LL * 1024 * 1024), "5.0 MB");
+    EXPECT_EQ(formatSdFileSize(3LL * 1024 * 1024 * 1024), "3.0 GB");
+    EXPECT_TRUE(isAcceptedSdFile("JOB.GCODE"));
+    EXPECT_TRUE(isAcceptedSdFile("tool.macro"));
+    EXPECT_FALSE(isAcceptedSdFile("notes.md"));
+    EXPECT_FALSE(isAcceptedSdFile("readme"));
+    EXPECT_TRUE(isAcceptedSdFile("nc"));  // no dot: the whole name is the "extension"
+    EXPECT_EQ(sdFilenameProblem(QString(41, 'a') + ".nc").value_or(""), "Filename too long (max 40 characters)");
+    EXPECT_EQ(sdFilenameProblem("why?.nc").value_or(""), "Filename contains invalid character: ?");
+    EXPECT_FALSE(sdFilenameProblem("fine.nc"));
+    const SdFileCheck check = checkSdFiles({"C:/jobs/a.nc", "C:/jobs/notes.md", "C:/jobs/b~1.nc"});
+    EXPECT_EQ(check.accepted, QStringList{"C:/jobs/a.nc"});
+    EXPECT_EQ(check.refused, (QStringList{"notes.md: Invalid file type",
+                                          "b~1.nc: Filename contains invalid character: ~"}));
+    EXPECT_TRUE(isAtciFile("ATCI.macro"));
+    EXPECT_FALSE(isAtciFile("atci.macro"));
+}
+
+TEST_F(AppTest, TheSdCardToolUploadsRunsAndDeletesFilesOnAGrblHalCard) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    NotificationCenter notifications;
+    SdCardDialog dialog(machine, notifications);
+    EXPECT_EQ(dialog.status(), "Disconnected");
+    EXPECT_EQ(dialog.message(), "Must be connected to use SD card functionality.");
+    EXPECT_FALSE(dialog.refreshButton()->isEnabled());
+    EXPECT_FALSE(dialog.uploadButton()->isEnabled());
+
+    // Grbl has no card.
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected() && machine.controller()->runner().hasSettings(); }));
+    EXPECT_EQ(dialog.message(), "SD card tools are only available for grblHAL devices.");
+    machine.disconnectFromMachine();
+
+    machine.connectTo(Machine::kSimulatorHalPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle" && dialog.status() == "Mounted";
+    }));
+    ASSERT_TRUE(machine.simulator()->isGrblHal());
+    EXPECT_TRUE(dialog.message().contains("No files found"));
+    EXPECT_TRUE(dialog.refreshButton()->isEnabled());
+    EXPECT_TRUE(dialog.uploadButton()->isEnabled());
+
+    // The modal keeps the files it can send and reports the others.
+    const QString square = dir.path() + "/square.nc";
+    const QString macro = dir.path() + "/ATCI.macro";
+    for (const auto& [path, text] : {std::pair{square, "G21 G90\nG1 X10 F1200\nG1 Y10\nG1 X0\nG1 Y0\n"},
+                                     std::pair{macro, "(tool changer)\n"}}) {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        file.write(text);
+    }
+    QStringList refused;
+    SdUploadDialog modal([&](const QString& text) { refused << text; });
+    modal.addFiles({square, dir.path() + "/notes.md"});
+    EXPECT_EQ(modal.files(), QStringList{square});
+    EXPECT_EQ(refused, QStringList{"Some files were rejected:\nnotes.md: Invalid file type"});
+    EXPECT_EQ(modal.findChild<QPushButton*>("upload")->text(), "Upload (1)");
+    modal.addFiles({macro});
+    const QByteArray screenshots = qgetenv("GS_TEST_SCREENSHOTS");
+    if (!screenshots.isEmpty()) {
+        modal.show();
+        modal.grab().save(QString::fromLocal8Bit(screenshots) + "/sd_upload.png");
+    }
+    modal.removeFile(0);
+    EXPECT_EQ(modal.files(), QStringList{macro});
+
+    // Upload: the refused are reported, the rest go up over YMODEM.
+    dialog.setFilePicker([&] { return QStringList{square, macro, dir.path() + "/oops!.nc"}; });
+    dialog.uploadButton()->click();
+    ASSERT_FALSE(notifications.list().empty());
+    EXPECT_EQ(notifications.list().front().message,
+              "Some files were rejected:\noops!.nc: Filename contains invalid character: !");
+    ASSERT_TRUE(waitFor([&] { return dialog.uploadState() == "uploading"; }));
+    ASSERT_TRUE(waitFor([&] { return dialog.uploadState() == "complete"; }, 10000));
+    EXPECT_EQ(dialog.uploadProgress(), 100);
+    EXPECT_EQ(machine.simulator()->sdFiles().at("square.nc"), "G21 G90\nG1 X10 F1200\nG1 Y10\nG1 X0\nG1 Y0\n");
+    // Listed again once done; the tool changer's macro is not to be run.
+    ASSERT_TRUE(waitFor([&] { return dialog.fileNames() == QStringList({"ATCI.macro", "square.nc"}); }));
+    ASSERT_TRUE(waitFor([&] { return dialog.uploadState() == "idle"; }));
+    EXPECT_FALSE(dialog.canRun("ATCI.macro"));
+    EXPECT_TRUE(dialog.canDelete("ATCI.macro"));
+    EXPECT_TRUE(dialog.canRun("square.nc"));
+    if (!screenshots.isEmpty()) {
+        dialog.show();  // which lists the card again
+        ASSERT_TRUE(waitFor([&] { return dialog.canRun("square.nc") && dialog.message().isEmpty(); }));
+        dialog.grab().save(QString::fromLocal8Bit(screenshots) + "/sd_card.png");
+    }
+
+    // Run: the board streams it from the card; nothing else runs meanwhile.
+    dialog.runFile("square.nc");
+    ASSERT_TRUE(waitFor([&] { return !dialog.canDelete("square.nc"); }));
+    EXPECT_TRUE(machine.simulator()->isRunningSdFile());
+    EXPECT_TRUE(machine.isRunningSdFile());  // no job starts meanwhile
+    EXPECT_FALSE(dialog.canRun("square.nc"));
+    ASSERT_TRUE(waitFor([&] { return dialog.canRun("square.nc"); }, 10000));
+    EXPECT_FALSE(machine.isRunningSdFile());
+    EXPECT_DOUBLE_EQ(machine.simulator()->machinePosition()[0], 0.0);
+    EXPECT_EQ(machine.controller()->state().status.activeState, "Idle");
+
+    // Delete asks, and the file leaves the list at once.
+    QStringList asked;
+    dialog.setConfirmer([&](const QString& title, const QString& text) {
+        asked << title + ": " + text;
+        return true;
+    });
+    dialog.deleteFile("square.nc");
+    EXPECT_EQ(asked, QStringList{"Delete File: Are you sure you want to delete square.nc?"});
+    EXPECT_EQ(dialog.fileNames(), QStringList{"ATCI.macro"});
+    ASSERT_TRUE(waitFor([&] { return machine.simulator()->sdFiles().count("square.nc") == 0; }));
+    dialog.refreshButton()->click();
+    ASSERT_TRUE(waitFor([&] { return dialog.fileNames() == QStringList{"ATCI.macro"}; }));
+
+    // A board that reports no card fails the upload, with a toast.
+    dialog.upload({square});
+    machine.controller()->receiveLine("<Idle|MPos:0.000,0.000,0.000|FS:0,0|FW:grblHAL>");
+    ASSERT_TRUE(waitFor([&] { return notifications.list().size() == 2; }, 5000));
+    EXPECT_EQ(notifications.list().back().message,
+              "Error uploading file - SD Card not detected, please insert an SD Card in FAT32 format, 32 GB or "
+              "under, and try again.");
+    EXPECT_EQ(notifications.list().back().type, NotificationType::Error);
+    EXPECT_EQ(dialog.status(), "Unmounted");
+    EXPECT_FALSE(dialog.uploadButton()->isEnabled());
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

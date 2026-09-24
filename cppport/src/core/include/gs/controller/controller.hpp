@@ -20,6 +20,7 @@
 #include "gs/expr/value.hpp"
 #include "gs/protocol/firmware_data.hpp"
 #include "gs/protocol/runner.hpp"
+#include "gs/protocol/ymodem.hpp"
 #include "gs/runtime/event_loop.hpp"
 
 #include <cstdint>
@@ -222,6 +223,17 @@ public:
     void sdRead(const std::string& fileName);
     void sdRun(const std::string& path);
     void sdDelete(const std::string& path);
+    // "ymodem:uploadFiles": mounts the card and 1.5 s later, when it is
+    // mounted, sends the files over YMODEM; the Y* events tell how it goes.
+    // (Network connections upload over FTP upstream - not ported yet.)
+    void sdUpload(std::vector<protocol::YModemFile> files);
+    // While an upload runs nothing else is written: no status or parser
+    // state polls.
+    bool ymodemActive() const noexcept { return ymodem_->active(); }
+    // The board's bytes belong to the upload (the session hands them here
+    // instead of reading lines).
+    bool ymodemListening() const noexcept { return ymodem_->listening(); }
+    void ymodemReceive(std::string_view bytes) { ymodem_->receive(bytes); }
 
     // ---- raw writes (console) ----
     void write(std::string_view data);
@@ -293,6 +305,7 @@ private:
     Workflow workflow_;
     std::unique_ptr<JogStreamer> jogStreamer_;
     std::unique_ptr<ToolChanger> toolChanger_;
+    std::unique_ptr<protocol::YModemSender> ymodem_;
     EventTrigger eventTrigger_;
 
     expr::Value sharedContext_ = expr::Value::object();

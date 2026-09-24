@@ -1325,3 +1325,62 @@ them into `{}`) and what the Config page does with them:
 - The Spindle/Laser page carries the sections' test wizards: spindle For
   (M3 S1000) / Rev (M4 S1000) / Stop (M5 S0), laser On (G1F1 M3 S1) / Off,
   and the accessory outputs M3 M4 M5 | M7 M8 M9.
+
+## Step 49 — SD card: YMODEM uploads and the SD Card tool (`gs/protocol/ymodem`, `src/app/sd_card_dialog`)
+
+grblHAL boards with an SD card take files over **YMODEM**
+(server/lib/YModemUSB.js, `sendFiles`), ported as `YModemSender` on the
+event loop: half a second after "start", per file a header (block 0:
+"/name", NUL, the size in decimal; CRC-16/XMODEM, big-endian) answered by
+C, ACK or NAK within 5 s; the data packets, each resent on NAK (not
+counted) or after 3 s without an answer (the ninth silence fails: "Packet
+timed out after 10 retries."), CAN cancels; progress is
+ceil(packet/packets·100) of the file being sent; EOT, 200 ms, the next
+file; done 100 ms after the last. The blocks are cut as upstream cuts them:
+up to 128 bytes one SOH block and up to 1024 one STX block, padded with
+0x1A; longer files 1024-byte STX blocks with the last zero-padded - never
+SOH (upstream means a short last block to go as SOH, but its test reads
+the size of the whole buffer).
+
+The controller's "ymodem:uploadFiles" (`sdUpload`): mount ($FM), then after
+1.5 s, if the card is mounted, the upload - over a network connection
+upstream uses FTP, not ported yet (an error says so). While it runs nothing
+else is written (no status or parser state polls), and from the first
+header the session hands the board's bytes to the upload instead of
+splitting lines (upstream swaps its line reader for a byte reader). Events:
+YModemStarted/Progress/Completed/Failed ("ymodem:*"); 150 ms after
+completion the card is listed again.
+
+The **SD Card tool** (Tools > SD Card; features/SDCard) shows the card's
+status (Mounted, Unmounted, Disconnected), Refresh Files and Upload (or the
+upload's progress, "Upload complete!" for a second), and the files: name,
+size (B/KB/MB/GB), "ATC Macro" (ATCI.macro, P100.macro - the ATC templates
+are not ported) and "Unusable" flags, Run ($F=) and Delete ($FD=, asked
+first; the file leaves the list at once). Run and Delete wait for an idle
+workflow and no file running from the card; ATC macros and unusable files
+do not run. Without a connection, on Grbl, or without FTP/YM in [NEWOPT:]
+it says why instead. The Upload modal collects files (browse, drop) with
+their sizes; files are checked as upstream checks them (the accepted
+extensions, filename_valid: at most 40 characters, no ?, ~ or !) and the
+refused reported ("Some files were rejected: ..."); upload errors toast
+"Error uploading file - ...". Files dropped on the list go up directly.
+The port reads files as bytes (upstream reads them as text and re-encodes
+UTF-8 - the same for text files). The dialog is kept once opened, so an
+upload's end is heard after it is closed.
+
+While the board runs a file from its card (its status reports `SD:pct,name`)
+no job starts, and the job progress bar shows the file and its percentage
+(SDCardProgress). Upstream's status pattern stops a value at characters
+other than letters, digits, `.`, `-` and `[`, so a name with `/`, `_` or
+spaces loses its name (and so its "running" state) - ported as is.
+
+The **simulator** has a grblHAL personality (`setGrblHal`; the
+"Simulator, grblHAL" port, `--simulator-hal`): grblHAL's banner, a $I with
+`[NEWOPT:ENUMS,RT+,SD,YM]`, `[FIRMWARE:grblHAL]` and `[AXS:3:XYZ]`, complete
+reports on 0x87 (with `SD:1|FW:grblHAL`), the extended queries ($ES, $ESH,
+$EG, $EA, $EE, $spindles[h]) answered empty - and a card: $FM, $F (the CNC
+files) and $F+ (all) listings, $FD= deletes, $F= runs (the file's lines go in
+as the planner takes them, unanswered, reported as `SD:` in the status) and
+YMODEM uploads received as grblHAL's ymodem.c does (a header's SOH at the
+start of a line begins one; ACK and C for the header, CRC-checked packets,
+EOT stores the file cut to its size).

@@ -14,6 +14,7 @@ class NotificationCenter;
 class ToastArea;
 class ProbePanel;
 class RotaryPanel;
+class SdCardDialog;
 class ShortcutManager;
 class SpindlePanel;
 class StatusArea;
@@ -40,6 +41,8 @@ public:
     bool reconnectAutomatically();
     // The Rotary tab shows while the Rotary controls are on.
     bool rotaryTabVisible() const;
+    // Tools > SD Card (made on first use).
+    SdCardDialog& sdCardDialog();
 
 protected:
     void closeEvent(QCloseEvent* event) override;  // workspace.promptExit
@@ -68,6 +71,7 @@ private:
     NotificationCenter* notifications_;
     ToastArea* toasts_;
     NotificationButton* bell_;
+    SdCardDialog* sdCard_ = nullptr;
     class QTabWidget* tabs_;
     bool dialogsEnabled_ = true;
 };

@@ -55,4 +55,8 @@ std::optional<std::string> InfoValue::option(std::string_view key) const {
     return std::nullopt;
 }
 
+bool InfoValue::hasOption(std::string_view key) const {
+    return std::any_of(options.begin(), options.end(), [key](const auto& option) { return option.first == key; });
+}
+
 }  // namespace gs::protocol

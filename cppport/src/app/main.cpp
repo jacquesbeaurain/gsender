@@ -40,6 +40,8 @@ int main(int argc, char** argv) {
     parser.addHelpOption();
     parser.addVersionOption();
     const QCommandLineOption simulator("simulator", "Connect to the built-in simulated Grbl board.");
+    const QCommandLineOption simulatorHal("simulator-hal",
+                                          "Connect to the built-in simulated grblHAL board (with an SD card).");
     const QCommandLineOption load("load", "Load a G-code file.", "file");
     const QCommandLineOption config("config", "Configuration file (default ~/.gsender-cpp_rc).", "file");
     const QCommandLineOption screenshot("screenshot", "Save a screenshot of the window and exit.", "png");
@@ -47,7 +49,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption size("size", "Window size, e.g. 1400x900.", "WxH", "1400x900");
     const QCommandLineOption startJob("start", "Start the loaded job once the machine is ready.");
     const QCommandLineOption view("view", "Toolpath view: top or 3d.", "view", "top");
-    parser.addOptions({simulator, load, config, screenshot, wait, size, startJob, view});
+    parser.addOptions({simulator, simulatorHal, load, config, screenshot, wait, size, startJob, view});
     parser.process(app);
 
     // Own configuration file for now (see DEV_WALKTHROUGH.md, Step 13).
@@ -71,8 +73,9 @@ int main(int argc, char** argv) {
         window.toolpathView().set3dView();
     }
 
-    if (parser.isSet(simulator)) {
-        machine.connectTo(gs::app::Machine::kSimulatorPort);
+    if (parser.isSet(simulator) || parser.isSet(simulatorHal)) {
+        machine.connectTo(parser.isSet(simulatorHal) ? gs::app::Machine::kSimulatorHalPort
+                                                     : gs::app::Machine::kSimulatorPort);
     } else if (!parser.isSet(screenshot)) {
         window.reconnectAutomatically();
     }
