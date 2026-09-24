@@ -29,6 +29,7 @@ public:
 private:
     void toggleConnection();
     void updateState();
+    void updateEthernetEntry();
 
     Machine& machine_;
     QComboBox* ports_;

@@ -13,6 +13,7 @@
 #include "gs/surfacing/surfacing.hpp"
 #include "gs/toolchange/wizards.hpp"
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -123,7 +124,11 @@ struct AppSettings {
     // Connection
     std::string port;
     int baudRate = 115200;
-    int networkPort = 23;
+    int networkPort = 23;  // widgets.connection.ethernetPort
+    // "Connect to IP" (widgets.connection.ip): the board the connection list
+    // offers over Ethernet.
+    std::array<int, 4> ethernetIp{192, 168, 5, 1};
+    std::string ethernetAddress() const;  // "192.168.5.1"
     protocol::Firmware defaultFirmware = protocol::Firmware::Grbl;
     // Probe widget and touch plate profile (mm)
     probe::ProbeSettings probe;

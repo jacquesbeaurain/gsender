@@ -219,6 +219,22 @@ json::object saveAccessibility(const AccessibilitySettings& a) {
             {"displayScaleFactor", a.displayScale}};
 }
 
+// An IPv4 address as upstream keeps it: [192, 168, 5, 1].
+std::array<int, 4> loadIp(const json::value* value, std::array<int, 4> fallback) {
+    if (!value || !value->is_array() || value->as_array().size() != 4) {
+        return fallback;
+    }
+    std::array<int, 4> ip{};
+    for (std::size_t i = 0; i < 4; ++i) {
+        const json::value& part = value->as_array()[i];
+        if (!part.is_number()) {
+            return fallback;
+        }
+        ip[i] = std::clamp(static_cast<int>(part.to_number<double>()), 0, 255);
+    }
+    return ip;
+}
+
 probe::ProbeSettings loadProbe(const json::object& o) {
     probe::ProbeSettings p;
     p.plateType = probe::plateTypeFromName(text(o, "touchplateType")).value_or(p.plateType);
@@ -391,6 +407,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.port = text(root, "port");
     settings.baudRate = static_cast<int>(number(root, "baudRate", 115200));
     settings.networkPort = static_cast<int>(number(root, "networkPort", 23));
+    settings.ethernetIp = loadIp(root.if_contains("ethernetIp"), settings.ethernetIp);
     settings.defaultFirmware =
         text(root, "defaultFirmware", "Grbl") == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
@@ -527,6 +544,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"port", settings.port},
                          {"baudRate", settings.baudRate},
                          {"networkPort", settings.networkPort},
+                         {"ethernetIp", json::array(settings.ethernetIp.begin(), settings.ethernetIp.end())},
                          {"defaultFirmware",
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
                          {"probe", [&settings] {
@@ -801,6 +819,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.baudRate = static_cast<int>(number(*connection, "baudrate", s.baudRate));
         s.autoReconnect = flag(*connection, "autoReconnect", false);
         s.networkPort = static_cast<int>(number(*connection, "ethernetPort", s.networkPort));
+        s.ethernetIp = loadIp(connection->if_contains("ip"), s.ethernetIp);
     }
     if (const json::object* spindle = child(g, "spindle")) {
         s.spindle = loadSpindle(*spindle);
@@ -851,6 +870,11 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         out.events = *events;
     }
     return out;
+}
+
+std::string AppSettings::ethernetAddress() const {
+    return std::to_string(ethernetIp[0]) + '.' + std::to_string(ethernetIp[1]) + '.' + std::to_string(ethernetIp[2]) +
+           '.' + std::to_string(ethernetIp[3]);
 }
 
 }  // namespace gs::app

@@ -6,6 +6,7 @@
 #include <QDialog>
 #include <QString>
 
+#include <array>
 #include <vector>
 
 class QCheckBox;
@@ -107,6 +108,7 @@ private:
     QCheckBox* aAxis_;
     QComboBox* firmware_;
     QSpinBox* networkPort_;
+    std::array<QSpinBox*, 4> ethernetIp_{};
     QComboBox* units_;
     QSpinBox* decimals_;
     QDoubleSpinBox* safeRetract_;

@@ -220,6 +220,7 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
         settings.probe.connectivityTest = false;
         settings.probe.direction = probe::kTopRight;
         settings.touchplateTypeSwitcher = true;
+        settings.ethernetIp = {10, 0, 0, 42};
         machine.setSettings(settings);
     }
     Machine machine(loop, file);
@@ -233,6 +234,7 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
     EXPECT_FALSE(machine.settings().probe.connectivityTest);
     EXPECT_EQ(machine.settings().probe.direction, probe::kTopRight);
     EXPECT_TRUE(machine.settings().touchplateTypeSwitcher);
+    EXPECT_EQ(machine.settings().ethernetAddress(), "10.0.0.42");
 
     machine.connectTo(Machine::kSimulatorPort);
     ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
@@ -561,7 +563,7 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
                 "probe": {"probeFeedrate": 60, "connectivityTest": false, "touchplateTypeSwitcher": true},
                 "axes": {"jog": {"rapid": {"xyStep": 25, "zStep": 12, "aStep": 30, "feedrate": 6000},
                                  "threshold": 300}},
-                "connection": {"port": "COM4", "baudrate": 250000},
+                "connection": {"port": "COM4", "baudrate": 250000, "ip": [192, 168, 1, 77], "ethernetPort": 8023},
                 "spindle": {"mode": "laser", "delay": 2, "laser": {"maxPower": 1000}},
                 "surfacing": {"width": 250},
                 "visualizer": {"showLineWarnings": true}
@@ -600,6 +602,8 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
     EXPECT_EQ(s.jog.normal.xyStep, 5);  // not in the file: the default
     EXPECT_EQ(s.port, "COM4");
     EXPECT_EQ(s.baudRate, 250000);
+    EXPECT_EQ(s.ethernetAddress(), "192.168.1.77");
+    EXPECT_EQ(s.networkPort, 8023);
     EXPECT_TRUE(s.spindle.laserMode);
     EXPECT_EQ(s.spindle.laser.maxPower, 1000);
     EXPECT_EQ(s.preferences.spindleDelay, 2);
@@ -2837,6 +2841,25 @@ TEST_F(AppTest, WarnOnBadLineNamesTheLineTheBoardRefused) {
     machine.sendConsoleLine("G99");
     ASSERT_TRUE(waitFor([&] { return errors == 2; }));
     EXPECT_EQ(warnings.size(), 1);
+}
+
+TEST_F(AppTest, TheConnectionListOffersTheEthernetBoard) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    ConnectionBar bar(machine);
+    QComboBox* ports = bar.findChild<QComboBox*>("connectionPorts");
+    ASSERT_NE(ports, nullptr);
+    // PortListings' Ethernet entry, at upstream's default address and port.
+    const int last = ports->count() - 1;
+    EXPECT_EQ(ports->itemText(last), "192.168.5.1 - Ethernet (port 23)");
+    EXPECT_EQ(ports->itemData(last).toString(), "192.168.5.1");
+    AppSettings settings = machine.settings();
+    settings.ethernetIp = {10, 0, 0, 42};
+    settings.networkPort = 2323;
+    machine.setSettings(settings);
+    EXPECT_EQ(ports->itemText(ports->count() - 1), "10.0.0.42 - Ethernet (port 2323)");
+    EXPECT_EQ(ports->itemData(ports->count() - 1).toString(), "10.0.0.42");
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
