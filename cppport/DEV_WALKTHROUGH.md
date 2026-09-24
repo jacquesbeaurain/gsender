@@ -1321,3 +1321,6 @@ them into `{}`) and what the Config page does with them:
   a list whose index is the value. They write through the row's cell, so
   Write changes sends them with the typed ones; a pending change marks the
   setting's name bold.
+- The Spindle/Laser page carries the sections' test wizards: spindle For
+  (M3 S1000) / Rev (M4 S1000) / Stop (M5 S0), laser On (G1F1 M3 S1) / Off,
+  and the accessory outputs M3 M4 M5 | M7 M8 M9.
