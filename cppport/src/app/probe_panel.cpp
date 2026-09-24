@@ -318,7 +318,7 @@ RunProbeDialog::RunProbeDialog(Machine& machine, probe::ProbeCommand command, pr
     }
     if (machine_.isSimulated()) {
         // The operator's part: the simulated plate goes under the bit.
-        machine_.placeSimulatedPlate(type_, toolDiameter_, corner_);
+        machine_.placeSimulatedPlate(type_, toolDiameter_, corner_, command_.axes);
         steps << tr("Simulator: a touch plate has been placed under the bit. Confirm the circuit by hand.");
     }
     auto* text = new QLabel(steps.join("\n\n"));

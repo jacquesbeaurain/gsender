@@ -86,6 +86,11 @@ public:
     // Motion and dwells run `factor` times faster than real time (demos,
     // application tests).
     void setSpeed(double factor) { speed_ = factor > 0 ? factor : 1.0; }
+    // A dwell (G4) ends with a status report before its ok, as a board that
+    // reports by itself would: a macro reading posx after "G4 P0.15" (the
+    // probing routines) sees where the machine stopped, however fast the
+    // simulation runs.
+    void setReportAfterDwell(bool on) { reportAfterDwell_ = on; }
     // Stops where it is and raises ALARM:<code>, as a tripped limit switch or
     // a failed homing cycle would.
     void triggerAlarm(int code);
@@ -209,6 +214,7 @@ private:
     std::vector<Solid> solids_;
     double toolRadius_ = 0;
     double speed_ = 1.0;
+    bool reportAfterDwell_ = false;
     std::array<int, 3> overrides_{100, 100, 100};
     std::vector<std::pair<std::string, std::string>> settings_;
 

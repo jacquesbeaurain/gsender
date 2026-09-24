@@ -279,6 +279,58 @@ TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     ASSERT_TRUE(waitFor([&] { return succeeded == 1; }));
 }
 
+TEST_F(AppTest, TheSimulatorHasAutoZeroAndBitZeroPlates) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(100);
+    // Places the plate as the run dialog does, runs the routine, and says
+    // where the bit started.
+    const auto probeWith = [&](probe::PlateType plate, probe::ProbeType type, double diameter, probe::Axes axes) {
+        AppSettings settings = machine.settings();
+        settings.probe.plateType = plate;
+        machine.setSettings(settings);
+        machine.placeSimulatedPlate(type, diameter, probe::kBottomLeft, axes);
+        const sim::SimAxes start = machine.simulator()->machinePosition();
+        EXPECT_TRUE(machine.runProbe(machine.probeRoutine(axes, type, diameter, probe::kBottomLeft)));
+        EXPECT_TRUE(waitFor([&] {
+            controller::Controller* c = machine.controller();
+            return c->feeder().size() == 0 && !c->feeder().isPending() && machine.simulator()->activeState() == "Idle";
+        }, 15000));
+        EXPECT_NE(machine.simulator()->activeState(), "Alarm");
+        return start;
+    };
+
+    // AutoZero, finding its pocket's walls: the pocket's centre is 22.5 mm
+    // in from the corner, its floor the plate's 5 mm above the stock.
+    const sim::SimAxes autoStart = probeWith(probe::PlateType::AutoZero, probe::ProbeType::Auto, 0, {true, true, true});
+    sim::SimAxes offset = machine.simulator()->workOffset();
+    EXPECT_NEAR(offset[0], autoStart[0] - 22.5, 1e-3);
+    EXPECT_NEAR(offset[1], autoStart[1] - 22.5, 1e-3);
+    EXPECT_NEAR(offset[2], autoStart[2] - 15, 1e-3);
+    // A V-bit's tip finds the narrower walls near the floor.
+    const sim::SimAxes tipStart = probeWith(probe::PlateType::AutoZero, probe::ProbeType::Tip, 0, {true, true, true});
+    offset = machine.simulator()->workOffset();
+    EXPECT_NEAR(offset[0], tipStart[0] - 22.5, 1e-3);
+    EXPECT_NEAR(offset[1], tipStart[1] - 22.5, 1e-3);
+
+    // BitZero: the bore over the stock's corner becomes X0 Y0, the block's
+    // top 13 mm above the stock.
+    const sim::SimAxes boreStart = probeWith(probe::PlateType::BitZero, probe::ProbeType::Diameter, 6.35, {true, true, true});
+    offset = machine.simulator()->workOffset();
+    EXPECT_NEAR(offset[0], boreStart[0] - 1, 1e-3);
+    EXPECT_NEAR(offset[1], boreStart[1] + 0.5, 1e-3);
+    EXPECT_NEAR(offset[2], boreStart[2] - 5, 1e-3);
+    // Z alone: on the block's top, its Z-only thickness.
+    const sim::SimAxes zStart = probeWith(probe::PlateType::BitZero, probe::ProbeType::Diameter, 6.35, {false, false, true});
+    EXPECT_NEAR(machine.simulator()->workOffset()[2], zStart[2] - 25.5, 1e-3);
+}
+
 TEST_F(AppTest, TheSurfacingToolGeneratesAndLoadsAJob) {
     QTemporaryDir dir;
     QtEventLoop loop;

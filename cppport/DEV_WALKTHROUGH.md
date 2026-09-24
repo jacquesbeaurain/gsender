@@ -535,9 +535,17 @@ distance mode (`Machine::runProbe`).
 On the simulator the dialog first places a plate where the operator would:
 a standard block with the bit 5 mm in from its outer faces and 10 mm above,
 a Z probe puck under the bit, or - for a 3D probe - the stock corner itself.
-AutoZero and BitZero plates are not modelled yet, so their probes miss
-(ALARM:5). `GrblSimulator::setSpeed` runs motion faster than real time; the
-application test runs the XYZ routine at 200x and checks the zeroed corner.
+An AutoZero is a pocket 22.5 mm in from the corner, floor 5 mm above the
+stock, the bit 10 mm over its middle; the pocket narrows near its floor
+(walls 10 mm out up to 1 mm, 20 mm out above), so a V-bit's tip and a bit
+both find walls within the routines' reach. A BitZero is a 13 mm block with
+its bore over the stock's corner, the bit inside the bore 5 mm above the
+stock (Z alone: 10 mm over the block). `GrblSimulator::setSpeed` runs motion
+faster than real time; the application tests run the routines at 100-200x
+and check the zeroed corner. The auto routines read posx after a short G4:
+the application's simulator reports its status as a dwell ends
+(`setReportAfterDwell`), so the reading is where the machine stopped however
+fast it runs (a real board is read by the 250 ms poll - upstream's race).
 
 The Settings dialog has a Probe page for the plate profile and the probe
 feeds, retractions and distances (stored in mm under `app.probe`). The

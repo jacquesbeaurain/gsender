@@ -866,6 +866,9 @@ void GrblSimulator::tick() {
             sdRun_.reset();
             emitText("ALARM:" + std::to_string(move.alarm) + "\r\n");
         }
+        if (reportAfterDwell_ && move.dwell && move.sync) {
+            emitText(statusReport() + "\r\n");
+        }
         std::string after = move.after;
         if (move.muted && after.ends_with("ok\r\n")) {
             after.resize(after.size() - 4);
