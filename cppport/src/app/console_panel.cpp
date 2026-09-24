@@ -133,7 +133,20 @@ ConsolePanel::ConsolePanel(Machine& machine, bool popout, QWidget* parent)
     connect(latest_, &QToolButton::clicked, this, [this] {
         output_->verticalScrollBar()->setValue(output_->verticalScrollBar()->maximum());
     });
-    connect(output_->verticalScrollBar(), &QScrollBar::valueChanged, this, [this] { followOrOffer(); });
+    // At the bottom is kept as a state (Virtuoso's followOutput): scrolling
+    // sets it, and while it holds the view stays down as lines come and the
+    // view resizes.
+    QScrollBar* bar = output_->verticalScrollBar();
+    connect(bar, &QScrollBar::valueChanged, this, [this, bar](int value) {
+        atBottom_ = value >= bar->maximum();
+        followOrOffer();
+    });
+    connect(bar, &QScrollBar::rangeChanged, this, [this, bar](int, int maximum) {
+        if (atBottom_) {
+            bar->setValue(maximum);
+        }
+        followOrOffer();
+    });
     output_->viewport()->installEventFilter(this);
 
     input_ = new QLineEdit;
@@ -174,12 +187,13 @@ void ConsolePanel::render() {
             insert(message);
         }
     }
+    atBottom_ = true;
     output_->verticalScrollBar()->setValue(output_->verticalScrollBar()->maximum());
 }
 
 void ConsolePanel::appendLines(int count) {
     QScrollBar* bar = output_->verticalScrollBar();
-    const bool atEnd = bar->value() == bar->maximum();
+    const bool atEnd = atBottom_;
     const auto& messages = log_.messages();
     for (auto it = messages.end() - std::min<std::ptrdiff_t>(count, static_cast<std::ptrdiff_t>(messages.size()));
          it != messages.end(); ++it) {

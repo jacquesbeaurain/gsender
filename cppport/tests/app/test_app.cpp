@@ -13,6 +13,7 @@
 #include "gcode_editor_dialog.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
+#include "helper_info.hpp"
 #include "main_window.hpp"
 #include "notifications.hpp"
 #include "panels.hpp"
@@ -49,6 +50,7 @@
 #include <QMenu>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScrollBar>
 #include <QSlider>
 #include <QTableWidget>
 #include <QToolButton>
@@ -2911,6 +2913,104 @@ TEST_F(AppTest, RotaryToolpathsWrapAsUpstreamDrawsThem) {
     machine.loadProgram("rotary.nc", program + "G1 Y1\n");
     ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
     EXPECT_NEAR(endOf(machine.toolpath().rapids)[2], 5, 1e-4);
+}
+
+TEST_F(AppTest, TheHelperExplainsAlarmsAndRefusedLines) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.preferences.showLineWarnings = true;
+    machine.setSettings(settings);
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    window.resize(1200, 800);
+    window.show();
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    HelperInfo& helper = window.helper();
+    EXPECT_FALSE(helper.isVisible());
+    // Warn on bad line: the refused line, without blocking anything.
+    machine.sendConsoleLine("G99");
+    ASSERT_TRUE(waitFor([&] { return helper.isVisible(); }));
+    EXPECT_EQ(helper.title(), "Invalid Line");
+    EXPECT_TRUE(helper.description().contains("error 20: 'G99'")) << helper.description().toStdString();
+    EXPECT_TRUE(helper.description().contains("Press Start to resume the job."));
+    // The console has the board's answer too.
+    ASSERT_TRUE(waitFor([&] {
+        const QStringList last = machine.consoleLog().lastTexts(20);
+        return std::any_of(last.begin(), last.end(), [](const QString& line) { return line.startsWith("error:20"); });
+    })) << machine.consoleLog().lastTexts(8).join(" | ").toStdString();
+    auto* consolePanel = window.findChild<ConsolePanel*>();
+    ASSERT_NE(consolePanel, nullptr);
+    ASSERT_TRUE(waitFor([&] {
+        const QStringList shown = consolePanel->shownLines();
+        return std::any_of(shown.begin(), shown.end(), [](const QString& line) { return line.startsWith("error:20"); });
+    })) << consolePanel->shownLines().mid(consolePanel->shownLines().size() - 5).join(" | ").toStdString();
+    QScrollBar* consoleBar = consolePanel->findChild<QPlainTextEdit*>("consoleOutput")->verticalScrollBar();
+    EXPECT_EQ(consoleBar->value(), consoleBar->maximum());
+
+    // An alarm's "?" explains it.
+    helper.hide();
+    machine.simulator()->triggerAlarm(1);
+    auto* help = window.findChild<QToolButton*>("alarmHelp");
+    ASSERT_NE(help, nullptr);
+    ASSERT_TRUE(waitFor([&] { return help->isVisible(); }));
+    help->click();
+    EXPECT_TRUE(helper.isVisible());
+    EXPECT_EQ(helper.title(), "Alarm Code 1");
+    EXPECT_FALSE(helper.description().isEmpty());
+    EXPECT_EQ(helper.resourceLink(), "https://resources.sienci.com/view/gs-gsender-grbl-alarm-error-codes/#alarms");
+    EXPECT_LT(helper.geometry().bottom(), window.height() / 2);  // over the top left
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        window.grab().save(QString::fromLocal8Bit(out) + "/helper_info.png");
+    }
+    window.findChild<QToolButton*>("helperClose")->click();
+    EXPECT_FALSE(helper.isVisible());
+}
+
+TEST_F(AppTest, TheConsoleFollowsTheLatestLineUnlessScrolledBack) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    ConsolePanel console(machine);
+    console.resize(500, 300);
+    console.show();
+    QPlainTextEdit* output = console.findChild<QPlainTextEdit*>("consoleOutput");
+    ASSERT_NE(output, nullptr);
+    QScrollBar* bar = output->verticalScrollBar();
+    const auto burst = [&](int from, int count) {
+        for (int i = from; i < from + count; ++i) {
+            machine.consoleLog().write(QString("line %1").arg(i));
+        }
+        machine.consoleLog().flush();
+        QApplication::processEvents();
+    };
+    burst(0, 5);
+    burst(5, 200);  // past the view: it follows
+    EXPECT_GT(bar->maximum(), 0);
+    EXPECT_EQ(bar->value(), bar->maximum());
+    burst(205, 1);
+    EXPECT_EQ(bar->value(), bar->maximum());
+    // A smaller view (the window laid out) keeps it at the bottom.
+    console.resize(500, 180);
+    QApplication::processEvents();
+    EXPECT_EQ(bar->value(), bar->maximum());
+    burst(206, 3);
+    EXPECT_EQ(bar->value(), bar->maximum());
+    // Scrolled back, it stays and offers the latest.
+    bar->setValue(0);
+    burst(209, 20);
+    EXPECT_EQ(bar->value(), 0);
+    auto* latest = console.findChild<QToolButton*>("consoleLatest");
+    ASSERT_NE(latest, nullptr);
+    EXPECT_TRUE(latest->isVisible());
+    latest->click();
+    EXPECT_EQ(bar->value(), bar->maximum());
+    EXPECT_FALSE(latest->isVisible());
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

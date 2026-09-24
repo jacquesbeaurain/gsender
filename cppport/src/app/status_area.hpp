@@ -59,6 +59,11 @@ public:
     using HomingFailureChooser = std::function<HomingFailureChoice(const QString& code)>;
     void setHomingFailureChooser(HomingFailureChooser chooser) { chooser_ = std::move(chooser); }
 
+Q_SIGNALS:
+    // The alarm's "?" (AlarmDescriptionIcon): its explanation for the
+    // Helper's info panel, with upstream's alarm and error codes page.
+    void alarmHelpRequested(const QString& title, const QString& description, const QString& resourceLink);
+
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 

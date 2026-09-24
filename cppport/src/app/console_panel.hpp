@@ -60,6 +60,7 @@ private:
     QButtonGroup* filters_;
     QPlainTextEdit* output_;
     QToolButton* latest_;  // "Scroll to latest message"
+    bool atBottom_ = true;  // following the output
     QLineEdit* input_;
     int historyIndex_ = -1;  // -1: none chosen
     QPointer<QWidget> popoutWindow_;
