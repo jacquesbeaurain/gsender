@@ -1309,3 +1309,7 @@ them into `{}`) and what the Config page does with them:
   refused otherwise; the profile's ordered settings first) then `$$`;
   **Export** saves the board's settings as that JSON object.
 - The visualizer's machine bed takes the profile's width and depth.
+- The Config page's live pin indicators (LimitSwitchIndicators,
+  ProbePinStatus): the X/Y/Z/A limit switches beside the Firmware tab's
+  filters and the probe pin on the Probe tab, lit while the status report
+  lists them (`PinIndicators`).

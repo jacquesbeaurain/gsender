@@ -1247,6 +1247,11 @@ TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     broken.write(R"({"one":1})");
     broken.close();
     EXPECT_FALSE(firmware->importFile(broken.fileName()));
+
+    // The live pins: the limit switches (Firmware) and the probe (Probe).
+    const QList<PinIndicators*> pins = dialog.findChildren<PinIndicators*>();
+    ASSERT_EQ(pins.size(), 2);
+    EXPECT_FALSE(pins[0]->lit('X'));
 }
 
 TEST_F(AppTest, RotaryModePutsTheRotaryOnGrblsYAndBack) {
