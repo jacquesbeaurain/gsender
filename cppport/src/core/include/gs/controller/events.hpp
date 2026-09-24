@@ -155,6 +155,15 @@ struct GrblHalInfo {  // "grblHal:info"
 struct GrblHalAutoconfig {  // "grblHal:autoconfig"
     protocol::AutoconfigLine autoconfig;
 };
+// An SD card upload (YMODEM over the serial link).
+struct YModemStarted {};  // "ymodem:start"
+struct YModemProgress {   // "ymodem:progress" - of the file being sent
+    int percent = 0;
+};
+struct YModemCompleted {};  // "ymodem:complete"
+struct YModemFailed {       // "ymodem:error"
+    std::string message;
+};
 
 using ControllerEvent =
     std::variant<ConsoleOutput, ConsoleInput, StateChanged, SettingsChanged, FeederStatusChanged,
@@ -163,7 +172,8 @@ using ControllerEvent =
                  HomingFlagChanged, HasHomedChanged, JobStarted, JobStopped, FileTypeDetected,
                  EstimateDataRequested, WizardNext, ControllerClosed, FileUnloaded, SpindleAdded,
                  SettingDescriptionsChanged, SettingAlarmsChanged, SettingGroupsChanged, SdCardFileListed,
-                 SdCardJson, AtciMessage, GrblHalInfo, GrblHalAutoconfig>;
+                 SdCardJson, AtciMessage, GrblHalInfo, GrblHalAutoconfig, YModemStarted, YModemProgress,
+                 YModemCompleted, YModemFailed>;
 
 using ControllerEventSink = std::function<void(const ControllerEvent&)>;
 

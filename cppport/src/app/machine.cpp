@@ -31,6 +31,7 @@
 namespace gs::app {
 
 const QString Machine::kSimulatorPort = QStringLiteral("Simulator");
+const QString Machine::kSimulatorHalPort = QStringLiteral("Simulator grblHAL");
 
 namespace {
 
@@ -175,6 +176,11 @@ Machine::~Machine() {
 
 // ---- connection -------------------------------------------------------------------
 
+bool Machine::isRunningSdFile() const {
+    const controller::Controller* c = controller();
+    return c && c->state().status.sdProgress.name.has_value();
+}
+
 controller::Controller* Machine::controller() const {
     return session_ ? session_->controller() : nullptr;
 }
@@ -207,8 +213,9 @@ void Machine::connectTo(const QString& port, int baudRate, int networkPort) {
     connecting_ = true;
     Q_EMIT connectionChanged();
 
-    if (port == kSimulatorPort) {
+    if (isSimulatorPort(port)) {
         simulator_ = std::make_unique<sim::GrblSimulator>(loop_);
+        simulator_->setGrblHal(port == kSimulatorHalPort);
         startSession(*simulator_);
         simulator_->onData = [this](std::string_view bytes) {
             if (session_) {
@@ -983,6 +990,10 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        Q_EMIT notice(tr("Program paused (%1) %2")
                                        .arg(QString::fromStdString(e.data), QString::fromStdString(e.comment)));
                    },
+                   [this](const YModemStarted&) { Q_EMIT sdUploadStarted(); },
+                   [this](const YModemProgress& e) { Q_EMIT sdUploadProgress(e.percent); },
+                   [this](const YModemCompleted&) { Q_EMIT sdUploadCompleted(); },
+                   [this](const YModemFailed& e) { Q_EMIT sdUploadFailed(QString::fromStdString(e.message)); },
                    [](const auto&) {},
                },
                event);

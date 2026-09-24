@@ -211,6 +211,17 @@ Controller::Controller(runtime::EventLoop& loop, DeviceLink& link, protocol::Fir
     feeder_ = std::make_unique<Feeder>(
         [this](std::string line, const expr::Value& context) { return feederFilter(std::move(line), context); });
     toolChanger_ = std::make_unique<ToolChanger>(loop_, [this] { return runner_.isIdle(); }, 200);
+    ymodem_ = std::make_unique<protocol::YModemSender>(
+        loop_, protocol::YModemSender::Callbacks{
+                   [this](std::string_view bytes) { writeImmediate(bytes); },
+                   [this] { report(YModemStarted{}); },
+                   [this](int percent) { report(YModemProgress{percent}); },
+                   [this] {
+                       report(YModemCompleted{});
+                       timers_.timeout(150, [this] { sdList(); });
+                   },
+                   [this](const std::string& message) { report(YModemFailed{message}); },
+               });
     wireJogStreamer();
     wireStreaming();
     setPollingEnabled(true);
@@ -1055,7 +1066,8 @@ void Controller::queryTick() {
 }
 
 void Controller::queryStatusReport() {
-    if (!ready_) {
+    // Nothing may interrupt an upload.
+    if (!ready_ || ymodem_->active()) {
         return;
     }
     const std::int64_t now = loop_.nowMs();
@@ -1076,7 +1088,7 @@ void Controller::queryStatusReport() {
 }
 
 void Controller::queryParserState() {
-    if (!ready_ || (isGrblHal() && parserStateEnabled_)) {
+    if (!ready_ || (isGrblHal() && parserStateEnabled_) || ymodem_->active()) {
         return;
     }
     const std::int64_t now = loop_.nowMs();
@@ -2153,6 +2165,26 @@ void Controller::sdRun(const std::string& path) {
 void Controller::sdDelete(const std::string& path) {
     beginCommand("sdcard:delete");
     writeln("$FD=" + path);
+}
+
+void Controller::sdUpload(std::vector<protocol::YModemFile> files) {
+    beginCommand("ymodem:uploadFiles");
+    if (ymodem_->active()) {
+        return;  // one upload at a time
+    }
+    sdMount();
+    timers_.timeout(1500, [this, files = std::move(files)]() mutable {
+        if (!runner_.isSdMounted()) {
+            report(YModemFailed{
+                "SD Card not detected, please insert an SD Card in FAT32 format, 32 GB or under, and try again"});
+            return;
+        }
+        if (link_.isNetwork()) {
+            report(YModemFailed{"Uploading to the SD card over a network connection (FTP) is not supported yet."});
+            return;
+        }
+        ymodem_->start(std::move(files));
+    });
 }
 
 // ---- writing -------------------------------------------------------------------------------

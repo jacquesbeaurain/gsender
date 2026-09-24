@@ -203,6 +203,7 @@ struct InfoValue {
     std::vector<std::pair<std::string, std::optional<std::string>>> options;
     bool isOptionList = false;
     std::optional<std::string> option(std::string_view key) const;
+    bool hasOption(std::string_view key) const;  // with or without a value
     bool operator==(const InfoValue&) const = default;
 };
 

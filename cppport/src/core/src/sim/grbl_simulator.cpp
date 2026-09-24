@@ -1,6 +1,7 @@
 #include "gs/sim/grbl_simulator.hpp"
 
 #include "gs/gcode/parser.hpp"
+#include "gs/protocol/ymodem.hpp"
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/strings.hpp"
 
@@ -100,6 +101,14 @@ GrblSimulator::~GrblSimulator() {
 }
 
 void GrblSimulator::emitText(std::string text) {
+    if (muted_) {
+        if (text == "ok\r\n") {
+            return;
+        }
+        if (text.starts_with("error:")) {
+            sdRun_.reset();  // an error ends the file's run
+        }
+    }
     loop_.post([token = std::weak_ptr<int>(alive_), this, text = std::move(text)] {
         if (token.lock() && open_ && onData) {
             onData(text);
@@ -115,6 +124,9 @@ void GrblSimulator::open() {
     open_ = true;
     timers_.clearAll();
     tickTimer_ = 0;
+    ymodemTimer_ = 0;
+    ymodem_.reset();
+    sdRun_.reset();
     planner_.clear();
     waiting_.clear();
     syncing_ = false;
@@ -139,12 +151,16 @@ void GrblSimulator::close() {
     open_ = false;
     timers_.clearAll();
     tickTimer_ = 0;
+    ymodemTimer_ = 0;
+    ymodem_.reset();
+    sdRun_.reset();
     planner_.clear();
     waiting_.clear();
     syncing_ = false;
 }
 
 void GrblSimulator::triggerAlarm(int code) {
+    sdRun_.reset();
     flushMotion();
     waiting_.clear();
     syncing_ = false;
@@ -153,7 +169,7 @@ void GrblSimulator::triggerAlarm(int code) {
 }
 
 void GrblSimulator::banner() {
-    emitText("\r\nGrbl 1.1h ['$' for help]\r\n");
+    emitText(grblHal_ ? "\r\nGrblHAL 1.1f ['$' or '$HELP' for help]\r\n" : "\r\nGrbl 1.1h ['$' for help]\r\n");
     if (state_ == State::Alarm) {
         emitText("[MSG:'$H'|'$X' to unlock]\r\n");
     }
@@ -167,6 +183,17 @@ void GrblSimulator::send(std::string_view bytes, controller::SendKind) {
     }
     for (const char c : bytes) {
         const auto byte = static_cast<unsigned char>(c);
+        // A YMODEM transfer takes every byte; a packet's SOH at the start of a
+        // line begins one (grblHAL's protocol layer does the same).
+        if (ymodem_) {
+            receiveYmodem(byte);
+            continue;
+        }
+        if (grblHal_ && byte == static_cast<unsigned char>(protocol::kYmodemSoh) && input_.empty()) {
+            ymodem_.emplace();
+            receiveYmodem(byte);
+            continue;
+        }
         // Realtime commands are picked out of the stream wherever they are.
         if (byte == '?' || byte == '!' || byte == '~' || byte == 0x18 || byte >= 0x80) {
             realtime(byte);
@@ -203,12 +230,16 @@ void GrblSimulator::realtime(unsigned char byte) {
                 if (!planner_.empty()) {
                     startMotion();
                 }
+                if (sdRun_) {
+                    feedSdRun();
+                }
             }
             return;
         case 0x18: {  // soft reset
             // A reset after a completed feed hold keeps the position without an
             // alarm (why senders hold first); the simulated hold completes at once.
             const bool moving = state_ == State::Run || state_ == State::Jog || state_ == State::Home;
+            sdRun_.reset();
             flushMotion();
             waiting_.clear();
             syncing_ = false;
@@ -231,6 +262,11 @@ void GrblSimulator::realtime(unsigned char byte) {
             banner();
             return;
         }
+        case 0x87:  // grblHAL: a complete report
+            if (grblHal_) {
+                emitText(completeStatusReport() + "\r\n");
+            }
+            return;
         case 0x85:  // jog cancel
             if (state_ == State::Jog) {
                 flushMotion();
@@ -290,6 +326,9 @@ void GrblSimulator::acceptPending() {
             executeGcode(text, false);
         }
     }
+    if (sdRun_) {
+        feedSdRun();
+    }
 }
 
 // ---- system commands ------------------------------------------------------------------
@@ -323,7 +362,15 @@ void GrblSimulator::executeSystem(const std::string& line) {
         return;
     }
     if (command == "$I") {
-        emitText("[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\nok\r\n");
+        if (grblHal_) {
+            emitText("[VER:1.1f.20240417:]\r\n[OPT:VNMSL,35,1024,3,0]\r\n[AXS:3:XYZ]\r\n"
+                     "[NEWOPT:ENUMS,RT+,SD,YM]\r\n[FIRMWARE:grblHAL]\r\n[BOARD:Simulator]\r\nok\r\n");
+        } else {
+            emitText("[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\nok\r\n");
+        }
+        return;
+    }
+    if (grblHal_ && executeGrblHal(command, line)) {
         return;
     }
     if (command == "$N") {
@@ -748,6 +795,7 @@ void GrblSimulator::enqueue(Move move) {
         moveElapsed_ = 0;
     }
     const bool jogMove = move.jog;
+    move.muted = move.muted || muted_;
     syncing_ = syncing_ || move.sync;
     planner_.push_back(std::move(move));
     if (state_ == State::Idle) {
@@ -796,10 +844,15 @@ void GrblSimulator::tick() {
         const bool pause = move.pause;
         if (move.alarm != 0) {
             state_ = State::Alarm;
+            sdRun_.reset();
             emitText("ALARM:" + std::to_string(move.alarm) + "\r\n");
         }
-        if (!move.after.empty()) {
-            emitText(move.after);
+        std::string after = move.after;
+        if (move.muted && after.ends_with("ok\r\n")) {
+            after.resize(after.size() - 4);
+        }
+        if (!after.empty()) {
+            emitText(std::move(after));
         }
         if (move.sync) {
             syncing_ = false;
@@ -866,8 +919,220 @@ std::string GrblSimulator::statusReport() const {
     }
     report += "|Ov:" + std::to_string(overrides_[0]) + "," + std::to_string(overrides_[1]) + "," +
               std::to_string(overrides_[2]);
-    report += "|WCO:" + axesText(workOffset(), units) + ">";
-    return report;
+    report += "|WCO:" + axesText(workOffset(), units);
+    if (sdRun_) {
+        // grblHAL: the file's progress while it runs.
+        const double done = sdRun_->size == 0 ? 100.0
+                                              : 100.0 * static_cast<double>(sdRun_->consumed) /
+                                                    static_cast<double>(sdRun_->size);
+        report += "|SD:" + js::toFixed(std::min(done, 100.0), 1) + "," + sdRun_->name;
+    }
+    return report + ">";
+}
+
+std::string GrblSimulator::completeStatusReport() const {
+    // Every field, the card's presence among them.
+    std::string report = statusReport();
+    report.pop_back();
+    if (!sdRun_) {
+        report += "|SD:1";
+    }
+    return report + "|FW:grblHAL>";
+}
+
+// ---- grblHAL ----------------------------------------------------------------------------
+
+namespace {
+
+// The SD card plugin's filename_valid().
+bool usableSdName(const std::string& name) {
+    return name.size() <= 40 && name.find_first_of("?~!") == std::string::npos;
+}
+
+// $F lists the CNC files only.
+bool isCncFile(const std::string& name) {
+    static constexpr std::string_view kExtensions[] = {".nc",  ".ncc", ".ngc",  ".cnc",  ".gcode",
+                                                       ".txt", ".text", ".tap", ".macro"};
+    const std::size_t dot = name.rfind('.');
+    if (dot == std::string::npos) {
+        return false;
+    }
+    const std::string extension = str::toLower(std::string_view(name).substr(dot));
+    return std::find(std::begin(kExtensions), std::end(kExtensions), extension) != std::end(kExtensions);
+}
+
+std::string sdName(std::string_view path) {
+    std::string name(str::trim(path));
+    if (!name.empty() && name.front() == '/') {
+        name.erase(0, 1);
+    }
+    return name;
+}
+
+}  // namespace
+
+bool GrblSimulator::executeGrblHal(const std::string& command, const std::string& line) {
+    // The extended queries: nothing to describe.
+    static constexpr std::string_view kEmpty[] = {"$ES", "$ESH", "$EG", "$EA", "$EE", "$SPINDLES", "$SPINDLESH"};
+    if (std::find(std::begin(kEmpty), std::end(kEmpty), command) != std::end(kEmpty) || command == "$FM") {
+        emitText("ok\r\n");
+        return true;
+    }
+    if (command == "$F" || command == "$F+") {
+        std::string out;
+        for (const auto& [name, data] : sdFiles_) {
+            if (command == "$F+" || isCncFile(name)) {
+                out += "[FILE:/" + name + "|SIZE:" + std::to_string(data.size()) +
+                       (usableSdName(name) ? "" : "|UNUSABLE") + "]\r\n";
+            }
+        }
+        emitText(out + "ok\r\n");
+        return true;
+    }
+    if (command.starts_with("$FD=")) {
+        emitText(sdFiles_.erase(sdName(std::string_view(line).substr(4))) != 0 ? "ok\r\n" : "error:61\r\n");
+        return true;
+    }
+    if (command.starts_with("$F=")) {
+        const std::string name = sdName(std::string_view(line).substr(3));
+        const auto file = sdFiles_.find(name);
+        if (file == sdFiles_.end()) {
+            emitText("error:61\r\n");  // file open failed
+            return true;
+        }
+        if (state_ != State::Idle || sdRun_) {
+            emitText("error:8\r\n");
+            return true;
+        }
+        SdRun run;
+        run.name = name;
+        run.size = file->second.size();
+        for (std::string_view rest = file->second; !rest.empty();) {
+            const std::size_t end = rest.find('\n');
+            run.lines.emplace_back(rest.substr(0, end));
+            rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
+        }
+        sdRun_ = std::move(run);
+        emitText("ok\r\n");
+        feedSdRun();
+        return true;
+    }
+    return false;
+}
+
+// The run's lines go in as the planner takes them, unanswered.
+void GrblSimulator::feedSdRun() {
+    while (sdRun_ && waiting_.empty() && !syncing_ && planner_.size() < kPlannerSize && state_ != State::Hold &&
+           state_ != State::Alarm) {
+        if (sdRun_->lines.empty()) {
+            if (planner_.empty()) {
+                sdRun_.reset();  // the last move is done
+            }
+            return;
+        }
+        const std::string line = std::move(sdRun_->lines.front());
+        sdRun_->lines.pop_front();
+        sdRun_->consumed += line.size() + 1;
+        const std::string text(str::trim(line));
+        if (text.empty()) {
+            continue;
+        }
+        muted_ = true;
+        if (text.starts_with("$J=")) {
+            executeGcode(text.substr(3), true);
+        } else if (text.front() == '$') {
+            executeSystem(text);
+        } else {
+            executeGcode(text, false);
+        }
+        muted_ = false;
+    }
+}
+
+// ---- YMODEM (grblHAL's ymodem.c, receiving) ----------------------------------------------
+
+void GrblSimulator::receiveYmodem(unsigned char byte) {
+    // A transfer that goes quiet is given up.
+    timers_.clear(ymodemTimer_);
+    ymodemTimer_ = timers_.timeout(10000, [this] {
+        ymodemTimer_ = 0;
+        ymodem_.reset();
+    });
+    YModemReceive& rx = *ymodem_;
+    if (rx.packet.empty()) {
+        if (byte == static_cast<unsigned char>(protocol::kYmodemEot)) {
+            // The file is complete: its padding is cut off at its size.
+            if (rx.open) {
+                sdFiles_[rx.name] = rx.data.substr(0, std::min(rx.size, rx.data.size()));
+            }
+            emitText(std::string(1, protocol::kYmodemAck));
+            ymodem_.reset();
+            timers_.clear(ymodemTimer_);
+            return;
+        }
+        if (byte == static_cast<unsigned char>(protocol::kYmodemCan)) {
+            ymodem_.reset();
+            timers_.clear(ymodemTimer_);
+            return;
+        }
+        if (byte != static_cast<unsigned char>(protocol::kYmodemSoh) &&
+            byte != static_cast<unsigned char>(protocol::kYmodemStx)) {
+            return;  // noise between packets
+        }
+    }
+    rx.packet.push_back(static_cast<char>(byte));
+    const std::size_t size = (rx.packet.front() == protocol::kYmodemSoh ? 128 : 1024) + 5;
+    if (rx.packet.size() == size) {
+        ymodemPacket();
+    }
+}
+
+void GrblSimulator::ymodemPacket() {
+    YModemReceive& rx = *ymodem_;
+    const std::string packet = std::move(rx.packet);
+    rx.packet.clear();
+    const auto seq = static_cast<unsigned char>(packet[1]);
+    const auto complement = static_cast<unsigned char>(packet[2]);
+    const std::string_view block = std::string_view(packet).substr(3, packet.size() - 5);
+    const auto crc = static_cast<std::uint16_t>((static_cast<unsigned char>(packet[packet.size() - 2]) << 8) |
+                                                static_cast<unsigned char>(packet[packet.size() - 1]));
+    const std::string nak(1, protocol::kYmodemNak);
+    if (seq + complement != 0xFF || protocol::crc16Xmodem(block) != crc) {
+        emitText(nak);
+        return;
+    }
+    if (!rx.open) {
+        // The header: "/name", NUL, the size; an empty name ends the batch.
+        if (seq != 0) {
+            emitText(nak);
+            return;
+        }
+        const std::size_t nul = block.find('\0');
+        const std::string name = sdName(block.substr(0, nul));
+        if (name.empty()) {
+            emitText(std::string(1, protocol::kYmodemAck));
+            ymodem_.reset();
+            timers_.clear(ymodemTimer_);
+            return;
+        }
+        const std::string_view rest = nul == std::string_view::npos ? std::string_view() : block.substr(nul + 1);
+        const double size = js::stringToNumber(rest.substr(0, rest.find_first_of(std::string_view(" \0", 2))));
+        rx.open = true;
+        rx.name = name;
+        rx.size = std::isfinite(size) && size > 0 ? static_cast<std::size_t>(size) : 0;
+        rx.expected = 1;
+        emitText(std::string{protocol::kYmodemAck, protocol::kYmodemCrc});
+        return;
+    }
+    if (seq == rx.expected) {
+        rx.data.append(block);
+        ++rx.expected;
+        emitText(std::string(1, protocol::kYmodemAck));
+    } else if (seq == static_cast<unsigned char>(rx.expected - 1)) {
+        emitText(std::string(1, protocol::kYmodemAck));  // the last one again: its ACK was lost
+    } else {
+        emitText(nak);
+    }
 }
 
 std::string GrblSimulator::parserState() const {

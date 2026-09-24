@@ -11,6 +11,7 @@
 #include "panels.hpp"
 #include "probe_panel.hpp"
 #include "rotary_panel.hpp"
+#include "sd_card_dialog.hpp"
 #include "settings_dialog.hpp"
 #include "shortcuts.hpp"
 #include "shortcuts_dialog.hpp"
@@ -264,7 +265,7 @@ void MainWindow::installShortcuts() {
     // Job control, with the buttons' rules.
     s.setHandler("START_JOB", [this] {
         controller::Controller* c = machine_.controller();
-        if (c && machine_.hasProgram() && !machine_.isAnalyzing() &&
+        if (c && machine_.hasProgram() && !machine_.isAnalyzing() && !machine_.isRunningSdFile() &&
             controller::canRun(c->state().status.activeState, c->workflow().state())) {
             controller::runJob(*c);
         }
@@ -414,6 +415,14 @@ void MainWindow::installShortcuts() {
     s.setHandler("TOGGLE_MOUNTING_SETUP", [this] { rotary_->openMountingSetup(); });
 }
 
+SdCardDialog& MainWindow::sdCardDialog() {
+    // Kept once opened: an upload's end is heard with the dialog closed.
+    if (!sdCard_) {
+        sdCard_ = new SdCardDialog(machine_, *notifications_, this);
+    }
+    return *sdCard_;
+}
+
 bool MainWindow::rotaryTabVisible() const {
     return tabs_->isTabVisible(tabs_->indexOf(rotary_));
 }
@@ -470,6 +479,8 @@ void MainWindow::createMenus() {
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->show();
     });
+    tools->addSeparator();
+    tools->addAction(tr("SD &Card..."), this, [this] { sdCardDialog().show(); });
     tools->addSeparator();
     tools->addAction(tr("S&tatistics..."), this, [this] {
         StatsDialog dialog(machine_, this);
@@ -534,7 +545,7 @@ bool MainWindow::reconnectAutomatically() {
         return false;
     }
     const QString port = QString::fromStdString(settings.port);
-    bool known = port == Machine::kSimulatorPort || transport::looksLikeIpAddress(settings.port);
+    bool known = Machine::isSimulatorPort(port) || transport::looksLikeIpAddress(settings.port);
     for (const transport::SerialPortInfo& info : transport::listSerialPorts()) {
         known = known || info.path == settings.port;
     }

@@ -95,6 +95,7 @@ void ConnectionBar::refreshPorts() {
     const QString previous = ports_->currentText();
     ports_->clear();
     ports_->addItem(tr("Simulator (no hardware)"), Machine::kSimulatorPort);
+    ports_->addItem(tr("Simulator, grblHAL (no hardware)"), Machine::kSimulatorHalPort);
     std::vector<transport::SerialPortInfo> ports = transport::listSerialPorts();
     // Boards gSender recognizes first.
     std::stable_partition(ports.begin(), ports.end(), [](const transport::SerialPortInfo& port) {
@@ -108,7 +109,8 @@ void ConnectionBar::refreshPorts() {
         ports_->addItem(label, QString::fromStdString(port.path));
     }
     const int index = ports_->findText(previous);
-    ports_->setCurrentIndex(index >= 0 ? index : (ports.empty() ? 0 : 1));
+    // The first serial port, else the Grbl simulator.
+    ports_->setCurrentIndex(index >= 0 ? index : (ports.empty() ? 0 : 2));
 }
 
 void ConnectionBar::toggleConnection() {
@@ -496,7 +498,9 @@ void JobPanel::refresh() {
     const controller::WorkflowState workflow = c ? c->workflow().state() : controller::WorkflowState::Idle;
     const std::string activeState = c ? c->state().status.activeState : std::string();
     const bool idle = workflow == controller::WorkflowState::Idle;
-    const bool runnable = c && machine_.hasProgram() && !machine_.isAnalyzing() && controller::canRun(activeState, workflow);
+    // Nothing starts while the board runs a file from its SD card.
+    const bool runnable = c && machine_.hasProgram() && !machine_.isAnalyzing() && !machine_.isRunningSdFile() &&
+                          controller::canRun(activeState, workflow);
     open_->setEnabled(idle);
     unload_->setEnabled(idle && machine_.hasProgram());
     stepThrough_->setEnabled(machine_.hasProgram() && !machine_.isAnalyzing());
@@ -544,6 +548,16 @@ void JobPanel::refresh() {
 
 void JobPanel::updateProgress() {
     controller::Controller* c = machine_.controller();
+    if (machine_.isRunningSdFile()) {
+        // SDCardProgress: the file the board runs and how far it is.
+        const protocol::SdProgress& sd = c->state().status.sdProgress;
+        progress_->setRange(0, 100);
+        progress_->setValue(static_cast<int>(std::clamp(std::floor(sd.percentage), 0.0, 100.0)));
+        progress_->setFormat(tr("%1 - %p%").arg(QString::fromStdString(sd.name.value_or(""))));
+        timing_->setText(tr("Running from the SD card"));
+        return;
+    }
+    progress_->setFormat("%v / %m lines");
     if (!c || !c->sender().hasProgram()) {
         progress_->setRange(0, 1);
         progress_->setValue(0);

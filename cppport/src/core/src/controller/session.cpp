@@ -24,6 +24,13 @@ void Session::opened() {
 }
 
 void Session::receive(std::string_view bytes) {
+    if (controller_ && controller_->ymodemListening()) {
+        // An SD card upload reads bytes, not lines; what was left of a
+        // line is dropped with the line reader.
+        partial_.clear();
+        controller_->ymodemReceive(bytes);
+        return;
+    }
     // ReadlineParser({ delimiter: "\n" }): a line ends at "\n"; the rest waits.
     partial_.append(bytes);
     std::size_t start = 0;

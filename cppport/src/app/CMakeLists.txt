@@ -31,6 +31,8 @@ add_library(gs_app STATIC
     qt_event_loop.hpp
     rotary_panel.cpp
     rotary_panel.hpp
+    sd_card_dialog.cpp
+    sd_card_dialog.hpp
     settings_dialog.cpp
     settings_dialog.hpp
     shortcuts.cpp
