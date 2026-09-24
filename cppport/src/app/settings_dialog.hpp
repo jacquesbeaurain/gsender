@@ -46,6 +46,9 @@ public:
     int modifiedCount() const;  // settings away from their default
     QTableWidget& table() noexcept { return *table_; }
 
+Q_SIGNALS:
+    void squaringRequested();  // "Square XY..."
+
 private:
     void reload();
     void apply();
@@ -67,6 +70,7 @@ private:
     QLabel* status_;
     QPushButton* reload_;
     QPushButton* apply_;
+    std::vector<QPushButton*> jogButtons_;  // Jog X-/X+/Y-/Y+/Z-/Z+
     bool loading_ = false;
 };
 
@@ -97,6 +101,11 @@ public:
     // "gcode:resume" or "gcode:stop" (as typed into it).
     void setEventHook(const QString& event, const QString& commands, bool enabled);
     void save();  // OK / Apply
+
+Q_SIGNALS:
+    // The firmware page's "Square XY...": the squaring tool, in place of
+    // this dialog (it needs the main window's jog controls).
+    void squaringRequested();
 
 private:
     void load();

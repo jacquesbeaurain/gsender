@@ -126,6 +126,33 @@ FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
     filters->addWidget(new QLabel(tr("Limit switches")));
     filters->addWidget(new PinIndicators(machine_, "XYZA"));
     layout->addLayout(filters);
+    // The Motors sections' wizards: each axis jogged 10 mm either way at
+    // 1000 mm/min (JogWizard), to check its direction and resolution; and
+    // the squaring tool (SquaringToolWizard's "Square XY").
+    auto* motion = new QHBoxLayout;
+    motion->addWidget(new QLabel(tr("Test motion")));
+    for (const char axis : {'X', 'Y', 'Z'}) {
+        for (const char* distance : {"-10", "10"}) {
+            const QString name = QString("Jog %1%2").arg(axis).arg(distance[0] == '-' ? '-' : '+');
+            auto* jog = new QPushButton(name);
+            jog->setObjectName(QString("jogWizard%1%2").arg(axis).arg(distance[0] == '-' ? "Minus" : "Plus"));
+            connect(jog, &QPushButton::clicked, this, [this, axis, distance] {
+                if (controller::Controller* c = machine_.controller()) {
+                    c->gcode(std::string("$J=G21G91") + axis + distance + "F1000");
+                }
+            });
+            jogButtons_.push_back(jog);
+            motion->addWidget(jog);
+        }
+        motion->addSpacing(6);
+    }
+    motion->addStretch(1);
+    auto* square = new QPushButton(tr("Square XY..."));
+    square->setObjectName("squareXY");
+    square->setToolTip(tr("Open the XY squaring tool"));
+    connect(square, &QPushButton::clicked, this, &FirmwareSettingsTable::squaringRequested);
+    motion->addWidget(square);
+    layout->addLayout(motion);
 
     table_ = new QTableWidget(0, 6);
     table_->setHorizontalHeaderLabels({tr("Setting"), tr("Value"), tr("Units"), tr("Default"), tr("Description"), {}});
@@ -514,6 +541,9 @@ void FirmwareSettingsTable::refreshButtons() {
     defaults_->setEnabled(idle && config::canRestoreDefaults(machine_.machineProfile()));
     import_->setEnabled(idle);
     export_->setEnabled(c != nullptr);
+    for (QPushButton* jog : jogButtons_) {
+        jog->setEnabled(idle);
+    }
     table_->setEnabled(c != nullptr);
 }
 
@@ -1128,7 +1158,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     a11yScroll->setFrameShape(QFrame::NoFrame);
     tabs_->addTab(a11yScroll, tr("Accessibility"));
 
-    tabs_->addTab(new FirmwareSettingsTable(machine_), tr("Firmware"));
+    auto* firmware = new FirmwareSettingsTable(machine_);
+    connect(firmware, &FirmwareSettingsTable::squaringRequested, this, &SettingsDialog::squaringRequested);
+    tabs_->addTab(firmware, tr("Firmware"));
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
     layout->addWidget(buttons);
