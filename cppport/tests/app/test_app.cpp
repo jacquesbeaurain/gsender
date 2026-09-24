@@ -2,6 +2,7 @@
 // simulated board (real time, so kept short), and a main-window smoke test on
 // the offscreen platform.
 
+#include "accessibility.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
@@ -38,6 +39,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QSlider>
 #include <QTableWidget>
 #include <QToolButton>
 #include <QDeadlineTimer>
@@ -233,6 +235,8 @@ TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
                machine.controller()->state().status.activeState == "Idle";
     }));
     machine.simulator()->setSpeed(200);
+    int succeeded = 0;
+    QObject::connect(&machine, &Machine::probeSucceeded, [&] { ++succeeded; });
 
     ProbePanel panel(machine);
     panel.selectCommand(1);
@@ -263,6 +267,7 @@ TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     EXPECT_NEAR(offset[0], start[0] + 5, 1e-6);
     EXPECT_NEAR(offset[1], start[1] + 5, 1e-6);
     EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
+    ASSERT_TRUE(waitFor([&] { return succeeded == 1; }));
 }
 
 TEST_F(AppTest, TheSurfacingToolGeneratesAndLoadsAJob) {
@@ -1886,6 +1891,179 @@ TEST_F(AppTest, AccessoriesComingAndGoingPopUp) {
     // A key without a value counts as there.
     c.receiveLine("[MSG:Info: Autoconfig: TLS]");
     EXPECT_EQ(changes, (QStringList{"TLS off", "ATCEXP on", "TLS on"}));
+}
+
+TEST(GSenderSettings, AccessibilityComesAlong) {
+    const boost::json::value file = boost::json::parse(R"({"settings": {"workspace": {"accessibility": {
+        "statusAnnouncements": true, "jobProgressAnnouncements": true, "jobProgressIncrement": 20,
+        "focusRings": true, "audioCues": {"enabled": true, "alarmTriggered": true},
+        "gcodeSummary": {"enabled": true, "showVisually": true}, "showKeyboardMap": true,
+        "displayScaleFactor": "150%"}},
+        "widgets": {"spindle": {"inputType": "Number"}}}})");
+    const std::optional<GSenderSettings> read = readGSenderSettings(file);
+    ASSERT_TRUE(read);
+    const AccessibilitySettings& a = read->settings.accessibility;
+    EXPECT_TRUE(a.statusAnnouncements && a.jobProgressAnnouncements && a.focusRings && a.audioCues && a.cueAlarm);
+    EXPECT_FALSE(a.cueJobComplete);
+    EXPECT_EQ(a.jobProgressIncrement, 20);
+    EXPECT_TRUE(a.gcodeSummary && a.gcodeSummaryVisible && a.showKeyboardMap);
+    EXPECT_EQ(a.displayScale, "150%");
+    EXPECT_EQ(read->settings.spindle.inputType, "Number");
+    // The port stores them the same way.
+    const AppSettings again = appSettingsFromJson(appSettingsToJson(read->settings));
+    EXPECT_EQ(again.accessibility.jobProgressIncrement, 20);
+    EXPECT_TRUE(again.accessibility.cueAlarm && again.accessibility.gcodeSummaryVisible);
+    EXPECT_EQ(again.accessibility.displayScale, "150%");
+    EXPECT_EQ(again.spindle.inputType, "Number");
+
+    // The display scale is read before Qt starts.
+    QTemporaryDir dir;
+    const QString path = dir.path() + "/rc";
+    EXPECT_EQ(displayScaleFactor(path.toStdWString()), 1.0);  // no file
+    QFile rc(path);
+    ASSERT_TRUE(rc.open(QIODevice::WriteOnly));
+    rc.write(R"({"app": {"accessibility": {"displayScaleFactor": "125%"}}})");
+    rc.close();
+    EXPECT_EQ(displayScaleFactor(path.toStdWString()), 1.25);
+}
+
+TEST_F(AppTest, AccessibilityAnnouncesSoundsAndSumsUpTheJob) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    AccessibilityAnnouncer& announcer = window.announcer();
+    std::vector<job::AudioCue> cues;
+    announcer.setCuePlayer([&](job::AudioCue cue) { cues.push_back(cue); });
+    AppSettings settings = machine.settings();
+    AccessibilitySettings& a = settings.accessibility;
+    a.statusAnnouncements = a.jobProgressAnnouncements = true;
+    a.jobProgressIncrement = 25;
+    a.audioCues = a.cueJobComplete = a.cueAlarm = a.cueToolChange = a.cueProbeSuccess = true;
+    a.gcodeSummary = a.gcodeSummaryVisible = true;
+    machine.setSettings(settings);
+
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    // (The status reaches the window with the next poll.)
+    EXPECT_TRUE(waitFor([&] { return announcer.announcements().contains("Machine status changed to Idle"); }));
+
+    // The loaded file in words, announced and shown above the visualizer.
+    std::string program = "(Stock: 60x60)\nG21 G90\nG0 Z1\n";
+    for (int i = 1; i <= 40; ++i) {
+        program += "G1 X" + std::to_string(i % 2 ? 60 : 0) + " Y" + std::to_string(i) + " F3000\n";
+    }
+    program += "G0 Z5\nM30\n";
+    machine.loadProgram("zigzag.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing() && !announcer.summary().isEmpty(); }));
+    EXPECT_TRUE(announcer.summary().startsWith("File loaded: zigzag.nc. Dimensions: 60.00 wide, 40.00 deep"))
+        << announcer.summary().toStdString();
+    EXPECT_TRUE(announcer.summary().contains("Job metadata: Stock: 60x60."));
+    EXPECT_TRUE(announcer.announcements().contains(announcer.summary()));
+    EXPECT_TRUE(window.jobSummary().isVisibleTo(&window));
+    EXPECT_TRUE(window.jobSummary().text().contains("Job Summary"));
+
+    // A job: its progress every 25 %, and a sound as it ends.
+    machine.simulator()->setSpeed(20);
+    machine.controller()->start();
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isIdle(); }, 15000));
+    ASSERT_TRUE(waitFor([&] { return announcer.announcements().contains("Job complete: 100%"); }));
+    const QStringList said = announcer.announcements();
+    EXPECT_TRUE(std::any_of(said.begin(), said.end(), [](const QString& s) { return s.startsWith("Job progress: "); }))
+        << said.join(" | ").toStdString();
+    EXPECT_TRUE(said.contains("Machine status changed to Run"));
+    ASSERT_TRUE(waitFor([&] { return !cues.empty(); }));
+    EXPECT_EQ(cues.front(), job::AudioCue::Success);
+
+    // An alarm, a tool change, a probe: their cues.
+    cues.clear();
+    machine.simulator()->triggerAlarm(1);
+    ASSERT_TRUE(waitFor([&] { return !cues.empty(); }));
+    EXPECT_EQ(cues, std::vector<job::AudioCue>{job::AudioCue::Alarm});
+    EXPECT_TRUE(announcer.announcements().contains("Machine status changed to Alarm"));
+    Q_EMIT machine.toolChangeRequired();
+    Q_EMIT machine.probeSucceeded();
+    EXPECT_EQ(cues, (std::vector<job::AudioCue>{job::AudioCue::Alarm, job::AudioCue::Info, job::AudioCue::Success}));
+    // Off, silent.
+    settings = machine.settings();
+    settings.accessibility.audioCues = false;
+    settings.accessibility.gcodeSummary = false;
+    machine.setSettings(settings);
+    Q_EMIT machine.probeSucceeded();
+    EXPECT_EQ(cues.size(), 3u);
+    EXPECT_TRUE(announcer.summary().isEmpty());
+    EXPECT_FALSE(window.jobSummary().isVisibleTo(&window));
+}
+
+TEST_F(AppTest, TheKeyboardMapFocusRingAndVisualizerKeysFollowTheirSettings) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    window.resize(1400, 900);
+    window.show();
+    KeyboardMapOverlay& map = window.keyboardMap();
+    EXPECT_FALSE(map.isVisibleTo(&window));
+
+    AppSettings settings = machine.settings();
+    settings.accessibility.showKeyboardMap = true;
+    settings.accessibility.focusRings = true;
+    settings.accessibility.visualizerKeyboardControl = true;
+    settings.spindle.inputType = "Number";
+    machine.setSettings(settings);
+    ASSERT_TRUE(waitFor([&] { return map.isVisibleTo(&window); }));
+    const QStringList entries = map.entries();
+    EXPECT_TRUE(entries.contains("Carving: Start job = ~")) << entries.join(" | ").toStdString();
+    EXPECT_TRUE(entries.contains("Jogging: Jog X+ (right) = Shift+Right"));
+    // Unbound ones and grblHAL's own (on no grblHAL) are not there.
+    EXPECT_FALSE(std::any_of(entries.begin(), entries.end(),
+                             [](const QString& e) { return e.contains("Realtime report") || e.contains("Park"); }));
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        window.grab().save(QString::fromLocal8Bit(out) + "/keyboard_map.png");
+    }
+    map.findChild<QToolButton*>("closeKeyboardMap")->click();
+    EXPECT_FALSE(machine.settings().accessibility.showKeyboardMap);
+    ASSERT_TRUE(waitFor([&] { return !map.isVisibleTo(&window); }));
+
+    // The focus ring goes around what it follows.
+    FocusRing& ring = window.focusRing();
+    EXPECT_TRUE(ring.isActive());
+    QPushButton* button = window.findChild<QPushButton*>();
+    ASSERT_NE(button, nullptr);
+    ring.follow(button);
+    EXPECT_TRUE(ring.isVisible());
+    EXPECT_EQ(ring.geometry(), QRect(button->mapToGlobal(QPoint(0, 0)), button->size()).adjusted(-4, -4, 4, 4));
+
+    // The visualizer takes the focus and its keys.
+    ToolpathView& view = window.toolpathView();
+    EXPECT_EQ(view.focusPolicy(), Qt::StrongFocus);
+    view.set3dView();
+    const double yaw = view.yawDegrees();
+    const double pitch = view.pitchDegrees();
+    QKeyEvent left(QEvent::KeyPress, Qt::Key_Left, Qt::NoModifier);
+    QApplication::sendEvent(&view, &left);
+    EXPECT_NEAR(view.yawDegrees(), yaw - 15, 1e-9);
+    QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+    QApplication::sendEvent(&view, &down);
+    EXPECT_NEAR(view.pitchDegrees(), pitch - 15, 1e-9);
+
+    // The spindle's speed as a number only.
+    SpindlePanel spindle(machine);
+    EXPECT_TRUE(spindle.findChild<QSlider*>("spindleSpeedSlider")->isHidden());
+
+    settings = machine.settings();
+    settings.accessibility.focusRings = false;
+    settings.accessibility.visualizerKeyboardControl = false;
+    machine.setSettings(settings);
+    EXPECT_FALSE(ring.isActive());
+    EXPECT_FALSE(ring.isVisible());
+    EXPECT_EQ(view.focusPolicy(), Qt::NoFocus);
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

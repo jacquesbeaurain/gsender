@@ -66,6 +66,14 @@ public:
     void setMacroHandler(std::function<void(const QString& id)> handler) { macroHandler_ = std::move(handler); }
     // The action bound to `key`, if any (inactive bindings excluded).
     QString actionFor(QKeyCombination key) const;
+    // The shortcuts that work now - bound, on, handled, grblHAL's own only
+    // on grblHAL - in the table's order (the keyboard map).
+    struct ActiveShortcut {
+        QString category;
+        QString title;
+        QString keys;  // as the platform writes them
+    };
+    std::vector<ActiveShortcut> activeShortcuts() const;
     // Runs an action's press as its key would (TOGGLE_SHORTCUTS aside, only
     // while shortcuts are enabled). False when nothing handles it.
     bool trigger(const QString& id);

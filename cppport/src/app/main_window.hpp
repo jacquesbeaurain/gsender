@@ -6,7 +6,10 @@
 
 namespace gs::app {
 
+class AccessibilityAnnouncer;
 class ConsolePanel;
+class FocusRing;
+class KeyboardMapOverlay;
 class Jogger;
 class Machine;
 class NotificationButton;
@@ -43,6 +46,12 @@ public:
     bool rotaryTabVisible() const;
     // Tools > SD Card (made on first use).
     SdCardDialog& sdCardDialog();
+    // Settings > Accessibility at work.
+    AccessibilityAnnouncer& announcer() noexcept { return *announcer_; }
+    KeyboardMapOverlay& keyboardMap() noexcept { return *keyboardMap_; }
+    FocusRing& focusRing() noexcept { return *focusRing_; }
+    // The job summary shown above the visualizer ("Show summary visually").
+    class QLabel& jobSummary() noexcept { return *summaryBox_; }
 
 protected:
     void closeEvent(QCloseEvent* event) override;  // workspace.promptExit
@@ -72,6 +81,11 @@ private:
     ToastArea* toasts_;
     NotificationButton* bell_;
     SdCardDialog* sdCard_ = nullptr;
+    AccessibilityAnnouncer* announcer_;
+    class QLabel* summaryBox_;
+    KeyboardMapOverlay* keyboardMap_ = nullptr;
+    FocusRing* focusRing_;
+    bool generalEffects_ = true;  // the platform's UI effects, before reduced motion
     class QTabWidget* tabs_;
     bool dialogsEnabled_ = true;
 };

@@ -1397,3 +1397,51 @@ Ready to use" or "TLS disconnected - Connection lost" for the default 5 s
 (AccessoryConnectivityToast; its own pop-up, not kept in the bell's list;
 its Manage button does nothing upstream and is left out). As upstream, what
 is known outlives a connection.
+
+## Step 51 — Accessibility (`gs/job/accessibility`, `src/app/accessibility`)
+
+Settings > Accessibility (workspace.accessibility, imported from gSender;
+the port stores the same shape) and what upstream's AccessibilityAnnouncer,
+KeyboardMapOverlay and AccessibilitySettingsHandler do with it:
+
+- **Announcements** go to the screen reader as Qt accessibility
+  announcements (QAccessibleAnnouncementEvent): "Machine status changed to
+  Run" (assertive) on every status change; "Job progress: 30%" each time the
+  progress passes the next multiple of the increment (1-50 %, default 10)
+  and "Job complete: 100%" (`ProgressAnnouncer`); and, with **Job summary**
+  on, the loaded file in words (`jobSummary`: name, size and ranges, time,
+  tools, the first 100 lines' CAM comments about tools or stock, program
+  stops, coolant, speeds, feeds, axes, invalid lines). **Show summary
+  visually** puts it in a "Job Summary" box above the visualizer.
+- **Audio cues** synthesize upstream's Web Audio tones (`audioCueSamples`:
+  a sine sweep for success, a square 440/220/440 Hz for an alarm, a
+  triangle for info) as WAV files played with PlaySound on Windows (the
+  system beep elsewhere): an alarm; Run followed by Idle (a job - or any
+  move - ending); a probe routine getting through (Machine::probeSucceeded:
+  runProbe's lines all taken, no alarm); a job reaching M6
+  (Machine::toolChangeRequired).
+- **Focus rings**: a high-contrast ring (`FocusRing`, a click-through
+  window of its own) follows the keyboard focus in every window.
+  **Reduced motion** turns Qt's UI effects off (menus, combo boxes and
+  tooltips sliding or fading). **Focus trapping** is stored only: Qt's modal
+  dialogs keep the focus already. **Spindle speed input type** "Number"
+  hides the speed slider. **App display scale** (50 %-200 %) becomes
+  QT_SCALE_FACTOR, read from the settings file before Qt starts - so it
+  applies at the next start, and a QT_SCALE_FACTOR in the environment wins.
+- **Keyboard control** of the visualizer: it then takes the focus (click or
+  tab); the arrows orbit by 15 degrees, Ctrl+arrows pan, + and - zoom and
+  Home fits (Shift+arrows stay the jog shortcuts).
+- **Show keyboard shortcut map**: an overlay along the bottom of the window
+  lists the shortcuts that work now by category (bound, on, handled;
+  grblHAL's own only on grblHAL); its close button turns the setting off.
+
+Deviations, where upstream does not do what the settings say: its job
+progress reads `sender.progress`, which nothing sets (never announced) -
+the port uses the job's progress bar (lines the board has taken); the probe
+and tool change cues listen to pubsub topics nothing publishes - the port
+wires them as above; Keyboard control has no effect upstream - the port's
+keys are its own; the summary's units come from the controller status's
+`units`, which does not exist ("... high undefined.") - the port gives the
+file's own units. The summary's active axes are listed X, Y, Z, A rather
+than in the order the file first uses them (the port's interpreter keeps
+them as a set of flags).

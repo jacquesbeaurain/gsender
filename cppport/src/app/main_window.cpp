@@ -1,5 +1,7 @@
 #include "main_window.hpp"
 
+#include "accessibility.hpp"
+
 #include "appearance.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
@@ -55,6 +57,25 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     leftLayout->setContentsMargins(6, 0, 0, 6);
     visualizer_ = new ToolpathView(machine_);
     statusArea_ = new StatusArea(machine_, visualizer_);
+    // Accessibility: the announcer, and its job summary above the visualizer
+    // ("Show summary visually").
+    announcer_ = new AccessibilityAnnouncer(machine_, *this, this);
+    summaryBox_ = new QLabel;
+    summaryBox_->setObjectName("jobSummary");
+    summaryBox_->setWordWrap(true);
+    summaryBox_->setTextFormat(Qt::RichText);
+    summaryBox_->setStyleSheet("QLabel#jobSummary { background: #eff6ff; color: #1d4ed8; border-left: 4px solid "
+                               "#3b82f6; border-radius: 4px; padding: 8px 12px; margin: 4px 6px 4px 0; }");
+    const auto showSummary = [this] {
+        const AccessibilitySettings& a = machine_.settings().accessibility;
+        const QString& text = announcer_->summary();
+        summaryBox_->setText("<b>" + tr("Job Summary") + "</b><br>" + text.toHtmlEscaped());
+        summaryBox_->setVisible(a.gcodeSummary && a.gcodeSummaryVisible && !text.isEmpty());
+    };
+    connect(announcer_, &AccessibilityAnnouncer::summaryChanged, this, showSummary);
+    connect(&machine_, &Machine::appSettingsChanged, this, showSummary);
+    showSummary();
+    leftLayout->addWidget(summaryBox_);
     leftLayout->addWidget(visualizer_, 1);
     leftLayout->addWidget(new JobPanel(machine_));
 
@@ -125,6 +146,17 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     };
     connect(&machine_, &Machine::appSettingsChanged, this, applyPower);
     applyPower();
+    // Focus rings, and reduced motion: the platform's UI effects (menus,
+    // combo boxes, tooltips sliding and fading) off.
+    focusRing_ = new FocusRing(this);
+    generalEffects_ = QApplication::isEffectEnabled(Qt::UI_General);
+    const auto applyAccessibility = [this] {
+        const AccessibilitySettings& a = machine_.settings().accessibility;
+        focusRing_->setActive(a.focusRings);
+        QApplication::setEffectEnabled(Qt::UI_General, generalEffects_ && !a.reducedMotion);
+    };
+    connect(&machine_, &Machine::appSettingsChanged, this, applyAccessibility);
+    applyAccessibility();
     // The alerts at a job's end (workspace/Alerts).
     connect(&machine_, &Machine::jobEnded, this,
             [this](bool completed, double durationMs, const QStringList& errors) {
@@ -209,6 +241,8 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     shortcuts_ = new ShortcutManager(machine_, *this, this);
     installShortcuts();
     createMenus();
+    // Accessibility's keyboard map: what the shortcut manager runs.
+    keyboardMap_ = new KeyboardMapOverlay(machine_, *shortcuts_, centralWidget());
 }
 
 void MainWindow::installShortcuts() {

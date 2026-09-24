@@ -1,6 +1,8 @@
 # The Qt Widgets application. Its code lives in a library so tests can link it.
 
 add_library(gs_app STATIC
+    accessibility.cpp
+    accessibility.hpp
     app_settings.cpp
     app_settings.hpp
     appearance.cpp
@@ -67,6 +69,9 @@ target_link_libraries(gs_app
         Qt6::Widgets
         Qt6::OpenGL
         Qt6::OpenGLWidgets)
+if(WIN32)
+    target_link_libraries(gs_app PRIVATE winmm)  # PlaySound: the audio cues
+endif()
 set_target_properties(gs_app PROPERTIES AUTOMOC ON)
 # Qt's emit/signals/slots macros would collide with plain C++ (and Boost)
 # identifiers in the core headers: use Q_EMIT / Q_SIGNALS / Q_SLOTS.
