@@ -57,11 +57,14 @@ Overloaded(Ts...) -> Overloaded<Ts...>;
 
 // Collects the toolpath while the program is analysed: straight segments,
 // with arcs tessellated back out of their plane. A turns the stock about X:
-// as gviewer draws it, every point is turned by its A (y cos a - z sin a,
-// y sin a + z cos a), and a move that turns A is drawn in 5-degree chords.
+// as Visualize.worker feeds gviewer, every point is turned by -A
+// (rotateAxis: G-code's negative A turns clockwise), and a move that turns
+// A is drawn in 5-degree chords. `zOffset` raises every point first
+// ("Visualize non-center zeros": the stock's radius).
 class ToolpathSink final : public gcode::GeometrySink {
 public:
     Toolpath path;
+    double zOffset = 0;
 
     void atLine(std::size_t index) override { line_ = static_cast<std::uint32_t>(index); }
 
@@ -129,11 +132,12 @@ private:
 
     std::uint32_t line_ = 0;
 
-    static gcode::Vec4 wrap(const gcode::Vec4& v) {
+    gcode::Vec4 wrap(const gcode::Vec4& point) const {
+        const gcode::Vec4 v{point.x, point.y, point.z + zOffset, point.a};
         if (v.a == 0) {
             return v;
         }
-        const double angle = v.a * std::numbers::pi / 180;
+        const double angle = -v.a * std::numbers::pi / 180;
         const double c = std::cos(angle);
         const double s = std::sin(angle);
         return {v.x, v.y * c - v.z * s, v.y * s + v.z * c, v.a};
@@ -1376,8 +1380,17 @@ void Machine::loadProgram(const QString& name, std::string text, const QString& 
     const gcode::InterpreterOptions options =
         controller() ? job::interpreterOptionsFor(controller()->settings()) : gcode::InterpreterOptions{};
     auto program = std::make_shared<const std::string>(programText_);
-    QThreadPool::globalInstance()->start([this, program, options, cancel, generation] {
+    const bool nonCenterZeros = settings_.rotary.diameterOffset;
+    QThreadPool::globalInstance()->start([this, program, options, cancel, generation, nonCenterZeros] {
         ToolpathSink sink;
+        // "Visualize non-center zeros": a file declaring its cylinder and
+        // never moving Y is drawn about the stock's axis.
+        if (nonCenterZeros) {
+            if (const rotary::RotaryMetadata metadata = rotary::parseRotaryMetadata(*program);
+                metadata.radius && !metadata.hasYAxisMoves) {
+                sink.zOffset = *metadata.radius;
+            }
+        }
         job::ProgramAnalysis analysis = job::analyzeProgram(*program, options, &sink, [&cancel] { return cancel->load(); });
         if (analysis.cancelled) {
             return;

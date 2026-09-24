@@ -187,3 +187,28 @@ TEST(RotaryMounting, ProgramsFollowTheTrackAndBit) {
     EXPECT_TRUE(program->starts_with("(10HolesVortexMounting0_25Dia)"));
     EXPECT_NE(program->find("G21"), std::string::npos);
 }
+
+TEST(RotaryMetadata, TheFileDeclaresItsCylinder) {
+    // DeskProto's header, and the other spellings the patterns take.
+    RotaryMetadata deskProto = parseRotaryMetadata("(Cylinder Dia: 64.38)\nG0 X0 A0\nG1 A90 Z-1\n");
+    ASSERT_TRUE(deskProto.radius.has_value());
+    EXPECT_DOUBLE_EQ(*deskProto.radius, 32.19);
+    EXPECT_FALSE(deskProto.hasYAxisMoves);
+    EXPECT_DOUBLE_EQ(*parseRotaryMetadata("(Cylinder Diameter=50,5)").radius, 25.25);  // a decimal comma
+    EXPECT_DOUBLE_EQ(*parseRotaryMetadata("(cylinder dia: 30)").radius, 15);        // any case
+    const RotaryMetadata dia = parseRotaryMetadata("; Dia: 40\nG1 Y10\n");
+    EXPECT_DOUBLE_EQ(*dia.radius, 20);
+    EXPECT_TRUE(dia.hasYAxisMoves);
+    // A sign that is no number, and nothing else to go on.
+    EXPECT_FALSE(parseRotaryMetadata("(Cylinder Dia : +-)").radius.has_value());
+    EXPECT_FALSE(parseRotaryMetadata("(Cylinder Dia: 0)").radius.has_value());
+    EXPECT_FALSE(parseRotaryMetadata("G0 X0\n").radius.has_value());
+}
+
+TEST(RotaryMetadata, YMovesAreWordsOutsideComments) {
+    EXPECT_FALSE(parseRotaryMetadata("(Y10 in a comment)\nG1 X1 ; Y5 too\n").hasYAxisMoves);
+    EXPECT_TRUE(parseRotaryMetadata("G1 y-5\n").hasYAxisMoves);
+    EXPECT_TRUE(parseRotaryMetadata("G1 Y+2\n").hasYAxisMoves);
+    EXPECT_FALSE(parseRotaryMetadata("G1 X1 (a Y\nword) Z2\n").hasYAxisMoves);  // a comment spans lines
+    EXPECT_FALSE(parseRotaryMetadata("G1 X1 YZ\n").hasYAxisMoves);
+}

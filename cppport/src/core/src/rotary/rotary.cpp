@@ -5,6 +5,7 @@
 #include "gs/util/units.hpp"
 
 #include <boost/json.hpp>
+#include <boost/regex.hpp>
 
 #include <cmath>
 #include <numbers>
@@ -393,6 +394,73 @@ std::optional<std::string> mountingProgram(const MountingSetup& setup) {
         return std::nullopt;
     }
     return std::string(program->as_string());
+}
+
+// ---- the visualizer ----------------------------------------------------------------------
+
+RotaryMetadata parseRotaryMetadata(std::string_view program) {
+    // ROTARY_DIAMETER_PATTERNS, tried in turn; `.` stops at a line's end as
+    // in JavaScript.
+    static const boost::regex kPatterns[] = {
+        boost::regex(R"(Cylinder\s*Dia\s*:\s*([0-9.+-]+))", boost::regex::ECMAScript | boost::regex::icase),
+        boost::regex(R"(Cylinder\s*Dia(?:meter)?\s*[=:]\s*([0-9]+[.,][0-9]+|[0-9]+))",
+                     boost::regex::ECMAScript | boost::regex::icase),
+        boost::regex(R"((?:Cylinder\s+)?Dia(?:meter)?\s*[=:]\s*([0-9]+[.,][0-9]+|[0-9]+))",
+                     boost::regex::ECMAScript | boost::regex::icase),
+        boost::regex(R"(\(.*?Cylinder\s*Dia(?:meter)?\s*[=:]\s*([0-9]+[.,][0-9]+|[0-9]+))",
+                     boost::regex::ECMAScript | boost::regex::icase),
+    };
+    RotaryMetadata metadata;
+    double diameter = std::nan("");
+    for (const boost::regex& pattern : kPatterns) {
+        boost::match_results<std::string_view::const_iterator> match;
+        if (!boost::regex_search(program.begin(), program.end(), match, pattern, boost::match_not_dot_newline) ||
+            match[1].length() == 0) {
+            continue;
+        }
+        std::string number = match[1].str();
+        if (const auto comma = number.find(','); comma != std::string::npos) {
+            number[comma] = '.';  // the first only
+        }
+        diameter = js::stringToNumber(number);
+        if (std::isfinite(diameter) && diameter > 0) {
+            break;
+        }
+    }
+    if (std::isfinite(diameter) && diameter > 0) {
+        metadata.radius = diameter / 2;
+    }
+
+    // A Y word outside comments: "Y" or "y" before a digit or a sign.
+    bool inParenComment = false;
+    for (std::size_t i = 0; i < program.size(); ++i) {
+        const char c = program[i];
+        if (c == '(') {
+            inParenComment = true;
+            continue;
+        }
+        if (c == ')') {
+            inParenComment = false;
+            continue;
+        }
+        if (c == ';') {
+            while (i < program.size() && program[i] != '\n') {
+                ++i;
+            }
+            continue;
+        }
+        if (inParenComment) {
+            continue;
+        }
+        if ((c == 'Y' || c == 'y') && i + 1 < program.size()) {
+            const char next = program[i + 1];
+            if ((next >= '0' && next <= '9') || next == '+' || next == '-') {
+                metadata.hasYAxisMoves = true;
+                break;
+            }
+        }
+    }
+    return metadata;
 }
 
 }  // namespace gs::rotary

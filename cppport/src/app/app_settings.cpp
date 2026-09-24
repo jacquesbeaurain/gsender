@@ -127,6 +127,7 @@ RotarySettings loadRotary(const json::object& o) {
     if (const json::value* turning = o.if_contains("stockTurning"); turning && turning->is_object()) {
         r.stockTurning = loadStockTurning(turning->as_object());
     }
+    r.diameterOffset = flag(o, "diameterOffsetEnabled", false);
     return r;
 }
 
@@ -135,7 +136,8 @@ json::object saveRotary(const RotarySettings& r) {
             {"mode", r.rotaryMode ? "ROTARY" : "DEFAULT"},
             {"firmwareSettings", saveFirmwareValues(r.firmware)},
             {"defaultFirmwareSettings", saveFirmwareValues(r.defaults)},
-            {"stockTurning", saveStockTurning(r.stockTurning)}};
+            {"stockTurning", saveStockTurning(r.stockTurning)},
+            {"diameterOffsetEnabled", r.diameterOffset}};
 }
 
 SpindleSettings loadSpindle(const json::object& o) {
@@ -838,6 +840,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.visualizerTheme = text(*visualizer, "theme", "Dark");
         s.perspective = text(*visualizer, "projection", "Perspective") != "Orthographic";
         s.boundingBoxLabels = flag(*visualizer, "boundingBoxLabels", false);
+        s.rotary.diameterOffset = flag(*visualizer, "rotaryDiameterOffsetEnabled", false);
         s.followTool = flag(*visualizer, "followToolDuringRuntime", false);
         if (const json::object* objects = child(*visualizer, "objects")) {
             if (const json::object* limits = child(*objects, "limits")) {

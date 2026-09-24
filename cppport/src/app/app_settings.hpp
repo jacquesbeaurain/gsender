@@ -71,6 +71,8 @@ struct RotarySettings {
     rotary::FirmwareValues firmware = rotary::rotaryFirmwareSettings();
     rotary::FirmwareValues defaults = rotary::defaultFirmwareSettings();
     rotary::StockTurningOptions stockTurning;  // mm
+    // "Visualize non-center zeros" (widgets.visualizer.rotaryDiameterOffsetEnabled).
+    bool diameterOffset = false;
 };
 
 // workspace.accessibility (Settings > Accessibility).
