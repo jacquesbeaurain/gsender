@@ -10,6 +10,9 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QToolButton>
+#include <QFile>
+#include <QDateTime>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
 #include <QDate>
@@ -36,7 +39,10 @@
 namespace gs::app {
 namespace {
 
-enum Column { kSetting, kValue, kUnits, kDescription };
+enum Column { kSetting, kValue, kUnits, kDefault, kDescription, kRestore };
+
+// A changed setting's row (readable in light and dark palettes).
+const QColor kChanged(250, 204, 21, 60);
 
 // "$110" -> 110 (grblHAL keys its own descriptions by number).
 std::optional<int> settingNumber(const std::string& name) {
@@ -55,12 +61,40 @@ std::optional<int> settingNumber(const std::string& name) {
 FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
     : QWidget(parent), machine_(machine) {
     auto* layout = new QVBoxLayout(this);
-    table_ = new QTableWidget(0, 4);
-    table_->setHorizontalHeaderLabels({tr("Setting"), tr("Value"), tr("Units"), tr("Description")});
+
+    // The ProfileBar: the machine, its defaults, EEPROM files.
+    auto* bar = new QHBoxLayout;
+    profile_ = new QComboBox;
+    for (const config::MachineProfile& profile : config::machineProfiles()) {
+        profile_->addItem(QString::fromStdString(config::machineProfileName(profile)), profile.id);
+    }
+    profile_->setToolTip(tr("The machine whose default settings these are compared with and restored from"));
+    defaults_ = new QPushButton(tr("Defaults"));
+    defaults_->setToolTip(tr("Restore the machine's default settings"));
+    import_ = new QPushButton(tr("Import..."));
+    import_->setToolTip(tr("Write the settings of an exported EEPROM file"));
+    export_ = new QPushButton(tr("Export..."));
+    export_->setToolTip(tr("Save the board's settings to a file"));
+    bar->addWidget(new QLabel(tr("Machine")));
+    bar->addWidget(profile_, 1);
+    bar->addWidget(defaults_);
+    bar->addWidget(import_);
+    bar->addWidget(export_);
+    layout->addLayout(bar);
+    auto* filters = new QHBoxLayout;
+    search_ = new QLineEdit;
+    search_->setPlaceholderText(tr("Search settings..."));
+    search_->setClearButtonEnabled(true);
+    onlyModified_ = new QCheckBox(tr("Only show changed settings"));
+    filters->addWidget(search_, 1);
+    filters->addWidget(onlyModified_);
+    layout->addLayout(filters);
+
+    table_ = new QTableWidget(0, 6);
+    table_->setHorizontalHeaderLabels({tr("Setting"), tr("Value"), tr("Units"), tr("Default"), tr("Description"), {}});
     table_->horizontalHeader()->setSectionResizeMode(kDescription, QHeaderView::Stretch);
     table_->verticalHeader()->hide();
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table_->setAlternatingRowColors(true);
     layout->addWidget(table_, 1);
     auto* row = new QHBoxLayout;
     status_ = new QLabel;
@@ -71,6 +105,41 @@ FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
     row->addWidget(apply_);
     layout->addLayout(row);
 
+    connect(profile_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (!loading_ && index >= 0) {
+            setMachineProfile(profile_->itemData(index).toInt());
+        }
+    });
+    connect(defaults_, &QPushButton::clicked, this, [this] {
+        // RestoreDefaultDialog
+        const config::MachineProfile& profile = machine_.machineProfile();
+        const QString name = QString::fromStdString(profile.name + " " + profile.type).trimmed();
+        if (QMessageBox::question(this, tr("Restore Defaults"),
+                                  tr("Are you sure you want to restore your <b>%1</b> back to its default state?")
+                                      .arg(name.toHtmlEscaped()),
+                                  QMessageBox::No | QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes) {
+            restoreDefaults();
+        }
+    });
+    connect(import_, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this, tr("Import EEPROM Settings"), QString(),
+                                                          tr("Settings (*.json);;All files (*)"));
+        if (!path.isEmpty()) {
+            importFile(path);
+        }
+    });
+    connect(export_, &QPushButton::clicked, this, [this] {
+        const QString name = QString("gSender-firmware-settings-%1.json")
+                                 .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd-HH-mm-ss"));
+        const QString path = QFileDialog::getSaveFileName(this, tr("Export EEPROM Settings"), name,
+                                                          tr("Settings (*.json);;All files (*)"));
+        QString error;
+        if (!path.isEmpty() && !exportFile(path, &error)) {
+            QMessageBox::warning(this, tr("Export EEPROM Settings"), error);
+        }
+    });
+    connect(search_, &QLineEdit::textChanged, this, &FirmwareSettingsTable::applyFilter);
+    connect(onlyModified_, &QCheckBox::toggled, this, &FirmwareSettingsTable::applyFilter);
     connect(reload_, &QPushButton::clicked, this, [this] {
         if (auto* c = machine_.controller()) {
             c->gcode("$$");
@@ -94,16 +163,31 @@ FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
     reload();
 }
 
+void FirmwareSettingsTable::setMachineProfile(int id) {
+    AppSettings settings = machine_.settings();
+    if (settings.machineProfileId == id) {
+        return;
+    }
+    settings.machineProfileId = id;
+    machine_.setSettings(settings);
+    reload();
+}
+
 void FirmwareSettingsTable::reload() {
     loading_ = true;
+    const int selected = machine_.machineProfile().id;
+    profile_->setCurrentIndex(std::max(0, profile_->findData(selected)));
     table_->setRowCount(0);
     controller::Controller* c = machine_.controller();
     if (c) {
         const protocol::FirmwareSettings& settings = c->settings();
         const protocol::FirmwareTables& tables = protocol::FirmwareTables::get(c->firmware());
+        const config::MachineProfile& profile = machine_.machineProfile();
+        const config::BoardContext board = machine_.boardContext();
         for (const auto& [name, value] : settings.settings.items()) {
             QString units;
             QString description;
+            int dataType = -1;
             // grblHAL describes its own settings ($ES/$ESH); the static tables
             // fill the gaps.
             const auto number = settingNumber(name);
@@ -111,6 +195,7 @@ void FirmwareSettingsTable::reload() {
             if (own != settings.descriptions.end()) {
                 units = QString::fromStdString(own->second.unit);
                 description = QString::fromStdString(own->second.description);
+                dataType = own->second.dataType;
             } else if (const protocol::SettingInfo* info = tables.setting(name)) {
                 units = QString::fromStdString(info->units);
                 description = QString::fromStdString(info->message);
@@ -118,6 +203,8 @@ void FirmwareSettingsTable::reload() {
                     description += " - " + QString::fromStdString(info->description);
                 }
             }
+            const std::optional<std::string> fallback = config::defaultValue(profile, board, name);
+            const bool isDefault = config::isDefaultValue(value, fallback, dataType);
             const int row = table_->rowCount();
             table_->insertRow(row);
             auto* key = new QTableWidgetItem(QString::fromStdString(name));
@@ -126,20 +213,147 @@ void FirmwareSettingsTable::reload() {
             current->setData(Qt::UserRole, QString::fromStdString(value));
             auto* unit = new QTableWidgetItem(units);
             unit->setFlags(unit->flags() & ~Qt::ItemIsEditable);
+            auto* standard = new QTableWidgetItem(fallback ? QString::fromStdString(*fallback) : QStringLiteral("-"));
+            standard->setFlags(standard->flags() & ~Qt::ItemIsEditable);
+            standard->setData(Qt::UserRole, !isDefault);  // changed
             auto* text = new QTableWidgetItem(description);
             text->setFlags(text->flags() & ~Qt::ItemIsEditable);
             text->setToolTip(description);
             table_->setItem(row, kSetting, key);
             table_->setItem(row, kValue, current);
             table_->setItem(row, kUnits, unit);
+            table_->setItem(row, kDefault, standard);
             table_->setItem(row, kDescription, text);
+            if (!isDefault) {
+                for (QTableWidgetItem* item : {key, current, unit, standard, text}) {
+                    item->setBackground(kChanged);
+                }
+                auto* restore = new QToolButton;
+                restore->setText(tr("Reset"));
+                restore->setToolTip(tr("Reset to default value"));
+                restore->setAutoRaise(true);
+                const QString setting = QString::fromStdString(name);
+                connect(restore, &QToolButton::clicked, this, [this, setting] {
+                    if (QMessageBox::question(this, tr("Reset setting"),
+                                              tr("Are you sure you want to reset this value to default?")) ==
+                        QMessageBox::Yes) {
+                        restoreSetting(setting);
+                    }
+                });
+                table_->setCellWidget(row, kRestore, restore);
+            }
         }
         table_->resizeColumnsToContents();
         table_->horizontalHeader()->setSectionResizeMode(kDescription, QHeaderView::Stretch);
     }
     loading_ = false;
-    status_->setText(c ? tr("%1 settings").arg(table_->rowCount()) : tr("Connect to read the firmware settings."));
+    applyFilter();
     refreshButtons();
+}
+
+int FirmwareSettingsTable::modifiedCount() const {
+    int count = 0;
+    for (int row = 0; row < table_->rowCount(); ++row) {
+        count += table_->item(row, kDefault)->data(Qt::UserRole).toBool() ? 1 : 0;
+    }
+    return count;
+}
+
+void FirmwareSettingsTable::setFilter(const QString& text) {
+    search_->setText(text);
+}
+
+void FirmwareSettingsTable::setOnlyModified(bool only) {
+    onlyModified_->setChecked(only);
+}
+
+int FirmwareSettingsTable::visibleRows() const {
+    int visible = 0;
+    for (int row = 0; row < table_->rowCount(); ++row) {
+        visible += table_->isRowHidden(row) ? 0 : 1;
+    }
+    return visible;
+}
+
+void FirmwareSettingsTable::applyFilter() {
+    const QString needle = search_->text().trimmed();
+    const bool changedOnly = onlyModified_->isChecked();
+    for (int row = 0; row < table_->rowCount(); ++row) {
+        bool match = needle.isEmpty();
+        for (const int column : {kSetting, kUnits, kDescription}) {
+            match = match || table_->item(row, column)->text().contains(needle, Qt::CaseInsensitive);
+        }
+        const bool changed = table_->item(row, kDefault)->data(Qt::UserRole).toBool();
+        table_->setRowHidden(row, !match || (changedOnly && !changed));
+    }
+    controller::Controller* c = machine_.controller();
+    status_->setText(c ? tr("%1 settings, %2 changed from the defaults").arg(table_->rowCount()).arg(modifiedCount())
+                       : tr("Connect to read the firmware settings."));
+}
+
+bool FirmwareSettingsTable::restoreDefaults() {
+    controller::Controller* c = machine_.controller();
+    if (!c || !c->workflow().isIdle() || !config::canRestoreDefaults(machine_.machineProfile())) {
+        return false;
+    }
+    c->gcode(config::restoreDefaultsCommands(machine_.machineProfile(), machine_.boardContext()));
+    Q_EMIT machine_.successNotice(tr("Restored default settings for your machine."));
+    return true;
+}
+
+bool FirmwareSettingsTable::restoreSetting(const QString& setting) {
+    controller::Controller* c = machine_.controller();
+    if (!c || !c->workflow().isIdle()) {
+        return false;
+    }
+    const std::optional<std::string> value =
+        config::defaultValue(machine_.machineProfile(), machine_.boardContext(), setting.toStdString());
+    if (!value) {
+        return false;
+    }
+    c->gcode(std::vector<std::string>{setting.toStdString() + "=" + *value, "$$"});
+    Q_EMIT machine_.successNotice(
+        tr("Restored %1 to default value of %2").arg(setting, QString::fromStdString(*value)));
+    return true;
+}
+
+bool FirmwareSettingsTable::importFile(const QString& path, QString* error) {
+    controller::Controller* c = machine_.controller();
+    QFile file(path);
+    if (!c || !file.open(QIODevice::ReadOnly)) {
+        if (error) {
+            *error = c ? file.errorString() : tr("Not connected");
+        }
+        return false;
+    }
+    const QByteArray text = file.readAll();
+    const std::optional<std::vector<std::string>> commands = config::importEepromCommands(
+        std::string_view(text.constData(), static_cast<std::size_t>(text.size())), &machine_.machineProfile());
+    if (!commands) {
+        const QString message = tr("Failed to import settings. Please check the file format.");
+        if (error) {
+            *error = message;
+        }
+        Q_EMIT machine_.errorReported(tr("Import"), message);
+        return false;
+    }
+    c->gcode(*commands);
+    Q_EMIT machine_.successNotice(tr("EEPROM Settings imported"));
+    return true;
+}
+
+bool FirmwareSettingsTable::exportFile(const QString& path, QString* error) const {
+    controller::Controller* c = machine_.controller();
+    QFile file(path);
+    if (!c || !file.open(QIODevice::WriteOnly)) {
+        if (error) {
+            *error = c ? file.errorString() : tr("Not connected");
+        }
+        return false;
+    }
+    const std::string json = config::exportEeprom(c->settings().settings);
+    file.write(json.data(), static_cast<qint64>(json.size()));
+    return true;
 }
 
 void FirmwareSettingsTable::refreshButtons() {
@@ -152,6 +366,9 @@ void FirmwareSettingsTable::refreshButtons() {
     }
     reload_->setEnabled(idle);
     apply_->setEnabled(idle && changed);
+    defaults_->setEnabled(idle && config::canRestoreDefaults(machine_.machineProfile()));
+    import_->setEnabled(idle);
+    export_->setEnabled(c != nullptr);
     table_->setEnabled(c != nullptr);
 }
 

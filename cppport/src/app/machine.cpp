@@ -1133,6 +1133,25 @@ void Machine::recordJob(const controller::SenderStatus& status) {
     Q_EMIT jobEnded(status.finishTime > 0, static_cast<double>(status.elapsedTime), errors);
 }
 
+const config::MachineProfile& Machine::machineProfile() const {
+    if (const config::MachineProfile* chosen = config::findMachineProfile(settings_.machineProfileId)) {
+        return *chosen;
+    }
+    return *config::findMachineProfile(config::defaultMachineProfileId());
+}
+
+config::BoardContext Machine::boardContext() const {
+    config::BoardContext board;
+    if (const controller::Controller* c = controller()) {
+        board.grblHal = c->isGrblHal();
+        board.semver = c->settings().semver;
+        if (const auto info = c->settings().info.find("BOARD"); info != c->settings().info.end()) {
+            board.boardId = info->second.text;
+        }
+    }
+    return board;
+}
+
 std::vector<config::MaintenanceTask> Machine::dueMaintenanceTasks() {
     std::vector<config::MaintenanceTask> due;
     for (const config::MaintenanceTask& task : config::MaintenanceStore(config_).list()) {

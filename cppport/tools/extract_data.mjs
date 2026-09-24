@@ -106,8 +106,15 @@ mkdirSync(outDir, { recursive: true });
             coreData[key] = value;
         }
     }
+    // orderedSettings are Maps (settings written in that order, after the
+    // rest): kept as [key, value] pairs, which JSON.stringify would lose.
+    const profiles = load(profilesEntry).default.map((profile) =>
+        profile.orderedSettings instanceof Map
+            ? { ...profile, orderedSettings: [...profile.orderedSettings] }
+            : profile,
+    );
     write('machine_profiles.json', [profilesEntry, boardEntry, coreEntry], {
-        profiles: load(profilesEntry).default,
+        profiles,
         boardProfiles: load(boardEntry).BOARD_PROFILES,
         grblCore: coreData,
     });
