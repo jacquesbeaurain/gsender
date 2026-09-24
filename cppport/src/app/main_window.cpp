@@ -154,6 +154,10 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
         }
         showMessage(tr("Invalid Lines Detected"), detail);
     });
+    connect(&machine_, &Machine::lineWarning, this, [this](const QString& code, const QString& line) {
+        showMessage(tr("Invalid Line"),
+                    tr("The following line caused an error %1: '%2'\n\nPress Start to resume the job.").arg(code, line));
+    });
     // Power saving: the display kept awake unless sleeping is allowed; and
     // the application dark or not.
     const auto applyPower = [this] {
