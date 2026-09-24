@@ -12,6 +12,7 @@
 
 class QButtonGroup;
 class QComboBox;
+class QFormLayout;
 class QHBoxLayout;
 class QLabel;
 class QPushButton;
@@ -67,7 +68,8 @@ private:
     void storePlateAndCorner();
 
     Machine& machine_;
-    QComboBox* plate_;
+    QFormLayout* form_;
+    QComboBox* plate_;  // shown with "Show touch plate switcher"
     QHBoxLayout* commandRow_;
     QButtonGroup* commandButtons_;
     QLabel* toolLabel_;

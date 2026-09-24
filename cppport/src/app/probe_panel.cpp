@@ -129,7 +129,9 @@ void CornerView::paintEvent(QPaintEvent*) {
 ProbePanel::ProbePanel(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
     auto* layout = new QHBoxLayout(this);
     auto* form = new QFormLayout;
+    form_ = form;
     plate_ = new QComboBox;
+    plate_->setObjectName("touchplateSwitcher");
     for (const probe::PlateType type : kPlates) {
         plate_->addItem(QString::fromUtf8(probe::plateTypeName(type).data()));
     }
@@ -175,6 +177,7 @@ void ProbePanel::settingsChanged() {
     const probe::ProbeSettings& settings = machine_.settings().probe;
     const auto index = std::find(std::begin(kPlates), std::end(kPlates), settings.plateType) - std::begin(kPlates);
     plate_->setCurrentIndex(static_cast<int>(index));
+    form_->setRowVisible(plate_, machine_.settings().touchplateTypeSwitcher);
     cornerView_->setPlateType(settings.plateType);
     {
         const QSignalBlocker block(cornerView_);

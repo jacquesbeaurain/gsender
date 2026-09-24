@@ -910,6 +910,10 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     bitZero_ = length(100);
     bitZeroZOnly_ = length(100);
     plateForm->addRow(tr("Touch plate"), plateType_);
+    plateSwitcher_ = new QCheckBox(tr("Show touch plate switcher"));
+    plateSwitcher_->setObjectName("touchplateTypeSwitcher");
+    plateSwitcher_->setToolTip(tr("Show a button on Probe tab to allow switching between touch plate types."));
+    plateForm->addRow(QString(), plateSwitcher_);
     plateForm->addRow(tr("Block Z thickness"), standardBlock_);
     plateForm->addRow(tr("Block XY thickness"), xyThickness_);
     plateForm->addRow(tr("AutoZero Z thickness"), autoZero_);
@@ -1235,6 +1239,7 @@ void SettingsDialog::load() {
     zProbeDistance_->setValue(p.zProbeDistance);
     moveSpeed_->setValue(p.probeMovementSpeed);
     connectivityTest_->setChecked(p.connectivityTest);
+    plateSwitcher_->setChecked(s.touchplateTypeSwitcher);
 
     rotaryControls_->setChecked(s.rotary.showControls);
     const auto firmwareValue = [&s](const char* key) {
@@ -1373,6 +1378,7 @@ void SettingsDialog::save() {
     p.zProbeDistance = zProbeDistance_->value();
     p.probeMovementSpeed = moveSpeed_->value();
     p.connectivityTest = connectivityTest_->isChecked();
+    s.touchplateTypeSwitcher = plateSwitcher_->isChecked();
 
     const auto setFirmwareValue = [&s](const char* key, std::string value) {
         for (auto& [name, current] : s.rotary.firmware) {

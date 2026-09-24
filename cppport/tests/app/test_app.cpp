@@ -219,6 +219,7 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
         settings.probe.xyThickness = 9.5;
         settings.probe.connectivityTest = false;
         settings.probe.direction = probe::kTopRight;
+        settings.touchplateTypeSwitcher = true;
         machine.setSettings(settings);
     }
     Machine machine(loop, file);
@@ -231,6 +232,7 @@ TEST_F(AppTest, SettingsPersistAndReachTheController) {
     EXPECT_EQ(machine.settings().probe.xyThickness, 9.5);
     EXPECT_FALSE(machine.settings().probe.connectivityTest);
     EXPECT_EQ(machine.settings().probe.direction, probe::kTopRight);
+    EXPECT_TRUE(machine.settings().touchplateTypeSwitcher);
 
     machine.connectTo(Machine::kSimulatorPort);
     ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
@@ -252,6 +254,14 @@ TEST_F(AppTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     QObject::connect(&machine, &Machine::probeSucceeded, [&] { ++succeeded; });
 
     ProbePanel panel(machine);
+    // The plate is chosen in the settings unless the Probe tab shows the switcher.
+    QComboBox* switcher = panel.findChild<QComboBox*>("touchplateSwitcher");
+    ASSERT_NE(switcher, nullptr);
+    EXPECT_TRUE(switcher->isHidden());
+    AppSettings withSwitcher = machine.settings();
+    withSwitcher.touchplateTypeSwitcher = true;
+    machine.setSettings(withSwitcher);
+    EXPECT_FALSE(switcher->isHidden());
     panel.selectCommand(1);
     ASSERT_EQ(panel.command().id, "XYZ Touch");
     EXPECT_EQ(panel.probeType(), probe::ProbeType::Diameter);
@@ -548,7 +558,7 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
                 "rotaryAxis": {"useAaxisForGrbl": true}
             },
             "widgets": {
-                "probe": {"probeFeedrate": 60, "connectivityTest": false},
+                "probe": {"probeFeedrate": 60, "connectivityTest": false, "touchplateTypeSwitcher": true},
                 "axes": {"jog": {"rapid": {"xyStep": 25, "zStep": 12, "aStep": 30, "feedrate": 6000},
                                  "threshold": 300}},
                 "connection": {"port": "COM4", "baudrate": 250000},
@@ -581,6 +591,7 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
     EXPECT_EQ(s.probe.zThickness.standardBlock, 14);
     EXPECT_EQ(s.probe.probeFeedrate, 60);
     EXPECT_FALSE(s.probe.connectivityTest);
+    EXPECT_TRUE(s.touchplateTypeSwitcher);
     EXPECT_EQ(s.outlineMode, job::OutlineMode::Square);
     EXPECT_EQ(s.defaultFirmware, protocol::Firmware::GrblHal);
     EXPECT_TRUE(s.preferences.useAaxisForGrbl);

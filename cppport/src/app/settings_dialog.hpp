@@ -178,6 +178,7 @@ private:
     QDoubleSpinBox* zProbeDistance_;
     QDoubleSpinBox* moveSpeed_;
     QCheckBox* connectivityTest_;
+    QCheckBox* plateSwitcher_;
     // Rotary
     QCheckBox* rotaryControls_;
     QDoubleSpinBox* rotaryResolution_;
