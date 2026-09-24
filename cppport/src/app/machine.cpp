@@ -1377,6 +1377,9 @@ void Machine::sendEstimates() {
 }
 
 void Machine::setSettings(const AppSettings& settings) {
+    // Spindle/laser controls going off in laser mode go back to the spindle
+    // (the setting's onUpdate).
+    const bool leaveLaser = settings_.spindleFunctions && !settings.spindleFunctions && settings.spindle.laserMode;
     settings_ = settings;
     *preferences_ = settings_.preferences;  // the controller reads it live
     if (controller::Controller* c = controller()) {
@@ -1384,6 +1387,9 @@ void Machine::setSettings(const AppSettings& settings) {
     }
     saveAppSettings(config_, settings_);
     Q_EMIT appSettingsChanged();
+    if (leaveLaser) {
+        setLaserMode(false);
+    }
 }
 
 void Machine::sendConsoleLine(const QString& line) {

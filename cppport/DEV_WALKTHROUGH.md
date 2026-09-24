@@ -1464,3 +1464,15 @@ polling goes on, as upstream. Deviations: upstream's FTP errors are
 unhandled promise rejections (nothing reported) and its progress divides
 the overall bytes by the current transfer's (100 % or more); the port
 reports failures and each file's own progress.
+
+## Step 53 — Spindle/laser and coolant controls
+
+Upstream shows the Spindle/Laser tab only with **Spindle/laser controls**
+on (workspace.spindleFunctions, off by default - the Spindle accessory
+wizard turns it on) and has a separate Coolant tab with **Coolant
+controls** (workspace.coolantFunctions, on). The port follows: the coolant
+buttons moved to a Coolant tab of their own (`CoolantPanel`), both tabs
+follow their settings (Settings > Spindle/Laser, imported from gSender),
+the spindle's override hides with the spindle controls
+(FeedOverride's showSpindleOverride), and turning the spindle controls off
+in laser mode switches back to the spindle (the setting's onUpdate).

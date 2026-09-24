@@ -127,13 +127,6 @@ SpindlePanel::SpindlePanel(Machine& machine, QWidget* parent) : QWidget(parent),
     button(laserGrid, tr("Laser Off"), 2, 3, [this] { stopSpindle(); }, true);
     layout->addWidget(laserBox_);
 
-    auto* coolant = new QGroupBox(tr("Coolant"));
-    auto* coolantGrid = new QGridLayout(coolant);
-    button(coolantGrid, tr("Mist (M7)"), 0, 0, [this] { command("M7"); });
-    button(coolantGrid, tr("Flood (M8)"), 0, 1, [this] { command("M8"); });
-    button(coolantGrid, tr("Off (M9)"), 0, 2, [this] { command("M9"); }, true);
-    layout->addWidget(coolant);
-
     state_ = new QLabel;
     state_->setStyleSheet("color:#555");
     layout->addWidget(state_);
@@ -349,12 +342,48 @@ void SpindlePanel::refresh() {
                         .arg(coolant.join(' ')));
 }
 
+// ---- coolant ----------------------------------------------------------------------
+
+CoolantPanel::CoolantPanel(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
+    auto* layout = new QVBoxLayout(this);
+    auto* box = new QGroupBox(tr("Coolant"));
+    auto* grid = new QGridLayout(box);
+    const auto add = [this, grid](const QString& text, int column, const char* code) {
+        auto* b = new QPushButton(text);
+        b->setMinimumHeight(40);
+        connect(b, &QPushButton::clicked, this, [this, code] {
+            if (controller::Controller* c = machine_.controller()) {
+                c->gcode(code);
+            }
+        });
+        grid->addWidget(b, 0, column);
+        return b;
+    };
+    buttons_ << add(tr("Mist (M7)"), 0, "M7") << add(tr("Flood (M8)"), 1, "M8");
+    off_ = add(tr("Off (M9)"), 2, "M9");
+    layout->addWidget(box);
+    layout->addStretch();
+    for (auto signal : {&Machine::stateChanged, &Machine::workflowChanged, &Machine::connectionChanged}) {
+        connect(&machine_, signal, this, &CoolantPanel::refresh);
+    }
+    refresh();
+}
+
+void CoolantPanel::refresh() {
+    controller::Controller* c = machine_.controller();
+    const bool idle = c && !c->workflow().isRunning() && c->state().status.activeState == "Idle";
+    for (QPushButton* b : buttons_) {
+        b->setEnabled(idle);
+    }
+    off_->setEnabled(c != nullptr && !c->workflow().isRunning());
+}
+
 // ---- overrides --------------------------------------------------------------------
 
 OverridesBar::OverridesBar(Machine& machine, QWidget* parent) : QWidget(parent), machine_(machine) {
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    const auto slider = [this, layout](QLabel*& label, const QString& name, auto apply) {
+    const auto slider = [this, &layout](QLabel*& label, const QString& name, auto apply) {
         label = new QLabel(QString("%1 100%").arg(name));
         label->setMinimumWidth(90);
         auto* s = new QSlider(Qt::Horizontal);
@@ -388,12 +417,20 @@ OverridesBar::OverridesBar(Machine& machine, QWidget* parent) : QWidget(parent),
             c->feedOverride(value);
         }
     });
-    layout->addSpacing(12);
+    // The spindle's override, on a row of its own that hides without the
+    // spindle controls (FeedOverride's showSpindleOverride).
+    spindleRow_ = new QWidget;
+    auto* spindleLayout = new QHBoxLayout(spindleRow_);
+    spindleLayout->setContentsMargins(12, 0, 0, 0);
+    QHBoxLayout* const outer = layout;
+    layout = spindleLayout;
     spindle_ = slider(spindleLabel_, tr("Spindle"), [this](int value) {
         if (auto* c = machine_.controller()) {
             c->spindleOverride(value);
         }
     });
+    layout = outer;
+    layout->addWidget(spindleRow_, 1);
     layout->addSpacing(12);
     layout->addWidget(new QLabel(tr("Rapids")));
     for (int value : {25, 50, 100}) {
@@ -410,6 +447,9 @@ OverridesBar::OverridesBar(Machine& machine, QWidget* parent) : QWidget(parent),
     }
     connect(&machine_, &Machine::stateChanged, this, &OverridesBar::refresh);
     connect(&machine_, &Machine::connectionChanged, this, &OverridesBar::refresh);
+    const auto showSpindle = [this] { spindleRow_->setVisible(machine_.settings().spindleFunctions); };
+    connect(&machine_, &Machine::appSettingsChanged, this, showSpindle);
+    showSpindle();
     refresh();
 }
 

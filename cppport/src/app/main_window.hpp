@@ -44,6 +44,9 @@ public:
     bool reconnectAutomatically();
     // The Rotary tab shows while the Rotary controls are on.
     bool rotaryTabVisible() const;
+    // The side tabs shown (Rotary, Spindle/Laser and Coolant follow their
+    // settings).
+    QStringList visibleTabs() const;
     // Tools > SD Card (made on first use).
     SdCardDialog& sdCardDialog();
     // Settings > Accessibility at work.
@@ -75,6 +78,7 @@ private:
     Jogger* jogger_;
     ShortcutManager* shortcuts_;
     SpindlePanel* spindle_;
+    class CoolantPanel* coolant_;
     ProbePanel* probe_;
     RotaryPanel* rotary_;
     NotificationCenter* notifications_;

@@ -433,6 +433,8 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.revertWorkspace = flag(root, "revertWorkspace", false);
     settings.powerSaving = flag(root, "powerSaving", false);
     settings.promptExit = flag(root, "promptExit", false);
+    settings.spindleFunctions = flag(root, "spindleFunctions", false);
+    settings.coolantFunctions = flag(root, "coolantFunctions", true);
     settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
     settings.warnBadFile = flag(root, "warnBadFile", false);
     settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
@@ -530,6 +532,8 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"spindle", saveSpindle(settings.spindle)},
                          {"rotary", saveRotary(settings.rotary)},
+                         {"spindleFunctions", settings.spindleFunctions},
+                         {"coolantFunctions", settings.coolantFunctions},
                          {"accessibility", saveAccessibility(settings.accessibility)},
                          {"jog", jogObject(settings.jog)},
                          {"units", settings.metric ? "mm" : "in"},
@@ -695,6 +699,8 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.revertWorkspace = flag(w, "revertWorkspace", false);
     s.powerSaving = flag(w, "powerSaving", false);
     s.promptExit = flag(w, "promptExit", false);
+    s.spindleFunctions = flag(w, "spindleFunctions", false);
+    s.coolantFunctions = flag(w, "coolantFunctions", true);
     s.darkMode = flag(w, "enableDarkMode", false);
     if (const json::object* a11y = child(w, "accessibility")) {
         s.accessibility = loadAccessibility(*a11y);

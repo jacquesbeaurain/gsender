@@ -73,6 +73,20 @@ private:
 
 // Feed and spindle override sliders (10-200 %) and the rapid presets, sent as
 // realtime bytes; the sliders follow the overrides the firmware reports.
+// The Coolant tab (gSender's Coolant widget): mist, flood, off.
+class CoolantPanel final : public QWidget {
+    Q_OBJECT
+public:
+    explicit CoolantPanel(Machine& machine, QWidget* parent = nullptr);
+
+private:
+    void refresh();
+
+    Machine& machine_;
+    QList<QPushButton*> buttons_;  // need an idle machine
+    QPushButton* off_;             // works whenever no job runs
+};
+
 class OverridesBar final : public QWidget {
     Q_OBJECT
 public:
@@ -84,6 +98,7 @@ private:
     Machine& machine_;
     QSlider* feed_;
     QSlider* spindle_;
+    QWidget* spindleRow_;  // hidden without the spindle controls
     QLabel* feedLabel_;
     QLabel* spindleLabel_;
     QList<QPushButton*> rapid_;

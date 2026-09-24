@@ -809,6 +809,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     // grblHAL the laser's own settings ($730, $731, $770, $771) apply.
     auto* spindleLaser = new QWidget;
     auto* spindleForm = new QFormLayout(spindleLaser);
+    spindleFunctions_ = new QCheckBox(tr("Spindle/laser controls"));
+    spindleFunctions_->setToolTip(tr("Show the Spindle/Laser tab and related functions on the main Carve page."));
+    spindleForm->addRow(QString(), spindleFunctions_);
     const auto numberBox = [](double min, double max, int decimals, const QString& suffix) {
         auto* box = new QDoubleSpinBox;
         box->setRange(min, max);
@@ -871,6 +874,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
                                                           {"M7", "M7"},
                                                           {"M8", "M8"},
                                                           {"M9", "M9"}}));
+    coolantFunctions_ = new QCheckBox(tr("Coolant controls"));
+    coolantFunctions_->setToolTip(tr("Show the coolant tab and related functions on the main Carve page."));
+    spindleForm->addRow(QString(), coolantFunctions_);
     tabs_->addTab(spindleLaser, tr("Spindle/Laser"));
 
     // The touch plate profile and the Probe widget's settings (gSender's
@@ -1206,6 +1212,8 @@ void SettingsDialog::load() {
     laserX_->setValue(s.spindle.laser.xOffset);
     laserY_->setValue(s.spindle.laser.yOffset);
     laserOutline_->setChecked(s.spindle.laser.onOutline);
+    spindleFunctions_->setChecked(s.spindleFunctions);
+    coolantFunctions_->setChecked(s.coolantFunctions);
     moveToManual_->setChecked(s.moveToManualPosition);
 
     const probe::ProbeSettings& p = s.probe;
@@ -1324,6 +1332,8 @@ void SettingsDialog::save() {
     s.spindle.laser.xOffset = laserX_->value();
     s.spindle.laser.yOffset = laserY_->value();
     s.spindle.laser.onOutline = laserOutline_->isChecked();
+    s.spindleFunctions = spindleFunctions_->isChecked();
+    s.coolantFunctions = coolantFunctions_->isChecked();
     s.moveToManualPosition = moveToManual_->isChecked();
     AccessibilitySettings& a = s.accessibility;
     a.statusAnnouncements = statusAnnouncements_->isChecked();

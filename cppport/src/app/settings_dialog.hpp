@@ -150,6 +150,8 @@ private:
     QCheckBox* moveToManual_;
     QDoubleSpinBox* manual_[3];
     // Spindle/Laser
+    QCheckBox* spindleFunctions_;
+    QCheckBox* coolantFunctions_;
     QDoubleSpinBox* spindleMin_;
     QDoubleSpinBox* spindleMax_;
     QDoubleSpinBox* laserMin_;
