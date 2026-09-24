@@ -1384,3 +1384,16 @@ as the planner takes them, unanswered, reported as `SD:` in the status) and
 YMODEM uploads received as grblHAL's ymodem.c does (a header's SOH at the
 start of a line begins one; ACK and C for the header, CRC-checked packets,
 EOT stores the file cut to its size).
+
+## Step 50 — Accessory connectivity notices
+
+grblHAL announces accessories plugged in or out with
+`[MSG:Info: Autoconfig: KEY=value, ...]`. For the accessory keys
+(ACCESSORY_AUTOCONFIG_KEYS: AUTOSPIN, H100, ATCEXP, ETHERNET, PROBE, TLS)
+the Machine remembers whether each is there - from `[NEWOPT:]` (a key with
+no value or "0" is not) and from every Autoconfig message (anything but "0"
+is, a bare key included) - and when one flips it pops up "TLS connected -
+Ready to use" or "TLS disconnected - Connection lost" for the default 5 s
+(AccessoryConnectivityToast; its own pop-up, not kept in the bell's list;
+its Manage button does nothing upstream and is left out). As upstream, what
+is known outlives a connection.

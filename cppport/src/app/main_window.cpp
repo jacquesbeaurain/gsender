@@ -149,6 +149,12 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     connect(&machine_, &Machine::connectionFailed, this,
             [this](const QString& reason) { showError(tr("Connection"), reason); });
     connect(&machine_, &Machine::errorReported, this, &MainWindow::showError);
+    // AccessoryConnectivityToast: its own pop-up, not kept in the list.
+    connect(&machine_, &Machine::accessoryConnectivityChanged, this, [this](const QString& accessory, bool connected) {
+        toasts_->showToast(connected ? tr("%1 connected\nReady to use - device available").arg(accessory)
+                                     : tr("%1 disconnected\nConnection lost").arg(accessory),
+                           connected ? NotificationType::Success : NotificationType::Error, kToastDefault);
+    });
     // M6 with a wizard strategy (controllerSagas' gcode:toolChange).
     connect(&machine_, &Machine::toolChangeWizardRequested, this,
             [this](const QString& option, int count, const QString& comment) {
