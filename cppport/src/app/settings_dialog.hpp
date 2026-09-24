@@ -65,6 +65,23 @@ private:
     bool loading_ = false;
 };
 
+// The Config page's live pin indicators (LimitSwitchIndicators,
+// ProbePinStatus): each pin's letter lit while the status report lists it.
+class PinIndicators final : public QWidget {
+    Q_OBJECT
+public:
+    // `pins`: the letters shown, e.g. "XYZA" or "P".
+    PinIndicators(Machine& machine, const QString& pins, QWidget* parent = nullptr);
+    bool lit(QChar pin) const;
+
+private:
+    void refresh();
+
+    Machine& machine_;
+    QString pins_;
+    std::vector<QLabel*> lights_;
+};
+
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:

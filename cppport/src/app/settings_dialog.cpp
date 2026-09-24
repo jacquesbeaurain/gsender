@@ -56,6 +56,39 @@ std::optional<int> settingNumber(const std::string& name) {
 
 }  // namespace
 
+// ---- pin indicators ------------------------------------------------------------------
+
+PinIndicators::PinIndicators(Machine& machine, const QString& pins, QWidget* parent)
+    : QWidget(parent), machine_(machine), pins_(pins) {
+    auto* row = new QHBoxLayout(this);
+    row->setContentsMargins(0, 0, 0, 0);
+    for (const QChar pin : pins_) {
+        auto* light = new QLabel(QString(pin));
+        light->setAlignment(Qt::AlignCenter);
+        light->setFixedSize(26, 22);
+        light->setToolTip(pin == 'P' ? tr("Probe pin") : tr("%1 limit switch").arg(pin));
+        row->addWidget(light);
+        lights_.push_back(light);
+    }
+    row->addStretch(1);
+    connect(&machine_, &Machine::stateChanged, this, &PinIndicators::refresh);
+    connect(&machine_, &Machine::connectionChanged, this, &PinIndicators::refresh);
+    refresh();
+}
+
+bool PinIndicators::lit(QChar pin) const {
+    controller::Controller* c = machine_.controller();
+    return c && QString::fromStdString(c->state().status.pinState).contains(pin);
+}
+
+void PinIndicators::refresh() {
+    for (std::size_t i = 0; i < lights_.size(); ++i) {
+        const bool on = lit(pins_[static_cast<qsizetype>(i)]);
+        lights_[i]->setStyleSheet(QString("QLabel { background:%1; color:white; border-radius:4px; font-weight:600; }")
+                                      .arg(on ? "#22c55e" : "#6b7280"));
+    }
+}
+
 // ---- firmware settings -------------------------------------------------------------
 
 FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
@@ -88,6 +121,9 @@ FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
     onlyModified_ = new QCheckBox(tr("Only show changed settings"));
     filters->addWidget(search_, 1);
     filters->addWidget(onlyModified_);
+    filters->addSpacing(12);
+    filters->addWidget(new QLabel(tr("Limit switches")));
+    filters->addWidget(new PinIndicators(machine_, "XYZA"));
     layout->addLayout(filters);
 
     table_ = new QTableWidget(0, 6);
@@ -748,6 +784,7 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     motionForm->addRow(tr("Z probe distance"), zProbeDistance_);
     motionForm->addRow(tr("Return move speed"), moveSpeed_);
     motionForm->addRow(QString(), connectivityTest_);
+    motionForm->addRow(tr("Probe pin"), new PinIndicators(machine_, "P"));
     tabs_->addTab(probe, tr("Probe"));
 
     // Rotary (gSender's Rotary section): the Rotary tab, what rotary mode
