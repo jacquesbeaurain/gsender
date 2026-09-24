@@ -24,6 +24,10 @@ public:
     QTableWidget* tasksTable() const noexcept { return tasks_; }
     QTableWidget* alarmsTable() const noexcept { return alarms_; }
 
+Q_SIGNALS:
+    // "Download Diagnostic File" (the Stats page's Diagnostics card).
+    void diagnosticsRequested();
+
 private:
     void editTask(int id);  // -1: a new task
     int selectedTaskId() const;

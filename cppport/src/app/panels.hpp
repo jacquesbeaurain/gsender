@@ -69,6 +69,8 @@ class ConsolePanel final : public QWidget {
 public:
     explicit ConsolePanel(Machine& machine, QWidget* parent = nullptr);
     void append(const QString& text, bool fromHost);
+    // The commands typed, oldest first (the diagnostics' terminal history).
+    const QStringList& history() const noexcept { return history_; }
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

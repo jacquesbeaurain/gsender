@@ -7,6 +7,7 @@
 #include "accessory_wizards.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
+#include "diagnostics.hpp"
 #include "dro_panel.hpp"
 #include "gcode_editor_dialog.hpp"
 #include "jogger.hpp"
@@ -51,6 +52,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QTextDocument>
+#include <QPainter>
+#include <QImage>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -2351,6 +2355,57 @@ TEST_F(AppTest, TheAutoSpinAndSpindleWizardsConfigureTheBoard) {
     ASSERT_TRUE(spindle.next());
     EXPECT_TRUE(spindle.atCompletion());
     EXPECT_TRUE(window.visibleTabs().contains("Spindle/Laser"));
+}
+
+TEST_F(AppTest, TheDiagnosticFileGathersTheReportSettingsAndJob) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.loadProgram("square.nc", "G21 G90\nG1 X10 F600\nG1 Y10\nM30\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    const QDateTime when(QDate(2026, 9, 24), QTime(14, 5, 9));
+    EXPECT_EQ(diagnosticsStamp(when), "9-24-2026_14-05-09");
+
+    const QString report = diagnosticsReport(machine, {"$$", "G0 X5"}, when);
+    for (const char* part : {"Diagnostics Report", "Environment", "LongMill MK2", "Controller Status",
+                             "Firmware Settings", "$110", "Terminal History", "G0 X5", "square.nc", "G1 X10 F600"}) {
+        EXPECT_TRUE(report.contains(QString::fromLatin1(part))) << part;
+    }
+    const QByteArray pdf = diagnosticsPdf(report);
+    EXPECT_TRUE(pdf.startsWith("%PDF"));
+
+    const QString path = dir.path() + "/diagnostics.zip";
+    QString error;
+    ASSERT_TRUE(writeDiagnostics(machine, {"$$"}, path, &error, when)) << error.toStdString();
+    QFile zip(path);
+    ASSERT_TRUE(zip.open(QIODevice::ReadOnly));
+    const QByteArray bytes = zip.readAll();
+    EXPECT_TRUE(bytes.startsWith("PK\x03\x04"));
+    // The loaded file, the report, and both settings exports.
+    for (const char* name : {"square.nc", "diagnostics_9-24-2026_14-05-09.pdf",
+                             "gSender-firmware-settings-9-24-2026-14-05-09.json", "gSenderSettings_9-24-2026_14-05-09.json"}) {
+        EXPECT_TRUE(bytes.contains(name)) << name;
+    }
+    EXPECT_TRUE(bytes.contains("\n \"$110\": \"4000.000\""));
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        QFile::remove(QString::fromLocal8Bit(out) + "/diagnostics.zip");
+        QFile::copy(path, QString::fromLocal8Bit(out) + "/diagnostics.zip");
+        // The report's first screenful, as the PDF lays it out.
+        QTextDocument document;
+        document.setHtml(report);
+        document.setTextWidth(760);
+        QImage image(760, 1400, QImage::Format_RGB32);
+        image.fill(Qt::white);
+        QPainter painter(&image);
+        document.drawContents(&painter, QRectF(0, 0, 760, 1400));
+        painter.end();
+        image.save(QString::fromLocal8Bit(out) + "/diagnostics_report.png");
+    }
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
