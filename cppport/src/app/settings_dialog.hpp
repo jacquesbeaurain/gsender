@@ -108,6 +108,7 @@ private:
     QCheckBox* aAxis_;
     QComboBox* firmware_;
     QSpinBox* networkPort_;
+    QCheckBox* diameterOffset_;
     std::array<QSpinBox*, 4> ethernetIp_{};
     QComboBox* units_;
     QSpinBox* decimals_;

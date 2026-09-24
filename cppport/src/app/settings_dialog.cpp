@@ -977,6 +977,9 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     forceSoftLimits_->setToolTip(tr("Enable soft limits when toggling into rotary mode. (grbl only)"));
     forceHardLimits_ = new QCheckBox(tr("Force hard limits"));
     forceHardLimits_->setToolTip(tr("Enable hard limits when toggling into rotary mode. (grbl only)"));
+    diameterOffset_ = new QCheckBox(tr("Visualize non-center zeros"));
+    diameterOffset_->setToolTip(tr("For any rotary files that aren't zeroed to the centerpoint, apply an offset "
+                                   "when a cylinder diameter is found in the file."));
     aAxis_ = new QCheckBox(tr("Use A-axis for grbl"));
     aAxis_->setToolTip(tr("Enables A-axis controls and commands to be sent for devices running modified 4-axis "
                           "grbl, rather than translating A into Y. (grbl only)"));
@@ -985,6 +988,7 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     rotaryForm->addRow(tr("Max speed"), rotaryMaxSpeed_);
     rotaryForm->addRow(QString(), forceSoftLimits_);
     rotaryForm->addRow(QString(), forceHardLimits_);
+    rotaryForm->addRow(QString(), diameterOffset_);
     rotaryForm->addRow(QString(), aAxis_);
     // The section's wizard (AJogWizard): A jogged 10 degrees either way, to
     // check the direction and the resolution.
@@ -1182,6 +1186,7 @@ void SettingsDialog::load() {
     spindleDelay_->setValue(s.preferences.spindleDelay);
     lineWarnings_->setChecked(s.preferences.showLineWarnings);
     aAxis_->setChecked(s.preferences.useAaxisForGrbl);
+    diameterOffset_->setChecked(s.rotary.diameterOffset);
     firmware_->setCurrentIndex(s.defaultFirmware == protocol::Firmware::GrblHal ? 1 : 0);
     networkPort_->setValue(s.networkPort);
     for (std::size_t i = 0; i < ethernetIp_.size(); ++i) {
@@ -1314,6 +1319,7 @@ void SettingsDialog::save() {
     s.preferences.spindleDelay = spindleDelay_->value();
     s.preferences.showLineWarnings = lineWarnings_->isChecked();
     s.preferences.useAaxisForGrbl = aAxis_->isChecked();
+    s.rotary.diameterOffset = diameterOffset_->isChecked();
     s.defaultFirmware = firmware_->currentIndex() == 1 ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     s.networkPort = networkPort_->value();
     for (std::size_t i = 0; i < ethernetIp_.size(); ++i) {

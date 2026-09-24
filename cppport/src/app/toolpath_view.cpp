@@ -380,8 +380,10 @@ void ToolpathCanvas::paintSegments(QPainter& painter, const std::vector<float>& 
                                    const std::vector<std::uint32_t>& lines,
                                    const std::function<const QPen*(std::size_t, std::uint32_t)>& pen,
                                    double rotationA) {
-    // Turned back by the rotary's angle about X.
-    const double angle = -rotationA * kDegree;
+    // Turned back by the rotary's angle about X (gviewer's
+    // setToolpathRotationA: the toolpath's root turned by +A), so the part
+    // under the tool is on top.
+    const double angle = rotationA * kDegree;
     const double cosA = std::cos(angle);
     const double sinA = std::sin(angle);
     const auto point = [&](std::size_t i) -> Point3 {

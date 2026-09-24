@@ -12,6 +12,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace gs::rotary {
@@ -96,5 +97,19 @@ struct MountingSetup {
 std::string mountingProgramName(const MountingSetup& setup);
 // The program itself (from the embedded data); nullopt if it is missing.
 std::optional<std::string> mountingProgram(const MountingSetup& setup);
+
+// ---- the visualizer ----
+
+// Visualize.worker's parseRotaryMetadata(): the stock's radius from a
+// cylinder diameter the file declares ("(Cylinder Dia: 64.38)", DeskProto's
+// header, and the like) and whether the file moves Y (a Y word outside
+// comments). With "Visualize non-center zeros" a file with a radius and no
+// Y moves is drawn with Z raised by the radius: zeroed on the stock's
+// surface rather than on its axis.
+struct RotaryMetadata {
+    std::optional<double> radius;
+    bool hasYAxisMoves = false;
+};
+RotaryMetadata parseRotaryMetadata(std::string_view program);
 
 }  // namespace gs::rotary

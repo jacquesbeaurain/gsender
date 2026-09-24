@@ -566,7 +566,7 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
                 "connection": {"port": "COM4", "baudrate": 250000, "ip": [192, 168, 1, 77], "ethernetPort": 8023},
                 "spindle": {"mode": "laser", "delay": 2, "laser": {"maxPower": 1000}},
                 "surfacing": {"width": 250},
-                "visualizer": {"showLineWarnings": true}
+                "visualizer": {"showLineWarnings": true, "rotaryDiameterOffsetEnabled": true}
             },
             "commandKeys": {
                 "START_JOB": {"keys": "f9", "isActive": true},
@@ -609,6 +609,7 @@ TEST(GSenderSettings, AnExportIsReadOverTheDefaults) {
     EXPECT_EQ(s.preferences.spindleDelay, 2);
     EXPECT_EQ(s.surfacing.width, 250);
     EXPECT_TRUE(s.preferences.showLineWarnings);
+    EXPECT_TRUE(s.rotary.diameterOffset);
     EXPECT_EQ(s.shortcuts.at("START_JOB").keys, "F9");
     EXPECT_FALSE(s.shortcuts.at("STOP_JOB").active);
     EXPECT_EQ(read->unreadableShortcuts, std::vector<std::string>{"JOG_X_P"});
@@ -2860,6 +2861,40 @@ TEST_F(AppTest, TheConnectionListOffersTheEthernetBoard) {
     machine.setSettings(settings);
     EXPECT_EQ(ports->itemText(ports->count() - 1), "10.0.0.42 - Ethernet (port 2323)");
     EXPECT_EQ(ports->itemData(ports->count() - 1).toString(), "10.0.0.42");
+}
+
+TEST_F(AppTest, RotaryToolpathsWrapAsUpstreamDrawsThem) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    const std::string program = "(Cylinder Dia: 50)\nG21 G90\nG0 X0 Z5 A0\nG1 A90 F500\n";
+    const auto endOf = [](const std::vector<float>& segments) {
+        const std::size_t n = segments.size();
+        return std::array<float, 3>{segments[n - 3], segments[n - 2], segments[n - 1]};
+    };
+    // Turned by -A: a quarter turn brings the top of the stock round to +Y.
+    machine.loadProgram("rotary.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    ASSERT_FALSE(machine.toolpath().feeds.empty());
+    std::array<float, 3> end = endOf(machine.toolpath().feeds);
+    EXPECT_NEAR(end[1], 5, 1e-4);
+    EXPECT_NEAR(end[2], 0, 1e-4);
+    EXPECT_NEAR(endOf(machine.toolpath().rapids)[2], 5, 1e-4);
+
+    // Visualize non-center zeros: zeroed on the surface, drawn about the axis.
+    AppSettings settings = machine.settings();
+    settings.rotary.diameterOffset = true;
+    machine.setSettings(settings);
+    machine.loadProgram("rotary.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    end = endOf(machine.toolpath().feeds);
+    EXPECT_NEAR(end[1], 30, 1e-4);  // Z 5 plus the 25 mm radius
+    EXPECT_NEAR(end[2], 0, 1e-4);
+    EXPECT_NEAR(endOf(machine.toolpath().rapids)[2], 30, 1e-4);
+    // Not for a file that moves Y.
+    machine.loadProgram("rotary.nc", program + "G1 Y1\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    EXPECT_NEAR(endOf(machine.toolpath().rapids)[2], 5, 1e-4);
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

@@ -1199,15 +1199,27 @@ months), which only matters past two months.
 
 ## Step 42 — The visualizer's rotary display
 
-As gviewer draws them, A turns the stock about X: every toolpath point is
-turned by its A (y cos a - z sin a, y sin a + z cos a) and a move that turns
-A is drawn in 5-degree chords, so a rotary job shows as the turned stock
-(identity for everything without A). The tool previews use the same trace
-(the rotary surfacing preview therefore shows the helix from above). A
-rotary job (the analysis' file type) is framed by its drawn extent, and the
-main view turns it back by the rotary's angle as the job runs, so the part
-under the tool is on top (`setToolpathRotationA`); the Step Through view
-turns it by the current line's A.
+As Visualize.worker builds gviewer's geometry, A turns the stock about X:
+every toolpath point is turned by -A (rotateAxis: y cos a + z sin a,
+-y sin a + z cos a - upstream inverted the angle so that G-code's negative
+A turns clockwise) and a move that turns A is drawn in 5-degree chords, so
+a rotary job shows as the turned stock (identity for everything without A).
+The tool previews use the same trace (the rotary surfacing preview
+therefore shows the helix from above). A rotary job (the analysis' file
+type) is framed by its drawn extent, and the main view turns it back by +A
+as the job runs (gviewer's `setToolpathRotationA` turns the toolpath's root
+by the rotary's angle), so the part under the tool is on top; the Step
+Through view turns it by the current line's A. (The port first turned the
+points the other way, drawing rotary jobs mirrored; corrected with the
+option below.)
+
+**Visualize non-center zeros** (widgets.visualizer.rotaryDiameterOffsetEnabled,
+Settings > Rotary, off by default): a file that declares its cylinder
+(parseRotaryMetadata's patterns: "(Cylinder Dia: 64.38)", DeskProto's
+header, "Diameter=50,5", "Dia: 40"...) and never moves Y was zeroed on the
+stock's surface, so it is drawn with Z raised by the radius. Upstream
+applies it to straight moves only (its arcs are neither turned nor raised);
+the port turns arcs by their A and raises them too.
 
 Deviation: in rotary mode the rotary's angle is read from Y (where the
 rotary is) and the tool is drawn over the centreline; upstream only read
