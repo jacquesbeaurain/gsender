@@ -7,6 +7,7 @@ add_library(gs_core STATIC
     src/util/jsnumber.cpp
     src/util/units.cpp
     src/util/datetime.cpp
+    src/util/zip.cpp
     src/gcode/parser.cpp
     src/gcode/interpreter.cpp
     src/expr/value.cpp

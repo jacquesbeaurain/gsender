@@ -69,6 +69,8 @@ private:
     // A recent file: loaded again, or forgotten when it has gone.
     void openRecent(const QString& path);
     void openSettings(SettingsDialog::Page page);
+    // The diagnostics support file, saved where the user picks.
+    void downloadDiagnostics();
     void installShortcuts();
 
     Machine& machine_;

@@ -1523,3 +1523,25 @@ not in the LibPack); the QR codes beside the help links are left out.
 For all this the grblHAL simulator reports H: (homed since the last full
 homing), takes any numbered setting and "$9 = 1" with its spaces, and
 treats $REBOOT as a reset.
+
+## Step 55 — The diagnostics support file (`src/app/diagnostics`, `gs/util/zip`)
+
+Stats' "Download Diagnostic File" (also Help > Download Diagnostic File)
+builds upstream's support file (lib/diagnostics.tsx): a ZIP named
+`diagnostics_<M-d-yyyy>_<HH-mm-ss>.zip` holding the loaded file, a PDF
+report, the firmware settings as `gSender-firmware-settings-....json`
+(JSON with one-space indents, as the upstream export) and the application
+settings as `gSenderSettings_....json` (Settings > Export's file). The
+report has upstream's sections - environment (OS, homing, soft limits,
+the homing corner, inches, the stepper lock), machine profile, connection
+(port, rate, manufacturer, the ports seen and the unrecognized ones),
+controller status (type, board, firmware, workflow, homing, positions),
+preferences (units, safe height, laser and rotary modes, jog presets),
+automations (the event hooks), the firmware settings against the profile's
+defaults (differences highlighted), the recorded alarms and errors, the
+console's history and the loaded file's status with its first 2000
+characters. It is written as HTML and printed with QTextDocument to a
+QPdfWriter (upstream draws it with react-pdf); the ZIP is written by a
+small stored-entry writer (`zip::archive`, CRC-32 and DOS time; upstream
+uses JSZip). Deviation: upstream's "In Use" of the port is left out (the
+port listing has no such flag).

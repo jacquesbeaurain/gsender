@@ -4,6 +4,7 @@
 #include "accessory_wizards.hpp"
 
 #include "appearance.hpp"
+#include "diagnostics.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
@@ -26,6 +27,8 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDir>
+#include <QDateTime>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMenuBar>
@@ -545,6 +548,7 @@ void MainWindow::createMenus() {
     tools->addSeparator();
     tools->addAction(tr("S&tatistics..."), this, [this] {
         StatsDialog dialog(machine_, this);
+        connect(&dialog, &StatsDialog::diagnosticsRequested, this, &MainWindow::downloadDiagnostics);
         dialog.exec();
     });
     tools->addAction(tr("&Keyboard Shortcuts..."), this, [this] {
@@ -553,12 +557,30 @@ void MainWindow::createMenus() {
     });
 
     QMenu* help = menuBar()->addMenu(tr("&Help"));
+    help->addAction(tr("Download &Diagnostic File..."), this, &MainWindow::downloadDiagnostics);
     help->addAction(tr("&About"), this, [this] {
         QMessageBox::about(this, tr("About gSender (C++)"),
                            tr("<b>gSender (C++)</b> %1<p>A native C++/Qt port of gSender, the CNC control "
                               "software for Grbl and grblHAL by Sienci Labs.</p>")
                                .arg(QApplication::applicationVersion()));
     });
+}
+
+void MainWindow::downloadDiagnostics() {
+    const QDateTime now = QDateTime::currentDateTime();
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("Download Diagnostic File"), QDir::home().filePath("diagnostics_" + diagnosticsStamp(now) + ".zip"),
+        tr("ZIP archives (*.zip)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    QString error;
+    if (writeDiagnostics(machine_, console_->history(), path, &error, now)) {
+        notifications_->add(tr("Diagnostic file downloaded successfully!"), NotificationType::Success);
+    } else {
+        notifications_->add(tr("Failed to generate diagnostic file") + (error.isEmpty() ? QString() : ": " + error),
+                            NotificationType::Error);
+    }
 }
 
 void MainWindow::openFile() {

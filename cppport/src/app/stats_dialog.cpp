@@ -144,6 +144,11 @@ StatsDialog::StatsDialog(Machine& machine, QWidget* parent) : QDialog(parent), m
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    QPushButton* diagnostics = buttons->addButton(tr("Download Diagnostic File"), QDialogButtonBox::ActionRole);
+    diagnostics->setObjectName("downloadDiagnostics");
+    diagnostics->setToolTip(tr("Share this file with our customer support or community so others can help you "
+                               "better. It contains your machine errors, profile, settings, and more."));
+    connect(diagnostics, &QPushButton::clicked, this, &StatsDialog::diagnosticsRequested);
     layout->addWidget(buttons);
     connect(&machine_, &Machine::historyChanged, this, &StatsDialog::reload);
     reload();
