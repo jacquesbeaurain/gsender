@@ -263,3 +263,21 @@ TEST(DroCommands, ManualOffsetsAndSingleAxisHoming) {
     EXPECT_FALSE(singleAxisHomingEnabled("1"));
     EXPECT_FALSE(singleAxisHomingEnabled(""));
 }
+
+TEST(ParkCommands, TheDefaultToolChangePositionIsAThirdInFromTheHomingCorner) {
+    LocationSettings settings;
+    EXPECT_FALSE(defaultToolChangePosition(settings, true));  // no travel reported
+    settings.xMaxTravel = "800.000";
+    settings.yMaxTravel = "600.000";
+    settings.homingDirMask = "3";  // front left
+    // Without the homing flag, as if homed back right.
+    const auto backRight = defaultToolChangePosition(settings, false);
+    ASSERT_TRUE(backRight);
+    EXPECT_NEAR(backRight->x, -800.0 / 3, 1e-9);
+    EXPECT_NEAR(backRight->y, -400, 1e-9);
+    EXPECT_EQ(backRight->z, 0);
+    const auto frontLeft = defaultToolChangePosition(settings, true);
+    ASSERT_TRUE(frontLeft);
+    EXPECT_NEAR(frontLeft->x, 1600.0 / 3, 1e-9);
+    EXPECT_NEAR(frontLeft->y, 200, 1e-9);
+}

@@ -92,10 +92,12 @@ public:
 
     // ---- grblHAL ----
     // A grblHAL board instead of Grbl 1.1 (set before open()): its banner and
-    // $I (with the SD card and YMODEM options), complete reports on 0x87 and
-    // the extended queries answered empty - and an SD card: $FM, the $F / $F+
-    // listings, $FD= deletes, $F= runs (reported as SD: in the status while
-    // they last, their lines unanswered) and YMODEM uploads.
+    // $I (with the SD card and YMODEM options), complete reports on 0x87,
+    // the homed state (H:) in the status, any numbered setting taken, $REBOOT
+    // as a reset and the extended queries answered empty - and an SD card:
+    // $FM, the $F / $F+ listings, $FD= deletes, $F= runs (reported as SD: in
+    // the status while they last, their lines unanswered) and YMODEM
+    // uploads.
     void setGrblHal(bool grblHal) { grblHal_ = grblHal; }
     bool isGrblHal() const noexcept { return grblHal_; }
     // The card's files by name (no leading "/").
@@ -211,6 +213,7 @@ private:
     std::vector<std::pair<std::string, std::string>> settings_;
 
     bool grblHal_ = false;
+    bool homed_ = false;  // grblHAL's H:, since the last full homing
     std::map<std::string, std::string> sdFiles_;
     std::optional<SdRun> sdRun_;
     bool muted_ = false;  // executing an SD run's line

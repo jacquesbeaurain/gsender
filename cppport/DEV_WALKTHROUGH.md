@@ -1476,3 +1476,50 @@ follow their settings (Settings > Spindle/Laser, imported from gSender),
 the spindle's override hides with the spindle controls
 (FeedOverride's showSpindleOverride), and turning the spindle controls off
 in laser mode switches back to the spindle (the setting's onUpdate).
+
+## Step 54 — Accessory Installation (`src/app/accessory_installer`, `accessory_wizards`)
+
+Tools > Accessory Installation ports features/AccessoryInstaller and its
+components/Wizard framework (`AccessoryInstallerDialog`): a hub of wizard
+cards (configurations, steps, estimated time); a wizard's landing page -
+the first failing check (connected, homed, grblHAL) blocking its
+configurations, the picture, the help link; and a configuration's steps -
+"Step n of m" with its progress, the step's page (made afresh whenever it
+shows, as a remounted component), a side panel (pictures, the jog
+controls, the commands to be sent, "Need help? ... online resources"),
+Previous / Next (Next once the page says it is done), a closing page with
+Exit / Restart. A wizard with one configuration and nothing failing opens
+straight into it (WizardManager's auto-select); steps with nothing to do
+are passed over both ways (autoComplete). The wizards:
+
+- **Vacuum Table**: zero X/Y at the table's corner (G10 L20 P0 X0 Y0), its
+  size (4' x 8'), and the mounting holes - or, as its second
+  configuration, the alignment grid - loaded as the job; the installer
+  then closes (upstream navigates home).
+- **Sienci TLS**: tool change options (first tool behaviour, a manual tool
+  change location or not; Apply sends $6=1, $668=0 before the ATCi build,
+  $65 bit 3 and G65 P5 Q1 on an SLB Lite, $$; the strategy becomes Fixed
+  Tool Sensor, the probe's fast feed 1000); the sensor's position (the
+  fields follow the machine until edited; Set stores it and sends G10 L2
+  P9 and $#; moving away undoes the step); the manual tool change position
+  (skipped without it; a recommendation a third in from the homing corner,
+  `defaultToolChangePosition`, with Go To); a continuity check (a pin
+  already on is a short - "Try Again"; a press passes 1.5 s later) beside
+  the settings it needs ($6, $668) and the SLB Lite's TLS input.
+- **AutoSpin**: its EEPROM settings by firmware (grblHAL - the SLB Lite's
+  own $35/$36 - or the generic ones), then "Restart your Controller"; a
+  test run (M3 at the slider's speed within $31..$30, a running spindle
+  taking a new speed 300 ms after the last change, M5).
+- **Sienci Spindle**: its settings by build (sienciHAL before 20250627,
+  grblCore's after, $395=7 from 20260515) with the spindle/laser
+  controls turned on, then Modbus ($476=2, $REBOOT on grblCore).
+
+The Sienci ATC's wizard is left for the ATC feature. The wizards' pictures
+and the vacuum table's programs (`resources/accessories`, copied by
+`extract_data.mjs`) are Qt resources of the app - 4 MB, too much for the
+core's hex embedding. AutoSpin's dial video is not shown (Qt Multimedia is
+not in the LibPack); the QR codes beside the help links are left out.
+
+For all this the grblHAL simulator reports H: (homed since the last full
+homing), takes any numbered setting and "$9 = 1" with its spaces, and
+treats $REBOOT as a reset.

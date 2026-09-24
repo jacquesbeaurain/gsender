@@ -251,6 +251,40 @@ TEST_F(SimulatorTest, CheckModeValidatesWithoutMoving) {
 
 // ---- the whole stack ------------------------------------------------------------------
 
+TEST(GrblHalSimulator, TakesItsSettingsReportsHomingAndReboots) {
+    runtime::ManualEventLoop loop;
+    GrblSimulator sim(loop);
+    sim.setGrblHal(true);
+    std::string output;
+    sim.onData = [&](std::string_view bytes) { output += bytes; };
+    sim.open();
+    loop.advance(100);
+    EXPECT_NE(output.find("GrblHAL 1.1f"), std::string::npos);
+    const auto send = [&](std::string_view text) {
+        output.clear();
+        sim.send(text, controller::SendKind::Write);
+        loop.advance(0);
+        return output;
+    };
+    // The line is read without its spaces; grblHAL takes numbered settings
+    // it did not list.
+    EXPECT_EQ(send("$9 = 1\n"), "ok\r\n");
+    EXPECT_EQ(send("$110 = 2500\n"), "ok\r\n");
+    const std::string settings = send("$$\n");
+    EXPECT_NE(settings.find("$110=2500\r\n"), std::string::npos);
+    EXPECT_NE(settings.find("$9=1\r\n"), std::string::npos);
+    EXPECT_EQ(send("$X9=1\n"), "error:3\r\n");
+    // H: says whether the machine has homed.
+    EXPECT_NE(send("?").find("|H:0"), std::string::npos);
+    send("$H\n");
+    loop.advance(2000);
+    EXPECT_NE(send("?").find("|H:1"), std::string::npos);
+    // $REBOOT restarts it, as a reset.
+    const std::string reboot = send("$REBOOT\n");
+    EXPECT_TRUE(reboot.starts_with("ok\r\n")) << reboot;
+    EXPECT_NE(reboot.find("GrblHAL 1.1f"), std::string::npos);
+}
+
 TEST(EndToEnd, AJobRunsToCompletionOnTheSimulatedBoard) {
     runtime::ManualEventLoop loop;
     GrblSimulator sim(loop);

@@ -3,6 +3,8 @@
 // the offscreen platform.
 
 #include "accessibility.hpp"
+#include "accessory_installer.hpp"
+#include "accessory_wizards.hpp"
 #include "calibration_dialogs.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
@@ -35,6 +37,9 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QMessageBox>
+#include <QLineEdit>
+#include <QComboBox>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
@@ -2102,6 +2107,250 @@ TEST_F(AppTest, TheSpindleAndCoolantTabsFollowTheirSettings) {
     machine.setSettings(settings);
     EXPECT_TRUE(waitFor([&] { return !machine.laserMode(); }));
     EXPECT_FALSE(machine.settings().spindleFunctions);
+}
+
+TEST(AccessoryWizards, TheirCommandsFollowTheFirmware) {
+    const auto has = [](const std::vector<std::string>& code, const std::string& line) {
+        return std::find(code.begin(), code.end(), line) != code.end();
+    };
+    // sienciHAL before the ATCi build, grblCore's settings from it.
+    const std::vector<std::string> hal = sienciSpindleCommands(20240417);
+    EXPECT_TRUE(has(hal, "$392=11") && has(hal, "$395=6"));
+    EXPECT_EQ(hal.back(), "$$");
+    const std::vector<std::string> core = sienciSpindleCommands(20250701);
+    EXPECT_TRUE(has(core, "$394=11") && has(core, "$395=2"));
+    EXPECT_EQ(core.back(), "$REBOOT");
+    EXPECT_TRUE(has(sienciSpindleCommands(20260515), "$395=7"));
+    EXPECT_EQ(modbusCommands(20240417), std::vector<std::string>{"$476=2"});
+    EXPECT_EQ(modbusCommands(20250627), (std::vector<std::string>{"$476=2", "$REBOOT"}));
+    EXPECT_EQ(autoSpinCommands(false, false),
+              (std::vector<std::string>{"G4P0.1", "$31=1", "G4P0.1", "$30=31250", "G4P0.1", "$$"}));
+    const std::vector<std::string> slbLite = autoSpinCommands(true, true);
+    EXPECT_TRUE(has(slbLite, "$35 = 32") && has(slbLite, "$36 = 96"));
+    EXPECT_TRUE(has(autoSpinCommands(true, false), "$35 = 30"));
+}
+
+TEST_F(AppTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    const QByteArray screenshots = qgetenv("GS_TEST_SCREENSHOTS");
+    const auto shoot = [&](QWidget& widget, const char* name) {
+        if (!screenshots.isEmpty()) {
+            widget.show();
+            QCoreApplication::processEvents();
+            widget.grab().save(QString::fromLocal8Bit(screenshots) + "/" + name + ".png");
+        }
+    };
+    AccessoryInstallerDialog installer(machine, window.jogger(), accessoryWizards(machine));
+    EXPECT_EQ(installer.wizardTitles(), (QStringList{"Sienci Spindle", "Sienci TLS", "AutoSpin", "Vacuum Table"}));
+    shoot(installer, "accessories_hub");
+    // Not connected: the landing page says why and keeps its configurations shut.
+    ASSERT_TRUE(installer.openWizard("vacuum-table"));
+    ASSERT_FALSE(installer.failedChecks().isEmpty());
+    EXPECT_EQ(installer.failedChecks().front(),
+              "Your controller is not connected.  Connect to your CNC to configure this accessory.");
+    EXPECT_FALSE(installer.startSubWizard("mounting-setup"));
+    shoot(installer, "accessories_landing");
+
+    machine.connectTo(Machine::kSimulatorHalPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.simulator()->setSpeed(50);
+    ASSERT_TRUE(waitFor([&] {
+        return installer.failedChecks() ==
+               QStringList{"Machine not homed. Please home your machine before proceeding with accessory configuration."};
+    }));
+    machine.controller()->home();
+    ASSERT_TRUE(waitFor([&] { return installer.failedChecks().isEmpty(); }, 8000));
+
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    const auto sent = [&](const std::string& line) {
+        return std::find(received.begin(), received.end(), line) != received.end();
+    };
+    const auto click = [](AccessoryInstallerDialog& dialog, const char* name) {
+        QPushButton* button = dialog.page() ? dialog.page()->findChild<QPushButton*>(name) : nullptr;
+        if (button) {
+            button->click();
+        }
+        return button != nullptr;
+    };
+
+    // Vacuum Table: zero at the table's corner, its size, the mounting holes
+    // loaded as the job - which closes the installer.
+    ASSERT_TRUE(installer.startSubWizard("mounting-setup"));
+    EXPECT_EQ(installer.stepTitle(), "Zero Position");
+    EXPECT_EQ(installer.stepCount(), 3);
+    EXPECT_FALSE(installer.canGoNext());
+    ASSERT_TRUE(click(installer, "zeroXY"));
+    ASSERT_TRUE(waitFor([&] { return sent("G10 L20 P0 X0 Y0"); }));
+    ASSERT_TRUE(installer.next());
+    EXPECT_EQ(installer.stepTitle(), "Table Size");
+    ASSERT_TRUE(installer.next());  // a size is always chosen
+    EXPECT_EQ(installer.stepTitle(), "Load to Carve");
+    ASSERT_TRUE(installer.previous());
+    EXPECT_EQ(installer.stepTitle(), "Table Size");
+    ASSERT_TRUE(installer.next());
+    ASSERT_TRUE(click(installer, "loadToVisualizer"));
+    EXPECT_EQ(machine.programName(), "gSender_Vacuum_Table_Mounting_4x8");
+    EXPECT_GT(machine.programText().size(), 80000u);
+    EXPECT_EQ(installer.result(), QDialog::Accepted);
+
+    // Sienci TLS: one configuration and nothing failing - straight in.
+    AccessoryInstallerDialog tls(machine, window.jogger(), accessoryWizards(machine));
+    ASSERT_TRUE(tls.openWizard("sienci-tls"));
+    EXPECT_EQ(tls.stepTitle(), "Tool Change Options");
+    EXPECT_EQ(tls.stepCount(), 4);
+    tls.page()->findChild<QComboBox*>("firstToolBehaviour")->setCurrentText("Always probe length only");
+    ASSERT_TRUE(click(tls, "applyOptions"));
+    EXPECT_EQ(machine.settings().toolChange.option, "Fixed Tool Sensor");
+    EXPECT_EQ(machine.settings().firstToolBehaviour, "Always probe length only");
+    EXPECT_TRUE(machine.settings().moveToManualPosition);
+    EXPECT_EQ(machine.settings().probe.probeFastFeedrate, 1000);
+    ASSERT_TRUE(waitFor([&] { return sent("$6=1") && sent("$668=0"); }));  // an older build: no legacy sensor
+    ASSERT_TRUE(tls.next());
+
+    // The sensor's position: where the machine is; moving away undoes it.
+    EXPECT_EQ(tls.stepTitle(), "Set TLS Location");
+    shoot(tls, "accessories_tls_location");
+    machine.controller()->gcode("G53 G0 X-100 Y-50 Z-10");
+    ASSERT_TRUE(waitFor([&] { return tls.page()->findChild<QLineEdit*>("positionX")->text() == "-100.00"; }));
+    ASSERT_TRUE(waitFor([&] { return tls.page()->findChild<QLineEdit*>("positionZ")->text() == "-10.00"; }));
+    ASSERT_TRUE(click(tls, "setPosition"));
+    EXPECT_EQ(machine.settings().toolChangePosition.x, -100);
+    EXPECT_EQ(machine.settings().toolChangePosition.y, -50);
+    EXPECT_EQ(machine.settings().toolChangePosition.z, -10);
+    ASSERT_TRUE(waitFor([&] { return sent("G21 G10 L2 P9 X-100 Y-50") && sent("$#"); }));
+    EXPECT_TRUE(tls.canGoNext());
+    machine.controller()->gcode("G53 G0 X-90");
+    ASSERT_TRUE(waitFor([&] { return !tls.canGoNext(); }));
+    ASSERT_TRUE(click(tls, "setPosition"));
+    ASSERT_TRUE(tls.next());
+
+    // The manual tool change position: a recommendation to go to.
+    EXPECT_EQ(tls.stepTitle(), "Set Tool Change Location");
+    EXPECT_EQ(tls.page()->findChild<QLineEdit*>("positionX")->text(), "-266.67");
+    EXPECT_EQ(tls.page()->findChild<QLineEdit*>("positionY")->text(), "-533.33");
+    ASSERT_TRUE(click(tls, "goToPosition"));
+    ASSERT_TRUE(waitFor([&] { return sent("G53 G21 G0 Z-1"); }));
+    ASSERT_TRUE(waitFor([&] {
+        return machine.simulator()->activeState() == "Idle" &&
+               std::abs(machine.simulator()->machinePosition()[0] + 800.0 / 3) < 0.01;
+    }));
+    ASSERT_TRUE(click(tls, "setPosition"));
+    EXPECT_NEAR(machine.settings().manualPosition.x, -266.67, 0.01);
+    EXPECT_NEAR(machine.settings().manualPosition.y, -533.33, 0.01);
+    ASSERT_TRUE(tls.next());
+
+    // Continuity: pressing the sensor passes, 1.5 s later.
+    EXPECT_EQ(tls.stepTitle(), "Verify TLS Continuity");
+    EXPECT_TRUE(tls.findChild<QLabel*>("tlsSettings")->text().contains("$668 - Legacy Tool Sensor"));
+    EXPECT_FALSE(tls.canGoNext());
+    const sim::SimAxes at = machine.simulator()->machinePosition();
+    machine.simulator()->setProbeSolids({sim::Solid{{at[0] - 1, at[1] - 1, at[2] - 1}, {at[0] + 1, at[1] + 1, at[2] + 1}}});
+    ASSERT_TRUE(waitFor([&] { return tls.canGoNext(); }));
+    ASSERT_TRUE(tls.next());
+    EXPECT_TRUE(tls.atCompletion());
+    shoot(tls, "accessories_tls_done");
+
+    // Again without the manual position: its step is passed over, and a
+    // sensor pressed from the start is a short.
+    tls.restart();
+    EXPECT_EQ(tls.stepTitle(), "Tool Change Options");
+    tls.page()->findChild<QCheckBox*>("customLocation")->setChecked(false);
+    ASSERT_TRUE(click(tls, "applyOptions"));
+    ASSERT_TRUE(tls.next());
+    ASSERT_TRUE(click(tls, "setPosition"));
+    ASSERT_TRUE(tls.next());
+    EXPECT_EQ(tls.stepTitle(), "Verify TLS Continuity");
+    QPushButton* retry = tls.page()->findChild<QPushButton*>("retryContinuity");
+    ASSERT_TRUE(waitFor([&] { return retry->isVisibleTo(tls.page()); }));
+    machine.simulator()->setProbeSolids({});
+    ASSERT_TRUE(waitFor([&] { return !machine.controller()->state().status.probeActive; }));
+    retry->click();
+    EXPECT_FALSE(retry->isVisibleTo(tls.page()));
+    ASSERT_TRUE(tls.previous());
+    EXPECT_EQ(tls.stepTitle(), "Set TLS Location");
+}
+
+TEST_F(AppTest, TheAutoSpinAndSpindleWizardsConfigureTheBoard) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    machine.connectTo(Machine::kSimulatorHalPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    const std::vector<std::string>& received = machine.simulator()->receivedLines();
+    const auto sent = [&](const std::string& line) {
+        return std::find(received.begin(), received.end(), line) != received.end();
+    };
+    const auto click = [](AccessoryInstallerDialog& dialog, const char* name) {
+        QPushButton* button = dialog.page() ? dialog.page()->findChild<QPushButton*>(name) : nullptr;
+        if (button) {
+            button->click();
+        }
+        return button != nullptr;
+    };
+
+    // AutoSpin: its EEPROM settings (grblHAL, not an SLB Lite), a restart to
+    // ask for, then a test run.
+    AccessoryInstallerDialog autospin(machine, window.jogger(), accessoryWizards(machine));
+    ASSERT_TRUE(autospin.openWizard("autospin"));
+    EXPECT_EQ(autospin.stepTitle(), "AutoSpin EEPROM Configuration");
+    QLabel* preview = autospin.findChild<QLabel*>("commandPreview");
+    ASSERT_NE(preview, nullptr);
+    EXPECT_TRUE(preview->text().contains("$35 = 30"));
+    ASSERT_TRUE(click(autospin, "autospin-apply-settings"));
+    ASSERT_TRUE(waitFor([&] { return autospin.canGoNext(); }));
+    QMessageBox* restart = autospin.findChild<QMessageBox*>("restartController");
+    ASSERT_NE(restart, nullptr);
+    EXPECT_EQ(restart->windowTitle(), "Restart your Controller");
+    restart->close();
+    ASSERT_TRUE(waitFor([&] { return sent("$9 = 1") && sent("$31 = 10000"); }));
+    ASSERT_TRUE(autospin.next());
+    EXPECT_EQ(autospin.stepTitle(), "Test AutoSpin");
+    QSlider* speed = autospin.page()->findChild<QSlider*>("autospin-test-speed");
+    ASSERT_TRUE(waitFor([&] { return speed->minimum() == 10000 && speed->maximum() == 30000; }));
+    EXPECT_EQ(speed->value(), 10000);
+    ASSERT_TRUE(click(autospin, "autospin-start"));
+    ASSERT_TRUE(waitFor([&] { return sent("M3 S10000"); }));
+    EXPECT_TRUE(autospin.canGoNext());
+    // Running: a new speed goes out 300 ms after the last change.
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->runner().modal().spindle == "M3"; }));
+    speed->setValue(15000);
+    ASSERT_TRUE(waitFor([&] { return sent("S15000"); }));
+    ASSERT_TRUE(click(autospin, "autospin-stop"));
+    ASSERT_TRUE(waitFor([&] { return sent("M5"); }));
+    ASSERT_TRUE(autospin.next());
+    EXPECT_TRUE(autospin.atCompletion());
+
+    // Sienci Spindle: the settings for the board's build (an older sienciHAL
+    // here), the spindle controls on, then Modbus.
+    AccessoryInstallerDialog spindle(machine, window.jogger(), accessoryWizards(machine));
+    ASSERT_TRUE(spindle.openWizard("sienci-spindle"));
+    EXPECT_EQ(spindle.stepTitle(), "Spindle Config");
+    EXPECT_TRUE(spindle.findChild<QLabel*>("commandPreview") != nullptr);
+    EXPECT_FALSE(machine.settings().spindleFunctions);
+    ASSERT_TRUE(click(spindle, "ss-setup-spindle-reboot"));
+    EXPECT_TRUE(machine.settings().spindleFunctions);
+    ASSERT_TRUE(waitFor([&] { return spindle.canGoNext() && sent("$392=11") && sent("$395=6"); }));
+    ASSERT_TRUE(spindle.next());
+    EXPECT_EQ(spindle.stepTitle(), "Modbus Configuration");
+    ASSERT_TRUE(click(spindle, "ss-configure-modbus"));
+    ASSERT_TRUE(waitFor([&] { return spindle.canGoNext(); }, 4000));
+    EXPECT_TRUE(sent("$476=2"));
+    EXPECT_FALSE(sent("$REBOOT"));
+    ASSERT_TRUE(spindle.next());
+    EXPECT_TRUE(spindle.atCompletion());
+    EXPECT_TRUE(window.visibleTabs().contains("Spindle/Laser"));
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {

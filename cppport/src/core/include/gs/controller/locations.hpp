@@ -6,6 +6,7 @@
 // component/Parking.tsx, component/GoTo.tsx) and the settings' location
 // input (Config/components/SettingInputs/LocationInput.tsx).
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -61,6 +62,11 @@ struct MachineLocation {  // machine coordinates, mm
 std::vector<std::string> parkCommands(const MachineLocation& park, const LocationSettings& settings);
 // LocationInput's "Go To": the same moves without the G21 words.
 std::vector<std::string> locationCommands(const MachineLocation& location, const LocationSettings& settings);
+// getDefaultToolChangePositionMM() (the TLS wizard): a third of the X
+// travel in from the right side and two thirds of the Y travel back from the
+// front, seen from the homing corner (back right without the homing flag),
+// Z 0; nullopt while $130 or $131 is not reported.
+std::optional<MachineLocation> defaultToolChangePosition(const LocationSettings& settings, bool homingFlag);
 
 // ---- Go To Location (GoTo.tsx) ----
 
