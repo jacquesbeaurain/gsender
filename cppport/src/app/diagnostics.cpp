@@ -47,17 +47,6 @@ QString code(const QString& text) {
     return "<pre style='background:#f3f4f6; font-size:8pt'>" + text.toHtmlEscaped() + "</pre>";
 }
 
-// homingString(): "3 (Front Left)".
-QString homingText(const std::string& mask) {
-    static const char* const kCorners[] = {"Back Right", "Back Left", "Front Right", "Front Left"};
-    const controller::MachineCorner corner = controller::homingCorner(mask);
-    const int index = corner == controller::MachineCorner::BackLeft     ? 1
-                      : corner == controller::MachineCorner::FrontRight ? 2
-                      : corner == controller::MachineCorner::FrontLeft  ? 3
-                                                                        : 0;
-    return esc(mask) + " (" + kCorners[index] + ")";
-}
-
 // Jog presets in the workspace units, "N/A" for none.
 QString jogPreset(const QString& name, const controller::JogSpeeds& speeds, bool metric) {
     const auto step = [metric](double mm) {
@@ -129,7 +118,7 @@ QString diagnosticsReport(Machine& machine, const QStringList& consoleHistory, c
                   connected && homingOn ? Tone::Good : Tone::Bad);
     html += field(QObject::tr("Soft Limits:"), connected ? onOff(eeprom("$20") == "1") : notConnected,
                   connected && eeprom("$20") == "1" ? Tone::Good : Tone::Bad);
-    html += field(QObject::tr("Home Location:"), connected ? homingText(eeprom("$23")) : notConnected,
+    html += field(QObject::tr("Home Location:"), connected ? esc(controller::homingString(eeprom("$23"))) : notConnected,
                   connected ? Tone::Plain : Tone::Bad);
     html += field(QObject::tr("Report Inches:"), connected ? onOff(eeprom("$13") == "1") : notConnected,
                   connected && eeprom("$13") == "1" ? Tone::Good : Tone::Bad);

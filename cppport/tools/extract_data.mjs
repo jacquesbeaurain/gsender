@@ -162,6 +162,23 @@ mkdirSync(outDir, { recursive: true });
     }
 }
 
+// Stats > About: the release notes (the server's api.releasenotes.js serves
+// notes.json), the gSender logo and the flag, compiled into the app as Qt
+// resources (cppport/resources/about).
+{
+    const out = resolve(here, '..', 'resources', 'about');
+    mkdirSync(out, { recursive: true });
+    for (const from of [
+        join(repoRoot, 'src/server/api/notes.json'),
+        join(repoRoot, 'src/app/images/icon-square.png'),
+        join(repoRoot, 'src/app/images/canada-flag-icon.png'),
+    ]) {
+        const to = join(out, basename(from));
+        copyFileSync(from, to);
+        console.log(`copied ${relative(repoRoot, to)}`);
+    }
+}
+
 // Defaults the config store backfills into ~/.sender_rc. They are not
 // exported, so the block declaring them is evaluated on its own; fail loudly
 // if upstream reshapes it.

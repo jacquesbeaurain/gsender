@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace gs::config {
@@ -88,6 +89,7 @@ public:
     bool update(const MaintenanceTask& task);
     bool remove(int id);
     bool markDone(int id);  // its hours start again from 0
+    void resetAll();        // MaintenanceList's Reset All: every task's hours
 
 private:
     ConfigStore& store_;
@@ -119,5 +121,39 @@ public:
 private:
     ConfigStore& store_;
 };
+
+// ---- the Stats page's summaries (features/Stats) ----
+
+// calculateJobStats(): results and cutting times (ms) of some jobs. The
+// average is NaN without jobs (0 / 0), as upstream's.
+struct JobResults {
+    int completeJobs = 0;
+    int incompleteJobs = 0;
+    double totalCutTime = 0;
+    double averageCutTime = 0;
+    double longestCutTime = 0;
+};
+JobResults calculateJobStats(const std::vector<JobRecord>& jobs);
+std::vector<JobRecord> filterJobsByPort(const std::vector<JobRecord>& jobs, std::string_view port);
+// truncatePort(): a port's last six characters, the charts' labels.
+std::string truncatePort(std::string_view port);
+// StatTable's getTimeString(): "1h 2m 3s"; "-" for none.
+std::string statTimeString(double ms);
+// JobPreview's formatDuration(): a Date's ISO time of day, "HH:MM:SS".
+std::string previewDuration(double ms);
+// JobsPerComPort and RunTimePerComPort: the jobs and their milliseconds per
+// port, the ports in the order the jobs meet them.
+std::vector<std::pair<std::string, double>> jobsPerPort(const std::vector<JobRecord>& jobs);
+std::vector<std::pair<std::string, double>> runTimePerPort(const std::vector<JobRecord>& jobs);
+
+// MaintenancePreview: the `limit` tasks with the fewest hours to the end of
+// their range.
+std::vector<MaintenanceTask> upcomingMaintenance(std::vector<MaintenanceTask> tasks, std::size_t limit);
+// MaintenanceList's order (its time column sorted): the urgent tasks, the
+// due ones, then the fewest hours until due.
+std::vector<MaintenanceTask> maintenanceListOrder(std::vector<MaintenanceTask> tasks);
+// MaintenanceTaskForm's checks: the message, empty when fine.
+std::string maintenanceNameProblem(std::string_view name);
+std::string maintenanceRangeProblem(double rangeStart, double rangeEnd);
 
 }  // namespace gs::config

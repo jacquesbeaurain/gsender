@@ -552,11 +552,7 @@ void MainWindow::createMenus() {
         dialog.exec();
     });
     tools->addSeparator();
-    tools->addAction(tr("S&tatistics..."), this, [this] {
-        StatsDialog dialog(machine_, this);
-        connect(&dialog, &StatsDialog::diagnosticsRequested, this, &MainWindow::downloadDiagnostics);
-        dialog.exec();
-    });
+    tools->addAction(tr("S&tats..."), this, [this] { openStats(StatsDialog::Page::Overview); });
     tools->addAction(tr("&Keyboard Shortcuts..."), this, [this] {
         ShortcutsDialog dialog(machine_, this);
         dialog.exec();
@@ -564,12 +560,23 @@ void MainWindow::createMenus() {
 
     QMenu* help = menuBar()->addMenu(tr("&Help"));
     help->addAction(tr("Download &Diagnostic File..."), this, &MainWindow::downloadDiagnostics);
-    help->addAction(tr("&About"), this, [this] {
-        QMessageBox::about(this, tr("About gSender (C++)"),
-                           tr("<b>gSender (C++)</b> %1<p>A native C++/Qt port of gSender, the CNC control "
-                              "software for Grbl and grblHAL by Sienci Labs.</p>")
-                               .arg(QApplication::applicationVersion()));
+    help->addAction(tr("&About"), this, [this] { openStats(StatsDialog::Page::About); });
+}
+
+void MainWindow::openStats(StatsDialog::Page page) {
+    StatsDialog dialog(machine_, this);
+    dialog.showPage(page);
+    connect(&dialog, &StatsDialog::diagnosticsRequested, this, &MainWindow::downloadDiagnostics);
+    // The Configuration card's Change: on to the settings (the Config page).
+    bool configure = false;
+    connect(&dialog, &StatsDialog::configurationRequested, &dialog, [&] {
+        configure = true;
+        dialog.accept();
     });
+    dialog.exec();
+    if (configure) {
+        openSettings(SettingsDialog::Page::General);
+    }
 }
 
 void MainWindow::downloadDiagnostics() {

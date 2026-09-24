@@ -1,6 +1,7 @@
 #pragma once
 
 #include "settings_dialog.hpp"
+#include "stats_dialog.hpp"
 
 #include <QMainWindow>
 
@@ -69,6 +70,7 @@ private:
     // A recent file: loaded again, or forgotten when it has gone.
     void openRecent(const QString& path);
     void openSettings(SettingsDialog::Page page);
+    void openStats(StatsDialog::Page page);
     // The diagnostics support file, saved where the user picks.
     void downloadDiagnostics();
     void installShortcuts();
