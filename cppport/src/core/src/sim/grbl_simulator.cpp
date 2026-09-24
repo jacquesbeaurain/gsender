@@ -122,6 +122,7 @@ void GrblSimulator::open() {
     // A DTR reset reboots the board: position and modes start over, the
     // coordinate offsets (EEPROM) survive.
     open_ = true;
+    homed_ = false;
     timers_.clearAll();
     tickTimer_ = 0;
     ymodemTimer_ = 0;
@@ -161,6 +162,7 @@ void GrblSimulator::close() {
 
 void GrblSimulator::triggerAlarm(int code) {
     sdRun_.reset();
+    homed_ = false;
     flushMotion();
     waiting_.clear();
     syncing_ = false;
@@ -255,6 +257,7 @@ void GrblSimulator::realtime(unsigned char byte) {
             mist_ = flood_ = false;
             if (moving) {
                 state_ = State::Alarm;
+                homed_ = false;  // the position is lost
                 emitText("ALARM:3\r\n");
             } else if (state_ != State::Alarm) {
                 state_ = State::Idle;
@@ -411,6 +414,7 @@ void GrblSimulator::executeSystem(const std::string& line) {
                 mpos_[static_cast<std::size_t>(axis)] = 0;
             } else {
                 mpos_ = {};
+                homed_ = true;
             }
             state_ = State::Idle;
             emitText("ok\r\n");
@@ -434,10 +438,16 @@ void GrblSimulator::executeSystem(const std::string& line) {
         emitText("ok\r\n[MSG:Sleeping]\r\n");
         return;
     }
-    // $n=value
+    // $n=value - the firmware reads the line without its spaces
+    // ("$9 = 1" is "$9=1").
     const std::size_t eq = command.find('=');
     if (eq != std::string::npos && eq > 1) {
-        const std::string key = command.substr(0, eq);
+        std::string key;
+        for (const char c : command.substr(0, eq)) {
+            if (c != ' ' && c != '\t') {
+                key.push_back(c);
+            }
+        }
         const std::string value(str::trim(std::string_view(line).substr(eq + 1)));
         if (!std::isfinite(js::stringToNumber(value))) {
             emitText("error:2\r\n");
@@ -449,6 +459,15 @@ void GrblSimulator::executeSystem(const std::string& line) {
                 emitText("ok\r\n");
                 return;
             }
+        }
+        // grblHAL has hundreds: a numbered one it does not list yet is taken.
+        const bool numbered = key.size() > 1 && std::all_of(key.begin() + 1, key.end(), [](char c) {
+            return c >= '0' && c <= '9';
+        });
+        if (grblHal_ && numbered) {
+            settings_.emplace_back(key, value);
+            emitText("ok\r\n");
+            return;
         }
     }
     emitText("error:3\r\n");
@@ -920,6 +939,9 @@ std::string GrblSimulator::statusReport() const {
     report += "|Ov:" + std::to_string(overrides_[0]) + "," + std::to_string(overrides_[1]) + "," +
               std::to_string(overrides_[2]);
     report += "|WCO:" + axesText(workOffset(), units);
+    if (grblHal_) {
+        report += homed_ ? "|H:1" : "|H:0";
+    }
     if (sdRun_) {
         // grblHAL: the file's progress while it runs.
         const double done = sdRun_->size == 0 ? 100.0
@@ -976,6 +998,11 @@ bool GrblSimulator::executeGrblHal(const std::string& command, const std::string
     static constexpr std::string_view kEmpty[] = {"$ES", "$ESH", "$EG", "$EA", "$EE", "$SPINDLES", "$SPINDLESH"};
     if (std::find(std::begin(kEmpty), std::end(kEmpty), command) != std::end(kEmpty) || command == "$FM") {
         emitText("ok\r\n");
+        return true;
+    }
+    if (command == "$REBOOT") {
+        emitText("ok\r\n");
+        realtime(0x18);
         return true;
     }
     if (command == "$F" || command == "$F+") {

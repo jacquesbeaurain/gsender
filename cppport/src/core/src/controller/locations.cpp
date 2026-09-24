@@ -158,6 +158,23 @@ std::vector<std::string> parkCommands(const MachineLocation& park, const Locatio
     };
 }
 
+std::optional<MachineLocation> defaultToolChangePosition(const LocationSettings& settings, bool homingFlag) {
+    if (settings.xMaxTravel.empty() || settings.yMaxTravel.empty()) {
+        return std::nullopt;
+    }
+    const MachineCorner corner = homingFlag ? homingCorner(settings.homingDirMask) : MachineCorner::BackRight;
+    const bool right = corner == MachineCorner::FrontRight || corner == MachineCorner::BackRight;
+    const bool front = corner == MachineCorner::FrontRight || corner == MachineCorner::FrontLeft;
+    const double xLimit = js::stringToNumber(settings.xMaxTravel);
+    const double yLimit = js::stringToNumber(settings.yMaxTravel);
+    constexpr double kFromRight = 1.0 / 3;  // X_FRAC_FROM_RIGHT
+    constexpr double kFromBack = 2.0 / 3;   // Y_FRAC_FROM_BACK
+    MachineLocation at;
+    at.x = right ? -(xLimit * kFromRight) : xLimit * (1 - kFromRight);
+    at.y = front ? yLimit * (1 - kFromBack) : -(yLimit * kFromBack);
+    return at;
+}
+
 std::vector<std::string> locationCommands(const MachineLocation& location, const LocationSettings& settings) {
     return {
         "G53 G0 Z" + num(topOfZ(settings, settings.pullOffDistance())),

@@ -10,7 +10,7 @@
 
 import { createRequire } from 'node:module';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -137,6 +137,28 @@ mkdirSync(outDir, { recursive: true });
     ]) {
         copyFileSync(join(assets, name), join(images, name));
         console.log(`copied ${relative(repoRoot, join(images, name))}`);
+    }
+}
+
+// Accessory Installation: the wizards' pictures and the vacuum table's
+// programs, compiled into the app as Qt resources (cppport/resources/accessories).
+{
+    const wizards = join(repoRoot, 'src/app/src/features/AccessoryInstaller/Wizards');
+    const out = resolve(here, '..', 'resources', 'accessories');
+    mkdirSync(out, { recursive: true });
+    for (const from of [
+        join(repoRoot, 'src/app/src/components/Wizard/assets/placeholder.png'),
+        join(wizards, 'tls/assets/TLS_Step_01.png'),
+        join(wizards, 'tls/assets/TLS_Step_02.png'),
+        join(wizards, 'tls/assets/TLS_Step_03_Pin.png'),
+        join(wizards, 'autospin/assets/AutoSpin_landing.png'),
+        join(wizards, 'spindle/assets/spindle_image.png'),
+        join(wizards, 'vacuum-table/assets/gcode/4x8HoleMounts.gcode'),
+        join(wizards, 'vacuum-table/assets/gcode/Grids.gcode'),
+    ]) {
+        const to = join(out, basename(from));
+        copyFileSync(from, to);
+        console.log(`copied ${relative(repoRoot, to)}`);
     }
 }
 

@@ -1,6 +1,7 @@
 #include "main_window.hpp"
 
 #include "accessibility.hpp"
+#include "accessory_wizards.hpp"
 
 #include "appearance.hpp"
 #include "calibration_dialogs.hpp"
@@ -537,6 +538,10 @@ void MainWindow::createMenus() {
     });
     tools->addSeparator();
     tools->addAction(tr("SD &Card..."), this, [this] { sdCardDialog().show(); });
+    tools->addAction(tr("&Accessory Installation..."), this, [this] {
+        AccessoryInstallerDialog dialog(machine_, *jogger_, accessoryWizards(machine_), this);
+        dialog.exec();
+    });
     tools->addSeparator();
     tools->addAction(tr("S&tatistics..."), this, [this] {
         StatsDialog dialog(machine_, this);

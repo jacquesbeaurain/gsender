@@ -3,6 +3,10 @@
 add_library(gs_app STATIC
     accessibility.cpp
     accessibility.hpp
+    accessory_installer.cpp
+    accessory_installer.hpp
+    accessory_wizards.cpp
+    accessory_wizards.hpp
     app_settings.cpp
     app_settings.hpp
     appearance.cpp
@@ -73,6 +77,15 @@ if(WIN32)
     target_link_libraries(gs_app PRIVATE winmm)  # PlaySound: the audio cues
 endif()
 set_target_properties(gs_app PROPERTIES AUTOMOC ON)
+# The accessory wizards' pictures and programs (tools/extract_data.mjs),
+# compiled by rcc: too large for the hex embedding the core uses.
+file(GLOB GS_ACCESSORY_FILES CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/resources/accessories/*.png"
+    "${PROJECT_SOURCE_DIR}/resources/accessories/*.gcode")
+qt_add_resources(gs_app accessory_assets
+    PREFIX "/accessories"
+    BASE "${PROJECT_SOURCE_DIR}/resources/accessories"
+    FILES ${GS_ACCESSORY_FILES})
 # Qt's emit/signals/slots macros would collide with plain C++ (and Boost)
 # identifiers in the core headers: use Q_EMIT / Q_SIGNALS / Q_SLOTS.
 target_compile_definitions(gs_app PUBLIC QT_NO_KEYWORDS)
