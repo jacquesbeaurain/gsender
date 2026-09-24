@@ -35,6 +35,8 @@ add_library(gs_app STATIC
     notifications.hpp
     panels.cpp
     panels.hpp
+    pie_chart.cpp
+    pie_chart.hpp
     power.cpp
     power.hpp
     probe_panel.cpp
@@ -92,6 +94,14 @@ qt_add_resources(gs_app accessory_assets
     PREFIX "/accessories"
     BASE "${PROJECT_SOURCE_DIR}/resources/accessories"
     FILES ${GS_ACCESSORY_FILES})
+# Stats > About: the release notes, the logo (also the window icon), the flag.
+qt_add_resources(gs_app about_assets
+    PREFIX "/about"
+    BASE "${PROJECT_SOURCE_DIR}/resources/about"
+    FILES
+        "${PROJECT_SOURCE_DIR}/resources/about/notes.json"
+        "${PROJECT_SOURCE_DIR}/resources/about/icon-square.png"
+        "${PROJECT_SOURCE_DIR}/resources/about/canada-flag-icon.png")
 # Qt's emit/signals/slots macros would collide with plain C++ (and Boost)
 # identifiers in the core headers: use Q_EMIT / Q_SIGNALS / Q_SLOTS.
 target_compile_definitions(gs_app PUBLIC QT_NO_KEYWORDS)

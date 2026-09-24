@@ -135,6 +135,14 @@ TEST(RapidPosition, CornersFromEachHomingCorner) {
     }
 }
 
+TEST(RapidPosition, HomingStringNamesTheCorner) {
+    EXPECT_EQ(homingString("3"), "3 (Front Left)");
+    EXPECT_EQ(homingString("2"), "2 (Front Right)");
+    EXPECT_EQ(homingString("1"), "1 (Back Left)");
+    EXPECT_EQ(homingString("0"), "0 (Back Right)");
+    EXPECT_EQ(homingString("7"), "7 (Back Right)");  // Other
+}
+
 TEST(RapidPosition, ZHomingDownIsNotComputed) {
     EXPECT_EQ(homingCorner("4"), MachineCorner::Other);
     EXPECT_EQ(homingCorner("7"), MachineCorner::Other);

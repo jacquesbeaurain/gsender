@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QIcon>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -53,6 +54,7 @@ int main(int argc, char** argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("gSender (C++)");
     QApplication::setApplicationVersion("0.1.0");
+    QApplication::setWindowIcon(QIcon(":/about/icon-square.png"));  // gSender's logo
 
     QCommandLineParser parser;
     parser.setApplicationDescription("CNC control for Grbl and grblHAL");

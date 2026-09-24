@@ -22,6 +22,9 @@ enum class MachineCorner { BackRight, BackLeft, FrontRight, FrontLeft, Center, O
 // homing upwards is inverted: nothing is computed for it). Unlike the
 // server's homing.js, which reads 4-7 as back right.
 MachineCorner homingCorner(std::string_view homingDirMask);
+// homingString(): the mask with its corner, "3 (Front Left)" (Other reads
+// as back right).
+std::string homingString(std::string_view homingDirMask);
 
 // The firmware settings the corner and park moves read; empty means not
 // reported (upstream reads `undefined`).

@@ -61,6 +61,17 @@ MachineCorner homingCorner(std::string_view homingDirMask) {
     }
 }
 
+std::string homingString(std::string_view homingDirMask) {
+    const char* location = "Back Right";
+    switch (homingCorner(homingDirMask)) {
+        case MachineCorner::BackLeft: location = "Back Left"; break;
+        case MachineCorner::FrontRight: location = "Front Right"; break;
+        case MachineCorner::FrontLeft: location = "Front Left"; break;
+        default: break;
+    }
+    return std::string(homingDirMask) + " (" + location + ")";
+}
+
 WorkRect machineBedWorkRect(std::string_view homingDirMask, double width, double depth, double wcoX, double wcoY) {
     // getAxisMaximumLocation(): from the home corner towards the opposite one.
     double signX = 1;

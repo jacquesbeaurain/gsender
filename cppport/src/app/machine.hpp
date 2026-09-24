@@ -83,6 +83,7 @@ public:
     // job may start meanwhile.
     bool isRunningSdFile() const;
     QString port() const { return port_; }
+    int baudRate() const noexcept { return baudRate_; }  // the connection's
     controller::Controller* controller() const;
     // The console's lines (features/Console's store): what the board said
     // and what was sent, typed; cleared as a connection closes, opened with

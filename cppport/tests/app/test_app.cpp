@@ -16,6 +16,7 @@
 #include "main_window.hpp"
 #include "notifications.hpp"
 #include "panels.hpp"
+#include "pie_chart.hpp"
 #include "probe_panel.hpp"
 #include "qt_event_loop.hpp"
 #include "rotary_panel.hpp"
@@ -1160,11 +1161,17 @@ TEST_F(AppTest, JobsMaintenanceHoursAndAlarmsAreRecordedForTheStatistics) {
     ASSERT_TRUE(waitFor([&] { return recorded == 1; }));  // the job's end
 
     StatsDialog stats(machine);
-    EXPECT_TRUE(stats.totalsText().startsWith("Jobs: 1 - completed 1, stopped 0")) << stats.totalsText().toStdString();
+    // The overview counts the jobs of the connected port.
+    EXPECT_EQ(stats.statRows().front(), "Total jobs run: 1");
+    ASSERT_EQ(stats.resultsChart()->slices().size(), 2u);
+    EXPECT_EQ(stats.resultsChart()->slices()[0].value, 1);  // complete
+    ASSERT_EQ(stats.recentJobs().size(), 1);
+    EXPECT_TRUE(stats.recentJobs().front().startsWith("square.nc | 00:00:")) << stats.recentJobs().front().toStdString();
+    EXPECT_TRUE(stats.recentJobs().front().endsWith(" | Finished"));
     ASSERT_EQ(stats.jobsTable()->rowCount(), 1);
     EXPECT_EQ(stats.jobsTable()->item(0, 0)->text(), "square.nc");
-    EXPECT_EQ(stats.jobsTable()->item(0, 3)->text(), "4");  // the sender's lines: the last one is empty
-    EXPECT_EQ(stats.jobsTable()->item(0, 5)->text(), "Complete");
+    EXPECT_EQ(stats.jobsTable()->item(0, 2)->text(), "4");  // the sender's lines: the last one is empty
+    EXPECT_EQ(stats.jobsTable()->item(0, 4)->toolTip(), "Complete");
     const std::vector<config::MaintenanceTask> tasks = config::MaintenanceStore(machine.config()).list();
     ASSERT_FALSE(tasks.empty());
     EXPECT_GT(tasks[0].currentTime, 0);  // the job's running time
@@ -1173,12 +1180,202 @@ TEST_F(AppTest, JobsMaintenanceHoursAndAlarmsAreRecordedForTheStatistics) {
     // Alarms land in the log, which the open dialog follows.
     machine.simulator()->triggerAlarm(9);
     ASSERT_TRUE(waitFor([&] { return stats.alarmsTable()->rowCount() == 1; }));
-    EXPECT_EQ(stats.alarmsTable()->item(0, 1)->text(), "Alarm");
-    EXPECT_EQ(stats.alarmsTable()->item(0, 2)->text(), "9");
-    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
-        stats.show();
-        stats.grab().save(QString::fromLocal8Bit(out) + "/stats.png");
+    EXPECT_TRUE(stats.alarmsTable()->item(0, 1)->data(Qt::UserRole).toString().startsWith("ALARM 9 - "));
+    ASSERT_EQ(stats.alarmPreview().size(), 1);
+    EXPECT_TRUE(stats.alarmPreview().front().startsWith("ALARM 9 | on 20"));
+}
+
+TEST_F(AppTest, TheStatsPagesSumUpTheMachinesRecord) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    // Two machines' jobs, oldest first, an hour apart.
+    config::JobStatsStore jobs(machine.config());
+    std::int64_t started = 1'790'145'612'345;
+    const auto job = [&](const char* file, const char* port, std::int64_t duration, bool completed) {
+        config::JobRecord record;
+        record.file = file;
+        record.port = port;
+        record.totalLines = 120;
+        record.startTime = started;
+        started += 3'600'000;
+        record.duration = duration;
+        record.completed = completed;
+        jobs.record(record, duration);
+    };
+    job("pocket.nc", "Simulator", 3'723'000, true);
+    job("profile.nc", "COM3", 600'000, false);
+    job("engrave.nc", "Simulator", 61'000, false);
+    job("drill.nc", "COM3", 45'000, true);
+    job("face.nc", "Simulator", 1'200'000, true);
+    job("slot.nc", "COM3", 30'000, true);
+    config::MaintenanceStore maintenance(machine.config());
+    std::vector<config::MaintenanceTask> tasks = maintenance.list();
+    ASSERT_EQ(tasks.size(), 4u);
+    tasks[1].currentTime = 27;  // Due (25 - 30 h)
+    tasks[2].currentTime = 3000;  // Urgent (250 - 300 h)
+    maintenance.save(tasks);
+    config::AlarmRecord alarm;
+    alarm.alarm = false;
+    alarm.code = "20";
+    alarm.message = "Unsupported command";
+    alarm.source = "Console";
+    alarm.line = "G99";
+    alarm.time = 1'790'145'612'345;
+    config::AlarmHistory(machine.config()).record(alarm);
+
+    StatsDialog stats(machine);
+    QStringList asked;
+    bool answer = false;
+    stats.setConfirmer([&](const QString& title, const QString&) {
+        asked << title;
+        return answer;
+    });
+
+    // Disconnected: no results, no configuration.
+    EXPECT_TRUE(stats.resultsChart()->isHidden());
+    EXPECT_EQ(stats.statRows(), (QStringList{"Total jobs run: -", "Total cutting time: -", "Average job time: -",
+                                             "Longest job: -"}));
+    EXPECT_EQ(stats.configurationRows().front(), "Connection: -");
+    // The last five jobs, whatever the port.
+    EXPECT_EQ(stats.recentJobs(), (QStringList{"slot.nc | 00:00:30 | Finished", "face.nc | 00:20:00 | Finished",
+                                               "drill.nc | 00:00:45 | Finished", "engrave.nc | 00:01:01 | Stopped",
+                                               "profile.nc | 00:10:00 | Stopped"}));
+    ASSERT_EQ(stats.upcomingTasks().size(), 3);
+    EXPECT_TRUE(stats.upcomingTasks()[0].endsWith(" | Urgent!")) << stats.upcomingTasks()[0].toStdString();
+    EXPECT_EQ(stats.alarmPreview(), (QStringList{"ERROR 20 | on 2026-09-23T06:40:12.345Z"}));
+
+    // Connected, the simulator's own jobs.
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               stats.configurationRows().front() != "Connection: -";
+    }));
+    ASSERT_TRUE(waitFor([&] { return stats.configurationRows().contains("Home location: 0 (Back Right)"); }))
+        << stats.configurationRows().join(" / ").toStdString();
+    EXPECT_EQ(stats.statRows(), (QStringList{"Total jobs run: 3", "Total cutting time: 1h 23m 4s",
+                                             "Average job time: 0h 27m 41s", "Longest job: 1h 2m 3s"}));
+    ASSERT_EQ(stats.resultsChart()->slices().size(), 2u);
+    EXPECT_EQ(stats.resultsChart()->slices()[0].value, 2);
+    EXPECT_EQ(stats.resultsChart()->slices()[1].value, 1);
+    EXPECT_EQ(stats.configurationRows()[0], "Connection: ulator at 115200 baud");  // the port's last six
+    EXPECT_EQ(stats.configurationRows()[1], "Axes: X, Y, Z");
+    EXPECT_EQ(stats.configurationRows().mid(2), (QStringList{"Soft limits: Disabled", "Homing: Enabled",
+                                                             "Home location: 0 (Back Right)",
+                                                             "Report inches: Disabled"}));
+
+    // Jobs: newest first, searchable, per CNC.
+    QTableWidget* table = stats.jobsTable();
+    ASSERT_EQ(table->rowCount(), 6);
+    EXPECT_EQ(table->item(0, 0)->text(), "slot.nc");
+    EXPECT_EQ(table->item(0, 1)->text(), "00:00:30");
+    EXPECT_EQ(table->item(0, 3)->text(), QDateTime::fromMSecsSinceEpoch(1'790'145'612'345 + 5 * 3'600'000)
+                                             .toString("M/d/yyyy, h:mm:ss AP"));
+    stats.searchJobs("STOPPED");
+    int shown = 0;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        shown += table->isRowHidden(row) ? 0 : 1;
     }
+    EXPECT_EQ(shown, 2);
+    stats.searchJobs("");
+    table->sortByColumn(1, Qt::DescendingOrder);  // by duration
+    EXPECT_EQ(table->item(0, 0)->text(), "pocket.nc");
+    ASSERT_EQ(stats.jobsPerCnc()->slices().size(), 2u);
+    EXPECT_EQ(stats.jobsPerCnc()->slices()[0].label, "COM3");  // the newest job's port first
+    EXPECT_EQ(stats.jobsPerCnc()->slices()[0].value, 3);
+    EXPECT_EQ(stats.jobsPerCnc()->slices()[1].label, "ulator");  // the port's last six characters
+    EXPECT_EQ(stats.runTimePerCnc()->slices()[0].value, 675'000);
+    EXPECT_EQ(stats.runTimePerCnc()->slices()[1].value, 4'984'000);
+    EXPECT_EQ(stats.runTimePerCnc()->toolTipText(0), "<b>COM3</b><br>0.19 hours");
+    EXPECT_EQ(stats.jobsPerCnc()->toolTipText(1), "<b>ulator</b><br>Jobs: 3");
+    const PieChart* chart = stats.jobsPerCnc();
+    stats.showPage(StatsDialog::Page::Jobs);
+    stats.show();
+    ASSERT_TRUE(waitFor([&] { return chart->isVisible(); }));
+    EXPECT_EQ(chart->sliceAt(chart->sliceCenter(0)), 0);
+    EXPECT_EQ(chart->sliceAt(chart->sliceCenter(1)), 1);
+    stats.jobsPerCnc()->toggle(0);  // the legend's click
+    EXPECT_FALSE(chart->isShown(0));
+    EXPECT_EQ(chart->sliceAt(chart->sliceCenter(1)), 1);
+    stats.jobsPerCnc()->toggle(0);
+
+    // Maintenance: urgent first, then due; a reset asks first.
+    QTableWidget* list = stats.tasksTable();
+    ASSERT_EQ(list->rowCount(), 4);
+    const auto taskName = [&](int row) {
+        return list->item(row, 1)->data(Qt::UserRole).toString().section('\n', 0, 0);
+    };
+    EXPECT_EQ(taskName(0), QString::fromStdString(tasks[2].name));
+    EXPECT_EQ(taskName(1), QString::fromStdString(tasks[1].name));
+    const int urgent = tasks[2].id;
+    stats.resetTask(urgent);
+    EXPECT_EQ(asked.back(), "Reset Maintenance Timer");
+    EXPECT_EQ(config::MaintenanceStore(machine.config()).list()[2].currentTime, 3000);  // not confirmed
+    answer = true;
+    stats.resetTask(urgent);
+    EXPECT_EQ(config::MaintenanceStore(machine.config()).list()[2].currentTime, 0);
+    EXPECT_EQ(taskName(0), QString::fromStdString(tasks[1].name));  // now the due one leads
+    stats.searchTasks("belt");
+    for (int row = 0; row < list->rowCount(); ++row) {
+        EXPECT_EQ(list->isRowHidden(row), !list->item(row, 0)->data(Qt::UserRole + 2).toString().contains("belt"));
+    }
+    stats.searchTasks("");
+    stats.resetAllTasks();
+    EXPECT_EQ(asked.back(), "Reset All Tasks");
+    for (const config::MaintenanceTask& task : config::MaintenanceStore(machine.config()).list()) {
+        EXPECT_EQ(task.currentTime, 0);
+    }
+
+    // The task form checks what it is given.
+    MaintenanceTaskDialog form(nullptr, {});
+    form.setName("  ");
+    form.setRange("5", "5");
+    form.submit();
+    EXPECT_EQ(form.result(), QDialog::Rejected);  // not accepted
+    EXPECT_EQ(form.nameError(), "Task name is required");
+    EXPECT_EQ(form.rangeEndError(), "End range must be greater than start range");
+    form.setRange("-1", "5");
+    EXPECT_EQ(form.rangeStartError(), "Start range must be a valid number");  // rechecked as it changes
+    form.setName("Oil the rails");
+    form.setRange("", "8");  // an empty field is 0
+    form.setDescription("Every week");
+    EXPECT_TRUE(form.validate());
+    EXPECT_EQ(form.rangeStartError(), "");
+    const config::MaintenanceTask added = form.task();
+    EXPECT_EQ(added.name, "Oil the rails");
+    EXPECT_EQ(added.rangeStart, 0);
+    EXPECT_EQ(added.rangeEnd, 8);
+    EXPECT_EQ(added.currentTime, 0);
+
+    // Alarms: cleared once confirmed.
+    ASSERT_EQ(stats.alarmsTable()->rowCount(), 1);
+    EXPECT_EQ(stats.alarmsTable()->item(0, 1)->data(Qt::UserRole).toString(),
+              "ERROR 20 - Console\nat " +
+                  QDateTime::fromMSecsSinceEpoch(1'790'145'612'345).toString("M/d/yyyy, h:mm:ss AP") +
+                  "\nUnsupported command\nLine: G99");
+
+    // About: the release notes, newest first.
+    ASSERT_FALSE(stats.releases().isEmpty());
+    EXPECT_TRUE(stats.releases().front().startsWith("1.")) << stats.releases().front().toStdString();
+
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        const std::pair<StatsDialog::Page, const char*> pages[] = {
+            {StatsDialog::Page::Overview, "stats_overview"}, {StatsDialog::Page::Jobs, "stats_jobs"},
+            {StatsDialog::Page::Maintenance, "stats_maintenance"}, {StatsDialog::Page::Alarms, "stats_alarms"},
+            {StatsDialog::Page::About, "stats_about"}};
+        for (const auto& [page, name] : pages) {
+            stats.showPage(page);
+            QApplication::processEvents();
+            stats.grab().save(QString::fromLocal8Bit(out) + "/" + name + ".png");
+        }
+    }
+    stats.clearAlarms();
+    EXPECT_EQ(asked.back(), "Delete History");
+    EXPECT_EQ(stats.alarmsTable()->rowCount(), 0);
+    stats.clearJobHistory();
+    EXPECT_EQ(asked.back(), "Delete Job History");
+    EXPECT_EQ(stats.jobsTable()->rowCount(), 0);
+    EXPECT_EQ(stats.recentJobs(), QStringList{});
 }
 
 TEST_F(AppTest, AStandardReZeroWizardCarriesAJobThroughItsToolChange) {

@@ -10,6 +10,7 @@
 #include <boost/json.hpp>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <filesystem>
 
 using namespace gs;
@@ -119,6 +120,12 @@ TEST_F(HistoryTest, MaintenanceTasksCountTheHoursRun) {
     EXPECT_TRUE(maintenance.remove(0));
     EXPECT_FALSE(maintenance.remove(0));
     EXPECT_EQ(maintenance.list().size(), 4u);
+
+    maintenance.addRunTime(3600 * 1000);
+    maintenance.resetAll();
+    for (const MaintenanceTask& task : maintenance.list()) {
+        EXPECT_EQ(task.currentTime, 0) << task.name;
+    }
 }
 
 TEST(Maintenance, TasksFallDueWithinTheirRange) {
@@ -179,4 +186,77 @@ TEST(HomingRequiredAlarm, IsTheConnectPromptNotAFault) {
     EXPECT_FALSE(isHomingRequiredAlarm(true, "11", false));  // Grbl's alarms stop at 9
     EXPECT_FALSE(isHomingRequiredAlarm(false, "Homing", false));
     EXPECT_FALSE(isHomingRequiredAlarm(true, "1", false));
+}
+
+TEST(StatsPage, JobsAreSummedUpAsCalculateJobStatsDoes) {
+    JobRecord a;
+    a.port = "COM3";
+    a.duration = 60'000;
+    a.completed = true;
+    JobRecord b = a;
+    b.duration = 30'001;
+    b.completed = false;
+    JobRecord c = a;
+    c.port = "/dev/ttyUSB0";
+    c.duration = 3'723'000;
+    JobRecord d = a;
+    d.port = "5";  // an array index: first among an object's keys
+    const std::vector<JobRecord> jobs{a, b, c, d};
+
+    const JobResults all = calculateJobStats(jobs);
+    EXPECT_EQ(all.completeJobs, 3);
+    EXPECT_EQ(all.incompleteJobs, 1);
+    EXPECT_EQ(all.totalCutTime, 3'873'001);
+    EXPECT_EQ(all.averageCutTime, 968'250);  // 968250.25, toFixed(0)
+    EXPECT_EQ(all.longestCutTime, 3'723'000);
+    EXPECT_TRUE(std::isnan(calculateJobStats({}).averageCutTime));
+    EXPECT_EQ(filterJobsByPort(jobs, "COM3").size(), 2u);
+    EXPECT_TRUE(filterJobsByPort(jobs, "COM4").empty());
+
+    EXPECT_EQ(jobsPerPort(jobs), (std::vector<std::pair<std::string, double>>{
+                                     {"5", 1}, {"COM3", 2}, {"/dev/ttyUSB0", 1}}));
+    EXPECT_EQ(runTimePerPort(jobs), (std::vector<std::pair<std::string, double>>{
+                                        {"5", 60'000}, {"COM3", 90'001}, {"/dev/ttyUSB0", 3'723'000}}));
+    EXPECT_EQ(truncatePort("/dev/ttyUSB0"), "tyUSB0");
+    EXPECT_EQ(truncatePort("COM3"), "COM3");
+}
+
+TEST(StatsPage, TimesReadAsUpstreamShowsThem) {
+    EXPECT_EQ(statTimeString(3'723'000), "1h 2m 3s");
+    EXPECT_EQ(statTimeString(968'250), "0h 16m 8s");
+    EXPECT_EQ(statTimeString(59'600), "0h 0m 60s");  // toFixed rounds past the minute
+    EXPECT_EQ(statTimeString(0), "-");
+    EXPECT_EQ(statTimeString(std::nan("")), "-");
+    EXPECT_EQ(previewDuration(3'723'000), "01:02:03");
+    EXPECT_EQ(previewDuration(0), "00:00:00");
+    EXPECT_EQ(previewDuration(90'000'000), "01:00:00");  // a Date's time of day: 25 h wraps
+    EXPECT_EQ(previewDuration(std::nan("")), "-");
+}
+
+TEST(StatsPage, MaintenanceIsOrderedByWhatIsPressing) {
+    const std::vector<MaintenanceTask> tasks{
+        {0, "Low", "", 15, 20, 0},       // 20 h to its end, 15 until due
+        {1, "Due", "", 50, 60, 55},      // 5 h
+        {2, "Urgent", "", 1, 2, 3},      // -1 h
+        {3, "Later", "", 100, 200, 0},   // 200 h, 100 until due
+        {4, "Due too", "", 5, 100, 50},  // 50 h
+    };
+    const auto names = [](const std::vector<MaintenanceTask>& list) {
+        std::vector<std::string> out;
+        for (const MaintenanceTask& task : list) {
+            out.push_back(task.name);
+        }
+        return out;
+    };
+    EXPECT_EQ(names(upcomingMaintenance(tasks, 3)), (std::vector<std::string>{"Urgent", "Due", "Low"}));
+    EXPECT_EQ(upcomingMaintenance(tasks, 6).size(), 5u);
+    EXPECT_EQ(names(maintenanceListOrder(tasks)),
+              (std::vector<std::string>{"Urgent", "Due", "Due too", "Low", "Later"}));
+
+    EXPECT_EQ(maintenanceNameProblem(" \t"), "Task name is required");
+    EXPECT_EQ(maintenanceNameProblem("Oil the rails"), "");
+    EXPECT_EQ(maintenanceRangeProblem(-1, 5), "Start range must be a valid number");
+    EXPECT_EQ(maintenanceRangeProblem(1, std::nan("")), "End range must be a valid number");
+    EXPECT_EQ(maintenanceRangeProblem(5, 5), "End range must be greater than start range");
+    EXPECT_EQ(maintenanceRangeProblem(0, 1), "");
 }

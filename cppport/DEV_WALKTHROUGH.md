@@ -951,11 +951,9 @@ the same, in upstream's JSON shapes (the config file's `jobStats`,
   is neither recorded nor reported as an error - the status area offers
   homing instead.
 
-Tools > Statistics shows the three: the job list (newest first) with the
-totals and "Clear Job History"; the maintenance tasks with Add, Edit, Mark
-Done (hours back to 0) and Delete; the alarm and error log (newest first)
-with Clear. Tests cover the stores (dates, counters, due states) and a job
-and an alarm on the simulator reaching the open dialog.
+Tools > Stats shows them (upstream's pages since Step 57). Tests cover the
+stores (dates, counters, due states) and a job and an alarm on the
+simulator reaching the open dialog.
 
 ## Step 35 — Recent files, macro import/export
 
@@ -1583,3 +1581,53 @@ Deviations: the pop-out is a window of the app showing the same log
 port); upstream's toasts are the port's notifications; the list is a
 QPlainTextEdit rather than a virtualized list, rebuilt when the filter
 changes.
+
+## Step 57 — The Stats pages (`src/app/stats_dialog`, `pie_chart`)
+
+Tools > Stats (and Help > About, on its last page) follows features/Stats
+page by page, with the StatMenu as tabs along the bottom:
+
+- **Overview** - "Your Machine": the connected port's jobs
+  (StatsProvider's filteredJobs; nothing while disconnected) as a
+  Complete/Incomplete pie and the StatTable (total jobs run, total cutting
+  time, average job time, longest job, as getTimeString's "1h 2m 3s"; the
+  average rounded with toFixed(0)); the five most recent jobs of any port
+  (JobPreview: the ISO time of day of the duration, Finished/Stopped);
+  upcoming maintenance (the three nearest the end of their range, their
+  hours until due and Urgent!/Due/Soon/Low); the configuration (the machine
+  profile, the connection - the port's last six characters at its baud
+  rate, or the IP address -, the axes, soft limits, homing, the home
+  location as homingString's "0 (Back Right)", report inches; "-" while
+  disconnected). "Get Help": the diagnostic file, the Resources / Community
+  / Github links, the latest four alarms and errors ("on" their stored ISO
+  time, as upstream shows it). The cards' links go to the Jobs,
+  Maintenance and Alarms pages, and Change to the settings.
+- **Jobs**: the history, newest first, sortable by any column and
+  searched through the records' raw values as SortableTable's
+  includesString filter does (so "stopped" finds the stopped jobs), Clear
+  with its confirmation; beside it jobs and run time per CNC (a pie and a
+  doughnut, the ports in the order the newest jobs meet them, labelled by
+  their last six characters).
+- **Maintenance**: the tasks in upstream's order - the time column sorted
+  alphanumerically, inverted and descending leaves the urgent ones first,
+  then the due ones, then the fewest hours until due -, searchable (the
+  description too), each with its check mark (reset its timer, confirmed)
+  and pencil (Edit Task: Save, Cancel, Delete confirmed); Add New Task and
+  Reset All; the six nearest tasks beside. The task form checks as
+  upstream's (a name; ranges that are numbers, not negative, the end after
+  the start; an empty field reads as 0).
+- **Alarms**: the log (type, code and source, the time, the message, the
+  line), the diagnostic file, and Clear Alarms & Errors (confirmed).
+- **About**: the logo, version, copyright, the licence, the team and the
+  release notes - upstream's `notes.json`, rendered as the Markdown upstream
+  builds from it. The logo is also the application's window icon
+  (`resources/about`, copied by extract_data.mjs, compiled in by rcc).
+
+The charts are `PieChart`, a QPainter take on Chart.js's pie and doughnut
+(clockwise from the top, white slice borders, the legend above with a
+click to hide a slice, the tooltip "<label>: <value>") - the LibPack has no
+Qt Charts. Deviations: the run time per CNC's tooltip gives hours (upstream
+labels the milliseconds "hours"); editing a task checks the form as adding
+does (upstream saves it unchecked); the job history scrolls rather than
+paging (SortableTable's 15 per page); the About page carries the port's
+version and has no update check.

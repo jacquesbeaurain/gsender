@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
 
 namespace gs::config {
 namespace {
@@ -290,6 +291,14 @@ bool MaintenanceStore::remove(int id) {
     return true;
 }
 
+void MaintenanceStore::resetAll() {
+    std::vector<MaintenanceTask> tasks = list();
+    for (MaintenanceTask& task : tasks) {
+        task.currentTime = 0;
+    }
+    save(tasks);
+}
+
 bool MaintenanceStore::markDone(int id) {
     std::vector<MaintenanceTask> tasks = list();
     for (MaintenanceTask& task : tasks) {
@@ -372,6 +381,151 @@ void AlarmHistory::clear() {
     json::object o = objectAt(store_, "alarmList");
     o["list"] = json::array();
     store_.set("alarmList", std::move(o));
+}
+
+// ---- the Stats page's summaries ---------------------------------------------------------------
+
+JobResults calculateJobStats(const std::vector<JobRecord>& jobs) {
+    JobResults results;
+    for (const JobRecord& job : jobs) {
+        const auto duration = static_cast<double>(job.duration);
+        results.totalCutTime += duration;
+        ++(job.completed ? results.completeJobs : results.incompleteJobs);
+        results.longestCutTime = std::max(results.longestCutTime, duration);
+    }
+    // Number((totalCutTime / jobs.length).toFixed(0))
+    results.averageCutTime =
+        jobs.empty() ? std::nan("")
+                     : js::stringToNumber(js::toFixed(results.totalCutTime / static_cast<double>(jobs.size()), 0));
+    return results;
+}
+
+std::vector<JobRecord> filterJobsByPort(const std::vector<JobRecord>& jobs, std::string_view port) {
+    std::vector<JobRecord> matching;
+    std::copy_if(jobs.begin(), jobs.end(), std::back_inserter(matching),
+                 [port](const JobRecord& job) { return job.port == port; });
+    return matching;
+}
+
+std::string truncatePort(std::string_view port) {
+    return std::string(port.size() > 6 ? port.substr(port.size() - 6) : port);
+}
+
+std::string statTimeString(double ms) {
+    if (ms == 0 || std::isnan(ms)) {
+        return "-";
+    }
+    const double seconds = ms / 1000;
+    const double hours = std::floor(seconds / 3600);
+    const double minutes = std::floor(std::fmod(seconds, 3600) / 60);
+    const double remaining = js::stringToNumber(js::toFixed(std::fmod(std::fmod(seconds, 3600), 60), 0));
+    return js::numberToString(hours) + "h " + js::numberToString(minutes) + "m " + js::numberToString(remaining) +
+           "s";
+}
+
+std::string previewDuration(double ms) {
+    constexpr double kMaxTime = 8.64e15;  // a Date's range
+    if (!std::isfinite(ms) || std::abs(ms) > kMaxTime) {
+        return "-";  // upstream's toISOString() throws
+    }
+    constexpr std::int64_t kDay = 86'400'000;
+    const auto t = static_cast<std::int64_t>(std::trunc(ms));
+    const std::int64_t ofDay = ((t % kDay) + kDay) % kDay;
+    char out[16];
+    std::snprintf(out, sizeof out, "%02d:%02d:%02d", static_cast<int>(ofDay / 3'600'000),
+                  static_cast<int>(ofDay / 60'000 % 60), static_cast<int>(ofDay / 1000 % 60));
+    return out;
+}
+
+namespace {
+
+// A JavaScript object's keys: array indices first, ascending, then the rest
+// as they were added.
+bool isArrayIndex(const std::string& key) {
+    if (key.empty() || key.size() > 10 || (key.size() > 1 && key[0] == '0') ||
+        !std::all_of(key.begin(), key.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+        return false;
+    }
+    return std::stoull(key) < 4'294'967'295ULL;
+}
+
+std::vector<std::pair<std::string, double>> perPort(const std::vector<JobRecord>& jobs,
+                                                    double (*amount)(const JobRecord&)) {
+    std::vector<std::pair<std::string, double>> totals;
+    for (const JobRecord& job : jobs) {
+        const auto found = std::find_if(totals.begin(), totals.end(), [&](const auto& t) { return t.first == job.port; });
+        if (found == totals.end()) {
+            totals.emplace_back(job.port, amount(job));
+        } else {
+            found->second += amount(job);
+        }
+    }
+    std::stable_partition(totals.begin(), totals.end(), [](const auto& t) { return isArrayIndex(t.first); });
+    const auto indices = std::find_if(totals.begin(), totals.end(), [](const auto& t) { return !isArrayIndex(t.first); });
+    std::sort(totals.begin(), indices,
+              [](const auto& a, const auto& b) { return std::stoull(a.first) < std::stoull(b.first); });
+    return totals;
+}
+
+}  // namespace
+
+std::vector<std::pair<std::string, double>> jobsPerPort(const std::vector<JobRecord>& jobs) {
+    return perPort(jobs, [](const JobRecord&) { return 1.0; });
+}
+
+std::vector<std::pair<std::string, double>> runTimePerPort(const std::vector<JobRecord>& jobs) {
+    return perPort(jobs, [](const JobRecord& job) { return static_cast<double>(job.duration); });
+}
+
+std::vector<MaintenanceTask> upcomingMaintenance(std::vector<MaintenanceTask> tasks, std::size_t limit) {
+    std::stable_sort(tasks.begin(), tasks.end(), [](const MaintenanceTask& a, const MaintenanceTask& b) {
+        return a.rangeEnd - a.currentTime < b.rangeEnd - b.currentTime;
+    });
+    if (tasks.size() > limit) {
+        tasks.resize(limit);
+    }
+    return tasks;
+}
+
+std::vector<MaintenanceTask> maintenanceListOrder(std::vector<MaintenanceTask> tasks) {
+    // The column holds the hours to go, "Due" or the urgent mark (no text);
+    // sorted alphanumerically, inverted and descending: no text, then text,
+    // then numbers ascending.
+    const auto rank = [](const MaintenanceTask& task) {
+        if (task.currentTime < task.rangeStart) {
+            return 2;
+        }
+        return task.currentTime <= task.rangeEnd ? 1 : 0;
+    };
+    std::stable_sort(tasks.begin(), tasks.end(), [&](const MaintenanceTask& a, const MaintenanceTask& b) {
+        const int ra = rank(a);
+        const int rb = rank(b);
+        if (ra != rb) {
+            return ra < rb;
+        }
+        return ra == 2 && hoursUntilDue(a) < hoursUntilDue(b);
+    });
+    return tasks;
+}
+
+std::string maintenanceNameProblem(std::string_view name) {
+    const bool blank = std::all_of(name.begin(), name.end(), [](char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+    });
+    return blank ? "Task name is required" : std::string();
+}
+
+std::string maintenanceRangeProblem(double rangeStart, double rangeEnd) {
+    if (std::isnan(rangeStart) || rangeStart < 0) {
+        return "Start range must be a valid number";
+    }
+    if (std::isnan(rangeEnd) || rangeEnd < 0) {
+        return "End range must be a valid number";
+    }
+    if (rangeEnd <= rangeStart) {
+        return "End range must be greater than start range";
+    }
+    return {};
 }
 
 }  // namespace gs::config
