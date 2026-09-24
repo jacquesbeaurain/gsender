@@ -9,27 +9,28 @@
 
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDialogButtonBox>
-#include <QToolButton>
-#include <QFile>
-#include <QDateTime>
-#include <QDoubleSpinBox>
-#include <QFontDatabase>
 #include <QDate>
+#include <QDateTime>
+#include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QFile>
 #include <QFileDialog>
+#include <QFontDatabase>
 #include <QFormLayout>
-#include <QMessageBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTableWidget>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <charconv>
@@ -187,9 +188,11 @@ FirmwareSettingsTable::FirmwareSettingsTable(Machine& machine, QWidget* parent)
             return;
         }
         const bool changed = item->text().trimmed() != item->data(Qt::UserRole).toString();
-        QFont font = item->font();
-        font.setBold(changed);
-        item->setFont(font);
+        for (QTableWidgetItem* marked : {item, table_->item(item->row(), kSetting)}) {
+            QFont font = marked->font();
+            font.setBold(changed);
+            marked->setFont(font);
+        }
         refreshButtons();
     });
     connect(&machine_, &Machine::settingsChanged, this, &FirmwareSettingsTable::reload);
@@ -228,15 +231,44 @@ void FirmwareSettingsTable::reload() {
             // fill the gaps.
             const auto number = settingNumber(name);
             const auto own = number ? settings.descriptions.find(*number) : settings.descriptions.end();
+            QStringList labels;  // bits or choices
+            int kind = -1;
             if (own != settings.descriptions.end()) {
                 units = QString::fromStdString(own->second.unit);
                 description = QString::fromStdString(own->second.description);
                 dataType = own->second.dataType;
+                kind = dataType;
+                for (const std::string& entry : own->second.format) {
+                    labels << QString::fromStdString(entry);
+                }
             } else if (const protocol::SettingInfo* info = tables.setting(name)) {
                 units = QString::fromStdString(info->units);
                 description = QString::fromStdString(info->message);
                 if (!info->description.empty() && info->description != info->message) {
                     description += " - " + QString::fromStdString(info->description);
+                }
+                // The static tables' input types, as SettingsDescriptions
+                // maps them (a status report mask is a switch).
+                const std::string& type = info->inputType;
+                kind = type == "switch" || type == "mask-status-report" ? 0
+                       : type == "axis-mask"                             ? 4
+                       : type == "select"                                ? 3
+                       : type == "mask"                                  ? 1
+                                                                          : -1;
+                if (const boost::json::value* values = info->raw.if_contains("values");
+                    values && values->is_object()) {
+                    for (const auto& [key, label] : values->as_object()) {
+                        labels << QString::fromStdString(label.is_string() ? std::string(label.as_string())
+                                                                           : std::string(key));
+                    }
+                }
+            }
+            if (kind == 4) {
+                // The machine's axes (Grbl's three).
+                const std::string letters = c->state().axes.letters.empty() ? "XYZ" : c->state().axes.letters;
+                labels.clear();
+                for (const char letter : letters) {
+                    labels << QString(QChar(letter));
                 }
             }
             const std::optional<std::string> fallback = config::defaultValue(profile, board, name);
@@ -260,6 +292,7 @@ void FirmwareSettingsTable::reload() {
             table_->setItem(row, kUnits, unit);
             table_->setItem(row, kDefault, standard);
             table_->setItem(row, kDescription, text);
+            addValueEditor(row, kind, labels);
             if (!isDefault) {
                 for (QTableWidgetItem* item : {key, current, unit, standard, text}) {
                     item->setBackground(kChanged);
@@ -280,11 +313,87 @@ void FirmwareSettingsTable::reload() {
             }
         }
         table_->resizeColumnsToContents();
+        table_->setColumnWidth(kValue, std::max(table_->columnWidth(kValue), 170));
         table_->horizontalHeader()->setSectionResizeMode(kDescription, QHeaderView::Stretch);
     }
     loading_ = false;
     applyFilter();
     refreshButtons();
+}
+
+void FirmwareSettingsTable::addValueEditor(int row, int kind, const QStringList& labels) {
+    QTableWidgetItem* item = table_->item(row, kValue);
+    const bool edited = kind == 0 || ((kind == 1 || kind == 2 || kind == 3 || kind == 4) && !labels.isEmpty());
+    if (!edited) {
+        return;
+    }
+    // The editor shows the value; the cell keeps it (for Write changes).
+    item->setForeground(Qt::transparent);
+    item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+    const auto current = [item] { return static_cast<long long>(js::stringToNumber(item->text().toStdString())); };
+    const auto write = [this, item](const QString& value) {
+        if (item->text() != value) {
+            item->setText(value);  // itemChanged marks the change
+        }
+    };
+    if (kind == 0) {
+        // BooleanInput
+        auto* box = new QCheckBox;
+        box->setChecked(current() != 0);
+        box->setStyleSheet("QCheckBox { margin-left: 6px; }");
+        connect(box, &QCheckBox::toggled, this, [write](bool on) { write(on ? "1" : "0"); });
+        table_->setCellWidget(row, kValue, box);
+    } else if ((kind == 1 || kind == 2 || kind == 4) && !labels.isEmpty()) {
+        // BitfieldInput / ExclusiveBitfieldInput / AxisMaskInput: the bits
+        // on a menu, the sum on the button.
+        auto* button = new QToolButton;
+        button->setPopupMode(QToolButton::InstantPopup);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        auto* menu = new QMenu(button);
+        std::vector<QAction*> bits;
+        for (int bit = 0; bit < labels.size(); ++bit) {
+            QAction* action = menu->addAction(labels[bit]);
+            action->setCheckable(true);
+            bits.push_back(action);
+        }
+        button->setMenu(menu);
+        const auto show = [button, bits, current, kind] {
+            const long long value = current();
+            QStringList on;
+            for (std::size_t bit = 0; bit < bits.size(); ++bit) {
+                const bool set = (value >> bit) & 1;
+                bits[bit]->setChecked(set);
+                // Exclusive: the other bits only count with the first set.
+                bits[bit]->setEnabled(kind != 2 || bit == 0 || (value & 1));
+                if (set) {
+                    on << bits[bit]->text();
+                }
+            }
+            button->setText(QString("%1  %2").arg(value).arg(on.isEmpty() ? QStringLiteral("-") : on.join(", ")));
+        };
+        for (std::size_t bit = 0; bit < bits.size(); ++bit) {
+            connect(bits[bit], &QAction::toggled, this, [write, current, bit, show](bool on) {
+                const long long mask = 1LL << bit;
+                const long long value = on ? (current() | mask) : (current() & ~mask);
+                write(QString::number(value));
+                show();
+            });
+        }
+        show();
+        table_->setCellWidget(row, kValue, button);
+    } else if (kind == 3 && !labels.isEmpty()) {
+        // RadioButtonInput: the choice's index is the value.
+        auto* choice = new QComboBox;
+        choice->addItems(labels);
+        const long long value = current();
+        choice->setCurrentIndex(value >= 0 && value < labels.size() ? static_cast<int>(value) : -1);
+        connect(choice, &QComboBox::currentIndexChanged, this, [write](int index) {
+            if (index >= 0) {
+                write(QString::number(index));
+            }
+        });
+        table_->setCellWidget(row, kValue, choice);
+    }
 }
 
 int FirmwareSettingsTable::modifiedCount() const {

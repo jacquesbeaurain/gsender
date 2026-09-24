@@ -1313,3 +1313,11 @@ them into `{}`) and what the Config page does with them:
   ProbePinStatus): the X/Y/Z/A limit switches beside the Firmware tab's
   filters and the probe pin on the Probe tab, lit while the status report
   lists them (`PinIndicators`).
+- Typed value editors as upstream's EEPROM inputs, by grblHAL's own data
+  types ($ES) or the static tables' input types for Grbl (SettingsDescriptions'
+  mapping: a status report mask is a switch): switches as check boxes, bit
+  fields and axis masks as a menu of the bits (the sum and the bits set on
+  the button; an exclusive bit field's other bits need the first), choices as
+  a list whose index is the value. They write through the row's cell, so
+  Write changes sends them with the typed ones; a pending change marks the
+  setting's name bold.

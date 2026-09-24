@@ -50,6 +50,10 @@ private:
     void apply();
     void refreshButtons();
     void applyFilter();
+    // The value's editor by upstream's data types (grblHAL's own, or the
+    // static tables' input types): 0 switch, 1 bit field, 2 exclusive bit
+    // field, 3 choice, 4 axis mask; others are typed into the cell.
+    void addValueEditor(int row, int kind, const QStringList& labels);
 
     Machine& machine_;
     QComboBox* profile_;

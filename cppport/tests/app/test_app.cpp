@@ -32,8 +32,10 @@
 #include <boost/json.hpp>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMenu>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QToolButton>
@@ -1200,6 +1202,25 @@ TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
         dialog.grab().save(QString::fromLocal8Bit(out) + "/settings_firmware.png");
     }
+
+    // Typed editors: a switch writes 0/1, an axis mask's bits add up.
+    int softLimits = -1;
+    int directions = -1;
+    for (int row = 0; row < table->rowCount(); ++row) {
+        softLimits = table->item(row, 0)->text() == "$20" ? row : softLimits;
+        directions = table->item(row, 0)->text() == "$3" ? row : directions;
+    }
+    ASSERT_GE(softLimits, 0);
+    ASSERT_GE(directions, 0);
+    auto* toggle = qobject_cast<QCheckBox*>(table->cellWidget(softLimits, 1));
+    ASSERT_NE(toggle, nullptr);
+    toggle->setChecked(!toggle->isChecked());
+    EXPECT_EQ(table->item(softLimits, 1)->text(), toggle->isChecked() ? "1" : "0");
+    auto* mask = qobject_cast<QToolButton*>(table->cellWidget(directions, 1));
+    ASSERT_NE(mask, nullptr);
+    ASSERT_GE(mask->menu()->actions().size(), 3);  // X Y Z
+    mask->menu()->actions()[1]->setChecked(!mask->menu()->actions()[1]->isChecked());
+    EXPECT_EQ((table->item(directions, 1)->text().toInt() & 2) != 0, mask->menu()->actions()[1]->isChecked());
 
     // Against the machine profile's defaults (the default LongMill MK2
     // 30x30 - the simulator is no LongMill): the changed ones filter out.
