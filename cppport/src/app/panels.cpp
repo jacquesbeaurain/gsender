@@ -54,6 +54,7 @@ ConnectionBar::ConnectionBar(Machine& machine, QWidget* parent) : QWidget(parent
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(6, 6, 6, 6);
     ports_ = new QComboBox;
+    ports_->setObjectName("connectionPorts");
     ports_->setEditable(true);  // also accepts an IP address
     ports_->setMinimumWidth(260);
     ports_->setToolTip(tr("Serial port, IP address of a networked board, or the built-in simulator"));
@@ -79,6 +80,7 @@ ConnectionBar::ConnectionBar(Machine& machine, QWidget* parent) : QWidget(parent
     connect(connect_, &QPushButton::clicked, this, &ConnectionBar::toggleConnection);
     connect(&machine_, &Machine::connectionChanged, this, &ConnectionBar::updateState);
     connect(&machine_, &Machine::stateChanged, this, &ConnectionBar::updateState);
+    connect(&machine_, &Machine::appSettingsChanged, this, &ConnectionBar::updateEthernetEntry);
     refreshPorts();
     // Preselect what was used last.
     const AppSettings& settings = machine_.settings();
@@ -108,9 +110,20 @@ void ConnectionBar::refreshPorts() {
         }
         ports_->addItem(label, QString::fromStdString(port.path));
     }
+    ports_->addItem(QString());
+    updateEthernetEntry();
     const int index = ports_->findText(previous);
     // The first serial port, else the Grbl simulator.
     ports_->setCurrentIndex(index >= 0 ? index : (ports.empty() ? 0 : 2));
+}
+
+void ConnectionBar::updateEthernetEntry() {
+    // PortListings' Ethernet entry, always last: the board at "Connect to IP".
+    const AppSettings& settings = machine_.settings();
+    const QString ip = QString::fromStdString(settings.ethernetAddress());
+    const int index = ports_->count() - 1;
+    ports_->setItemText(index, tr("%1 - Ethernet (port %2)").arg(ip).arg(settings.networkPort));
+    ports_->setItemData(index, ip);
 }
 
 void ConnectionBar::toggleConnection() {

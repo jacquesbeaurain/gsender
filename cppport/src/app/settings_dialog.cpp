@@ -559,6 +559,23 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     firmware_->setToolTip(tr("Assumed when a connected board does not identify itself"));
     networkPort_ = new QSpinBox;
     networkPort_->setRange(1, 65535);
+    networkPort_->setToolTip(tr("The port exposed by the controller for Ethernet connectivity. (Used when "
+                                "attempting to connect over Ethernet, Default 23)"));
+    auto* ipRow = new QHBoxLayout;
+    for (std::size_t i = 0; i < ethernetIp_.size(); ++i) {
+        if (i > 0) {
+            ipRow->addWidget(new QLabel("."));
+        }
+        ethernetIp_[i] = new QSpinBox;
+        ethernetIp_[i]->setRange(0, 255);
+        ethernetIp_[i]->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        ethernetIp_[i]->setAlignment(Qt::AlignCenter);
+        ethernetIp_[i]->setObjectName(QString("ethernetIp%1").arg(i));
+        ethernetIp_[i]->setToolTip(tr("IP address used to connect to CNCs over Ethernet and other network "
+                                      "scanning. (Default 192.168.5.1)"));
+        ipRow->addWidget(ethernetIp_[i]);
+    }
+    ipRow->addStretch(1);
     units_ = new QComboBox;
     units_->addItems({tr("Millimetres (mm)"), tr("Inches (in)")});
     decimals_ = new QSpinBox;
@@ -592,7 +609,8 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     generalForm->addRow(tr("Spindle delay"), spindleDelay_);
     generalForm->addRow(QString(), lineWarnings_);
     generalForm->addRow(tr("Default firmware"), firmware_);
-    generalForm->addRow(tr("Network port"), networkPort_);
+    generalForm->addRow(tr("Connect to IP"), ipRow);
+    generalForm->addRow(tr("Ethernet port"), networkPort_);
     safeRetract_ = new QDoubleSpinBox;
     safeRetract_->setRange(0, 200);
     safeRetract_->setDecimals(2);
@@ -1166,6 +1184,9 @@ void SettingsDialog::load() {
     aAxis_->setChecked(s.preferences.useAaxisForGrbl);
     firmware_->setCurrentIndex(s.defaultFirmware == protocol::Firmware::GrblHal ? 1 : 0);
     networkPort_->setValue(s.networkPort);
+    for (std::size_t i = 0; i < ethernetIp_.size(); ++i) {
+        ethernetIp_[i]->setValue(s.ethernetIp[i]);
+    }
     units_->setCurrentIndex(s.metric ? 0 : 1);
     decimals_->setValue(s.customDecimalPlaces);
     safeRetract_->setValue(s.safeRetractHeight);
@@ -1295,6 +1316,9 @@ void SettingsDialog::save() {
     s.preferences.useAaxisForGrbl = aAxis_->isChecked();
     s.defaultFirmware = firmware_->currentIndex() == 1 ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     s.networkPort = networkPort_->value();
+    for (std::size_t i = 0; i < ethernetIp_.size(); ++i) {
+        s.ethernetIp[i] = ethernetIp_[i]->value();
+    }
     s.metric = units_->currentIndex() == 0;
     s.customDecimalPlaces = decimals_->value();
     s.safeRetractHeight = safeRetract_->value();

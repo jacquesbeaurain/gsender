@@ -423,7 +423,9 @@ The UI talks to the core directly (no socket layer):
   signals. A link is never destroyed inside its own callback: teardown is
   queued.
 - Panels (`panels.hpp`): connection bar (ports, recognized boards first, the
-  simulator, or an IP address), position readout with zeroing/home/unlock/
+  simulator, the Ethernet board at Settings' "Connect to IP" and "Ethernet
+  port" - upstream's widgets.connection.ip, 192.168.5.1, and ethernetPort,
+  23 -, or a typed IP address), position readout with zeroing/home/unlock/
   reset, jogging (click = step via `$J=`, hold = continuous through the jog
   streamer), console with history, and the job panel (load/close, start/
   pause/resume/stop, progress, remaining time, file statistics).
