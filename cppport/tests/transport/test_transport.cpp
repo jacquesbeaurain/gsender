@@ -3,6 +3,7 @@
 
 #include "gs/controller/session.hpp"
 #include "gs/transport/asio_link.hpp"
+#include "gs/transport/ftp_upload.hpp"
 #include "gs/transport/port_list.hpp"
 
 #include <boost/asio.hpp>
@@ -13,10 +14,13 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <istream>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace gs;
 using namespace gs::transport;
@@ -307,6 +311,177 @@ TEST(AsioLink, FeedsASessionThatIdentifiesTheFirmware) {
     server.write("\r\nGrbl 1.1h ['$' for help]\r\n");
     EXPECT_TRUE(pump.runUntil([&] { return session.controller() != nullptr; }));
     EXPECT_EQ(session.firmware(), protocol::Firmware::Grbl);
+}
+
+// ---- FTP uploads ------------------------------------------------------------------------------
+
+// grblHAL's FTP server as far as an upload needs it: one session, passive
+// data connections on the loopback interface.
+class FakeFtpServer {
+public:
+    explicit FakeFtpServer(std::string password = "grblHAL")
+        : password_(std::move(password)), acceptor_(io_, tcp::endpoint(asio::ip::address_v4::loopback(), 0)) {
+        thread_ = std::thread([this] { serve(); });
+    }
+    ~FakeFtpServer() {
+        boost::system::error_code ec;
+        acceptor_.close(ec);
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+    }
+
+    std::uint16_t port() const { return acceptor_.local_endpoint().port(); }
+    // After the session (joins the server).
+    const std::map<std::string, std::string>& files() {
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+        return files_;
+    }
+    const std::vector<std::string>& commands() {
+        if (thread_.joinable()) {
+            thread_.join();
+        }
+        return commands_;
+    }
+
+private:
+    void serve() {
+        boost::system::error_code ec;
+        tcp::socket control(io_);
+        acceptor_.accept(control, ec);
+        if (ec) {
+            return;
+        }
+        const auto say = [&](std::string_view text) { asio::write(control, asio::buffer(text.data(), text.size()), ec); };
+        say("220-grblHAL FTP\r\n220 ready\r\n");
+        asio::streambuf buffer;
+        std::optional<tcp::acceptor> passive;
+        while (true) {
+            asio::read_until(control, buffer, "\r\n", ec);
+            if (ec) {
+                return;
+            }
+            std::istream in(&buffer);
+            std::string line;
+            std::getline(in, line);
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            commands_.push_back(line);
+            if (line.starts_with("USER ")) {
+                say("331 Password required\r\n");
+            } else if (line.starts_with("PASS ")) {
+                say(line.substr(5) == password_ ? "230 Logged in\r\n" : "530 Login incorrect.\r\n");
+            } else if (line == "TYPE I") {
+                say("200 Type set to I\r\n");
+            } else if (line == "PASV") {
+                passive.emplace(io_, tcp::endpoint(asio::ip::address_v4::loopback(), 0));
+                const std::uint16_t data = passive->local_endpoint().port();
+                say("227 Entering Passive Mode (127,0,0,1," + std::to_string(data / 256) + "," +
+                    std::to_string(data % 256) + ")\r\n");
+            } else if (line.starts_with("STOR ") && passive) {
+                say("150 Opening data connection\r\n");
+                tcp::socket data(io_);
+                passive->accept(data, ec);
+                std::string received;
+                std::array<char, 4096> chunk{};
+                while (true) {
+                    const std::size_t n = data.read_some(asio::buffer(chunk), ec);
+                    received.append(chunk.data(), n);
+                    if (ec) {
+                        break;
+                    }
+                }
+                files_[line.substr(5)] = received;
+                passive.reset();
+                say("226 Transfer complete\r\n");
+            } else if (line == "QUIT") {
+                say("221 Bye\r\n");
+                return;
+            } else {
+                say("502 Not implemented\r\n");
+            }
+        }
+    }
+
+    std::string password_;
+    asio::io_context io_;
+    tcp::acceptor acceptor_;
+    std::thread thread_;
+    std::map<std::string, std::string> files_;
+    std::vector<std::string> commands_;
+};
+
+struct UploadWatch {
+    FtpUploader::Callbacks callbacks() {
+        return {[this] { ++started; }, [this](int percent) { progress.push_back(percent); },
+                [this] { ++completed; }, [this](const std::string& message) { failures.push_back(message); }};
+    }
+    bool done() const { return completed + static_cast<int>(failures.size()) > 0; }
+
+    int started = 0;
+    std::vector<int> progress;
+    int completed = 0;
+    std::vector<std::string> failures;
+};
+
+TEST(FtpUpload, SendsTheFilesToTheBoardsCard) {
+    Pump pump;
+    FakeFtpServer server;
+    FtpUploader uploader(pump.dispatcher());
+    UploadWatch watch;
+    std::string big;
+    for (int i = 0; big.size() < 40000; ++i) {
+        big += "G1 X" + std::to_string(i % 100) + " Y" + std::to_string(i % 70) + "\n";
+    }
+    ASSERT_TRUE(uploader.upload({"127.0.0.1", server.port()}, {{"job.nc", big}, {"empty.nc", ""}}, watch.callbacks()));
+    EXPECT_TRUE(uploader.active());
+    EXPECT_FALSE(uploader.upload({"127.0.0.1", server.port()}, {}, watch.callbacks()));  // one at a time
+    ASSERT_TRUE(pump.runUntil([&] { return watch.done(); }, 10s));
+    EXPECT_TRUE(watch.failures.empty()) << watch.failures.front();
+    EXPECT_EQ(watch.started, 1);
+    EXPECT_EQ(watch.completed, 1);
+    EXPECT_FALSE(uploader.active());
+    ASSERT_GE(watch.progress.size(), 3u);  // job.nc in 16 KB pieces, then empty.nc
+    EXPECT_EQ(watch.progress[0], 40);
+    EXPECT_EQ(watch.progress.back(), 100);
+    const std::map<std::string, std::string>& files = server.files();
+    ASSERT_EQ(files.size(), 2u);
+    EXPECT_EQ(files.at("job.nc"), big);
+    EXPECT_EQ(files.at("empty.nc"), "");
+    const std::vector<std::string>& commands = server.commands();
+    EXPECT_EQ(std::vector<std::string>(commands.begin(), commands.begin() + 3),
+              (std::vector<std::string>{"USER grblHAL", "PASS grblHAL", "TYPE I"}));
+    EXPECT_EQ(commands.back(), "QUIT");
+}
+
+TEST(FtpUpload, ARefusedLoginOrNoServerFails) {
+    Pump pump;
+    {
+        FakeFtpServer server("secret");
+        FtpUploader uploader(pump.dispatcher());
+        UploadWatch watch;
+        ASSERT_TRUE(uploader.upload({"127.0.0.1", server.port()}, {{"job.nc", "G0 X1\n"}}, watch.callbacks()));
+        ASSERT_TRUE(pump.runUntil([&] { return watch.done(); }, 10s));
+        ASSERT_EQ(watch.failures.size(), 1u);
+        EXPECT_EQ(watch.failures[0], "FTP upload to 127.0.0.1 failed: 530 Login incorrect.");
+        EXPECT_EQ(watch.completed, 0);
+    }
+    // Nothing listens on a port just freed.
+    std::uint16_t closed = 0;
+    {
+        asio::io_context io;
+        tcp::acceptor probe(io, tcp::endpoint(asio::ip::address_v4::loopback(), 0));
+        closed = probe.local_endpoint().port();
+    }
+    FtpUploader uploader(pump.dispatcher());
+    UploadWatch watch;
+    ASSERT_TRUE(uploader.upload({"127.0.0.1", closed, "grblHAL", "grblHAL", 3000}, {{"job.nc", "x"}}, watch.callbacks()));
+    ASSERT_TRUE(pump.runUntil([&] { return watch.done(); }, 10s));
+    ASSERT_EQ(watch.failures.size(), 1u);
+    EXPECT_TRUE(watch.failures[0].starts_with("FTP upload to 127.0.0.1 failed: ")) << watch.failures[0];
 }
 
 }  // namespace

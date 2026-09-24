@@ -12,6 +12,7 @@
 #include "gs/util/units.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 #include "gs/transport/asio_link.hpp"
+#include "gs/transport/ftp_upload.hpp"
 
 #include <QDateTime>
 #include <QTimeZone>
@@ -204,6 +205,27 @@ bool Machine::isConnected() const {
 void Machine::startSession(controller::DeviceLink& link) {
     controller::ControllerHooks hooks = config::makeControllerHooks(config_);
     hooks.preferences = preferences_;
+    // SD card uploads to a networked grblHAL (GrblHALFTP).
+    hooks.ftpUpload = [this](controller::FtpUploadRequest request, controller::UploadCallbacks callbacks) {
+        if (!ftp_) {
+            ftp_ = std::make_unique<transport::FtpUploader>(
+                [this](std::function<void()> fn) { loop_.post(std::move(fn)); });
+        }
+        std::vector<transport::FtpFile> files;
+        for (protocol::YModemFile& file : request.files) {
+            files.push_back({std::move(file.name), std::move(file.data)});
+        }
+        transport::FtpOptions options;
+        options.host = request.host;
+        options.port = static_cast<std::uint16_t>(request.port);
+        options.user = request.user;
+        options.password = request.password;
+        if (!ftp_->upload(std::move(options), std::move(files),
+                          {callbacks.started, callbacks.progress, callbacks.completed, callbacks.failed}) &&
+            callbacks.failed) {
+            callbacks.failed("An upload is already running.");
+        }
+    };
     session_ = std::make_unique<controller::Session>(
         loop_, link, controller::SessionOptions{settings_.defaultFirmware}, std::move(hooks),
         [this](const controller::ControllerEvent& event) { handle(event); });

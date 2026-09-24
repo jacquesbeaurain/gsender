@@ -1343,8 +1343,8 @@ SOH (upstream means a short last block to go as SOH, but its test reads
 the size of the whole buffer).
 
 The controller's "ymodem:uploadFiles" (`sdUpload`): mount ($FM), then after
-1.5 s, if the card is mounted, the upload - over a network connection
-upstream uses FTP, not ported yet (an error says so). While it runs nothing
+1.5 s, if the card is mounted, the upload - over FTP on a network
+connection (Step 52). While a YMODEM upload runs nothing
 else is written (no status or parser state polls), and from the first
 header the session hands the board's bytes to the upload instead of
 splitting lines (upstream swaps its line reader for a byte reader). Events:
@@ -1445,3 +1445,22 @@ keys are its own; the summary's units come from the controller status's
 file's own units. The summary's active axes are listed X, Y, Z, A rather
 than in the order the file first uses them (the port's interpreter keeps
 them as a set of flags).
+
+## Step 52 — SD card uploads over FTP (`gs/transport/ftp_upload`)
+
+A grblHAL board reached over the network takes SD card uploads over FTP
+(server/lib/GrblHALFTP.js, basic-ftp): the controller asks the
+application's `ftpUpload` hook for the board's address
+(`DeviceLink::networkHost`), port $308 (21 when unset) and user/password
+"grblHAL"; the Machine hands it to a `transport::FtpUploader`, which on a
+thread of its own logs in, sets binary mode and per file opens a passive
+data connection (to the control connection's address, whatever the PASV
+reply names), STORs it, sends it in 16 KB pieces - the file's progress in
+percent - and waits for 226; QUIT at the end. Each exchange has 10 s. The
+same ymodem:* events report it (started, progress, complete - the card
+listed again 150 ms later - or failed: "FTP upload to <host> failed:
+<the server's reply or the socket error>"). The serial link stays free:
+polling goes on, as upstream. Deviations: upstream's FTP errors are
+unhandled promise rejections (nothing reported) and its progress divides
+the overall bytes by the current transfer's (100 % or more); the port
+reports failures and each file's own progress.

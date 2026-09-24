@@ -44,6 +44,8 @@ public:
     virtual bool isOpen() const = 0;
     virtual void send(std::string_view bytes, SendKind kind) = 0;
     virtual bool isNetwork() const { return false; }
+    // The board's address on a network connection (its FTP server's too).
+    virtual std::string networkHost() const { return {}; }
 };
 
 // User preferences the controller consults ("preferences" in gSender's store).
@@ -69,11 +71,28 @@ struct ToolChangeContext {
     std::optional<std::map<std::string, std::string>> mappings;
 };
 
+// An SD card upload to a networked grblHAL goes over FTP, which the
+// application's transport does (GrblHALFTP.js): where to, and what.
+struct FtpUploadRequest {
+    std::string host;
+    int port = 21;  // $308
+    std::string user = "grblHAL";
+    std::string password = "grblHAL";
+    std::vector<protocol::YModemFile> files;
+};
+struct UploadCallbacks {
+    std::function<void()> started;
+    std::function<void(int percent)> progress;
+    std::function<void()> completed;
+    std::function<void(const std::string& message)> failed;
+};
+
 struct ControllerHooks {
     std::function<std::optional<Macro>(std::string_view id)> findMacro;
     EventTrigger::Lookup findEvent;
     std::function<void(const std::string& commands)> runSystemCommands;
     std::function<void()> unloadFile;  // engine.unload(): forget the loaded file
+    std::function<void(FtpUploadRequest request, UploadCallbacks callbacks)> ftpUpload;
     std::shared_ptr<Preferences> preferences;
 };
 
@@ -224,8 +243,9 @@ public:
     void sdRun(const std::string& path);
     void sdDelete(const std::string& path);
     // "ymodem:uploadFiles": mounts the card and 1.5 s later, when it is
-    // mounted, sends the files over YMODEM; the Y* events tell how it goes.
-    // (Network connections upload over FTP upstream - not ported yet.)
+    // mounted, sends the files over YMODEM - over FTP on a network
+    // connection ($308's port, the hooks' ftpUpload); the Y* events tell
+    // how it goes either way.
     void sdUpload(std::vector<protocol::YModemFile> files);
     // While an upload runs nothing else is written: no status or parser
     // state polls.
@@ -306,6 +326,9 @@ private:
     std::unique_ptr<JogStreamer> jogStreamer_;
     std::unique_ptr<ToolChanger> toolChanger_;
     std::unique_ptr<protocol::YModemSender> ymodem_;
+    // Callbacks from outside the event loop's timers (an FTP upload) check
+    // it: none reaches a destroyed controller.
+    std::shared_ptr<int> alive_ = std::make_shared<int>(0);
     EventTrigger eventTrigger_;
 
     expr::Value sharedContext_ = expr::Value::object();
