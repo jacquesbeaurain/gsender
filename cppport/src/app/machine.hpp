@@ -7,6 +7,7 @@
 // the UI thread; the transport and the program analysis report back to it.
 
 #include "app_settings.hpp"
+#include "console_log.hpp"
 
 #include "gs/config/config_store.hpp"
 #include "gs/config/history.hpp"
@@ -83,6 +84,10 @@ public:
     bool isRunningSdFile() const;
     QString port() const { return port_; }
     controller::Controller* controller() const;
+    // The console's lines (features/Console's store): what the board said
+    // and what was sent, typed; cleared as a connection closes, opened with
+    // a banner.
+    ConsoleLog& consoleLog() noexcept { return *consoleLog_; }
 
     // ---- program ----
     // Loads a file from disk and lists it among the recent files.
@@ -325,11 +330,13 @@ private:
     QtEventLoop& loop_;
     config::ConfigStore config_;
     std::shared_ptr<controller::Preferences> preferences_;
+    ConsoleLog* consoleLog_;
     std::unique_ptr<transport::AsioLink> link_;
     std::unique_ptr<transport::FtpUploader> ftp_;  // SD card uploads to networked grblHAL
     std::unique_ptr<sim::GrblSimulator> simulator_;
     std::unique_ptr<controller::Session> session_;
     QString port_;
+    int baudRate_ = 115200;
     bool connecting_ = false;
     AppSettings settings_;
 

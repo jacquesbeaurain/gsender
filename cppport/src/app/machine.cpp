@@ -169,7 +169,8 @@ Toolpath traceToolpath(const std::string& program) {
 }
 
 Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent)
-    : QObject(parent), loop_(loop), preferences_(std::make_shared<controller::Preferences>()) {
+    : QObject(parent), loop_(loop), preferences_(std::make_shared<controller::Preferences>()),
+      consoleLog_(new ConsoleLog(this)) {
     config::validateAndRepair(configFile);
     config_.onError = [this](const std::string& message) {
         Q_EMIT errorReported(tr("Configuration"), QString::fromStdString(message));
@@ -231,6 +232,11 @@ void Machine::startSession(controller::DeviceLink& link) {
         [this](const controller::ControllerEvent& event) { handle(event); });
     session_->onController = [this](controller::Controller& c, bool) {
         connecting_ = false;
+        // The console's banner for the connection.
+        consoleLog_->write(QString("gSender - [%1]").arg(QString::fromStdString(std::string(protocol::firmwareName(c.firmware())))),
+                           ConsoleType::System);
+        consoleLog_->write(QString("Connected to %1 with a baud rate of %2").arg(port_).arg(baudRate_),
+                           ConsoleType::System);
         c.setToolChangeContext(settings_.toolChange);
         // A grblHAL board learns whether the workspace is in rotary mode.
         if (c.isGrblHal()) {
@@ -244,6 +250,7 @@ void Machine::startSession(controller::DeviceLink& link) {
 void Machine::connectTo(const QString& port, int baudRate, int networkPort) {
     teardown();
     port_ = port;
+    baudRate_ = baudRate;
     connecting_ = true;
     Q_EMIT connectionChanged();
 
@@ -307,6 +314,8 @@ void Machine::connectTo(const QString& port, int baudRate, int networkPort) {
 }
 
 void Machine::teardown() {
+    // Each connection starts with a clean console.
+    consoleLog_->clear();
     if (session_) {
         session_->closed();
         session_.reset();
@@ -951,8 +960,24 @@ void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, in
 void Machine::handle(const controller::ControllerEvent& event) {
     using namespace controller;
     std::visit(Overloaded{
-                   [this](const ConsoleOutput& e) { Q_EMIT consoleLine(QString::fromStdString(e.text), false); },
-                   [this](const ConsoleInput& e) { Q_EMIT consoleLine(QString::fromStdString(e.text), true); },
+                   [this](const ConsoleOutput& e) {
+                       const QString text = QString::fromStdString(e.text);
+                       const QString line = text.trimmed();
+                       consoleLog_->write(line, classifyRead(line));
+                       Q_EMIT consoleLine(text, false);
+                   },
+                   [this](const ConsoleInput& e) {
+                       const QString text = QString::fromStdString(e.text);
+                       // Other than printable ASCII shows as \xNN.
+                       QString line;
+                       for (const QChar c : text.trimmed()) {
+                           line += c.unicode() >= 0x20 && c.unicode() <= 0x7E
+                                       ? QString(c)
+                                       : QString("\\x%1").arg(static_cast<int>(c.unicode()), 0, 16);
+                       }
+                       consoleLog_->write(line, classifyWrite(e.source));
+                       Q_EMIT consoleLine(text, true);
+                   },
                    [this](const StateChanged&) { Q_EMIT stateChanged(); },
                    // The DRO's corner, park and MCS moves follow these.
                    [this](const HasHomedChanged&) { Q_EMIT stateChanged(); },
