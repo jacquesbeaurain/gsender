@@ -834,6 +834,37 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     spindleForm->addRow(tr("Laser X offset"), laserX_);
     spindleForm->addRow(tr("Laser Y offset"), laserY_);
     spindleForm->addRow(QString(), laserOutline_);
+    // The sections' wizards: test buttons (SpindleWizard, LaserWizard,
+    // AccessoryOutputWizard).
+    const auto testRow = [this](std::initializer_list<std::pair<QString, const char*>> buttons) {
+        auto* row = new QHBoxLayout;
+        for (const auto& [label, command] : buttons) {
+            if (!command) {
+                row->addSpacing(12);
+                continue;
+            }
+            auto* button = new QPushButton(label);
+            button->setToolTip(QString::fromLatin1(command));
+            connect(button, &QPushButton::clicked, this, [this, command] {
+                if (controller::Controller* c = machine_.controller()) {
+                    c->gcode(command);
+                }
+            });
+            row->addWidget(button);
+        }
+        row->addStretch(1);
+        return row;
+    };
+    spindleForm->addRow(tr("Test spindle"),
+                        testRow({{tr("For"), "M3 S1000"}, {tr("Rev"), "M4 S1000"}, {tr("Stop"), "M5 S0"}}));
+    spindleForm->addRow(tr("Test laser"), testRow({{tr("Laser On"), "G1F1 M3 S1"}, {tr("Laser Off"), "M5 S0"}}));
+    spindleForm->addRow(tr("Accessory outputs"), testRow({{"M3", "M3"},
+                                                          {"M4", "M4"},
+                                                          {"M5", "M5"},
+                                                          {QString(), nullptr},
+                                                          {"M7", "M7"},
+                                                          {"M8", "M8"},
+                                                          {"M9", "M9"}}));
     tabs_->addTab(spindleLaser, tr("Spindle/Laser"));
 
     // The touch plate profile and the Probe widget's settings (gSender's
