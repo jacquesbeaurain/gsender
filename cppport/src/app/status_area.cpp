@@ -194,6 +194,7 @@ StatusArea::StatusArea(Machine& machine, QWidget* parent) : QWidget(parent), mac
     big.setPointSizeF(big.pointSizeF() * 1.6);
     state_->setFont(big);
     help_ = new QToolButton;
+    help_->setObjectName("alarmHelp");
     help_->setText("?");
     help_->setToolTip(tr("What this alarm means"));
     connect(help_, &QToolButton::clicked, this, &StatusArea::showAlarmHelp);
@@ -340,8 +341,9 @@ void StatusArea::showAlarmHelp() {
         return;
     }
     const std::string& code = c->state().status.alarmCode;
-    QMessageBox::information(window(), tr("Alarm Code %1").arg(QString::fromStdString(code)),
-                             machine_.alarmDescription(code));
+    Q_EMIT alarmHelpRequested(tr("Alarm Code %1").arg(QString::fromStdString(code)),
+                              machine_.alarmDescription(code).toHtmlEscaped(),
+                              "https://resources.sienci.com/view/gs-gsender-grbl-alarm-error-codes/#alarms");
 }
 
 void StatusArea::toggleMachineInfo() {

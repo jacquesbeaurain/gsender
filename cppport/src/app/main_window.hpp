@@ -10,6 +10,7 @@ namespace gs::app {
 class AccessibilityAnnouncer;
 class ConsolePanel;
 class FocusRing;
+class HelperInfo;
 class KeyboardMapOverlay;
 class Jogger;
 class Machine;
@@ -56,6 +57,8 @@ public:
     FocusRing& focusRing() noexcept { return *focusRing_; }
     // The job summary shown above the visualizer ("Show summary visually").
     class QLabel& jobSummary() noexcept { return *summaryBox_; }
+    HelperInfo& helper() noexcept { return *helper_; }  // the Helper's info panel
+    StatusArea& statusArea() noexcept { return *statusArea_; }
 
 protected:
     void closeEvent(QCloseEvent* event) override;  // workspace.promptExit
@@ -65,6 +68,9 @@ private:
     void showError(const QString& title, const QString& detail);
     // A message that needs reading (a message box, unless dialogs are off).
     void showMessage(const QString& title, const QString& detail);
+    // The Helper's info panel with `html`, the text also in the status bar
+    // and the console.
+    void showHelper(const QString& title, const QString& html);
     void createMenus();
     void openFile();
     // A recent file: loaded again, or forgotten when it has gone.
@@ -92,6 +98,7 @@ private:
     SdCardDialog* sdCard_ = nullptr;
     AccessibilityAnnouncer* announcer_;
     class QLabel* summaryBox_;
+    HelperInfo* helper_ = nullptr;
     KeyboardMapOverlay* keyboardMap_ = nullptr;
     FocusRing* focusRing_;
     bool generalEffects_ = true;  // the platform's UI effects, before reduced motion

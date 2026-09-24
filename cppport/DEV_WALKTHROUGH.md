@@ -1260,6 +1260,12 @@ More of upstream's Basics and Visualizer settings, on Settings > General
   pauses the running job (the controller's preference) and, for any error
   the board reports, the Invalid Line helper names the code and the line:
   "Press Start to resume the job".
+- These warnings and the alarm's "?" (AlarmDescriptionIcon: the alarm's
+  explanation with upstream's alarm and error codes page) open the
+  Helper's info panel (`HelperInfo`, pubsub's 'helper:info'): a card over
+  the top left of the main window - a third of its width, its bottom a
+  third of the way down, orange-bordered - that blocks nothing and stays
+  until closed or replaced. The QR code of the resource link is left out.
 
 ## Step 45 — Visualizer options: themes, bounding box, machine bed, follow tool
 
@@ -1596,8 +1602,9 @@ mark and colour (MessageIcon), and has the toolbar's filters - All,
 G-code, Responses, System, Faults (warnings, errors, alarms) - Copy (the
 last 50 lines of the raw stream whatever the filter, "Copied last N
 commands to clipboard"), Clear ("Console cleared") and Pop Out. The view
-follows new lines while at the bottom and otherwise offers "Scroll to
-latest message". The command line keeps the last 300 commands
+follows new lines while at the bottom - kept as a state, as Virtuoso's
+followOutput, so a resize (the window laying out) leaves it at the bottom -
+and otherwise offers "Scroll to latest message". The command line keeps the last 300 commands
 (MAX_TERMINAL_INPUT_ARRAY_SIZE), shared with the pop-out, walked with Up
 and Down. Without a machine the output reads "Not connected to a device".
 

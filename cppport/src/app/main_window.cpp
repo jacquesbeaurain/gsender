@@ -5,6 +5,7 @@
 
 #include "appearance.hpp"
 #include "diagnostics.hpp"
+#include "helper_info.hpp"
 #include "calibration_dialogs.hpp"
 #include "console_panel.hpp"
 #include "controls.hpp"
@@ -144,19 +145,26 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     };
     connect(&machine_, &Machine::notice, this, announce(NotificationType::Info));
     connect(&machine_, &Machine::successNotice, this, announce(NotificationType::Success));
+    // The Helper's info panel: the alarm's explanation, and the warnings
+    // below.
+    helper_ = new HelperInfo(central);
+    connect(statusArea_, &StatusArea::alarmHelpRequested, helper_, &HelperInfo::showInfo);
     // "Warn if bad file": the invalid lines of a loaded file.
     connect(&machine_, &Machine::invalidLinesFound, this, [this](int count, const QStringList& sample) {
-        QString detail = tr("Detected %1 invalid lines on file load. Your job may not run correctly.\n\n"
-                            "Sample invalid lines found include:")
-                             .arg(count);
+        QString html = "<p>" +
+                       tr("Detected %1 invalid lines on file load. Your job may not run correctly.").arg(count) +
+                       "</p><p>" + tr("Sample invalid lines found include:") + "</p><p>";
         for (const QString& line : sample) {
-            detail += "\n- " + line;
+            html += "-<b> " + line.toHtmlEscaped() + "</b><br>";
         }
-        showMessage(tr("Invalid Lines Detected"), detail);
+        showHelper(tr("Invalid Lines Detected"), html + "</p>");
     });
+    // "Warn on bad line".
     connect(&machine_, &Machine::lineWarning, this, [this](const QString& code, const QString& line) {
-        showMessage(tr("Invalid Line"),
-                    tr("The following line caused an error %1: '%2'\n\nPress Start to resume the job.").arg(code, line));
+        showHelper(tr("Invalid Line"), "<p>" +
+                                           tr("The following line caused an <b>error %1</b>: <i>'%2'</i>")
+                                               .arg(code, line.toHtmlEscaped()) +
+                                           "</p><p>" + tr("Press Start to resume the job.") + "</p>");
     });
     // Power saving: the display kept awake unless sleeping is allowed; and
     // the application dark or not.
@@ -684,6 +692,13 @@ void MainWindow::showError(const QString& title, const QString& detail) {
     statusBar()->showMessage(text, 15000);
     machine_.consoleLog().write(title + ": " + detail, ConsoleType::Error);
     notifications_->add(text, NotificationType::Error);
+}
+
+void MainWindow::showHelper(const QString& title, const QString& html) {
+    helper_->showInfo(title, html);
+    const QString text = helper_->description();
+    statusBar()->showMessage(title + ": " + text.section('\n', 0, 0), 15000);
+    machine_.consoleLog().write(title + ": " + text, ConsoleType::System);
 }
 
 void MainWindow::showMessage(const QString& title, const QString& detail) {
