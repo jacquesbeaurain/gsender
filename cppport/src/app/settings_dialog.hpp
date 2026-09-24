@@ -123,6 +123,7 @@ private:
     QCheckBox* warnBadFile_;
     QComboBox* visualizerTheme_;
     QCheckBox* darkMode_;
+    QComboBox* projection_;
     QCheckBox* showBoundingBox_;
     QCheckBox* boundingBoxLabels_;
     QCheckBox* showMachineBed_;

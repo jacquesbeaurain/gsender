@@ -158,7 +158,21 @@ QPointF ToolpathCanvas::project(const Point3& p) const {
     const double x = p.x - target_.x, y = p.y - target_.y, z = p.z - target_.z;
     const double rx = rotation_[0] * x + rotation_[1] * y + rotation_[2] * z;
     const double ry = rotation_[3] * x + rotation_[4] * y + rotation_[5] * z;
-    return {width() / 2.0 + pan_.x() + rx * scale_, height() / 2.0 + pan_.y() - ry * scale_};
+    double f = 1;
+    if (perspective_) {
+        // A camera `cameraDistance_` from the target: nearer is bigger
+        // (depth towards the viewer is the rotation's third row).
+        const double rz = rotation_[6] * x + rotation_[7] * y + rotation_[8] * z;
+        f = cameraDistance_ / std::max(cameraDistance_ - rz, cameraDistance_ * 0.05);
+    }
+    return {width() / 2.0 + pan_.x() + rx * scale_ * f, height() / 2.0 + pan_.y() - ry * scale_ * f};
+}
+
+void ToolpathCanvas::setPerspective(bool perspective) {
+    if (perspective_ != perspective) {
+        perspective_ = perspective;
+        update();
+    }
 }
 
 void ToolpathCanvas::setFlat(bool flat) {
@@ -207,6 +221,8 @@ void ToolpathCanvas::fit() {
     pan_ = {};
     const gcode::BoundingBox box = contentBounds().value_or(gcode::BoundingBox{{0, 0, 0, 0}, {100, 100, 0, 0}});
     target_ = {(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2};
+    // The perspective camera stands back four times the content's size.
+    cameraDistance_ = 4 * std::max({100.0, box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z});
     // Fit the projected corners of the box, with a margin.
     double extentX = 1, extentY = 1;
     for (int i = 0; i < 8; ++i) {
@@ -457,6 +473,7 @@ void ToolpathView::toggleLiteMode() {
 void ToolpathView::applySettings() {
     const AppSettings& settings = machine_.settings();
     setTheme(visualizerTheme(QString::fromStdString(settings.visualizerTheme)));
+    setPerspective(settings.perspective);
     lite_->setChecked(settings.liteMode);
     lite_->adjustSize();
     lite_->move(width() - lite_->width() - 8, 8);

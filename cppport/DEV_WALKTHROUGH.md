@@ -1257,9 +1257,10 @@ Settings > General gains upstream's Visualizer options (kept and imported):
 - **Follow tool during runtime**: while a job runs the camera stays over the
   tool, keeping its angle and scale.
 
-The bed is sized from the selected machine profile (Step 48). Deviation:
-the camera stays orthographic (upstream's default Perspective projection is
-not ported).
+The bed is sized from the selected machine profile (Step 48). **Camera
+projection** (widgets.visualizer.projection): Perspective, upstream's
+default - a camera four times the content's size away, nearer points
+larger - or Orthographic.
 
 ## Step 46 — Settings backups
 

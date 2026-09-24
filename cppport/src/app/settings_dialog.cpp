@@ -681,6 +681,12 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     darkMode_->setToolTip(tr("The application in dark colours."));
     generalForm->addRow(QString(), darkMode_);
     generalForm->addRow(tr("Visualizer theme"), visualizerTheme_);
+    projection_ = new QComboBox;
+    projection_->addItems({"Perspective", "Orthographic"});
+    projection_->setToolTip(tr("Perspective (default) shows depth like a normal camera view. Orthographic removes "
+                               "that depth distortion, keeping parallel lines parallel - useful for lining up "
+                               "toolpaths precisely."));
+    generalForm->addRow(tr("Camera projection"), projection_);
     for (QCheckBox* box : {showBoundingBox_, boundingBoxLabels_, showMachineBed_, trimGridToBed_, followTool_}) {
         generalForm->addRow(QString(), box);
     }
@@ -1059,6 +1065,7 @@ void SettingsDialog::load() {
     warnBadFile_->setChecked(s.warnBadFile);
     visualizerTheme_->setCurrentText(QString::fromStdString(s.visualizerTheme));
     darkMode_->setChecked(s.darkMode);
+    projection_->setCurrentIndex(s.perspective ? 0 : 1);
     showBoundingBox_->setChecked(s.showBoundingBox);
     boundingBoxLabels_->setChecked(s.boundingBoxLabels);
     showMachineBed_->setChecked(s.showMachineBed);
@@ -1184,6 +1191,7 @@ void SettingsDialog::save() {
     s.warnBadFile = warnBadFile_->isChecked();
     s.visualizerTheme = visualizerTheme_->currentText().toStdString();
     s.darkMode = darkMode_->isChecked();
+    s.perspective = projection_->currentIndex() == 0;
     s.showBoundingBox = showBoundingBox_->isChecked();
     s.boundingBoxLabels = boundingBoxLabels_->isChecked();
     s.showMachineBed = showMachineBed_->isChecked();
