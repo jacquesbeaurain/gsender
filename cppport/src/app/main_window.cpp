@@ -88,15 +88,21 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     probe_ = new ProbePanel(machine_);
     tabs_->addTab(new JogPanel(machine_, *jogger_), tr("Jog"));
     tabs_->addTab(spindle_, tr("Spindle/Laser"));
+    coolant_ = new CoolantPanel(machine_);
+    tabs_->addTab(coolant_, tr("Coolant"));
     tabs_->addTab(probe_, tr("Probe"));
     tabs_->addTab(new MacrosPanel(machine_), tr("Macros"));
     rotary_ = new RotaryPanel(machine_);
     tabs_->addTab(rotary_, tr("Rotary"));
-    const auto showRotary = [this] {
-        tabs_->setTabVisible(tabs_->indexOf(rotary_), machine_.settings().rotary.showControls);
+    // Tabs that follow their settings (Tools' filteredTabs).
+    const auto showTabs = [this] {
+        const AppSettings& settings = machine_.settings();
+        tabs_->setTabVisible(tabs_->indexOf(rotary_), settings.rotary.showControls);
+        tabs_->setTabVisible(tabs_->indexOf(spindle_), settings.spindleFunctions);
+        tabs_->setTabVisible(tabs_->indexOf(coolant_), settings.coolantFunctions);
     };
-    connect(&machine_, &Machine::appSettingsChanged, this, showRotary);
-    showRotary();
+    connect(&machine_, &Machine::appSettingsChanged, this, showTabs);
+    showTabs();
     rightLayout->addWidget(tabs_);
     console_ = new ConsolePanel(machine_);
     rightLayout->addWidget(console_, 1);
@@ -465,6 +471,16 @@ SdCardDialog& MainWindow::sdCardDialog() {
 
 bool MainWindow::rotaryTabVisible() const {
     return tabs_->isTabVisible(tabs_->indexOf(rotary_));
+}
+
+QStringList MainWindow::visibleTabs() const {
+    QStringList shown;
+    for (int i = 0; i < tabs_->count(); ++i) {
+        if (tabs_->isTabVisible(i)) {
+            shown << tabs_->tabText(i);
+        }
+    }
+    return shown;
 }
 
 void MainWindow::createMenus() {

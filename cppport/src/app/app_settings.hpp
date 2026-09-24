@@ -131,6 +131,11 @@ struct AppSettings {
     surfacing::Options surfacing;
     // Spindle/Laser tab
     SpindleSettings spindle;
+    // "Spindle/laser controls" and "Coolant controls" (workspace.
+    // spindleFunctions / coolantFunctions): their tabs on the main window -
+    // and the spindle's override - shown.
+    bool spindleFunctions = false;
+    bool coolantFunctions = true;
     // Rotary tab and mode
     RotarySettings rotary;
     // Jogging and positioning

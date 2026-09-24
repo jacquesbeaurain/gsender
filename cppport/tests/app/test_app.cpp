@@ -2066,6 +2066,44 @@ TEST_F(AppTest, TheKeyboardMapFocusRingAndVisualizerKeysFollowTheirSettings) {
     EXPECT_EQ(view.focusPolicy(), Qt::NoFocus);
 }
 
+TEST_F(AppTest, TheSpindleAndCoolantTabsFollowTheirSettings) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    // Upstream's defaults: coolant controls on, spindle/laser controls off.
+    EXPECT_EQ(window.visibleTabs(), (QStringList{"Jog", "Coolant", "Probe", "Macros"}));
+    OverridesBar bar(machine);
+    const auto spindleOverrideShown = [&] {
+        const QList<QLabel*> labels = bar.findChildren<QLabel*>();
+        return std::any_of(labels.begin(), labels.end(), [&](QLabel* label) {
+            return label->text().startsWith("Spindle") && label->isVisibleTo(&bar);
+        });
+    };
+    EXPECT_FALSE(spindleOverrideShown());
+    AppSettings settings = machine.settings();
+    settings.spindleFunctions = true;
+    settings.coolantFunctions = false;
+    machine.setSettings(settings);
+    EXPECT_EQ(window.visibleTabs(), (QStringList{"Jog", "Spindle/Laser", "Probe", "Macros"}));
+    EXPECT_TRUE(spindleOverrideShown());
+
+    // Turning the spindle controls off in laser mode goes back to the spindle.
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    machine.setLaserMode(true);
+    ASSERT_TRUE(waitFor([&] { return machine.laserMode(); }));
+    settings = machine.settings();
+    settings.spindleFunctions = false;
+    machine.setSettings(settings);
+    EXPECT_TRUE(waitFor([&] { return !machine.laserMode(); }));
+    EXPECT_FALSE(machine.settings().spindleFunctions);
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;
