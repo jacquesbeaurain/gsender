@@ -1340,6 +1340,11 @@ them into `{}`) and what the Config page does with them:
   ProbePinStatus): the X/Y/Z/A limit switches beside the Firmware tab's
   filters and the probe pin on the Probe tab, lit while the status report
   lists them (`PinIndicators`).
+- The Motors sections' wizards on the Firmware tab: Jog X-/X+, Y-/Y+,
+  Z-/Z+ (JogWizard: `$J=G21G91<axis>±10F1000`, while idle) to check each
+  axis' direction and resolution, and Square XY (SquaringToolWizard's
+  link), which leaves the settings - unsaved - for the squaring tool, as
+  upstream's link leaves the Config page.
 - Typed value editors as upstream's EEPROM inputs, by grblHAL's own data
   types ($ES) or the static tables' input types for Grbl (SettingsDescriptions'
   mapping: a status report mask is a switch): switches as check boxes, bit

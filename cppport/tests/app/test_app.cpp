@@ -1556,6 +1556,22 @@ TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     const QList<PinIndicators*> pins = dialog.findChildren<PinIndicators*>();
     ASSERT_EQ(pins.size(), 2);
     EXPECT_FALSE(pins[0]->lit('X'));
+
+    // The Motors sections' test jogs, and Square XY handing over to the tool.
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isIdle() &&
+                                     machine.controller()->state().status.activeState == "Idle"; }));
+    auto* jogYMinus = dialog.findChild<QPushButton*>("jogWizardYMinus");
+    ASSERT_NE(jogYMinus, nullptr);
+    ASSERT_TRUE(waitFor([&] { return jogYMinus->isEnabled(); }));
+    jogYMinus->click();
+    ASSERT_TRUE(waitFor([&] {
+        const auto& lines = machine.simulator()->receivedLines();
+        return std::find(lines.begin(), lines.end(), "$J=G21G91Y-10F1000") != lines.end();
+    }));
+    int squaring = 0;
+    QObject::connect(&dialog, &SettingsDialog::squaringRequested, [&] { ++squaring; });
+    dialog.findChild<QPushButton*>("squareXY")->click();
+    EXPECT_EQ(squaring, 1);
 }
 
 TEST_F(AppTest, RotaryModePutsTheRotaryOnGrblsYAndBack) {

@@ -544,11 +544,7 @@ void MainWindow::createMenus() {
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->show();
     });
-    tools->addAction(tr("&XY Squaring..."), this, [this] {
-        auto* dialog = new SquaringDialog(machine_, this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->show();
-    });
+    tools->addAction(tr("&XY Squaring..."), this, &MainWindow::openSquaring);
     tools->addSeparator();
     tools->addAction(tr("SD &Card..."), this, [this] { sdCardDialog().show(); });
     tools->addAction(tr("&Accessory Installation..."), this, [this] {
@@ -636,7 +632,23 @@ void MainWindow::openRecent(const QString& path) {
 void MainWindow::openSettings(SettingsDialog::Page page) {
     SettingsDialog dialog(machine_, this);
     dialog.showPage(page);
+    // "Square XY..." leaves the settings for the squaring tool, as upstream's
+    // link leaves the Config page.
+    bool square = false;
+    connect(&dialog, &SettingsDialog::squaringRequested, &dialog, [&] {
+        square = true;
+        dialog.reject();
+    });
     dialog.exec();
+    if (square) {
+        openSquaring();
+    }
+}
+
+void MainWindow::openSquaring() {
+    auto* dialog = new SquaringDialog(machine_, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 bool MainWindow::reconnectAutomatically() {
