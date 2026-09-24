@@ -1240,6 +1240,10 @@ More of upstream's Basics and Visualizer settings, on Settings > General
   lines are left out rather than greyed; the Step Through starts with it.
 - **Warn if bad file** (widgets.visualizer.showWarning): a loaded file's
   invalid lines are reported - how many and the first five.
+- **Warn on bad line** (widgets.visualizer.showLineWarnings): an error
+  pauses the running job (the controller's preference) and, for any error
+  the board reports, the Invalid Line helper names the code and the line:
+  "Press Start to resume the job".
 
 ## Step 45 — Visualizer options: themes, bounding box, machine bed, follow tool
 

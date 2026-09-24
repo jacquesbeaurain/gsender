@@ -1033,6 +1033,10 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        if (e.isAlarm) {
                            probing_ = false;  // a failed probe alarms
                        }
+                       // "Warn on bad line": the Invalid Line helper, for any error.
+                       if (!e.isAlarm && settings_.preferences.showLineWarnings) {
+                           Q_EMIT lineWarning(QString::fromStdString(e.code), QString::fromStdString(e.line));
+                       }
                        // The homing prompt on connecting is expected: neither
                        // reported nor kept (the status area offers homing).
                        if (isHomingRequiredAlarm(e.isAlarm, e.code, e.firmware == protocol::Firmware::GrblHal)) {

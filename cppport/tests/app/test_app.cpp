@@ -2800,6 +2800,34 @@ TEST_F(AppTest, TheConsoleShowsTheMachinesTrafficByFilter) {
     EXPECT_EQ(output->placeholderText(), "Not connected to a device");
 }
 
+TEST_F(AppTest, WarnOnBadLineNamesTheLineTheBoardRefused) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.preferences.showLineWarnings = true;
+    machine.setSettings(settings);
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    QStringList warnings;
+    int errors = 0;
+    QObject::connect(&machine, &Machine::lineWarning,
+                     [&](const QString& code, const QString& line) { warnings << code + " " + line; });
+    QObject::connect(&machine, &Machine::errorReported, [&] { ++errors; });
+    machine.sendConsoleLine("G99");
+    ASSERT_TRUE(waitFor([&] { return errors == 1; }));
+    EXPECT_EQ(warnings, QStringList{"20 G99"});
+    // Off: the error alone.
+    settings.preferences.showLineWarnings = false;
+    machine.setSettings(settings);
+    machine.sendConsoleLine("G99");
+    ASSERT_TRUE(waitFor([&] { return errors == 2; }));
+    EXPECT_EQ(warnings.size(), 1);
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;

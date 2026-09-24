@@ -288,6 +288,9 @@ Q_SIGNALS:
     // A loaded file has lines the interpreter could not read (with "Warn if
     // bad file" on): how many, and the first five.
     void invalidLinesFound(int count, const QStringList& sample);
+    // With "Warn on bad line": the board refused a line (error `code`) -
+    // the job, if one runs, is paused (the Invalid Line helper).
+    void lineWarning(const QString& code, const QString& line);
     void macrosChanged();
     void appSettingsChanged();  // setSettings()
     // The connection closed while a job ran, around sender line `line`.
