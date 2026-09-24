@@ -192,6 +192,7 @@ void AsioLink::openSerial(const SerialOptions& options, OpenDone done) {
 }
 
 void AsioLink::openNetwork(const NetworkOptions& options, OpenDone done) {
+    host_ = options.host;
     asio::post(impl_->io, [this, options, done = std::move(done)] {
         Impl& d = *impl_;
         ++d.generation;

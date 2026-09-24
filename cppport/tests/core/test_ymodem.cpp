@@ -328,3 +328,81 @@ TEST(YModemEndToEnd, NoCardNoUpload) {
     EXPECT_TRUE(board.all<controller::YModemStarted>().empty());
     EXPECT_TRUE(board.sim.sdFiles().empty());
 }
+
+namespace {
+
+// The simulated grblHAL as if reached over the network.
+class NetworkBoard final : public controller::DeviceLink {
+public:
+    explicit NetworkBoard(sim::GrblSimulator& sim) : sim_(sim) {}
+    bool isOpen() const override { return sim_.isOpen(); }
+    void send(std::string_view bytes, controller::SendKind kind) override { sim_.send(bytes, kind); }
+    bool isNetwork() const override { return true; }
+    std::string networkHost() const override { return "192.168.5.1"; }
+
+private:
+    sim::GrblSimulator& sim_;
+};
+
+template <typename Event>
+std::ptrdiff_t countOf(const std::vector<controller::ControllerEvent>& events) {
+    return std::count_if(events.begin(), events.end(),
+                         [](const controller::ControllerEvent& e) { return std::holds_alternative<Event>(e); });
+}
+
+}  // namespace
+
+TEST(YModemEndToEnd, ANetworkedBoardTakesItsFilesOverFtp) {
+    runtime::ManualEventLoop loop;
+    sim::GrblSimulator sim(loop);
+    sim.setGrblHal(true);
+    NetworkBoard link(sim);
+    std::vector<controller::ControllerEvent> events;
+    std::optional<controller::FtpUploadRequest> request;
+    controller::UploadCallbacks callbacks;
+    controller::ControllerHooks hooks;
+    hooks.ftpUpload = [&](controller::FtpUploadRequest r, controller::UploadCallbacks c) {
+        request = std::move(r);
+        callbacks = std::move(c);
+    };
+    controller::Session session(loop, link, {}, hooks, [&](const controller::ControllerEvent& e) { events.push_back(e); });
+    sim.onData = [&](std::string_view bytes) { session.receive(bytes); };
+    sim.open();
+    session.opened();
+    for (int i = 0; i < 200 && !(session.controller() && session.controller()->runner().hasSettings()); ++i) {
+        loop.advance(50);
+    }
+    loop.advance(1000);
+    ASSERT_NE(session.controller(), nullptr);
+    controller::Controller& c = *session.controller();
+    c.receiveLine("$308=2121");  // the FTP port
+
+    c.sdUpload({{"job.nc", "G0 X1\n"}});
+    loop.advance(1500);
+    ASSERT_TRUE(request);
+    EXPECT_EQ(request->host, "192.168.5.1");
+    EXPECT_EQ(request->port, 2121);
+    EXPECT_EQ(request->user, "grblHAL");
+    EXPECT_EQ(request->password, "grblHAL");
+    ASSERT_EQ(request->files.size(), 1u);
+    EXPECT_EQ(request->files[0].name, "job.nc");
+    EXPECT_FALSE(c.ymodemActive());  // the board's own link stays free
+
+    callbacks.started();
+    callbacks.progress(100);
+    const std::size_t sent = sim.receivedLines().size();
+    callbacks.completed();
+    EXPECT_EQ(countOf<controller::YModemStarted>(events), 1);
+    EXPECT_EQ(countOf<controller::YModemProgress>(events), 1);
+    EXPECT_EQ(countOf<controller::YModemCompleted>(events), 1);
+    // Listed again afterwards.
+    loop.advance(300);
+    const std::vector<std::string> after(sim.receivedLines().begin() + static_cast<std::ptrdiff_t>(sent),
+                                         sim.receivedLines().end());
+    EXPECT_NE(std::find(after.begin(), after.end(), "$F"), after.end());
+
+    callbacks.failed("FTP upload to 192.168.5.1 failed: 530 Login incorrect.");
+    ASSERT_TRUE(std::holds_alternative<controller::YModemFailed>(events.back()));
+    EXPECT_EQ(std::get<controller::YModemFailed>(events.back()).message,
+              "FTP upload to 192.168.5.1 failed: 530 Login incorrect.");
+}

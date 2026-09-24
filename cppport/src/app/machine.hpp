@@ -31,6 +31,7 @@
 
 namespace gs::transport {
 class AsioLink;
+class FtpUploader;
 }
 namespace gs::sim {
 class GrblSimulator;
@@ -323,6 +324,7 @@ private:
     config::ConfigStore config_;
     std::shared_ptr<controller::Preferences> preferences_;
     std::unique_ptr<transport::AsioLink> link_;
+    std::unique_ptr<transport::FtpUploader> ftp_;  // SD card uploads to networked grblHAL
     std::unique_ptr<sim::GrblSimulator> simulator_;
     std::unique_ptr<controller::Session> session_;
     QString port_;

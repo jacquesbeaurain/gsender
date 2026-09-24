@@ -62,6 +62,7 @@ public:
 
     bool isOpen() const override { return open_.load(); }
     bool isNetwork() const override { return network_.load(); }
+    std::string networkHost() const override { return host_; }
     // Writes and immediate writes share one queue, so the board sees them in
     // call order - as with node-serialport.
     void send(std::string_view bytes, controller::SendKind kind) override;
@@ -71,6 +72,7 @@ private:
     std::unique_ptr<Impl> impl_;
     std::atomic<bool> open_{false};
     std::atomic<bool> network_{false};
+    std::string host_;  // owner thread: the address openNetwork() was given
 };
 
 }  // namespace gs::transport

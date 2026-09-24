@@ -2180,7 +2180,40 @@ void Controller::sdUpload(std::vector<protocol::YModemFile> files) {
             return;
         }
         if (link_.isNetwork()) {
-            report(YModemFailed{"Uploading to the SD card over a network connection (FTP) is not supported yet."});
+            if (!hooks_.ftpUpload) {
+                report(YModemFailed{"Uploading over a network connection needs FTP, which is not available."});
+                return;
+            }
+            const double port = js::stringToNumber(runner_.setting("$308", "21"));
+            FtpUploadRequest request;
+            request.host = link_.networkHost();
+            request.port = std::isfinite(port) && port > 0 ? static_cast<int>(port) : 21;
+            request.files = std::move(files);
+            const std::weak_ptr<int> alive = alive_;
+            hooks_.ftpUpload(std::move(request),
+                             UploadCallbacks{
+                                 [this, alive] {
+                                     if (alive.lock()) {
+                                         report(YModemStarted{});
+                                     }
+                                 },
+                                 [this, alive](int percent) {
+                                     if (alive.lock()) {
+                                         report(YModemProgress{percent});
+                                     }
+                                 },
+                                 [this, alive] {
+                                     if (alive.lock()) {
+                                         report(YModemCompleted{});
+                                         timers_.timeout(150, [this] { sdList(); });
+                                     }
+                                 },
+                                 [this, alive](const std::string& message) {
+                                     if (alive.lock()) {
+                                         report(YModemFailed{message});
+                                     }
+                                 },
+                             });
             return;
         }
         ymodem_->start(std::move(files));

@@ -5,6 +5,7 @@ find_package(Threads REQUIRED)
 
 add_library(gs_transport STATIC
     src/asio_link.cpp
+    src/ftp_upload.cpp
     src/port_list.cpp
 )
 add_library(gs::transport ALIAS gs_transport)
