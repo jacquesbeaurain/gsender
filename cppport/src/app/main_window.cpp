@@ -27,10 +27,11 @@
 
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDir>
 #include <QDateTime>
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
