@@ -3,6 +3,7 @@
 #include "machine.hpp"
 
 #include "gs/config/records.hpp"
+#include "gs/controller/controller.hpp"
 
 #include <QAbstractSpinBox>
 #include <QApplication>
@@ -212,6 +213,25 @@ void ShortcutManager::rebuild() {
 QString ShortcutManager::actionFor(QKeyCombination key) const {
     const auto it = bindings_.find(key.toCombined());
     return it == bindings_.end() ? QString() : it->second;
+}
+
+std::vector<ShortcutManager::ActiveShortcut> ShortcutManager::activeShortcuts() const {
+    const controller::Controller* c = machine_.controller();
+    const bool grblHal = c && c->isGrblHal();
+    std::vector<ActiveShortcut> out;
+    for (const ShortcutAction& action : actions_) {
+        const QKeySequence sequence = keys(action.id);
+        if (sequence.isEmpty() || actionFor(sequence[0]) != action.id || (action.grblHalOnly && !grblHal)) {
+            continue;
+        }
+        const auto handler = handlers_.find(action.id);
+        const bool handled = (handler != handlers_.end() && handler->second.press) ||
+                             (action.category == kMacroCategory && macroHandler_);
+        if (handled) {
+            out.push_back({action.category, action.title, sequence.toString(QKeySequence::NativeText)});
+        }
+    }
+    return out;
 }
 
 bool ShortcutManager::trigger(const QString& id) {

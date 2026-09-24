@@ -7,6 +7,7 @@
 // exits; with -platform offscreen (or QT_QPA_PLATFORM=offscreen) it needs no
 // display, which is how the UI is checked in automation.
 
+#include "app_settings.hpp"
 #include "machine.hpp"
 #include "main_window.hpp"
 #include "qt_event_loop.hpp"
@@ -29,6 +30,24 @@ int main(int argc, char** argv) {
     }
     if (offscreen && qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR") && !qEnvironmentVariableIsEmpty("WINDIR")) {
         qputenv("QT_QPA_FONTDIR", (qgetenv("WINDIR") + "\\Fonts"));
+    }
+
+    // Accessibility's display scale: Qt takes QT_SCALE_FACTOR once, before
+    // the application exists (one set in the environment wins).
+    if (qEnvironmentVariableIsEmpty("QT_SCALE_FACTOR")) {
+        QString configFile = QDir::home().filePath(".gsender-cpp_rc");
+        for (int i = 1; i < argc; ++i) {
+            const std::string_view arg(argv[i]);
+            if ((arg == "--config" || arg == "-config") && i + 1 < argc) {
+                configFile = QString::fromLocal8Bit(argv[i + 1]);
+            } else if (arg.starts_with("--config=")) {
+                configFile = QString::fromLocal8Bit(argv[i] + 9);
+            }
+        }
+        const double scale = gs::app::displayScaleFactor(configFile.toStdWString());
+        if (scale != 1.0) {
+            qputenv("QT_SCALE_FACTOR", QByteArray::number(scale));
+        }
     }
 
     QApplication app(argc, argv);

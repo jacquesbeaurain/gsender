@@ -7,6 +7,7 @@
 
 #include <QFont>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QToolButton>
@@ -215,6 +216,58 @@ void ToolpathCanvas::zoom(double factor) {
     scale_ = std::clamp(scale_ * factor, 0.01, 5000.0);
     pan_ *= factor;  // keep the middle of the view where it is
     update();
+}
+
+void ToolpathCanvas::orbit(double yawDegrees, double pitchDegrees) {
+    if (flat_) {
+        return;
+    }
+    yaw_ += yawDegrees * kDegree;
+    pitch_ = std::clamp(pitch_ + pitchDegrees * kDegree, 0.0, 90 * kDegree);
+    updateRotation();
+    update();
+}
+
+double ToolpathCanvas::yawDegrees() const noexcept {
+    return yaw_ / kDegree;
+}
+
+double ToolpathCanvas::pitchDegrees() const noexcept {
+    return pitch_ / kDegree;
+}
+
+void ToolpathCanvas::pan(double dx, double dy) {
+    pan_ += QPointF(dx, dy);
+    update();
+}
+
+void ToolpathCanvas::setKeyboardControl(bool on) {
+    keyboardControl_ = on;
+    setFocusPolicy(on ? Qt::StrongFocus : Qt::NoFocus);
+    if (!on && hasFocus()) {
+        clearFocus();
+    }
+}
+
+void ToolpathCanvas::keyPressEvent(QKeyEvent* event) {
+    if (!keyboardControl_) {
+        QWidget::keyPressEvent(event);
+        return;
+    }
+    const bool panning = (event->modifiers() & Qt::ControlModifier) != 0;
+    const double step = 0.1 * std::min(width(), height());
+    switch (event->key()) {
+        case Qt::Key_Left: panning ? pan(-step, 0) : orbit(-15, 0); break;
+        case Qt::Key_Right: panning ? pan(step, 0) : orbit(15, 0); break;
+        case Qt::Key_Up: panning ? pan(0, -step) : orbit(0, 15); break;
+        case Qt::Key_Down: panning ? pan(0, step) : orbit(0, -15); break;
+        case Qt::Key_Plus:
+        case Qt::Key_Equal: zoom(1.25); break;
+        case Qt::Key_Minus: zoom(0.8); break;
+        case Qt::Key_Home: fit(); break;
+        default: QWidget::keyPressEvent(event); return;
+    }
+    event->accept();
 }
 
 void ToolpathCanvas::fit() {
@@ -474,6 +527,7 @@ void ToolpathView::applySettings() {
     const AppSettings& settings = machine_.settings();
     setTheme(visualizerTheme(QString::fromStdString(settings.visualizerTheme)));
     setPerspective(settings.perspective);
+    setKeyboardControl(settings.accessibility.visualizerKeyboardControl);
     lite_->setChecked(settings.liteMode);
     lite_->adjustSize();
     lite_->move(width() - lite_->width() - 8, 8);

@@ -1010,6 +1010,92 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     automationsScroll->setFrameShape(QFrame::NoFrame);
     tabs_->addTab(automationsScroll, tr("Automations"));
 
+    // Accessibility (gSender's Accessibility section). Settings that only
+    // matter with another one on show with it, as upstream hides them.
+    auto* a11y = new QWidget;
+    auto* a11yLayout = new QVBoxLayout(a11y);
+    const auto section = [a11yLayout](const QString& title) {
+        auto* box = new QGroupBox(title);
+        auto* form = new QFormLayout(box);
+        a11yLayout->addWidget(box);
+        return form;
+    };
+    const auto option = [](const QString& label, const QString& tip) {
+        auto* box = new QCheckBox(label);
+        box->setToolTip(tip);
+        return box;
+    };
+    QFormLayout* announcements = section(tr("Announcements"));
+    statusAnnouncements_ = option(tr("Machine status"), tr("Automatically announce machine status changes using "
+                                                            "screen readers. (Idle, Running, Alarm, etc.)"));
+    progressAnnouncements_ = option(tr("Job progress"), tr("Periodically announce job completion percentage."));
+    progressIncrement_ = new QSpinBox;
+    progressIncrement_->setRange(1, 50);
+    progressIncrement_->setSuffix(tr(" %"));
+    progressIncrement_->setToolTip(tr("The percentage increment at which to announce job progress. (Default 10%)"));
+    announcements->addRow(QString(), statusAnnouncements_);
+    announcements->addRow(QString(), progressAnnouncements_);
+    announcements->addRow(tr("Progress increment"), progressIncrement_);
+    connect(progressAnnouncements_, &QCheckBox::toggled, this,
+            [this, announcements](bool on) { announcements->setRowVisible(progressIncrement_, on); });
+
+    QFormLayout* cues = section(tr("Audio Cues"));
+    audioCues_ = option(tr("Enable audio cues"), tr("Play short sounds for specific machine events."));
+    cueJobComplete_ = option(tr("Job complete sound"), tr("Play sound when a job finishes."));
+    cueAlarm_ = option(tr("Alarm sound"), tr("Play sound when the machine enters an alarm state."));
+    cueToolChange_ = option(tr("Tool change sound"), tr("Play sound when a tool change is required."));
+    cueProbeSuccess_ = option(tr("Probe success sound"), tr("Play sound after a successful probe."));
+    for (QCheckBox* box : {audioCues_, cueJobComplete_, cueAlarm_, cueToolChange_, cueProbeSuccess_}) {
+        cues->addRow(QString(), box);
+    }
+    connect(audioCues_, &QCheckBox::toggled, this, [this, cues](bool on) {
+        for (QCheckBox* box : {cueJobComplete_, cueAlarm_, cueToolChange_, cueProbeSuccess_}) {
+            cues->setRowVisible(box, on);
+        }
+    });
+
+    QFormLayout* visuals = section(tr("Navigation & Visuals"));
+    focusRings_ = option(tr("Focus rings"), tr("Show a high-contrast ring around the currently focused element for "
+                                               "better keyboard navigation visibility."));
+    focusTrapping_ = option(tr("Focus trapping"), tr("Keep keyboard focus within modals and dialogs when they are "
+                                                     "open. (Qt's dialogs always do.)"));
+    reducedMotion_ = option(tr("Reduced motion"), tr("Minimize animations and UI transitions for improved "
+                                                     "visibility and accessibility."));
+    spindleInput_ = new QComboBox;
+    spindleInput_->addItems({"Slider", "Number"});
+    spindleInput_->setToolTip(tr("Choose between a slider or a number input for adjusting spindle speed."));
+    displayScale_ = new QComboBox;
+    displayScale_->addItems({"50%", "67%", "75%", "100%", "125%", "150%", "175%", "200%"});
+    displayScale_->setToolTip(tr("Override the app's display scale independently of your OS' DPI settings. Takes "
+                                 "effect the next time gSender starts."));
+    visuals->addRow(QString(), focusRings_);
+    visuals->addRow(QString(), focusTrapping_);
+    visuals->addRow(QString(), reducedMotion_);
+    visuals->addRow(tr("Spindle speed input type"), spindleInput_);
+    visuals->addRow(tr("App display scale"), displayScale_);
+
+    QFormLayout* visualizer = section(tr("Visualizer"));
+    visualizerKeys_ = option(tr("Keyboard control"), tr("Allow orbiting, panning, and zooming of the 3D visualizer "
+                                                        "using arrow keys and hotkeys."));
+    jobSummary_ = option(tr("Job summary"), tr("Provide a text summary of the loaded g-code file for screen readers."));
+    jobSummaryVisible_ = option(tr("Show summary visually"),
+                                tr("Display the g-code summary text visually above the visualizer."));
+    visualizer->addRow(QString(), visualizerKeys_);
+    visualizer->addRow(QString(), jobSummary_);
+    visualizer->addRow(QString(), jobSummaryVisible_);
+    connect(jobSummary_, &QCheckBox::toggled, this,
+            [this, visualizer](bool on) { visualizer->setRowVisible(jobSummaryVisible_, on); });
+
+    QFormLayout* keyboardMap = section(tr("Keyboard Map"));
+    keyboardMap_ = option(tr("Show keyboard shortcut map"), tr("Show an overlay with active keyboard shortcuts."));
+    keyboardMap->addRow(QString(), keyboardMap_);
+    a11yLayout->addStretch(1);
+    auto* a11yScroll = new QScrollArea;
+    a11yScroll->setWidget(a11y);
+    a11yScroll->setWidgetResizable(true);
+    a11yScroll->setFrameShape(QFrame::NoFrame);
+    tabs_->addTab(a11yScroll, tr("Accessibility"));
+
     tabs_->addTab(new FirmwareSettingsTable(machine_), tr("Firmware"));
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
@@ -1044,6 +1130,27 @@ void SettingsDialog::load() {
         editor.commands->setPlainText(record ? QString::fromStdString(record->commands) : QString());
     }
     const AppSettings& s = machine_.settings();
+    const AccessibilitySettings& a = s.accessibility;
+    statusAnnouncements_->setChecked(a.statusAnnouncements);
+    progressAnnouncements_->setChecked(!a.jobProgressAnnouncements);  // toggled below: the rows follow
+    progressAnnouncements_->setChecked(a.jobProgressAnnouncements);
+    progressIncrement_->setValue(a.jobProgressIncrement);
+    audioCues_->setChecked(!a.audioCues);
+    audioCues_->setChecked(a.audioCues);
+    cueJobComplete_->setChecked(a.cueJobComplete);
+    cueAlarm_->setChecked(a.cueAlarm);
+    cueToolChange_->setChecked(a.cueToolChange);
+    cueProbeSuccess_->setChecked(a.cueProbeSuccess);
+    focusRings_->setChecked(a.focusRings);
+    focusTrapping_->setChecked(a.focusTrapping);
+    reducedMotion_->setChecked(a.reducedMotion);
+    spindleInput_->setCurrentText(QString::fromStdString(s.spindle.inputType));
+    displayScale_->setCurrentText(QString::fromStdString(a.displayScale));
+    visualizerKeys_->setChecked(a.visualizerKeyboardControl);
+    jobSummary_->setChecked(!a.gcodeSummary);
+    jobSummary_->setChecked(a.gcodeSummary);
+    jobSummaryVisible_->setChecked(a.gcodeSummaryVisible);
+    keyboardMap_->setChecked(a.showKeyboardMap);
     spindleDelay_->setValue(s.preferences.spindleDelay);
     lineWarnings_->setChecked(s.preferences.showLineWarnings);
     aAxis_->setChecked(s.preferences.useAaxisForGrbl);
@@ -1218,6 +1325,24 @@ void SettingsDialog::save() {
     s.spindle.laser.yOffset = laserY_->value();
     s.spindle.laser.onOutline = laserOutline_->isChecked();
     s.moveToManualPosition = moveToManual_->isChecked();
+    AccessibilitySettings& a = s.accessibility;
+    a.statusAnnouncements = statusAnnouncements_->isChecked();
+    a.jobProgressAnnouncements = progressAnnouncements_->isChecked();
+    a.jobProgressIncrement = progressIncrement_->value();
+    a.audioCues = audioCues_->isChecked();
+    a.cueJobComplete = cueJobComplete_->isChecked();
+    a.cueAlarm = cueAlarm_->isChecked();
+    a.cueToolChange = cueToolChange_->isChecked();
+    a.cueProbeSuccess = cueProbeSuccess_->isChecked();
+    a.focusRings = focusRings_->isChecked();
+    a.focusTrapping = focusTrapping_->isChecked();
+    a.reducedMotion = reducedMotion_->isChecked();
+    s.spindle.inputType = spindleInput_->currentText().toStdString();
+    a.displayScale = displayScale_->currentText().toStdString();
+    a.visualizerKeyboardControl = visualizerKeys_->isChecked();
+    a.gcodeSummary = jobSummary_->isChecked();
+    a.gcodeSummaryVisible = jobSummaryVisible_->isChecked();
+    a.showKeyboardMap = keyboardMap_->isChecked();
 
     probe::ProbeSettings& p = s.probe;
     p.plateType = probe::plateTypeFromName(plateType_->currentText().toStdString()).value_or(p.plateType);

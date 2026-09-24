@@ -303,6 +303,11 @@ Q_SIGNALS:
     // Autoconfig message against what [NEWOPT:] said (the accessory
     // connectivity toasts).
     void accessoryConnectivityChanged(const QString& accessory, bool connected);
+    // A probe routine run with runProbe() got through without an alarm (the
+    // board took all of it); and a job reached a tool change (M6) - the
+    // audio cues' "probe:success" and "toolchange:start".
+    void probeSucceeded();
+    void toolChangeRequired();
 
 private:
     void startSession(controller::DeviceLink& link);
@@ -337,6 +342,7 @@ private:
     QStringList jobErrors_;
     std::int64_t lastJobErrorMs_ = -1;
     bool wizardReady_ = false;
+    bool probing_ = false;  // a runProbe() routine is on its way
     std::vector<protocol::SpindleLine> spindles_;
     // Whether each accessory was last known connected (upstream keeps it
     // for the whole session, across connections).

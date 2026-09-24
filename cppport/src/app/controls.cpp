@@ -88,6 +88,7 @@ SpindlePanel::SpindlePanel(Machine& machine, QWidget* parent) : QWidget(parent),
     spindleBox_ = new QGroupBox(tr("Spindle"));
     auto* spindleGrid = new QGridLayout(spindleBox_);
     speedSlider_ = new QSlider(Qt::Horizontal);
+    speedSlider_->setObjectName("spindleSpeedSlider");
     speed_ = new QDoubleSpinBox;
     speed_->setDecimals(0);
     speed_->setSingleStep(100);
@@ -297,6 +298,8 @@ void SpindlePanel::refresh() {
     laserMode_->setChecked(laser);
     spindleBox_->setVisible(!laser);
     laserBox_->setVisible(laser);
+    // Accessibility's "Spindle speed input type": a slider, or the number only.
+    speedSlider_->setVisible(settings.spindle.inputType != "Number");
     const bool idle = canClick();
     spindleMode_->setEnabled(idle);
     laserMode_->setEnabled(idle);

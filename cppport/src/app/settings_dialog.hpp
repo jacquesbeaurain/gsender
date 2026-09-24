@@ -89,7 +89,7 @@ private:
 class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
-    enum class Page { General, ToolChange, SpindleLaser, Probe, Rotary, Automations, Firmware };  // tab order
+    enum class Page { General, ToolChange, SpindleLaser, Probe, Rotary, Automations, Accessibility, Firmware };  // tab order
     explicit SettingsDialog(Machine& machine, QWidget* parent = nullptr);
     void showPage(Page page);
     // The Automations page's hook for "gcode:start", "gcode:pause",
@@ -182,6 +182,24 @@ private:
     QDoubleSpinBox* rotaryMaxSpeed_;
     QCheckBox* forceSoftLimits_;
     QCheckBox* forceHardLimits_;
+    // Accessibility
+    QCheckBox* statusAnnouncements_;
+    QCheckBox* progressAnnouncements_;
+    QSpinBox* progressIncrement_;
+    QCheckBox* audioCues_;
+    QCheckBox* cueJobComplete_;
+    QCheckBox* cueAlarm_;
+    QCheckBox* cueToolChange_;
+    QCheckBox* cueProbeSuccess_;
+    QCheckBox* focusRings_;
+    QCheckBox* focusTrapping_;
+    QCheckBox* reducedMotion_;
+    QComboBox* spindleInput_;
+    QComboBox* displayScale_;
+    QCheckBox* visualizerKeys_;
+    QCheckBox* jobSummary_;
+    QCheckBox* jobSummaryVisible_;
+    QCheckBox* keyboardMap_;
     // On grblHAL the resolution and speed are the board's A axis ($103,
     // $113), as loaded; on Grbl the values rotary mode writes to Y.
     bool rotaryFromBoard_ = false;

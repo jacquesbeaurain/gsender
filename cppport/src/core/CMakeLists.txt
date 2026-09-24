@@ -37,6 +37,7 @@ add_library(gs_core STATIC
     src/job/program_analysis.cpp
     src/job/outline.cpp
     src/job/step_through.cpp
+    src/job/accessibility.cpp
     src/probe/probing.cpp
     src/rotary/rotary.cpp
     src/surfacing/surfacing.cpp

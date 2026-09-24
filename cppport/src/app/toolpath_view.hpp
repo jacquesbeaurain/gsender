@@ -46,6 +46,16 @@ public:
     void set3dView() { setView(View::Iso); }
     void fit();
     void zoom(double factor);  // about the middle of the view
+    // Turns the camera (degrees; not while flat) and moves the view (pixels).
+    void orbit(double yawDegrees, double pitchDegrees);
+    void pan(double dx, double dy);
+    // Settings > Accessibility > Keyboard control: with the view focused
+    // (click it or tab to it) the arrows orbit, Ctrl+arrows pan, + and -
+    // zoom and Home fits.
+    void setKeyboardControl(bool on);
+    bool keyboardControl() const noexcept { return keyboardControl_; }
+    double yawDegrees() const noexcept;
+    double pitchDegrees() const noexcept;
     // Held flat: every view is the top view and dragging only pans.
     void setFlat(bool flat);
     bool flat() const noexcept { return flat_; }
@@ -99,6 +109,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     void updateRotation();
@@ -106,6 +117,7 @@ private:
 
     // Camera: rotation about Z (yaw) then tilt towards the viewer (pitch),
     // orthographic, `scale_` pixels per millimetre, centred on `target_`.
+    bool keyboardControl_ = false;
     View view_ = View::Top;
     double yaw_ = 0;
     double pitch_ = 0;

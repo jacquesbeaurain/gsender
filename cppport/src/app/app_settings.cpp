@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <fstream>
+#include <iterator>
 
 namespace gs::app {
 namespace {
@@ -139,6 +141,7 @@ json::object saveRotary(const RotarySettings& r) {
 SpindleSettings loadSpindle(const json::object& o) {
     SpindleSettings s;
     s.laserMode = text(o, "mode", "spindle") == "laser";
+    s.inputType = text(o, "inputType", "Slider") == "Number" ? "Number" : "Slider";
     s.speed = number(o, "speed", s.speed);
     s.spindleMax = number(o, "spindleMax", s.spindleMax);
     s.spindleMin = number(o, "spindleMin", s.spindleMin);
@@ -158,6 +161,7 @@ SpindleSettings loadSpindle(const json::object& o) {
 json::object saveSpindle(const SpindleSettings& s) {
     const LaserSettings& l = s.laser;
     return {{"mode", s.laserMode ? "laser" : "spindle"},
+            {"inputType", s.inputType},
             {"speed", s.speed},
             {"spindleMax", s.spindleMax},
             {"spindleMin", s.spindleMin},
@@ -168,6 +172,51 @@ json::object saveSpindle(const SpindleSettings& s) {
                                    {"yOffset", l.yOffset},
                                    {"minPower", l.minPower},
                                    {"maxPower", l.maxPower}}}};
+}
+
+// The port keeps gSender's own shape, so both read the same way.
+AccessibilitySettings loadAccessibility(const json::object& o) {
+    AccessibilitySettings a;
+    a.statusAnnouncements = flag(o, "statusAnnouncements", false);
+    a.jobProgressAnnouncements = flag(o, "jobProgressAnnouncements", false);
+    a.jobProgressIncrement = std::clamp(static_cast<int>(number(o, "jobProgressIncrement", 10)), 1, 50);
+    a.focusRings = flag(o, "focusRings", false);
+    a.focusTrapping = flag(o, "focusTrapping", false);
+    a.visualizerKeyboardControl = flag(o, "visualizerKeyboardControl", false);
+    if (const json::value* cues = o.if_contains("audioCues"); cues && cues->is_object()) {
+        const json::object& c = cues->as_object();
+        a.audioCues = flag(c, "enabled", false);
+        a.cueJobComplete = flag(c, "jobComplete", false);
+        a.cueAlarm = flag(c, "alarmTriggered", false);
+        a.cueToolChange = flag(c, "toolChange", false);
+        a.cueProbeSuccess = flag(c, "probeSuccess", false);
+    }
+    a.reducedMotion = flag(o, "reducedMotion", false);
+    if (const json::value* summary = o.if_contains("gcodeSummary"); summary && summary->is_object()) {
+        a.gcodeSummary = flag(summary->as_object(), "enabled", false);
+        a.gcodeSummaryVisible = flag(summary->as_object(), "showVisually", false);
+    }
+    a.showKeyboardMap = flag(o, "showKeyboardMap", false);
+    a.displayScale = text(o, "displayScaleFactor", "100%");
+    return a;
+}
+
+json::object saveAccessibility(const AccessibilitySettings& a) {
+    return {{"statusAnnouncements", a.statusAnnouncements},
+            {"jobProgressAnnouncements", a.jobProgressAnnouncements},
+            {"jobProgressIncrement", a.jobProgressIncrement},
+            {"focusRings", a.focusRings},
+            {"focusTrapping", a.focusTrapping},
+            {"visualizerKeyboardControl", a.visualizerKeyboardControl},
+            {"audioCues", json::object{{"enabled", a.audioCues},
+                                       {"jobComplete", a.cueJobComplete},
+                                       {"alarmTriggered", a.cueAlarm},
+                                       {"toolChange", a.cueToolChange},
+                                       {"probeSuccess", a.cueProbeSuccess}}},
+            {"reducedMotion", a.reducedMotion},
+            {"gcodeSummary", json::object{{"enabled", a.gcodeSummary}, {"showVisually", a.gcodeSummaryVisible}}},
+            {"showKeyboardMap", a.showKeyboardMap},
+            {"displayScaleFactor", a.displayScale}};
 }
 
 probe::ProbeSettings loadProbe(const json::object& o) {
@@ -356,6 +405,9 @@ AppSettings appSettingsFromJson(const json::object& root) {
     if (const json::value* rotaryObject = root.if_contains("rotary"); rotaryObject && rotaryObject->is_object()) {
         settings.rotary = loadRotary(rotaryObject->as_object());
     }
+    if (const json::value* a11y = root.if_contains("accessibility"); a11y && a11y->is_object()) {
+        settings.accessibility = loadAccessibility(a11y->as_object());
+    }
     if (const json::value* jog = root.if_contains("jog"); jog && jog->is_object()) {
         const json::object& j = jog->as_object();
         settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
@@ -429,6 +481,27 @@ json::object shortcutsObject(const std::map<std::string, ShortcutBinding>& short
 
 }  // namespace
 
+double displayScaleFactor(const std::filesystem::path& configFile) {
+    std::ifstream in(configFile, std::ios::binary);
+    if (!in) {
+        return 1.0;
+    }
+    const std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    boost::system::error_code error;
+    const json::value document = json::parse(content, error);
+    const auto member = [](const json::value* value, std::string_view key) -> const json::value* {
+        const json::value* found = value && value->is_object() ? value->as_object().if_contains(key) : nullptr;
+        return found && found->is_object() ? found : nullptr;
+    };
+    const json::value* accessibility = error ? nullptr : member(member(&document, "app"), "accessibility");
+    if (!accessibility) {
+        return 1.0;
+    }
+    // parseFloat("125%") / 100
+    const double percent = js::parseFloat(text(accessibility->as_object(), "displayScaleFactor", "100%"));
+    return std::isfinite(percent) && percent >= 25 && percent <= 400 ? percent / 100 : 1.0;
+}
+
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings) {
     store.set("app", appSettingsToJson(settings));
 }
@@ -457,6 +530,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"spindle", saveSpindle(settings.spindle)},
                          {"rotary", saveRotary(settings.rotary)},
+                         {"accessibility", saveAccessibility(settings.accessibility)},
                          {"jog", jogObject(settings.jog)},
                          {"units", settings.metric ? "mm" : "in"},
                          {"customDecimalPlaces", settings.customDecimalPlaces},
@@ -622,6 +696,9 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.powerSaving = flag(w, "powerSaving", false);
     s.promptExit = flag(w, "promptExit", false);
     s.darkMode = flag(w, "enableDarkMode", false);
+    if (const json::object* a11y = child(w, "accessibility")) {
+        s.accessibility = loadAccessibility(*a11y);
+    }
     if (const json::object* profile = child(w, "machineProfile")) {
         s.machineProfileId = static_cast<int>(number(*profile, "id", -1));
     }

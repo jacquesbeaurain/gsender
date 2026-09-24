@@ -14,6 +14,7 @@
 #include "gs/toolchange/wizards.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <optional>
 #include <string_view>
@@ -53,6 +54,7 @@ struct LaserSettings {
 
 struct SpindleSettings {
     bool laserMode = false;   // the mode last chosen (the board's $32 rules when connected)
+    std::string inputType = "Slider";  // widgets.spindle.inputType: "Slider" or "Number"
     double speed = 1000;      // rpm for M3/M4
     double spindleMax = 30000;  // $30/$31 kept for spindle mode while the laser has them
     double spindleMin = 10000;
@@ -68,6 +70,31 @@ struct RotarySettings {
     rotary::FirmwareValues firmware = rotary::rotaryFirmwareSettings();
     rotary::FirmwareValues defaults = rotary::defaultFirmwareSettings();
     rotary::StockTurningOptions stockTurning;  // mm
+};
+
+// workspace.accessibility (Settings > Accessibility).
+struct AccessibilitySettings {
+    // Screen reader announcements: the machine's status, the job's progress
+    // every so many percent.
+    bool statusAnnouncements = false;
+    bool jobProgressAnnouncements = false;
+    int jobProgressIncrement = 10;  // %, 1-50
+    // Audio cues (audioCues.*): a job finishing, an alarm, a tool change, a
+    // probe succeeding.
+    bool audioCues = false;
+    bool cueJobComplete = false;
+    bool cueAlarm = false;
+    bool cueToolChange = false;
+    bool cueProbeSuccess = false;
+    bool focusRings = false;
+    bool focusTrapping = false;
+    bool reducedMotion = false;
+    std::string displayScale = "100%";  // displayScaleFactor: "50%" ... "200%"
+    bool visualizerKeyboardControl = false;
+    // gcodeSummary: the loaded file in words, and shown above the visualizer.
+    bool gcodeSummary = false;
+    bool gcodeSummaryVisible = false;
+    bool showKeyboardMap = false;
 };
 
 // workspace.recentFiles: a file loaded from disk.
@@ -169,6 +196,7 @@ struct AppSettings {
     // Run outline (workspace.outlineMode / outlineSpeed; 0: rapid moves)
     job::OutlineMode outlineMode = job::OutlineMode::Detailed;
     double outlineSpeed = 0;
+    AccessibilitySettings accessibility;
     // Keyboard shortcuts: changes from the defaults, by gSender's command id,
     // and the global switch (preferences.shortcuts.shouldHold, inverted).
     std::map<std::string, ShortcutBinding> shortcuts;
@@ -188,6 +216,9 @@ inline constexpr const char* kToolChangeOptions[] = {"Ignore",           "Pause"
                                                      "Fixed Tool Sensor", "Code"};
 
 AppSettings loadAppSettings(const config::ConfigStore& store);
+// Accessibility's "App display scale" as the settings file has it - read
+// before Qt starts, which takes its scale once: 1 when unset or unreadable.
+double displayScaleFactor(const std::filesystem::path& configFile);
 void saveAppSettings(config::ConfigStore& store, const AppSettings& settings);
 // The "app" object as stored in the config file and in exported settings.
 AppSettings appSettingsFromJson(const boost::json::object& app);

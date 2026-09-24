@@ -837,6 +837,7 @@ bool Machine::runProbe(std::vector<std::string> code) {
     }
     code.push_back(c->runner().modal().distance);
     c->gcodeSafe(code, "G21");
+    probing_ = true;
     return true;
 }
 
@@ -926,7 +927,15 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        Q_EMIT workflowChanged();
                    },
                    [this](const SenderStatusChanged&) { Q_EMIT senderStatusChanged(); },
+                   [this](const FeederStatusChanged& e) {
+                       // The routine's last line taken: it went through.
+                       if (probing_ && e.status.queue == 0 && !e.status.pending && !e.status.hold) {
+                           probing_ = false;
+                           Q_EMIT probeSucceeded();
+                       }
+                   },
                    [this](const ControllerClosed& e) {
+                       probing_ = false;
                        if (jobRunning_ && e.currentLineRunning > 0) {
                            jobRunning_ = false;
                            lastLine_ = e.currentLineRunning;
@@ -935,6 +944,9 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    },
                    [this](const EstimateDataRequested&) { sendEstimates(); },
                    [this](const ErrorReported& e) {
+                       if (e.isAlarm) {
+                           probing_ = false;  // a failed probe alarms
+                       }
                        // The homing prompt on connecting is expected: neither
                        // reported nor kept (the status area offers homing).
                        if (isHomingRequiredAlarm(e.isAlarm, e.code, e.firmware == protocol::Firmware::GrblHal)) {
@@ -971,6 +983,7 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        }
                    },
                    [this](const ToolChangeRequested& e) {
+                       Q_EMIT toolChangeRequired();
                        if (isWizardStrategy(e.option)) {
                            Q_EMIT toolChangeWizardRequested(QString::fromStdString(e.option), e.count,
                                                             QString::fromStdString(e.comment));
