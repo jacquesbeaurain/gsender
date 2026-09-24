@@ -50,6 +50,10 @@ public:
     void setFlat(bool flat);
     bool flat() const noexcept { return flat_; }
     void setTheme(const VisualizerTheme& theme);
+    // Perspective (upstream's default) shows depth like a camera; otherwise
+    // orthographic, parallel lines kept parallel.
+    void setPerspective(bool perspective);
+    bool perspective() const noexcept { return perspective_; }
     const VisualizerTheme& theme() const noexcept { return *theme_; }
 
     static const QColor kBackground;
@@ -112,6 +116,8 @@ private:
     QPoint lastMouse_;
     Qt::MouseButton dragging_ = Qt::NoButton;
     bool flat_ = false;
+    bool perspective_ = false;
+    double cameraDistance_ = 400;  // mm from the target, for perspective
     const VisualizerTheme* theme_;
     std::vector<QToolButton*> buttons_;
 

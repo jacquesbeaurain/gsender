@@ -148,6 +148,7 @@ struct AppSettings {
     // it (objects.machineBed.visible / trimGridToBed), and the camera
     // following the tool while a job runs (followToolDuringRuntime).
     std::string visualizerTheme = "Dark";
+    bool perspective = true;  // widgets.visualizer.projection: Perspective or Orthographic
     bool darkMode = false;  // workspace.enableDarkMode: the application dark
     // workspace.machineProfile (its id): the machine whose EEPROM defaults
     // the firmware settings compare with and restore; its size is the

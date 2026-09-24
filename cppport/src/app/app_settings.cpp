@@ -384,6 +384,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
     settings.warnBadFile = flag(root, "warnBadFile", false);
     settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
+    settings.perspective = text(root, "projection", "Perspective") != "Orthographic";
     settings.darkMode = flag(root, "darkMode", false);
     settings.machineProfileId = static_cast<int>(number(root, "machineProfileId", -1));
     settings.showBoundingBox = flag(root, "showBoundingBox", true);
@@ -477,6 +478,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"hideProcessedLines", settings.hideProcessedLines},
                          {"warnBadFile", settings.warnBadFile},
                          {"visualizerTheme", settings.visualizerTheme},
+                         {"projection", settings.perspective ? "Perspective" : "Orthographic"},
                          {"darkMode", settings.darkMode},
                          {"machineProfileId", settings.machineProfileId},
                          {"showBoundingBox", settings.showBoundingBox},
@@ -726,6 +728,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         s.hideProcessedLines = flag(*visualizer, "hideProcessedLines", false);
         s.warnBadFile = flag(*visualizer, "showWarning", false);
         s.visualizerTheme = text(*visualizer, "theme", "Dark");
+        s.perspective = text(*visualizer, "projection", "Perspective") != "Orthographic";
         s.boundingBoxLabels = flag(*visualizer, "boundingBoxLabels", false);
         s.followTool = flag(*visualizer, "followToolDuringRuntime", false);
         if (const json::object* objects = child(*visualizer, "objects")) {

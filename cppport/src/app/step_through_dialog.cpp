@@ -171,6 +171,7 @@ private:
 StepThroughView::StepThroughView(Machine& machine, QWidget* parent) : ToolpathCanvas(parent), machine_(machine) {
     setMinimumSize(320, 240);
     setTheme(visualizerTheme(QString::fromStdString(machine_.settings().visualizerTheme)));
+    setPerspective(machine_.settings().perspective);
 }
 
 std::optional<gcode::BoundingBox> StepThroughView::contentBounds() const {
