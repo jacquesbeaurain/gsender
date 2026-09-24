@@ -1862,6 +1862,32 @@ TEST_F(AppTest, TheSdCardToolUploadsRunsAndDeletesFilesOnAGrblHalCard) {
     EXPECT_FALSE(dialog.uploadButton()->isEnabled());
 }
 
+TEST_F(AppTest, AccessoriesComingAndGoingPopUp) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    MainWindow window(machine);
+    window.setDialogsEnabled(false);
+    QStringList changes;
+    QObject::connect(&machine, &Machine::accessoryConnectivityChanged, [&](const QString& name, bool connected) {
+        changes << name + (connected ? " on" : " off");
+    });
+    machine.connectTo(Machine::kSimulatorHalPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected() && machine.controller()->runner().hasSettings(); }));
+    controller::Controller& c = *machine.controller();
+    // [NEWOPT:] says what is there; Autoconfig messages then tell changes.
+    c.receiveLine("[NEWOPT:ENUMS,TLS=1,ATCEXP=0,PROBE]");
+    c.receiveLine("[MSG:Info: Autoconfig: TLS=0, ATCEXP=1, PROBE=0, SD=0]");
+    EXPECT_EQ(changes, (QStringList{"TLS off", "ATCEXP on"}));
+    const QStringList toasts = window.toasts().texts();
+    EXPECT_TRUE(toasts.contains("TLS disconnected\nConnection lost")) << toasts.join(" | ").toStdString();
+    EXPECT_TRUE(toasts.contains("ATCEXP connected\nReady to use - device available"));
+    c.receiveLine("[MSG:Info: Autoconfig: TLS=0]");  // no change
+    // A key without a value counts as there.
+    c.receiveLine("[MSG:Info: Autoconfig: TLS]");
+    EXPECT_EQ(changes, (QStringList{"TLS off", "ATCEXP on", "TLS on"}));
+}
+
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     QTemporaryDir dir;
     QtEventLoop loop;

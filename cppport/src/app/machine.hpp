@@ -24,6 +24,7 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -298,6 +299,10 @@ Q_SIGNALS:
     void sdUploadProgress(int percent);
     void sdUploadCompleted();
     void sdUploadFailed(const QString& message);
+    // grblHAL: an accessory ("TLS", "ATCEXP", ...) came or went, by its
+    // Autoconfig message against what [NEWOPT:] said (the accessory
+    // connectivity toasts).
+    void accessoryConnectivityChanged(const QString& accessory, bool connected);
 
 private:
     void startSession(controller::DeviceLink& link);
@@ -333,6 +338,9 @@ private:
     std::int64_t lastJobErrorMs_ = -1;
     bool wizardReady_ = false;
     std::vector<protocol::SpindleLine> spindles_;
+    // Whether each accessory was last known connected (upstream keeps it
+    // for the whole session, across connections).
+    std::map<std::string, bool> accessoryConnected_;
     std::int64_t lastLine_ = 1;
     std::shared_ptr<std::atomic<bool>> analysisCancel_;
 };

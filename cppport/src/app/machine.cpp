@@ -35,6 +35,18 @@ const QString Machine::kSimulatorHalPort = QStringLiteral("Simulator grblHAL");
 
 namespace {
 
+// ACCESSORY_AUTOCONFIG_KEYS: the [NEWOPT:] / Autoconfig keys that stand for
+// an accessory being there.
+constexpr std::string_view kAccessoryKeys[] = {"AUTOSPIN", "H100", "ATCEXP", "ETHERNET", "PROBE", "TLS"};
+
+bool isAccessoryKey(std::string_view key) {
+    return std::find(std::begin(kAccessoryKeys), std::end(kAccessoryKeys), key) != std::end(kAccessoryKeys);
+}
+
+}  // namespace
+
+namespace {
+
 template <class... Ts>
 struct Overloaded : Ts... {
     using Ts::operator()...;
@@ -989,6 +1001,30 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    [this](const ProgramPaused& e) {
                        Q_EMIT notice(tr("Program paused (%1) %2")
                                        .arg(QString::fromStdString(e.data), QString::fromStdString(e.comment)));
+                   },
+                   [this](const GrblHalInfo& e) {
+                       // [NEWOPT:] says which accessories are there to begin with.
+                       if (e.info.name != "NEWOPT") {
+                           return;
+                       }
+                       for (const auto& [key, value] : e.info.value.options) {
+                           if (isAccessoryKey(key)) {
+                               accessoryConnected_[key] = value && *value != "0";
+                           }
+                       }
+                   },
+                   [this](const GrblHalAutoconfig& e) {
+                       for (const auto& [key, value] : e.autoconfig.values) {
+                           if (!isAccessoryKey(key)) {
+                               continue;
+                           }
+                           const bool connected = value != "0";
+                           const auto known = accessoryConnected_.find(key);
+                           if (known != accessoryConnected_.end() && known->second != connected) {
+                               Q_EMIT accessoryConnectivityChanged(QString::fromStdString(key), connected);
+                           }
+                           accessoryConnected_[key] = connected;
+                       }
                    },
                    [this](const YModemStarted&) { Q_EMIT sdUploadStarted(); },
                    [this](const YModemProgress& e) { Q_EMIT sdUploadProgress(e.percent); },
