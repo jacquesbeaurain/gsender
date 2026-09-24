@@ -256,10 +256,12 @@ public:
     bool runProbe(std::vector<std::string> code);
     bool probeTriggered() const;  // the probe pin (Pn:P)
     // Simulator only: puts the plate where the operator would - the bit over
-    // it for `corner`, 10 mm above - so the routine has something to touch.
-    // AutoZero and BitZero plates are not modelled (their probes miss).
+    // it for `corner`, 10 mm above; over an AutoZero's pocket; inside a
+    // BitZero's bore (above its block to probe Z alone) - so the routine has
+    // something to touch.
     bool isSimulated() const noexcept { return simulator_ != nullptr; }
-    void placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner);
+    void placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner,
+                             probe::Axes axes = {true, true, true});
     sim::GrblSimulator* simulator() const noexcept { return simulator_.get(); }
 
 Q_SIGNALS:

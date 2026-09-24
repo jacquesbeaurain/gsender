@@ -250,6 +250,7 @@ void Machine::connectTo(const QString& port, int baudRate, int networkPort) {
     if (isSimulatorPort(port)) {
         simulator_ = std::make_unique<sim::GrblSimulator>(loop_);
         simulator_->setGrblHal(port == kSimulatorHalPort);
+        simulator_->setReportAfterDwell(true);
         startSession(*simulator_);
         simulator_->onData = [this](std::string_view bytes) {
             if (session_) {
@@ -868,7 +869,7 @@ bool Machine::probeTriggered() const {
     return c && c->state().status.probeActive;
 }
 
-void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner) {
+void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner, probe::Axes axes) {
     if (!simulator_) {
         return;
     }
@@ -899,9 +900,47 @@ void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, in
             radius = p.tipDiameter3D / 2;
             solids = sim::touchPlateOnCorner(corner, at[0] - 5 * sx, at[1] - 5 * sy, at[2] - 10, 0, 0, 100, 30);
             break;
-        case probe::PlateType::AutoZero:
-        case probe::PlateType::BitZero:
+        case probe::PlateType::AutoZero: {
+            // The bit 10 mm over the middle of the pocket, whose floor is the
+            // plate's thickness above the stock and whose centre is 22.5 mm
+            // in from both edges. The pocket narrows near its floor: a V-bit's
+            // tip finds walls 10 mm out (0.5 mm up), a bit 20 mm out (3 mm
+            // up).
+            const double floor = at[2] - 10;
+            solids = {sim::Solid{{at[0] - 35, at[1] - 35, floor - 5}, {at[0] + 35, at[1] + 35, floor}}};
+            const auto ring = [&](double inner, double bottom, double top) {
+                solids.push_back({{at[0] - 35, at[1] - 35, bottom}, {at[0] - inner, at[1] + 35, top}});
+                solids.push_back({{at[0] + inner, at[1] - 35, bottom}, {at[0] + 35, at[1] + 35, top}});
+                solids.push_back({{at[0] - inner, at[1] - 35, bottom}, {at[0] + inner, at[1] - inner, top}});
+                solids.push_back({{at[0] - inner, at[1] + inner, bottom}, {at[0] + inner, at[1] + 35, top}});
+            };
+            ring(10, floor, floor + 1);
+            ring(20, floor + 1, floor + 12);
             break;
+        }
+        case probe::PlateType::BitZero: {
+            // BitZero V2: a 13 mm block on the stock with its bore over the
+            // corner. XY (and XYZ) start inside the bore, 5 mm above the
+            // stock and a little off its centre; Z alone starts 10 mm over
+            // the block.
+            const double thickness = 13;
+            double cx = at[0] - 1;
+            double cy = at[1] + 0.5;
+            double stockTop = at[2] - 5;
+            if (!axes.x && !axes.y) {
+                cx = at[0] - 20 * sx;
+                cy = at[1] - 20 * sy;
+                stockTop = at[2] - 10 - thickness;
+            }
+            const double top = stockTop + thickness;
+            solids = {
+                {{cx - 30, cy - 30, stockTop}, {cx - 10, cy + 30, top}},
+                {{cx + 10, cy - 30, stockTop}, {cx + 30, cy + 30, top}},
+                {{cx - 10, cy - 30, stockTop}, {cx + 10, cy - 10, top}},
+                {{cx - 10, cy + 10, stockTop}, {cx + 10, cy + 30, top}},
+            };
+            break;
+        }
     }
     simulator_->setProbeSolids(std::move(solids));
     simulator_->setToolRadius(radius);
