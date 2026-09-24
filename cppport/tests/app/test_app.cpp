@@ -1196,10 +1196,57 @@ TEST_F(AppTest, TheSettingsDialogListsTheFirmwareSettings) {
     const int expected = static_cast<int>(machine.controller()->settings().settings.size());
     EXPECT_TRUE(waitFor([&] { return table->rowCount() == expected; }));  // the next poll broadcasts them
     EXPECT_EQ(table->item(0, 0)->text(), "$0");
-    EXPECT_NE(table->item(0, 3)->text().indexOf("Step pulse"), -1);  // described from the Grbl tables
+    EXPECT_NE(table->item(0, 4)->text().indexOf("Step pulse"), -1);  // described from the Grbl tables
     if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
         dialog.grab().save(QString::fromLocal8Bit(out) + "/settings_firmware.png");
     }
+
+    // Against the machine profile's defaults (the default LongMill MK2
+    // 30x30 - the simulator is no LongMill): the changed ones filter out.
+    auto* firmware = dialog.findChild<FirmwareSettingsTable*>();
+    ASSERT_NE(firmware, nullptr);
+    const int changed = firmware->modifiedCount();
+    ASSERT_GT(changed, 0);
+    firmware->setOnlyModified(true);
+    EXPECT_EQ(firmware->visibleRows(), changed);
+    firmware->setOnlyModified(false);
+    firmware->setFilter("step pulse time");
+    EXPECT_EQ(firmware->visibleRows(), 1);
+    firmware->setFilter("");
+    EXPECT_EQ(firmware->visibleRows(), expected);
+
+    // One changed setting back to its default.
+    QString setting;
+    for (int row = 0; row < table->rowCount() && setting.isEmpty(); ++row) {
+        if (table->cellWidget(row, 5)) {
+            setting = table->item(row, 0)->text();
+        }
+    }
+    ASSERT_FALSE(setting.isEmpty());
+    const std::string fallback = *config::defaultValue(machine.machineProfile(), machine.boardContext(),
+                                                       setting.toStdString());
+    ASSERT_TRUE(firmware->restoreSetting(setting));
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->settings().settings.get(setting.toStdString()) == fallback; }));
+    ASSERT_TRUE(waitFor([&] { return firmware->modifiedCount() == changed - 1; }));
+
+    // EEPROM files: exported as the board has them, imported back.
+    const QString file = dir.path() + "/eeprom.json";
+    ASSERT_TRUE(firmware->exportFile(file));
+    QFile exported(file);
+    ASSERT_TRUE(exported.open(QIODevice::ReadOnly));
+    EXPECT_TRUE(exported.readAll().startsWith("{\"$0\":"));
+    exported.close();
+    QFile edited(dir.path() + "/import.json");
+    ASSERT_TRUE(edited.open(QIODevice::WriteOnly));
+    edited.write(R"({"$1":"42"})");
+    edited.close();
+    ASSERT_TRUE(firmware->importFile(edited.fileName()));
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->settings().settings.get("$1") == "42"; }));
+    QFile broken(dir.path() + "/broken.json");
+    ASSERT_TRUE(broken.open(QIODevice::WriteOnly));
+    broken.write(R"({"one":1})");
+    broken.close();
+    EXPECT_FALSE(firmware->importFile(broken.fileName()));
 }
 
 TEST_F(AppTest, RotaryModePutsTheRotaryOnGrblsYAndBack) {

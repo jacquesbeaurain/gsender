@@ -510,9 +510,9 @@ void ToolpathView::paintEvent(QPaintEvent*) {
         if (settings.followTool && c->workflow().isRunning()) {
             centreOn(tool->x, tool->y);
         }
-        // The machine bed once homed (buildMachineBedOptions): the travel
-        // ($130/$131 - upstream took the machine profile's size) from the
-        // homing corner, and grblHAL's ATC keepout, in work coordinates.
+        // The machine bed once homed (buildMachineBedOptions): the machine
+        // profile's size from the homing corner, and grblHAL's ATC keepout,
+        // in work coordinates.
         const double homing = js::stringToNumber(firmware.get("$22"));
         if (settings.showMachineBed && std::isfinite(homing) && homing > 0 && c->hasHomed()) {
             const auto setting = [&firmware](const char* key, double fallback) {
@@ -521,8 +521,10 @@ void ToolpathView::paintEvent(QPaintEvent*) {
             };
             const double wcoX = (status.mpos.x() - status.wpos.x()) * unit;
             const double wcoY = (status.mpos.y() - status.wpos.y()) * unit;
+            const config::MachineProfile& profile = machine_.machineProfile();
             const controller::WorkRect r = controller::machineBedWorkRect(
-                firmware.get("$23"), setting("$130", 800), setting("$131", 800), wcoX, wcoY);
+                firmware.get("$23"), profile.width > 0 ? profile.width : 800, profile.depth > 0 ? profile.depth : 800,
+                wcoX, wcoY);
             bed = QRectF(QPointF(r.minX, r.minY), QPointF(r.maxX, r.maxY));
             const bool keepoutKnown = (firmware.find("$683") != nullptr) && (firmware.find("$684") != nullptr) &&
                                       (firmware.find("$685") != nullptr) && (firmware.find("$686") != nullptr) &&

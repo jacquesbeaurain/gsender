@@ -23,19 +23,41 @@ namespace gs::app {
 
 class Machine;
 
-// The firmware's settings ($$) with their descriptions; edited values are
-// written back as $n=value.
+// The firmware's settings ($$) with their descriptions (the Config page's
+// EEPROM side): each against the selected machine profile's default -
+// changed ones highlighted, each restorable - with the machine's Defaults,
+// EEPROM files imported and exported, a search and a changed-only filter.
+// Edited values are written back as $n=value.
 class FirmwareSettingsTable final : public QWidget {
     Q_OBJECT
 public:
     explicit FirmwareSettingsTable(Machine& machine, QWidget* parent = nullptr);
 
+    // What the controls do (the buttons ask first where upstream does).
+    void setMachineProfile(int id);
+    bool restoreDefaults();                        // the machine's defaults, all of them
+    bool restoreSetting(const QString& setting);  // one setting back to its default
+    bool importFile(const QString& path, QString* error = nullptr);
+    bool exportFile(const QString& path, QString* error = nullptr) const;
+    void setFilter(const QString& text);
+    void setOnlyModified(bool only);
+    int visibleRows() const;
+    int modifiedCount() const;  // settings away from their default
+    QTableWidget& table() noexcept { return *table_; }
+
 private:
     void reload();
     void apply();
     void refreshButtons();
+    void applyFilter();
 
     Machine& machine_;
+    QComboBox* profile_;
+    QPushButton* defaults_;
+    QPushButton* import_;
+    QPushButton* export_;
+    QLineEdit* search_;
+    QCheckBox* onlyModified_;
     QTableWidget* table_;
     QLabel* status_;
     QPushButton* reload_;

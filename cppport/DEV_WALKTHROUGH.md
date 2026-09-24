@@ -1257,10 +1257,9 @@ Settings > General gains upstream's Visualizer options (kept and imported):
 - **Follow tool during runtime**: while a job runs the camera stays over the
   tool, keeping its angle and scale.
 
-Deviations: the bed is sized from the board's travel ($130/$131, 800 mm
-without them) where upstream used the selected machine profile's size; the
-camera stays orthographic (upstream's default Perspective projection is not
-ported).
+The bed is sized from the selected machine profile (Step 48). Deviation:
+the camera stays orthographic (upstream's default Perspective projection is
+not ported).
 
 ## Step 46 — Settings backups
 
@@ -1282,3 +1281,31 @@ platform's own style and palette (as they were at start) when turned off
 (`appearance`). The palette is set before the style: setting the style
 re-polishes every widget, and widgets with style sheets keep the palette
 they were polished with. The visualizer keeps its own theme.
+
+## Step 48 — Machine profiles and the firmware settings' defaults (`gs/config/machine_profiles`)
+
+The machines gSender knows (Config/assets/MachineDefaults, extracted with
+their EEPROM defaults; `extract_data.mjs` now keeps each profile's
+`orderedSettings` Map as [key, value] pairs - JSON.stringify had turned
+them into `{}`) and what the Config page does with them:
+
+- The selected profile (workspace.machineProfile, by id; the LongMill MK2
+  30x30 by default; imported from gSender) - chosen on the Firmware tab -
+  gives each setting its **default**: Grbl's `eepromSettings`, or for
+  grblHAL the `grblHALeepromSettings` through the **grblCore migration**
+  (builds from 20250627, unless the board is an SLB Lite: settings renamed,
+  their values moving to the end, some defaults overridden or removed;
+  `resolveGrblCoreDefaults`).
+- A setting counts as changed when it differs from its default
+  (`eepromIsDefault`: no known default is default; grblHAL integers and
+  decimals compare to 3 decimals; otherwise numbers by value, else text).
+  Changed rows are highlighted with a Reset button ("Restored $n to default
+  value of v"), the Default column shows the profile's value, and "Only
+  show changed settings" and a search filter the list.
+- **Defaults** asks, then writes every default - the ordered ones last, in
+  order - then `$$` (and `$ES`, `$ESH` on grblHAL) (RestoreDefaultDialog);
+  offered for Sienci Labs machines and profiles with defaults.
+- **Import** writes an exported EEPROM file (a JSON object of "$n" keys,
+  refused otherwise; the profile's ordered settings first) then `$$`;
+  **Export** saves the board's settings as that JSON object.
+- The visualizer's machine bed takes the profile's width and depth.

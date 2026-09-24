@@ -32,6 +32,7 @@ add_library(gs_core STATIC
     src/config/config_store.cpp
     src/config/history.cpp
     src/config/records.cpp
+    src/config/machine_profiles.cpp
     src/job/program_analysis.cpp
     src/job/outline.cpp
     src/job/step_through.cpp

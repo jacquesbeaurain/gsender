@@ -10,6 +10,7 @@
 
 #include "gs/config/config_store.hpp"
 #include "gs/config/history.hpp"
+#include "gs/config/machine_profiles.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/locations.hpp"
 #include "gs/controller/session.hpp"
@@ -101,6 +102,11 @@ public:
     const AppSettings& settings() const noexcept { return settings_; }
     void setSettings(const AppSettings& settings);
     config::ConfigStore& config() noexcept { return config_; }
+    // The selected machine profile (the default one when none is chosen).
+    const config::MachineProfile& machineProfile() const;
+    // What the profile's defaults depend on: grblHAL or not, its build and
+    // board (nothing while disconnected).
+    config::BoardContext boardContext() const;
     // On start (isTimeToBackup / backupPreviousState): when the backup
     // frequency says so - "On Update" when `appVersion` differs from the one
     // that last backed up - the settings file as it is is copied to

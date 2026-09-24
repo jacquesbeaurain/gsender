@@ -385,6 +385,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
     settings.warnBadFile = flag(root, "warnBadFile", false);
     settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
     settings.darkMode = flag(root, "darkMode", false);
+    settings.machineProfileId = static_cast<int>(number(root, "machineProfileId", -1));
     settings.showBoundingBox = flag(root, "showBoundingBox", true);
     settings.boundingBoxLabels = flag(root, "boundingBoxLabels", false);
     settings.showMachineBed = flag(root, "showMachineBed", false);
@@ -477,6 +478,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"warnBadFile", settings.warnBadFile},
                          {"visualizerTheme", settings.visualizerTheme},
                          {"darkMode", settings.darkMode},
+                         {"machineProfileId", settings.machineProfileId},
                          {"showBoundingBox", settings.showBoundingBox},
                          {"boundingBoxLabels", settings.boundingBoxLabels},
                          {"showMachineBed", settings.showMachineBed},
@@ -618,6 +620,9 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     s.powerSaving = flag(w, "powerSaving", false);
     s.promptExit = flag(w, "promptExit", false);
     s.darkMode = flag(w, "enableDarkMode", false);
+    if (const json::object* profile = child(w, "machineProfile")) {
+        s.machineProfileId = static_cast<int>(number(*profile, "id", -1));
+    }
     if (const std::string frequency = text(w, "backupFreq"); !frequency.empty()) {
         s.backupFrequency = frequency;
     }

@@ -149,6 +149,10 @@ struct AppSettings {
     // following the tool while a job runs (followToolDuringRuntime).
     std::string visualizerTheme = "Dark";
     bool darkMode = false;  // workspace.enableDarkMode: the application dark
+    // workspace.machineProfile (its id): the machine whose EEPROM defaults
+    // the firmware settings compare with and restore; its size is the
+    // visualizer's machine bed.
+    int machineProfileId = -1;  // -1: the default (LongMill MK2 30x30)
     bool showBoundingBox = true;
     bool boundingBoxLabels = false;
     bool showMachineBed = false;
