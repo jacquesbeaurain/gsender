@@ -13,6 +13,10 @@ add_library(gs_app STATIC
     appearance.hpp
     calibration_dialogs.cpp
     calibration_dialogs.hpp
+    console_log.cpp
+    console_log.hpp
+    console_panel.cpp
+    console_panel.hpp
     controls.cpp
     controls.hpp
     diagnostics.cpp

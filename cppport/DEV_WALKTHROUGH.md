@@ -1553,3 +1553,33 @@ QPdfWriter (upstream draws it with react-pdf); the ZIP is written by a
 small stored-entry writer (`zip::archive`, CRC-32 and DOS time; upstream
 uses JSZip). Deviation: upstream's "In Use" of the port is left out (the
 port listing has no such flag).
+
+## Step 56 — The console's message types and filters (`src/app/console_log`, `console_panel`)
+
+The Console follows features/Console. One `ConsoleLog` per machine keeps
+the last 1000 lines (CONSOLE_HISTORY_LIMIT), each with its type -
+classifyControllerRead/Write: what was put on the wire is G-code, the
+sender's own writes are system output, and the board's lines are an
+alarm, an error, a [MSG:] (a warning when it says WARN) or a response.
+Lines are handed on in batches every 30 ms, as consoleStore does; a burst
+while nothing flushes keeps only what would survive the trim. The app's
+own notices and errors go to the same log as system and error lines. On
+connecting the log opens with upstream's banner ("gSender - [Grbl]",
+"Connected to <port> with a baud rate of <rate>"), and closing the
+connection clears it.
+
+`ConsolePanel` shows the log on a dark surface, each line with its type's
+mark and colour (MessageIcon), and has the toolbar's filters - All,
+G-code, Responses, System, Faults (warnings, errors, alarms) - Copy (the
+last 50 lines of the raw stream whatever the filter, "Copied last N
+commands to clipboard"), Clear ("Console cleared") and Pop Out. The view
+follows new lines while at the bottom and otherwise offers "Scroll to
+latest message". The command line keeps the last 300 commands
+(MAX_TERMINAL_INPUT_ARRAY_SIZE), shared with the pop-out, walked with Up
+and Down. Without a machine the output reads "Not connected to a device".
+
+Deviations: the pop-out is a window of the app showing the same log
+(upstream opens a second Electron window on /console that joins the
+port); upstream's toasts are the port's notifications; the list is a
+QPlainTextEdit rather than a virtualized list, rebuilt when the filter
+changes.

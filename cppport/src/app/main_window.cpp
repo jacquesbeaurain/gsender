@@ -6,6 +6,7 @@
 #include "appearance.hpp"
 #include "diagnostics.hpp"
 #include "calibration_dialogs.hpp"
+#include "console_panel.hpp"
 #include "controls.hpp"
 #include "dro_panel.hpp"
 #include "jogger.hpp"
@@ -128,12 +129,16 @@ MainWindow::MainWindow(Machine& machine, QWidget* parent) : QMainWindow(parent),
     });
     bell_ = new NotificationButton(*notifications_, this);
     menuBar()->setCornerWidget(bell_, Qt::TopRightCorner);
+    // The console's copy and clear say so (upstream's toasts).
+    connect(console_, &ConsolePanel::notice, this, [this](const QString& text, bool success) {
+        notifications_->add(text, success ? NotificationType::Success : NotificationType::Info);
+    });
 
     statusBar()->showMessage(tr("Ready"));
     const auto announce = [this](NotificationType type) {
         return [this, type](const QString& text) {
             statusBar()->showMessage(text, 15000);
-            console_->append(text, false);
+            machine_.consoleLog().write(text, ConsoleType::System);
             notifications_->add(text, type);
         };
     };
@@ -654,13 +659,13 @@ void MainWindow::showError(const QString& title, const QString& detail) {
     // toast.error("Error 20: ..."): the first line pops up; the console has it all.
     const QString text = title + ": " + detail.section('\n', 0, 0);
     statusBar()->showMessage(text, 15000);
-    console_->append(title + ": " + detail, false);
+    machine_.consoleLog().write(title + ": " + detail, ConsoleType::Error);
     notifications_->add(text, NotificationType::Error);
 }
 
 void MainWindow::showMessage(const QString& title, const QString& detail) {
     statusBar()->showMessage(title + ": " + detail.section('\n', 0, 0), 15000);
-    console_->append(title + ": " + detail, false);
+    machine_.consoleLog().write(title + ": " + detail, ConsoleType::System);
     if (!dialogsEnabled_) {
         return;
     }

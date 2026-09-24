@@ -63,28 +63,6 @@ private:
     bool showing_ = false;
 };
 
-// Firmware output and a command line (Console widget).
-class ConsolePanel final : public QWidget {
-    Q_OBJECT
-public:
-    explicit ConsolePanel(Machine& machine, QWidget* parent = nullptr);
-    void append(const QString& text, bool fromHost);
-    // The commands typed, oldest first (the diagnostics' terminal history).
-    const QStringList& history() const noexcept { return history_; }
-
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
-
-private:
-    void submit();
-
-    Machine& machine_;
-    QPlainTextEdit* output_;
-    QLineEdit* input_;
-    QStringList history_;
-    int historyIndex_ = 0;
-};
-
 // Load/run/pause/stop with progress and the file's statistics (Job panel).
 class JobPanel final : public QWidget {
     Q_OBJECT

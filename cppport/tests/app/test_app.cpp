@@ -6,6 +6,7 @@
 #include "accessory_installer.hpp"
 #include "accessory_wizards.hpp"
 #include "calibration_dialogs.hpp"
+#include "console_panel.hpp"
 #include "controls.hpp"
 #include "diagnostics.hpp"
 #include "dro_panel.hpp"
@@ -38,12 +39,14 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QComboBox>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSlider>
 #include <QTableWidget>
@@ -2458,6 +2461,146 @@ TEST_F(AppTest, TheDiagnosticFileGathersTheReportSettingsAndJob) {
         painter.end();
         image.save(QString::fromLocal8Bit(out) + "/diagnostics_report.png");
     }
+}
+
+TEST(Console, LinesAreClassifiedAsUpstreamClassifiesThem) {
+    EXPECT_EQ(classifyRead("ok"), ConsoleType::Response);
+    EXPECT_EQ(classifyRead("<Idle|MPos:0.000,0.000,0.000>"), ConsoleType::Response);
+    EXPECT_EQ(classifyRead("$130=800.000"), ConsoleType::Response);
+    EXPECT_EQ(classifyRead("ALARM:10 (EStop asserted. Clear and reset)"), ConsoleType::Alarm);
+    EXPECT_EQ(classifyRead("error:20"), ConsoleType::Error);
+    EXPECT_EQ(classifyRead("[MSG:Emergency stop - clear, then reset to continue]"), ConsoleType::System);
+    EXPECT_EQ(classifyRead("[MSG:WARN: Spindle at max]"), ConsoleType::Warning);
+    EXPECT_EQ(classifyRead("[MSG:ALARM:1 triggered]"), ConsoleType::Alarm);
+    for (const auto source : {controller::WriteSource::Client, controller::WriteSource::Feeder,
+                              controller::WriteSource::Sender}) {
+        EXPECT_EQ(classifyWrite(source), ConsoleType::Gcode);
+    }
+    EXPECT_EQ(classifyWrite(controller::WriteSource::Server), ConsoleType::System);
+
+    const auto message = [](ConsoleType type) { return ConsoleMessage{1, "x", type}; };
+    for (const ConsoleType type : {ConsoleType::Gcode, ConsoleType::Response, ConsoleType::System,
+                                   ConsoleType::Warning, ConsoleType::Error, ConsoleType::Alarm}) {
+        EXPECT_TRUE(matchesFilter(message(type), ConsoleFilter::All));
+    }
+    for (const ConsoleType type : {ConsoleType::Warning, ConsoleType::Error, ConsoleType::Alarm}) {
+        EXPECT_TRUE(matchesFilter(message(type), ConsoleFilter::Faults));
+    }
+    for (const ConsoleType type : {ConsoleType::Gcode, ConsoleType::Response, ConsoleType::System}) {
+        EXPECT_FALSE(matchesFilter(message(type), ConsoleFilter::Faults));
+    }
+    EXPECT_TRUE(matchesFilter(message(ConsoleType::Gcode), ConsoleFilter::Gcode));
+    EXPECT_FALSE(matchesFilter(message(ConsoleType::Response), ConsoleFilter::Gcode));
+    EXPECT_TRUE(matchesFilter(message(ConsoleType::System), ConsoleFilter::System));
+}
+
+TEST_F(AppTest, TheConsoleLogKeepsTheLastThousandLinesInBatches) {
+    ConsoleLog log;
+    std::vector<std::pair<int, int>> batches;
+    QObject::connect(&log, &ConsoleLog::appended, [&](int count, int dropped) { batches.emplace_back(count, dropped); });
+    log.write("");  // nothing
+    for (int i = 0; i < 5; ++i) {
+        log.write(QString("first %1").arg(i), ConsoleType::Gcode);
+    }
+    EXPECT_TRUE(log.messages().empty());  // until the 30 ms flush
+    ASSERT_TRUE(waitFor([&] { return !batches.empty(); }));
+    EXPECT_EQ(batches, (std::vector<std::pair<int, int>>{{5, 0}}));
+    EXPECT_EQ(log.messages().front().type, ConsoleType::Gcode);
+    // A burst past the limit: the waiting lines are capped, the log trimmed.
+    for (int i = 0; i < 1100; ++i) {
+        log.write(QString("line %1").arg(i));
+    }
+    log.flush();
+    ASSERT_EQ(batches.size(), 2u);
+    EXPECT_EQ(batches[1], (std::pair<int, int>{1000, 5}));
+    ASSERT_EQ(log.messages().size(), 1000u);
+    EXPECT_EQ(log.messages().front().text, "line 100");
+    EXPECT_EQ(log.messages().back().text, "line 1099");
+    EXPECT_EQ(log.messages().back().type, ConsoleType::Response);  // untyped
+    const QStringList last = log.lastTexts(50);
+    ASSERT_EQ(last.size(), 50);
+    EXPECT_EQ(last.front(), "line 1050");
+    // Clearing drops what waits too.
+    log.write("late");
+    log.clear();
+    log.flush();
+    EXPECT_TRUE(log.messages().empty());
+    EXPECT_EQ(batches.size(), 2u);
+    for (int i = 0; i < 310; ++i) {
+        log.addInput(QString("G0 X%1").arg(i));
+    }
+    EXPECT_EQ(log.inputHistory().size(), 300);
+    EXPECT_EQ(log.inputHistory().front(), "G0 X10");
+}
+
+TEST_F(AppTest, TheConsoleShowsTheMachinesTrafficByFilter) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    ConsolePanel console(machine);
+    QPlainTextEdit* output = console.findChild<QPlainTextEdit*>("consoleOutput");
+    ASSERT_NE(output, nullptr);
+    EXPECT_EQ(output->placeholderText(), "Not connected to a device");
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    // The connection's banner.
+    ASSERT_TRUE(waitFor([&] { return console.shownLines().contains("Connected to Simulator with a baud rate of 115200"); }));
+    EXPECT_TRUE(console.shownLines().contains("gSender - [Grbl]"));
+    EXPECT_TRUE(output->placeholderText().isEmpty());
+
+    console.submit("$$");
+    console.submit("G99");  // unsupported
+    ASSERT_TRUE(waitFor([&] {
+        const QStringList lines = console.shownLines();
+        return lines.contains("$130=800.000 (X-axis maximum travel, mm)") &&
+               std::any_of(lines.begin(), lines.end(), [](const QString& line) { return line.startsWith("error:"); });
+    }));
+    EXPECT_EQ(machine.consoleLog().inputHistory(), (QStringList{"$$", "G99"}));
+
+    console.setFilter(ConsoleFilter::Gcode);
+    EXPECT_EQ(console.shownLines(), (QStringList{"$$", "G99"}));
+    console.setFilter(ConsoleFilter::Faults);
+    const QStringList faults = console.shownLines();
+    ASSERT_FALSE(faults.isEmpty());
+    EXPECT_TRUE(std::all_of(faults.begin(), faults.end(), [](const QString& line) {
+        return line.startsWith("error:") || line.startsWith("Error");
+    })) << faults.join(" | ").toStdString();
+    console.setFilter(ConsoleFilter::System);
+    EXPECT_TRUE(console.shownLines().contains("gSender - [Grbl]"));
+    console.setFilter(ConsoleFilter::Response);
+    EXPECT_TRUE(console.shownLines().contains("$130=800.000 (X-axis maximum travel, mm)"));
+    EXPECT_FALSE(console.shownLines().contains("$$"));
+
+    // Copy takes the last 50 lines of everything, whatever the filter.
+    QStringList notices;
+    QObject::connect(&console, &ConsolePanel::notice, [&](const QString& text, bool) { notices << text; });
+    console.copyLast();
+    EXPECT_EQ(QApplication::clipboard()->text(), machine.consoleLog().lastTexts(50).join('\n'));
+    ASSERT_EQ(notices.size(), 1);
+    EXPECT_TRUE(notices.front().startsWith("Copied last "));
+
+    // The pop-out shows the same log; a command typed there shows in both.
+    console.setFilter(ConsoleFilter::All);
+    ConsolePanel* popout = console.popOut();
+    ASSERT_NE(popout, nullptr);
+    EXPECT_EQ(popout->shownLines(), console.shownLines());
+    EXPECT_EQ(popout->findChild<QToolButton*>("consolePopOut"), nullptr);
+    popout->submit("G0 X1");
+    ASSERT_TRUE(waitFor([&] { return console.shownLines().contains("G0 X1") && popout->shownLines().contains("G0 X1"); }));
+
+    console.clearAll();
+    EXPECT_TRUE(console.shownLines().isEmpty());
+    EXPECT_TRUE(popout->shownLines().isEmpty());
+    EXPECT_EQ(notices.back(), "Console cleared");
+    // A closed connection leaves a clean console.
+    console.submit("$G");
+    ASSERT_TRUE(waitFor([&] { return console.shownLines().contains("$G"); }));
+    machine.disconnectFromMachine();
+    EXPECT_TRUE(console.shownLines().isEmpty());
+    EXPECT_EQ(output->placeholderText(), "Not connected to a device");
 }
 
 TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
