@@ -522,7 +522,9 @@ routines the plate offers (Z, XYZ, XY, X, Y - only Z for a Z probe), the bit
 routines that compensate for it, and the corner - a small plan view of the
 stock with the plate; a click moves it clockwise. Upstream keeps the corner in
 `widgets.probe.direction` without a control (its UI no longer calls
-`nextProbeDirection`); the port shows it.
+`nextProbeDirection`); the port shows it. The plate type itself is chosen in
+Settings > Probe; the tab offers it only with "Show touch plate switcher"
+(widgets.probe.touchplateTypeSwitcher, off by default).
 
 "Probe" opens the run step: gSender's instructions, a circuit light fed by
 the probe pin (`Pn:P`), and Start, enabled once the pin has triggered while

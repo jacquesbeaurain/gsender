@@ -127,6 +127,9 @@ struct AppSettings {
     protocol::Firmware defaultFirmware = protocol::Firmware::Grbl;
     // Probe widget and touch plate profile (mm)
     probe::ProbeSettings probe;
+    // "Show touch plate switcher" (widgets.probe.touchplateTypeSwitcher): the
+    // plate type chosen on the Probe tab too, not only in the settings.
+    bool touchplateTypeSwitcher = false;
     // Surfacing tool (mm)
     surfacing::Options surfacing;
     // Spindle/Laser tab

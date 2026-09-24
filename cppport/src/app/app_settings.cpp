@@ -395,6 +395,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
         text(root, "defaultFirmware", "Grbl") == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
         settings.probe = loadProbe(probe->as_object());
+        settings.touchplateTypeSwitcher = flag(probe->as_object(), "touchplateTypeSwitcher", false);
     }
     if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
         settings.surfacing = loadSurfacing(surfacing->as_object());
@@ -528,7 +529,11 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"networkPort", settings.networkPort},
                          {"defaultFirmware",
                           settings.defaultFirmware == protocol::Firmware::GrblHal ? "grblHAL" : "Grbl"},
-                         {"probe", saveProbe(settings.probe)},
+                         {"probe", [&settings] {
+                              json::object probe = saveProbe(settings.probe);
+                              probe["touchplateTypeSwitcher"] = settings.touchplateTypeSwitcher;
+                              return probe;
+                          }()},
                          {"surfacing", saveSurfacing(settings.surfacing)},
                          {"spindle", saveSpindle(settings.spindle)},
                          {"rotary", saveRotary(settings.rotary)},
@@ -781,6 +786,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
         probe["touchplateType"] = "AutoZero";  // older files
     }
     s.probe = loadProbe(probe);
+    s.touchplateTypeSwitcher = flag(probe, "touchplateTypeSwitcher", false);
 
     if (const json::object* axes = child(g, "axes")) {
         if (const json::object* jog = child(*axes, "jog")) {
