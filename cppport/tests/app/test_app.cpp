@@ -32,6 +32,7 @@
 #include "surfacing_dialog.hpp"
 #include "toolchange_dialog.hpp"
 
+#include "gs/gcode/highlight.hpp"
 #include "gs/config/history.hpp"
 #include "gs/config/records.hpp"
 #include "gs/controller/actions.hpp"
@@ -49,6 +50,7 @@
 #include <QSpinBox>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QListView>
 #include <QMenu>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -60,6 +62,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <QTextDocument>
 #include <QPainter>
 #include <QImage>
@@ -1916,6 +1920,8 @@ TEST_F(AppTest, TheGcodeEditorChangesTheJobAndFollowsItRunning) {
     controller::runJob(*machine.controller());
     ASSERT_TRUE(waitFor([&] { return editor.jobRunning() && editor.runningLine() == 4; }));
     EXPECT_TRUE(editor.editor().isReadOnly());
+    EXPECT_FALSE(editor.editor().highlighting());  // plain while the job runs, as upstream
+    EXPECT_FALSE(editor.editor().isColoured(0));
     EXPECT_FALSE(editor.save());
     if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
         editor.resize(760, 420);
@@ -1925,11 +1931,98 @@ TEST_F(AppTest, TheGcodeEditorChangesTheJobAndFollowsItRunning) {
     ASSERT_TRUE(waitFor([&] { return !editor.jobRunning(); }));
     EXPECT_EQ(editor.runningLine(), 0u);
     EXPECT_FALSE(editor.editor().isReadOnly());
+    EXPECT_TRUE(editor.editor().highlighting());
 
     // Unloading the file closes the editor.
     editor.show();
     machine.unloadProgram();
     EXPECT_FALSE(editor.isVisible());
+}
+
+namespace {
+
+// The colour the block's first character is drawn in, or none.
+QColor firstColour(const GcodeTextEdit& edit, int block) {
+    const QList<QTextLayout::FormatRange> formats = edit.document()->findBlockByNumber(block).layout()->formats();
+    return formats.isEmpty() ? QColor() : formats.front().format.foreground().color();
+}
+
+// Pixels of the image near `colour` (text is antialiased).
+int pixelsNear(const QImage& image, QColor colour) {
+    int count = 0;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            if (std::abs(pixel.red() - colour.red()) + std::abs(pixel.green() - colour.green()) +
+                    std::abs(pixel.blue() - colour.blue()) < 30) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
+}  // namespace
+
+TEST_F(AppTest, TheGcodeViewsColourTheLinesInView) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    std::string program = "G21 G90 (setup)\n";
+    for (int i = 1; i < 3000; ++i) {
+        program += "G1 X" + std::to_string(i % 50) + " Y1 F500\n";
+    }
+    machine.loadProgram("colours.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    const QColor name = QColor::fromRgb(gcode::highlightColor(gcode::HighlightClass::Name, false));
+    const QColor darkName = QColor::fromRgb(gcode::highlightColor(gcode::HighlightClass::Name, true));
+
+    // The editor colours what it shows, when it shows it.
+    GcodeEditorDialog editor(machine);
+    GcodeTextEdit& edit = editor.editor();
+    editor.resize(760, 420);
+    editor.show();
+    edit.viewport()->grab();
+    EXPECT_TRUE(edit.isColoured(0));
+    EXPECT_EQ(firstColour(edit, 0), name);  // "G21"
+    EXPECT_FALSE(edit.isColoured(2999));
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        editor.grab().save(QString::fromLocal8Bit(out) + "/gcode_editor_colours.png");
+    }
+    editor.jumpToLine(3000);
+    edit.viewport()->grab();
+    EXPECT_TRUE(edit.isColoured(2999));
+    // An edited line is coloured again.
+    QTextCursor cursor(edit.document()->findBlockByNumber(2999));
+    cursor.insertText("(note) ");
+    EXPECT_FALSE(edit.isColoured(2999));
+    edit.viewport()->grab();
+    EXPECT_TRUE(edit.isColoured(2999));
+    EXPECT_EQ(firstColour(edit, 2999), QColor::fromRgb(gcode::highlightColor(gcode::HighlightClass::Comment, false)));
+    // Dark mode: the a11y-dark colours.
+    AppSettings settings = machine.settings();
+    settings.darkMode = true;
+    machine.setSettings(settings);
+    EXPECT_FALSE(edit.isColoured(2999));
+    edit.viewport()->grab();
+    EXPECT_EQ(firstColour(edit, 2999), QColor::fromRgb(gcode::highlightColor(gcode::HighlightClass::Comment, true)));
+    ASSERT_TRUE(editor.revert());
+
+    // The Step Through's rows.
+    settings.darkMode = false;
+    machine.setSettings(settings);
+    StepThroughDialog stepper(machine);
+    ASSERT_TRUE(waitFor([&] { return stepper.indexReady(); }));
+    stepper.resize(1280, 820);
+    stepper.show();
+    auto* list = stepper.findChild<QListView*>();
+    ASSERT_NE(list, nullptr);
+    EXPECT_GT(pixelsNear(list->viewport()->grab().toImage(), name), 0);
+    settings.darkMode = true;
+    machine.setSettings(settings);
+    const QImage dark = list->viewport()->grab().toImage();
+    EXPECT_GT(pixelsNear(dark, darkName), 0);
+    EXPECT_EQ(pixelsNear(dark, name), 0);
 }
 
 TEST_F(AppTest, NotificationsKeepTheLastHundredAndPopUpForTheirTime) {

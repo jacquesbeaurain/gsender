@@ -1,5 +1,6 @@
 #include "step_through_dialog.hpp"
 
+#include "gcode_highlighter.hpp"
 #include "machine.hpp"
 
 #include "gs/util/jsnumber.hpp"
@@ -25,6 +26,8 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QStyledItemDelegate>
+#include <QTextLayout>
 #include <QThreadPool>
 #include <QTimer>
 #include <QToolButton>
@@ -84,6 +87,11 @@ bool containsIgnoringCase(const std::string& line, const std::string& lowerNeedl
 }  // namespace
 
 // ---- the source list ----------------------------------------------------------------------
+
+// Row roles beside the display text ("> 12  G1 X1"): where the code starts
+// in it, and whether the row is the current line.
+constexpr int kCodeStartRole = Qt::UserRole + 1;
+constexpr int kCurrentRole = Qt::UserRole + 2;
 
 // The file's lines with their numbers: the current one marked and bold, the
 // search's matches highlighted.
@@ -146,6 +154,10 @@ public:
                 return {};
             case Qt::FontRole:
                 return current ? QVariant(bold_) : QVariant();
+            case kCodeStartRole:
+                return 2 + gutter_ + 2;
+            case kCurrentRole:
+                return current;
             default:
                 return {};
         }
@@ -164,6 +176,44 @@ private:
     std::size_t current_ = 0;
     int gutter_ = 1;
     QFont bold_;
+};
+
+// A source row as GCodeSourceLine draws it: the marker and the number muted
+// (the current one blue), the code syntax-coloured (gcode_highlighter).
+class SourceLineDelegate final : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    bool dark = false;
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        QStyleOptionViewItem item(option);
+        initStyleOption(&item, index);
+        const QString text = item.text;
+        item.text.clear();  // the background (current line, search match) only
+        const QWidget* widget = item.widget;
+        QStyle* style = widget ? widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &item, painter, widget);
+
+        const int codeStart = std::min(static_cast<int>(text.size()), index.data(kCodeStartRole).toInt());
+        const bool current = index.data(kCurrentRole).toBool();
+        QTextLayout::FormatRange number;
+        number.start = 0;
+        number.length = codeStart;
+        // Tailwind's blue-700 / blue-200 for the current line, gray-400 otherwise.
+        number.format.setForeground(current ? (dark ? QColor(0xbfdbfe) : QColor(0x1d4ed8)) : QColor(0x9ca3af));
+        QList<QTextLayout::FormatRange> formats{number};
+        formats += gcodeFormats(text.mid(codeStart), dark, codeStart);
+        QTextLayout layout(text, item.font);
+        layout.setFormats(formats);
+        layout.beginLayout();
+        QTextLine line = layout.createLine();
+        layout.endLayout();
+        const QRect rect = style->subElementRect(QStyle::SE_ItemViewItemText, &item, widget);
+        painter->save();
+        painter->setClipRect(rect);
+        layout.draw(painter, QPointF(rect.left(), rect.top() + (rect.height() - line.height()) / 2));
+        painter->restore();
+    }
 };
 
 // ---- the view -----------------------------------------------------------------------------
@@ -301,6 +351,14 @@ StepThroughDialog::StepThroughDialog(Machine& machine, QWidget* parent) : QDialo
     source_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     model_ = new StepSourceModel(this);
     source_->setModel(model_);
+    delegate_ = new SourceLineDelegate(source_);
+    source_->setItemDelegate(delegate_);
+    const auto followTheme = [this] {
+        delegate_->dark = machine_.settings().darkMode;
+        source_->viewport()->update();
+    };
+    followTheme();
+    connect(&machine_, &Machine::appSettingsChanged, this, followTheme);
     sourceColumn->addWidget(source_, 1);
     auto* toStart = new QPushButton(tr("Go to start"));
     sourceColumn->addWidget(toStart);

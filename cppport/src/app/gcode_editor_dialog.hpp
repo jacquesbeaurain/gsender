@@ -35,11 +35,26 @@ public:
     int gutterWidth() const;
     void paintGutter(QPaintEvent* event);
 
+    // Syntax colouring (gcode_highlighter): on, the lines are coloured as
+    // they come into view; off - while a job runs, as upstream - plain.
+    void setHighlighting(bool enabled, bool dark);
+    bool highlighting() const noexcept { return highlight_; }
+    // Whether the block's colours are current (tests).
+    bool isColoured(int block) const;
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
+    // Each coloured block's userState holds its revision when coloured, so
+    // an edited block is coloured again; -1 means plain.
+    void colourVisibleBlocks();
+    void clearColours();
+
     QWidget* gutter_;
+    bool highlight_ = true;
+    bool dark_ = false;
     std::size_t runningFirst_ = 0;
     std::size_t runningLast_ = 0;
 };
