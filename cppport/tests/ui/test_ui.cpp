@@ -1075,6 +1075,41 @@ TEST_F(UiTest, TheStatsPageShowsTheRecordAndManagesMaintenance) {
     ASSERT_TRUE(waitFor([&] { return item("statsAbout")->isVisible(); }));
 }
 
+TEST_F(UiTest, TheSurfacingToolGeneratesAndLoadsItsProgram) {
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_surfacing") && item("toolCard_surfacing")->isVisible(); }));
+    screenshot("ui_tools");
+    tap("toolCard_surfacing");
+    ASSERT_TRUE(waitFor([&] { return item("surfacingTool") && item("surfacingTool")->isVisible(); }));
+    QObject* model = item("surfacingTool")->property("model").value<QObject*>();
+    // Whole numbers keep their zeros.
+    EXPECT_EQ(text("surfacing_stepover"), "40");
+    EXPECT_EQ(text("surfacing_spindleRPM"), "17000");
+
+    // The stock: 200 wide, zig-zag from the front left.
+    QQuickItem* width = item("surfacing_width");
+    width->forceActiveFocus();
+    QTest::keyClick(window_, Qt::Key_A, Qt::ControlModifier);
+    type("200");
+    QTest::keyClick(window_, Qt::Key_Return);
+    EXPECT_EQ(model->property("options").toMap()["width"].toDouble(), 200);
+    tap("surfacingPattern_zigzag");
+    tap("surfacingStart_frontLeft");
+    EXPECT_EQ(model->property("options").toMap()["pattern"].toString(), "zigzag");
+    EXPECT_EQ(model->property("options").toMap()["startPosition"].toString(), "frontLeft");
+
+    tap("surfacingGenerate");
+    ASSERT_TRUE(waitFor([&] { return model->property("lines").toInt() > 10; }));
+    EXPECT_FALSE(item("surfacingPreview")->property("empty").toBool());
+    EXPECT_EQ(machine_->settings().surfacing.width, 200);  // kept
+    screenshot("ui_surfacing");
+
+    // Loaded as the job, back on the Carve page.
+    tap("surfacingLoad");
+    EXPECT_TRUE(waitFor([&] { return machine_->programName() == "gSender_Surfacing.gcode"; }));
+    EXPECT_TRUE(waitFor([&] { return item("carvePage")->isVisible(); }));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

@@ -138,6 +138,17 @@ const icons = [
     ['io', 'IoIosWarning'],
     ['pi', 'PiMaskHappyBold'],
     ['fa', 'FaCircle'],
+    // The Tools page.
+    ['gi', 'GiFlatPlatform'],
+    ['bi', 'BiSolidCylinder'],
+    ['tb', 'TbRulerMeasure'],
+    ['md', 'MdSquareFoot'],
+    ['fa', 'FaKeyboard'],
+    ['fa', 'FaGamepad'],
+    ['fa', 'FaSdCard'],
+    ['lu', 'LuDrill'],
+    ['pi', 'PiPuzzlePiece'],
+    ['lu', 'LuArrowLeft'],
 ];
 
 for (const [set, name] of icons) {
@@ -158,6 +169,18 @@ const own = [
 for (const [from, to] of own) {
     copyFileSync(join(repoRoot, from), join(out, to));
 }
+// The Surfacing tool's pattern pictures (features/Surfacing/SVG), their
+// paths as the components draw them.
+const patterns = [
+    ['SurfacingSpiral.svg', '3 3 25 24',
+     '<path d="M4 3L3 3 3 4 3 26 3 27 4 27 23 27 24 27 24 26 24 8 24 7 23 7 8 7 7 7 7 8 7 22 7 23 8 23 19 23 20 23 20 22 20 12 20 11 19 11 12 11 11 11 11 12 11 18 11 19 12 19 15 19 16 19 16 18 16 15 15 15 14 15 14 16 15 16 15 18 12 18 12 12 19 12 19 22 8 22 8 8 23 8 23 26 4 26 4 4 27 4 27 27 28 27 28 3 27 3z"/>'],
+    ['SurfacingZigZag.svg', '14.27 6.1 57.6 76.83',
+     '<path transform="rotate(90.227 43.07 44.514)" d="M81.37 61.864l-11.3 11.3-11.3-11.3 2.8-2.8 6.5 6.5v-39.7c0-3.3-2.7-6-6-6h-11c-3.3 0-6 2.7-6 6v37c0 5.5-4.5 10-10 10h-11c-5.5 0-10-4.5-10-10v-39.2l-6.5 6.5-2.8-2.8 11.3-11.3 11.3 11.3-2.8 2.8-6.5-6.5v39.2c0 3.3 2.7 6 6 6h11c3.3 0 6-2.7 6-6v-37c0-5.5 4.5-10 10-10h11c5.5 0 10 4.5 10 10v39.6l6.5-6.5 2.8 2.9z"/>'],
+];
+for (const [name, viewBox, body] of patterns) {
+    writeFileSync(join(out, name),
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="currentColor">${body}</svg>\n`, 'utf8');
+}
 
 writeFileSync(
     join(out, 'README.md'),
@@ -169,9 +192,12 @@ licences: Font Awesome Free (fa, fa6; CC BY 4.0), Lucide (lu; ISC), Ionicons
 (io5; MIT), Remix Icon (ri; Apache 2.0), Bootstrap Icons (bs; MIT), Phosphor
 (pi; MIT), Grommet (gr; Apache 2.0), VS Code Codicons (vsc; CC BY 4.0),
 Material Design icons (md; Apache 2.0), Feather (fi; MIT), Line Awesome (lia;
-MIT/CC BY 4.0), Tabler (tb; MIT).
-Carve.svg and the Jog*Labels.svg files are gSender's own.
+MIT/CC BY 4.0), Tabler (tb; MIT), Game Icons (gi; CC BY 3.0), BoxIcons (bi;
+MIT), Github Octicons (go; MIT), IcoMoon Free (im; CC BY 4.0), Ionicons 4
+(io; MIT).
+Carve.svg, the Jog*Labels.svg files and the Surfacing*.svg patterns are
+gSender's own.
 `,
     'utf8',
 );
-console.log(`wrote ${icons.length + own.length} icons to ${out}`);
+console.log(`wrote ${icons.length + own.length + patterns.length} icons to ${out}`);

@@ -17,7 +17,13 @@ TextField {
     property bool edited: false
 
     function show() {
-        text = display !== undefined ? display : Number(value).toFixed(decimals).replace(/\.?0+$/, "")
+        if (display !== undefined) {
+            text = display
+            return
+        }
+        // Trailing zeros after the point go (not a whole number's own).
+        const fixed = Number(value).toFixed(decimals)
+        text = fixed.includes(".") ? fixed.replace(/\.?0+$/, "") : fixed
     }
 
     implicitHeight: 40
