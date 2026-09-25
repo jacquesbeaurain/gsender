@@ -150,7 +150,7 @@ protected:
 };
 
 INSTANTIATE_TEST_SUITE_P(Firmwares, ControllerTest, ::testing::Values(Firmware::Grbl, Firmware::GrblHal),
-                         [](const auto& info) { return info.param == Firmware::Grbl ? "Grbl" : "GrblHal"; });
+                         [](const auto& test) { return test.param == Firmware::Grbl ? "Grbl" : "GrblHal"; });
 
 // ---- command dispatch --------------------------------------------------------------
 

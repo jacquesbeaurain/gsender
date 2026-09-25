@@ -48,6 +48,33 @@ failure (`-Config debug`, Debug LibPack), and only when asked.
   1 runs them in one process). Output is one summary line per suite plus
   any failures.
 
+### Linux (cloud sessions)
+
+```bash
+tools/setup_linux.sh                       # once: Qt 6.11.1, Boost 1.91, GTest into /opt/gs-deps
+tools/build.sh -Test                       # same options and output as build.ps1
+tools/build.sh -Filter 'Controller*'
+tools/build.sh -Config release-nopch -Test
+```
+
+- The dependencies are the LibPack's versions, from conda-forge, installed
+  with a micromamba that the script also fetches from conda-forge
+  (`download.qt.io` and `archives.boost.io` may be blocked by the network policy;
+  `conda.anaconda.org` is the source that works). `GS_DEPS_DIR` moves the
+  prefix. Presets: `linux-release`, `linux-release-nopch` (GCC; build trees
+  in `build/linux-release*`). There is no Debug preset on Linux.
+- A clean build takes ~1 min with PCH (4 cores), ~4 min without; the tests
+  ~19 s. The offscreen platform finds fonts through fontconfig (DejaVu), which
+  is wider than Segoe UI: widget sizes differ from Windows, so tests must not
+  assume exact pixel sizes that fonts decide.
+- GCC warns where MSVC does not, and warnings are errors: e.g. `-Wshadow`
+  catches a lambda parameter named `info` inside GoogleTest's
+  `INSTANTIATE_TEST_SUITE_P`. Build on both platforms when you can.
+- Windows-only pieces fall back on Linux: serial ports are not listed (the
+  simulator and TCP work), power saving is a no-op, audio cues beep.
+- Screenshots: `build/linux-release/bin/gsender -platform offscreen ...`
+  with the same arguments as on Windows.
+
 ## Fast iteration
 
 Measured on the dev machine (8 threads), release: no-op build + full test run
@@ -106,6 +133,7 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   real newline inside C++ string literals. For larger scripted edits, write
   the script with the `Write` tool into the scratchpad and run it. Scripted
   edits are fine for plain text.
+- On Linux run `tools/build.sh` from the Bash tool (see "Linux" above).
 - Run `tools/build.ps1` through the PowerShell tool (PowerShell 7). Windows
   PowerShell 5 (`powershell.exe` from the Bash tool) refuses to run scripts
   under the default execution policy.
