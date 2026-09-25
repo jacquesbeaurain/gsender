@@ -88,6 +88,20 @@ qt_add_qml_module(gs_ui
         qml/StepMark.qml
         qml/KeyboardShortcutsTool.qml
         qml/SdCardTool.qml
+        qml/AccessoryInstallerTool.qml
+        qml/WizardAction.qml
+        qml/WizardStepPage.qml
+        qml/WizardText.qml
+        qml/WizardSideItem.qml
+        qml/AccVacuumZero.qml
+        qml/AccVacuumSize.qml
+        qml/AccLoadProgram.qml
+        qml/AccTlsOptions.qml
+        qml/AccPosition.qml
+        qml/AccContinuity.qml
+        qml/AccAutoSpinEeprom.qml
+        qml/AccAutoSpinTest.qml
+        qml/AccSpindleConfig.qml
         qml/ToolFormRow.qml
         qml/ToolField.qml
         qml/ToolToggle.qml
@@ -139,6 +153,8 @@ qt_add_qml_module(gs_ui
         shortcuts_model.hpp
         sd_card_model.cpp
         sd_card_model.hpp
+        accessory_model.cpp
+        accessory_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

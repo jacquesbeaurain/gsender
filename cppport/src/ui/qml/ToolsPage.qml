@@ -33,7 +33,8 @@ Item {
         movementTuning: movementTuningTool,
         squaring: squaringTool,
         shortcuts: keyboardShortcutsTool,
-        sd: sdCardTool
+        sd: sdCardTool,
+        accessoryInstall: accessoryInstallerTool
     })
 
     function open(key) {
@@ -159,5 +160,9 @@ Item {
     Component {
         id: sdCardTool
         SdCardTool { model: tools.sdCardModel }
+    }
+    Component {
+        id: accessoryInstallerTool
+        AccessoryInstallerTool {}
     }
 }

@@ -1344,6 +1344,136 @@ TEST_F(UiTest, TheSdCardToolUploadsAndDeletesFilesOnAGrblHalCard) {
     ASSERT_TRUE(waitFor([&] { return machine_->simulator()->sdFiles().count("square.nc") == 0; }));
 }
 
+TEST_F(UiTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_accessoryInstall") && item("toolCard_accessoryInstall")->isVisible(); }));
+    tap("toolCard_accessoryInstall");
+    ASSERT_TRUE(waitFor([&] { return item("wizard-vacuum-table") && item("wizard-vacuum-table")->isVisible(); }));
+    screenshot("ui_accessories_hub");
+    // Not connected: the landing page says why and keeps its configurations shut.
+    tap("wizard-vacuum-table");
+    ASSERT_TRUE(waitFor([&] { return item("wizardChecks") && item("wizardChecks")->isVisible(); }));
+    EXPECT_EQ(text("wizardChecks"), "Your controller is not connected.  Connect to your CNC to configure this accessory.");
+    EXPECT_FALSE(item("sub-wizard-mounting-setup")->isEnabled());
+    screenshot("ui_accessories_landing");
+
+    backend_->connectSimulator(true);
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->isConnected() && machine_->controller()->runner().hasSettings() &&
+               machine_->controller()->state().status.activeState == "Idle";
+    }));
+    machine_->simulator()->setSpeed(50);
+    ASSERT_TRUE(waitFor([&] {
+        return text("wizardChecks") == "Machine not homed. Please home your machine before proceeding with accessory configuration.";
+    }));
+    machine_->controller()->home();
+    ASSERT_TRUE(waitFor([&] { return !item("wizardChecks")->isVisible(); }, 8000));
+
+    const std::vector<std::string>& received = machine_->simulator()->receivedLines();
+    const auto sent = [&](const std::string& line) {
+        return std::find(received.begin(), received.end(), line) != received.end();
+    };
+    QQuickItem* tool = item("accessoryInstallerTool");
+    const auto stepTitle = [&] { return tool->property("steps").toList().value(tool->property("step").toInt()).toMap()["title"].toString(); };
+    const auto next = [&] {
+        item("toastArea")->setProperty("toasts", QVariantList());
+        ASSERT_TRUE(item("wizardNext")->isEnabled()) << stepTitle().toStdString();
+        tap("wizardNext");
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    };
+    const auto waitForTap = [&](const QString& name) {
+        ASSERT_TRUE(waitFor([&] { return item(name) && item(name)->isVisible() && item(name)->isEnabled(); })) << name.toStdString();
+        tap(name);
+    };
+
+    // Vacuum Table: zero at the table's corner, its size, the mounting holes
+    // loaded as the job - which goes to the Carve page.
+    tap("sub-wizard-mounting-setup");
+    EXPECT_EQ(text("wizardStepTitle"), "Zero Position");
+    EXPECT_EQ(text("wizardProgress"), "Step 1 of 3");
+    EXPECT_FALSE(item("wizardNext")->isEnabled());
+    EXPECT_TRUE(item("wizardJog")->isVisible());
+    waitForTap("zeroXY");
+    ASSERT_TRUE(waitFor([&] { return sent("G10 L20 P0 X0 Y0"); }));
+    next();
+    EXPECT_EQ(text("wizardStepTitle"), "Table Size");
+    next();  // a size is always chosen
+    EXPECT_EQ(text("wizardStepTitle"), "Load to Carve");
+    tap("wizardPrevious");
+    EXPECT_EQ(text("wizardStepTitle"), "Table Size");
+    next();
+    waitForTap("loadToVisualizer");
+    EXPECT_EQ(machine_->programName(), "gSender_Vacuum_Table_Mounting_4x8");
+    EXPECT_TRUE(waitFor([&] { return item("carvePage")->isVisible(); }));
+
+    // Sienci TLS: one configuration and nothing failing - straight in.
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_accessoryInstall") && item("toolCard_accessoryInstall")->isVisible(); }));
+    tap("toolCard_accessoryInstall");
+    waitForTap("wizard-sienci-tls");
+    tool = item("accessoryInstallerTool");
+    EXPECT_EQ(text("wizardStepTitle"), "Tool Change Options");
+    EXPECT_EQ(text("wizardProgress"), "Step 1 of 4");
+    ASSERT_TRUE(waitFor([&] { return item("firstToolBehaviour") != nullptr; }));
+    item("firstToolBehaviour")->setProperty("currentIndex", 2);
+    waitForTap("applyOptions");
+    EXPECT_EQ(machine_->settings().toolChange.option, "Fixed Tool Sensor");
+    EXPECT_EQ(machine_->settings().firstToolBehaviour, "Always probe length only");
+    EXPECT_TRUE(machine_->settings().moveToManualPosition);
+    EXPECT_EQ(machine_->settings().probe.probeFastFeedrate, 1000);
+    ASSERT_TRUE(waitFor([&] { return sent("$6=1") && sent("$668=0"); }));  // an older build: no legacy sensor
+    screenshot("ui_accessories_tls_options");
+    next();
+
+    // The sensor's position: where the machine is; moving away undoes it.
+    EXPECT_EQ(text("wizardStepTitle"), "Set TLS Location");
+    machine_->controller()->gcode("G53 G0 X-100 Y-50 Z-10");
+    ASSERT_TRUE(waitFor([&] { return text("positionX") == "-100.00" && text("positionZ") == "-10.00"; }, 8000));
+    waitForTap("setPosition");
+    EXPECT_EQ(machine_->settings().toolChangePosition.x, -100);
+    EXPECT_EQ(machine_->settings().toolChangePosition.y, -50);
+    EXPECT_EQ(machine_->settings().toolChangePosition.z, -10);
+    ASSERT_TRUE(waitFor([&] { return sent("G21 G10 L2 P9 X-100 Y-50") && sent("$#"); }));
+    EXPECT_TRUE(item("wizardNext")->isEnabled());
+    screenshot("ui_accessories_tls_location");
+    machine_->controller()->gcode("G53 G0 X-90");
+    ASSERT_TRUE(waitFor([&] { return !item("wizardNext")->isEnabled(); }, 8000));
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Idle"; }));
+    waitForTap("setPosition");
+    next();
+
+    // The manual tool change position: a recommendation to go to.
+    EXPECT_EQ(text("wizardStepTitle"), "Set Tool Change Location");
+    EXPECT_EQ(text("positionX"), "-266.67");
+    EXPECT_EQ(text("positionY"), "-533.33");
+    waitForTap("goToPosition");
+    ASSERT_TRUE(waitFor([&] { return sent("G53 G21 G0 Z-1"); }));
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->simulator()->activeState() == "Idle" &&
+               std::abs(machine_->simulator()->machinePosition()[0] + 800.0 / 3) < 0.01;
+    }, 10000));
+    waitForTap("setPosition");
+    EXPECT_NEAR(machine_->settings().manualPosition.x, -266.67, 0.01);
+    EXPECT_NEAR(machine_->settings().manualPosition.y, -533.33, 0.01);
+    next();
+
+    // Continuity: pressing the sensor passes, 1.5 s later.
+    EXPECT_EQ(text("wizardStepTitle"), "Verify TLS Continuity");
+    EXPECT_EQ(text("continuityText"), "Waiting for probe contact…");
+    EXPECT_FALSE(item("wizardNext")->isEnabled());
+    screenshot("ui_accessories_continuity");
+    const sim::SimAxes at = machine_->simulator()->machinePosition();
+    machine_->simulator()->setProbeSolids({sim::Solid{{at[0] - 1, at[1] - 1, at[2] - 1}, {at[0] + 1, at[1] + 1, at[2] + 1}}});
+    ASSERT_TRUE(waitFor([&] { return text("continuityText") == "Continuity confirmed"; }));
+    ASSERT_TRUE(waitFor([&] { return item("wizardNext")->isEnabled(); }));
+    next();
+    EXPECT_TRUE(item("wizardComplete")->isVisible());
+    EXPECT_EQ(text("wizardProgress"), "All Steps Complete");
+    screenshot("ui_accessories_complete");
+    tap("wizardExit");
+    EXPECT_EQ(tool->property("screen").toString(), "landing");
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);
