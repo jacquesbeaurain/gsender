@@ -37,6 +37,8 @@ Item {
         }
     }
 
+    StepThrough { id: stepThrough }
+
     GridLayout {
         id: grid
         anchors.fill: parent
@@ -79,6 +81,7 @@ Item {
                 FileControl {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    onOpenStepThrough: stepThrough.openFile()
                 }
                 JobControl {
                     id: jobControl

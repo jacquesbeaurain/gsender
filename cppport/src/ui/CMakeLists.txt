@@ -27,6 +27,7 @@ qt_add_qml_module(gs_ui
         qml/NavButton.qml
         qml/CarvePage.qml
         qml/Visualizer.qml
+        qml/ToolpathGestures.qml
         qml/PlaceholderPage.qml
         qml/GButton.qml
         qml/ConfirmDialog.qml
@@ -63,6 +64,7 @@ qt_add_qml_module(gs_ui
         qml/RotaryTab.qml
         qml/MountingSetupDialog.qml
         qml/ToolChange.qml
+        qml/StepThrough.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -90,6 +92,8 @@ qt_add_qml_module(gs_ui
         rotary_model.hpp
         tool_change_model.cpp
         tool_change_model.hpp
+        step_through_model.cpp
+        step_through_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

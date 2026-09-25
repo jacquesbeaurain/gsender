@@ -54,6 +54,10 @@ Q_SIGNALS:
 protected:
     void componentComplete() override;
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
+    // What is drawn and what Fit frames: the main visualizer by default.
+    virtual void paintContent(QPainter& painter, app::ToolpathCamera& camera);
+    virtual std::optional<gcode::BoundingBox> contentBounds() const;
+    app::Machine* machine() const noexcept { return machine_; }
 
 private:
     void applySettings();

@@ -20,6 +20,10 @@ namespace gs::app {
 // `offset` (where the line starts in a longer text).
 QList<QTextLayout::FormatRange> gcodeFormats(const QString& line, bool dark, int offset = 0);
 
+// The line as Qt Quick's styled text: each run in a <font color>, the text
+// escaped (the QML views' rows).
+QString gcodeStyledText(const QString& line, bool dark);
+
 // A text document block's colours set, or cleared, as QSyntaxHighlighter
 // applies them: the layout's formats, then the block marked for relayout
 // (no content-change signals).
