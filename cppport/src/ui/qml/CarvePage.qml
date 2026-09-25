@@ -38,6 +38,7 @@ Item {
     }
 
     GridLayout {
+        id: grid
         anchors.fill: parent
         anchors.margins: 4
         columns: page.portrait ? 1 : 2
@@ -46,6 +47,12 @@ Item {
 
         Visualizer {
             objectName: "carveVisualizer"
+            ProgressArea {
+                model: jobControl.model
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 72
+            }
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredHeight: page.portrait ? page.height * 0.45 : page.height * 0.75
@@ -57,27 +64,24 @@ Item {
             Layout.fillHeight: true
         }
         RowLayout {
+            id: bottomRow
             Layout.columnSpan: page.portrait ? 1 : 2
             Layout.fillWidth: true
             Layout.preferredHeight: page.portrait ? page.height * 0.55 : Math.max(192, page.height * 0.25)
             spacing: 4
             GridLayout {
+                id: widgets
                 columns: page.portrait ? 1 : 3
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 rowSpacing: 4
                 columnSpacing: 4
-                Pending {
-                    objectName: "fileWidget"
-                    title: qsTr("File")
-                    note: Backend.hasProgram ? Backend.programName : qsTr("Load File - Phase 1")
+                FileControl {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
-                Pending {
-                    objectName: "jobWidget"
-                    title: qsTr("Job")
-                    note: qsTr("Start, pause, stop, overrides - Phase 1")
+                JobControl {
+                    id: jobControl
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
@@ -95,6 +99,29 @@ Item {
                 Layout.preferredWidth: Math.max(page.width / 3, 400)
                 Layout.fillHeight: true
             }
+        }
+    }
+
+    // Outline and Start From over the job card's middle (upstream's
+    // top-[-80px]), hidden while they cannot run.
+    RowLayout {
+        id: jobActions
+        z: 2
+        visible: jobControl.model.canPrepare
+        spacing: 8
+        x: grid.x + bottomRow.x + widgets.x + jobControl.x + (jobControl.width - width) / 2
+        y: grid.y + bottomRow.y + widgets.y + jobControl.y - height - 8
+        GButton {
+            objectName: "outlineJob"
+            iconName: "TbVector"
+            text: qsTr("Outline")
+            onClicked: jobControl.runOutline()
+        }
+        GButton {
+            objectName: "startFromLine"
+            iconName: "MdFormatListNumbered"
+            text: qsTr("Start From")
+            onClicked: jobControl.openStartFromLine()
         }
     }
 }

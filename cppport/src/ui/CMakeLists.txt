@@ -39,11 +39,20 @@ qt_add_qml_module(gs_ui
         qml/JogPanel.qml
         qml/LocationColumn.qml
         qml/WorkspaceSelector.qml
+        qml/FileControl.qml
+        qml/OverrideSlider.qml
+        qml/StartFromLinePopup.qml
+        qml/JobControl.qml
+        qml/ProgressArea.qml
     SOURCES
         backend.cpp
         backend.hpp
         connection_model.cpp
         connection_model.hpp
+        file_model.cpp
+        file_model.hpp
+        job_model.cpp
+        job_model.hpp
         dro_model.cpp
         dro_model.hpp
         jog_model.cpp
@@ -69,6 +78,7 @@ target_link_libraries(gs_ui
         gs_app
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::QuickDialogs2
         Qt6::Svg)
 # Where Qt's own QML modules are, for runs from the build tree (ui_app.cpp).
 if(DEFINED QT6_INSTALL_PREFIX AND DEFINED QT6_INSTALL_QML)

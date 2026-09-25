@@ -262,6 +262,12 @@ fixes until it is retired.
   shows - the UI updates on the Machine's signals.
 - Icons: add the react-icons component to `tools/extract_icons.mjs`, re-run
   it, use `Icon { name: ... }`.
+- An item placed outside its parent's bounds (a negative y, say) is drawn
+  but gets no taps: put controls that overhang a card into an item whose
+  bounds hold them (CarvePage places the job's Outline/Start From row).
+- Repeaters over lists rebuilt on every status report (a QVariantList
+  property) recreate their delegates each time - taps are lost, a field
+  being typed in loses focus. Repeat by count and read `list[index]`.
 - Headless: tests and `--screenshot` use the software renderer, which has
   no shader effects (no MultiEffect, no layer effects); keep to items,
   Shapes and QPainter-drawn items.
