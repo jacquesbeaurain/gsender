@@ -245,10 +245,37 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   write CRLF: in Python use `open(path, 'w', newline='\n')` (or
   `write_bytes`), not `Path.write_text` on Windows.
 
+## QML touch UI (`src/ui`)
+
+The UI is moving from Qt Widgets to QML (walkthrough Step 61; its plan has
+the phases). New UI work goes into the QML UI; the widget UI only gets
+fixes until it is retired.
+
+- Screens follow upstream's React components: layout, Tailwind classes
+  mapped to `Theme` tokens (never raw colours in QML; add a token), touch
+  targets of at least `Theme.touchTarget`, no behaviour that needs hover.
+- Logic stays in C++: a screen's decisions go into a view model (QObject,
+  Qt Core only, beside the services) exposed to QML; QML binds and calls.
+- Give items a test needs an `objectName`; `gs_ui_tests` finds them
+  (`findItem`), taps them and runs touch gestures. Wait on the UI's own
+  text or properties, not just on the machine, before asserting what it
+  shows - the UI updates on the Machine's signals.
+- Icons: add the react-icons component to `tools/extract_icons.mjs`, re-run
+  it, use `Icon { name: ... }`.
+- Headless: tests and `--screenshot` use the software renderer, which has
+  no shader effects (no MultiEffect, no layer effects); keep to items,
+  Shapes and QPainter-drawn items.
+- Check screens with `gsender-qml -platform offscreen --config <scratch>
+  --simulator --screenshot out.png` (`--dark`, `--size 800x1280` for
+  portrait).
+
 ## Open work
 
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
+
+- **The QML touch UI** (Step 61): Phase 0 (shell, theme, visualizer,
+  tests) is done; Phases 1-4 port the screens and retire the widget UI.
 
 - **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
   has no Qt Gamepad - and hardware to verify.

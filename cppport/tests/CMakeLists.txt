@@ -72,3 +72,14 @@ if(TARGET gs_app)
     gs_deploy_qt_plugins(gs_app_tests)
     gtest_discover_tests(gs_app_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
 endif()
+
+if(TARGET gs_ui)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_executable(gs_ui_tests
+        ui/test_ui.cpp
+    )
+    target_link_libraries(gs_ui_tests PRIVATE gs_ui gs_uiplugin Qt6::Test GTest::gtest)
+    gs_copy_runtime_dlls(gs_ui_tests)
+    gs_deploy_qt_plugins(gs_ui_tests)
+    gtest_discover_tests(gs_ui_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
+endif()

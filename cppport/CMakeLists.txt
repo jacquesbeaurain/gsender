@@ -26,6 +26,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(GS_BUILD_TESTS "Build the unit test suites" ON)
 option(GS_BUILD_APP "Build the Qt desktop application" ON)
+option(GS_BUILD_QML "Build the QML touch UI (needs Qt Quick)" ON)
 option(GS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(GS_USE_PCH "Precompile common standard and third-party headers" ON)
 
@@ -43,6 +44,15 @@ add_subdirectory(src/transport)
 if(GS_BUILD_APP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/CMakeLists.txt")
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
     add_subdirectory(src/app)
+    # The QML touch UI, where the Qt has Qt Quick and its Controls.
+    if(GS_BUILD_QML)
+        find_package(Qt6 6.5 COMPONENTS Qml Quick QuickControls2 Svg)
+        if(Qt6Quick_FOUND AND Qt6QuickControls2_FOUND AND Qt6Svg_FOUND)
+            add_subdirectory(src/ui)
+        else()
+            message(STATUS "Qt Quick, Quick Controls 2 or Svg missing: the QML UI (gsender-qml) is not built")
+        endif()
+    endif()
 endif()
 
 if(GS_BUILD_TESTS)
