@@ -54,6 +54,7 @@ Popup {
             spacing: 8
             GButton {
                 objectName: "confirmCancel"
+                visible: dialog.cancelText !== ""  // a notice has only its action
                 text: dialog.cancelText
                 variant: "outline"
                 onClicked: {
