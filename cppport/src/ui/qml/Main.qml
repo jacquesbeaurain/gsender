@@ -44,7 +44,7 @@ ApplicationWindow {
                 CarvePage {}
                 StatsPage {}
                 ToolsPage {}
-                PlaceholderPage { objectName: "configPage"; title: qsTr("Config"); phase: qsTr("Phase 3") }
+                ConfigPage {}
             }
         }
     }

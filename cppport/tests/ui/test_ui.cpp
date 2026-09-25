@@ -1474,6 +1474,100 @@ TEST_F(UiTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
     EXPECT_EQ(tool->property("screen").toString(), "landing");
 }
 
+TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
+    tap("navConfig");
+    ASSERT_TRUE(waitFor([&] { return item("configPage") && item("configPage")->isVisible(); }));
+    QObject* model = item("configPage")->property("model").value<QObject*>();
+    ASSERT_TRUE(waitFor([&] { return item("config_units") != nullptr; }));
+    screenshot("ui_config");
+    const auto search = [&](const QString& text) {
+        QQuickItem* field = item("configSearch");
+        field->forceActiveFocus();
+        QTest::keyClick(window_, Qt::Key_A, Qt::ControlModifier);
+        if (text.isEmpty()) {
+            QTest::keyClick(window_, Qt::Key_Delete);
+        } else {
+            type(text);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    };
+    const auto apply = [&] {
+        item("toastArea")->setProperty("toasts", QVariantList());
+        ASSERT_TRUE(item("configApply")->isEnabled());
+        tap("configApply");
+    };
+
+    // A switch, staged until applied.
+    search("dark mode");
+    ASSERT_TRUE(waitFor([&] { return item("configValue_darkMode") && item("configValue_darkMode")->isVisible(); }));
+    tap("configValue_darkMode");
+    EXPECT_EQ(model->property("pendingChanges").toInt(), 1);
+    EXPECT_EQ(text("configApply"), "Apply Settings (1)");
+    EXPECT_FALSE(machine_->settings().darkMode);
+    apply();
+    EXPECT_TRUE(machine_->settings().darkMode);
+    EXPECT_EQ(model->property("pendingChanges").toInt(), 0);
+    EXPECT_TRUE(item("configReset_darkMode")->isVisible());  // away from the default
+    tap("configReset_darkMode");
+    apply();
+    EXPECT_FALSE(machine_->settings().darkMode);
+
+    // Lengths follow the staged units: 1 in is 25.4 mm.
+    search("safe height");
+    ASSERT_TRUE(waitFor([&] { return item("configValue_safeRetractHeight") != nullptr; }));
+    QMetaObject::invokeMethod(model, "setValue", Q_ARG(QString, "units"), Q_ARG(QVariant, QString("in")));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QQuickItem* height = item("configValue_safeRetractHeight");
+    height->forceActiveFocus();
+    QTest::keyClick(window_, Qt::Key_A, Qt::ControlModifier);
+    type("1");
+    QTest::keyClick(window_, Qt::Key_Return);
+    EXPECT_EQ(model->property("pendingChanges").toInt(), 2);
+    apply();
+    EXPECT_FALSE(machine_->settings().metric);
+    EXPECT_NEAR(machine_->settings().safeRetractHeight, 25.4, 1e-9);
+
+    // The board's settings, in their sections.
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->runner().hasSettings(); }));
+    search("$110");
+    ASSERT_TRUE(waitFor([&] { return item("configValue_$110") != nullptr; }));
+    EXPECT_EQ(item("config_$110")->property("entry").toMap()["section"].toString(), "Motors");
+    QQuickItem* rate = item("configValue_$110");
+    ASSERT_TRUE(waitFor([&] { return rate->isEnabled(); }));
+    rate->forceActiveFocus();
+    QTest::keyClick(window_, Qt::Key_A, Qt::ControlModifier);
+    type("4321");
+    QTest::keyClick(window_, Qt::Key_Return);
+    EXPECT_EQ(model->property("pendingChanges").toInt(), 1);
+    screenshot("ui_config_firmware");
+    apply();
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->runner().setting("$110") == "4321"; }));
+    ASSERT_TRUE(waitFor([&] { return model->property("pendingChanges").toInt() == 0; }));
+    ASSERT_TRUE(waitFor([&] { return item("configReset_$110") && item("configReset_$110")->isVisible(); }));
+    tap("configReset_$110");
+    apply();
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->runner().setting("$110") != "4321"; }));
+
+    // Bits: $3's X direction.
+    search("$3");
+    ASSERT_TRUE(waitFor([&] { return item("configBit_$3_0") != nullptr; }));
+    const QString before = QString::fromStdString(machine_->controller()->runner().setting("$3"));
+    tap("configBit_$3_0");
+    apply();
+    ASSERT_TRUE(waitFor([&] {
+        return QString::fromStdString(machine_->controller()->runner().setting("$3")).toInt() == (before.toInt() ^ 1);
+    }));
+
+    // The menu scrolls to a section.
+    search("");
+    ASSERT_TRUE(waitFor([&] { return item("configSection_Probe") != nullptr; }));
+    tap("configSection_Probe");
+    EXPECT_EQ(item("configPage")->property("currentSection").toString(), "Probe");
+    ASSERT_TRUE(waitFor([&] { return item("config_plateType") && item("config_plateType")->isVisible(); }));
+    screenshot("ui_config_probe");
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

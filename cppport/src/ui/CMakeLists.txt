@@ -89,6 +89,8 @@ qt_add_qml_module(gs_ui
         qml/KeyboardShortcutsTool.qml
         qml/SdCardTool.qml
         qml/AccessoryInstallerTool.qml
+        qml/ConfigPage.qml
+        qml/ConfigRow.qml
         qml/WizardAction.qml
         qml/WizardStepPage.qml
         qml/WizardText.qml
@@ -155,6 +157,8 @@ qt_add_qml_module(gs_ui
         sd_card_model.hpp
         accessory_model.cpp
         accessory_model.hpp
+        config_model.cpp
+        config_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
