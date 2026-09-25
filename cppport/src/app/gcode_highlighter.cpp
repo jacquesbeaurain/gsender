@@ -34,6 +34,16 @@ QList<QTextLayout::FormatRange> gcodeFormats(const QString& line, bool dark, int
     return ranges;
 }
 
+QString gcodeStyledText(const QString& line, bool dark) {
+    QString styled;
+    for (const QTextLayout::FormatRange& range : gcodeFormats(line, dark)) {
+        styled += QString("<font color=\"%1\">%2</font>")
+                      .arg(range.format.foreground().color().name(),
+                           line.mid(range.start, range.length).toHtmlEscaped().replace(' ', "&nbsp;"));
+    }
+    return styled;
+}
+
 namespace {
 
 void setBlockFormats(QTextDocument& document, const QTextBlock& block,

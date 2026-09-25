@@ -40,7 +40,7 @@ void ToolpathItem::componentComplete() {
 void ToolpathItem::applySettings() {
     const app::AppSettings& settings = machine_->settings();
     camera_.setPerspective(settings.perspective);
-    camera_.setFlat(settings.liteMode && settings.liteOption == "Light", app::mainViewBounds(*machine_));
+    camera_.setFlat(settings.liteMode && settings.liteOption == "Light", contentBounds());
     changed();
 }
 
@@ -70,7 +70,15 @@ void ToolpathItem::paint(QPainter* painter) {
         return;
     }
     camera_.setViewport(size());
-    app::paintMainView(*painter, camera_, *machine_, doneLines_);
+    paintContent(*painter, camera_);
+}
+
+void ToolpathItem::paintContent(QPainter& painter, app::ToolpathCamera& camera) {
+    app::paintMainView(painter, camera, *machine_, doneLines_);
+}
+
+std::optional<gcode::BoundingBox> ToolpathItem::contentBounds() const {
+    return machine_ ? app::mainViewBounds(*machine_) : std::nullopt;
 }
 
 QString ToolpathItem::view() const {
@@ -86,7 +94,7 @@ void ToolpathItem::setView(const QString& view) {
     for (const auto& [name, value] : kViews) {
         if (view == QLatin1String(name)) {
             camera_.setViewport(size());
-            camera_.setView(value, machine_ ? app::mainViewBounds(*machine_) : std::nullopt);
+            camera_.setView(value, contentBounds());
             changed();
         }
     }
@@ -94,13 +102,13 @@ void ToolpathItem::setView(const QString& view) {
 
 void ToolpathItem::cycleView() {
     camera_.setViewport(size());
-    camera_.cycleView(machine_ ? app::mainViewBounds(*machine_) : std::nullopt);
+    camera_.cycleView(contentBounds());
     changed();
 }
 
 void ToolpathItem::fit() {
     camera_.setViewport(size());
-    camera_.fit(machine_ ? app::mainViewBounds(*machine_) : std::nullopt);
+    camera_.fit(contentBounds());
     changed();
 }
 

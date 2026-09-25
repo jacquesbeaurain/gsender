@@ -854,6 +854,61 @@ TEST_F(UiTest, AToolChangeWizardCarriesTheJobThroughItsToolChange) {
     }, 8000));
 }
 
+TEST_F(UiTest, StepThroughWalksTheFileLineByLine) {
+    QString program = "G21 G90\nT1 M6 (6mm endmill)\nS12000 M3\n";
+    for (int i = 0; i < 150; ++i) {
+        program += QString("G1 X%1 Y%2 F800\n").arg(i % 20).arg(i / 10);
+    }
+    program += "T2 M6\nG1 Z-1\nG0 X0 Y0\nM5\n";
+    machine_->loadProgram("steps.nc", program.toStdString());
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+    ASSERT_TRUE(waitFor([&] { return item("openStepThrough") && item("openStepThrough")->isVisible(); }));
+    tap("openStepThrough");
+    QObject* dialog = window_->findChild<QObject*>("stepThrough");
+    ASSERT_NE(dialog, nullptr);
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    QObject* model = dialog->property("model").value<QObject*>();
+    bool ready = false;
+    QMetaObject::invokeMethod(model, "waitForIndex", Q_RETURN_ARG(bool, ready), Q_ARG(int, 5000));
+    ASSERT_TRUE(ready);
+    EXPECT_EQ(model->property("total").toInt(), 157);
+    EXPECT_EQ(model->property("tools").toList().size(), 2);
+    const auto line = [&] { return model->property("line").toInt(); };
+
+    // +100 lines, then back to the start.
+    ASSERT_TRUE(waitFor([&] { return item("stepBy_100") && centreOf(item("stepBy_100")).y() < window_->height(); }));
+    tap("stepBy_100");
+    EXPECT_EQ(line(), 101);
+    EXPECT_TRUE(waitFor([&] { return text("stepLineText") == "G1 X17 Y9 F800"; }));
+    EXPECT_TRUE(model->property("positionText").toString().startsWith("X 17.00   Y 9.00"));
+    screenshot("ui_step_through");
+    tap("stepGoToStart");
+    EXPECT_EQ(line(), 1);
+
+    // Search: Enter goes to the next match.
+    tap("stepSearchToggle");
+    type("T2");
+    EXPECT_EQ(model->property("matchCount").toInt(), 1);
+    QTest::keyClick(window_, Qt::Key_Return);
+    EXPECT_EQ(line(), 154);
+
+    // A tool's eye; the second tool is where the line is.
+    EXPECT_EQ(model->property("activeTool").toInt(), 1);
+    tap("stepToolEye_0");
+    EXPECT_TRUE(model->property("tools").toList()[0].toMap()["hidden"].toBool());
+
+    // Play from the start runs on by itself.
+    tap("stepGoToStart");
+    tap("stepSpeed_100");
+    tap("stepPlay");
+    ASSERT_TRUE(model->property("playing").toBool());
+    EXPECT_TRUE(waitFor([&] { return line() > 1; }));
+    tap("stepPlay");
+    EXPECT_FALSE(model->property("playing").toBool());
+    tap("stepThroughClose");
+    EXPECT_TRUE(waitFor([&] { return !dialog->property("visible").toBool(); }));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);
