@@ -135,7 +135,7 @@ TEST_P(RunnerTest, StateRevisionOnlyMovesOnChange) {
 }
 
 INSTANTIATE_TEST_SUITE_P(BothFirmwares, RunnerTest, ::testing::Values(Firmware::Grbl, Firmware::GrblHal),
-                         [](const auto& info) { return info.param == Firmware::Grbl ? "Grbl" : "GrblHal"; });
+                         [](const auto& test) { return test.param == Firmware::Grbl ? "Grbl" : "GrblHal"; });
 
 TEST(GrblRunner, EnteringAlarmIsReportedOnce) {
     Runner runner(Firmware::Grbl);

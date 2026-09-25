@@ -43,6 +43,25 @@
       }
     },
     {
+      "name": "linux-release",
+      "displayName": "Linux Ninja Release (conda-forge dependencies)",
+      "description": "Qt, Boost and GTest from the prefix in GS_DEPS_DIR (tools/setup_linux.sh installs it)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_PREFIX_PATH": "$env{GS_DEPS_DIR}"
+      }
+    },
+    {
+      "name": "linux-release-nopch",
+      "displayName": "Linux Ninja Release without precompiled headers",
+      "inherits": "linux-release",
+      "cacheVariables": {
+        "GS_USE_PCH": "OFF"
+      }
+    },
+    {
       "name": "vs-debug",
       "displayName": "Visual Studio 2026 Debug (Debug LibPack)",
       "inherits": "base",
@@ -69,6 +88,8 @@
     { "name": "ninja-debug", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "configurePreset": "ninja-release" },
     { "name": "ninja-release-nopch", "configurePreset": "ninja-release-nopch" },
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "linux-release-nopch", "configurePreset": "linux-release-nopch" },
     { "name": "vs-debug", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ],
@@ -82,6 +103,8 @@
     { "name": "ninja-debug", "inherits": "test-base", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "inherits": "test-base", "configurePreset": "ninja-release" },
     { "name": "ninja-release-nopch", "inherits": "test-base", "configurePreset": "ninja-release-nopch" },
+    { "name": "linux-release", "inherits": "test-base", "configurePreset": "linux-release" },
+    { "name": "linux-release-nopch", "inherits": "test-base", "configurePreset": "linux-release-nopch" },
     { "name": "vs-debug", "inherits": "test-base", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "inherits": "test-base", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ]

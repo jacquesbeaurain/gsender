@@ -29,7 +29,10 @@ if(MSVC)
     endif()
 else()
     target_compile_options(gs_compile_options INTERFACE
-        -Wall -Wextra -Wpedantic -Wshadow -Wno-unused-parameter)
+        -Wall -Wextra -Wpedantic -Wshadow -Wno-unused-parameter
+        # Aggregates are initialized with the members that matter, the rest
+        # taking their defaults (as MSVC accepts silently).
+        -Wno-missing-field-initializers)
     if(GS_WARNINGS_AS_ERRORS)
         target_compile_options(gs_compile_options INTERFACE -Werror)
     endif()

@@ -1663,3 +1663,26 @@ labels the milliseconds "hours"); editing a task checks the form as adding
 does (upstream saves it unchecked); the job history scrolls rather than
 paging (SortableTable's 15 per page); the About page carries the port's
 version and has no update check.
+
+## Step 58 — A Linux build (`tools/setup_linux.sh`, `tools/build.sh`)
+
+So the port can be developed in Linux (cloud) sessions too: the
+`linux-release` and `linux-release-nopch` presets build with GCC against a
+prefix of conda-forge packages at the LibPack's versions (Qt 6.11.1,
+Boost 1.91, GoogleTest), which `tools/setup_linux.sh` installs with a
+micromamba fetched from conda-forge; `tools/build.sh` takes build.ps1's
+options and prints the same brief output (the application tests in four
+GoogleTest shards). The CMake files needed no LibPack: without
+`GS_LIBPACK_DIR` the packages come from `CMAKE_PREFIX_PATH`, and the DLL and
+plugin copying is Windows-only (on Linux RPATH finds the libraries and Qt its
+plugins).
+
+GCC checks what MSVC did not: `-Wmissing-field-initializers` (aggregates
+initialized with only the members that matter - the port's style - so it is
+off) and `-Wshadow` (a lambda parameter named `info` inside
+`INSTANTIATE_TEST_SUITE_P`, renamed). One application test assumed the main
+window takes the 1200 px width it is given; with Linux's wider fonts its
+minimum is larger, so the test checks that the grab has the window's width.
+
+On Linux serial ports are not listed yet (the simulator and network boards
+work), power saving does nothing and the audio cues are the system beep.

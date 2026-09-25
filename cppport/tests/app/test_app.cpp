@@ -3024,7 +3024,10 @@ TEST_F(AppTest, TheMainWindowShowsTheConnectedMachine) {
     machine.connectTo(Machine::kSimulatorPort);
     ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
     const QImage image = window.grab().toImage();
-    EXPECT_EQ(image.width(), 1200);
+    // At least 1200: the window's minimum width follows the platform's font
+    // (Linux's DejaVu is wider than Windows' Segoe UI).
+    EXPECT_EQ(image.width(), window.width());
+    EXPECT_GE(image.width(), 1200);
     EXPECT_FALSE(image.isNull());
 
     // Lightweight mode (Shift+M): Light holds the view flat, from above.
