@@ -156,19 +156,43 @@ TEST_F(UiTest, TheTopBarShowsTheConnectionAndTheMachineState) {
     EXPECT_TRUE(waitFor([&] { return text("statusText") == "Alarm (3)"; }));
 }
 
-TEST_F(UiTest, TheConnectionButtonConnectsAndDisconnects) {
+TEST_F(UiTest, TheConnectionButtonListsPortsConnectsAndDisconnects) {
     tap("connectionButton");
-    QObject* menu = window_->findChild<QObject*>("connectionMenu");
-    ASSERT_NE(menu, nullptr);
+    QObject* ports = window_->findChild<QObject*>("portListings");
+    ASSERT_NE(ports, nullptr);
+    ASSERT_TRUE(waitFor([&] { return ports->property("opened").toBool(); }));
+    // The Ethernet board at the settings' address.
+    QQuickItem* ethernet = item("portEthernet");
+    ASSERT_NE(ethernet, nullptr);
+    EXPECT_EQ(ethernet->property("name").toString(), "192.168.5.1");
+    EXPECT_EQ(ethernet->property("detail").toString(), "Ethernet (port 23)");
+    // The simulated Grbl board.
+    ASSERT_TRUE(waitFor([&] { return item("portSimulator") && item("portSimulator")->height() > 0; }));
+    tap("portSimulator");
+    ASSERT_TRUE(waitFor([&] { return machine_->isConnected(); }));
+    EXPECT_FALSE(ports->property("opened").toBool());
+    EXPECT_TRUE(waitFor([&] { return text("connectionPort") == "Simulator"; }));
+
+    // Connected, a tap offers Disconnect.
+    tap("connectionButton");
+    QObject* menu = window_->findChild<QObject*>("disconnectMenu");
     ASSERT_TRUE(waitFor([&] { return menu->property("opened").toBool(); }));
-    // The menu's first entry: the simulated Grbl board.
-    QQuickItem* entry = nullptr;
-    ASSERT_TRUE(QMetaObject::invokeMethod(menu, "itemAt", Qt::DirectConnection, Q_RETURN_ARG(QQuickItem*, entry),
-                                          Q_ARG(int, 0)));
-    ASSERT_NE(entry, nullptr);
-    ASSERT_TRUE(waitFor([&] { return entry->isVisible() && entry->width() > 0; }));
-    QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(entry));
-    EXPECT_TRUE(waitFor([&] { return machine_->isConnected(); }));
+    ASSERT_TRUE(waitFor([&] { return item("disconnectItem") && item("disconnectItem")->height() > 0; }));
+    tap("disconnectItem");
+    EXPECT_TRUE(waitFor([&] { return !machine_->isConnected(); }));
+    EXPECT_TRUE(waitFor([&] { return text("connectionText") == "Connect to CNC"; }));
+
+    // A board that does not answer: "Unable to connect." (the port does not exist).
+    app::AppSettings settings = machine_->settings();
+    settings.ethernetIp = {127, 0, 0, 1};
+    settings.networkPort = 1;   // nothing listens
+    machine_->setSettings(settings);
+    tap("connectionButton");
+    ASSERT_TRUE(waitFor([&] { return ports->property("opened").toBool(); }));
+    ASSERT_TRUE(waitFor([&] { return item("portEthernet")->height() > 0; }));
+    tap("portEthernet");
+    EXPECT_TRUE(waitFor([&] { return text("connectionText") == "Unable to connect."; }, 8000));
+    screenshot("ui_connection_error");
 }
 
 TEST_F(UiTest, TheRailSwitchesPages) {

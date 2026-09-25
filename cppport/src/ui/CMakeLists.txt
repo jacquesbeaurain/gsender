@@ -42,6 +42,8 @@ qt_add_qml_module(gs_ui
     SOURCES
         backend.cpp
         backend.hpp
+        connection_model.cpp
+        connection_model.hpp
         dro_model.cpp
         dro_model.hpp
         jog_model.cpp
