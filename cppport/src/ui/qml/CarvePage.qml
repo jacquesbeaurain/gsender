@@ -100,7 +100,7 @@ Item {
                     Layout.fillHeight: true
                     tabs: [
                         ToolTab { key: "probe"; label: qsTr("Probe"); component: pendingTab },
-                        ToolTab { key: "macros"; label: qsTr("Macros"); component: pendingTab },
+                        ToolTab { key: "macros"; label: qsTr("Macros"); component: MacrosTab {} },
                         ToolTab {
                             key: "spindle"; label: qsTr("Spindle/Laser"); shown: Backend.spindleFunctions
                             component: SpindleTab {}
