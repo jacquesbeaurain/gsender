@@ -39,6 +39,8 @@ plugins/*/ui
 plugins/**/ui/*
 packages/plugin-sdk/dist
 
-/.claude
+/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
 CLAUDE.md
 */CLAUDE.md
