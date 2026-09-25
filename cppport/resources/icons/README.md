@@ -6,5 +6,8 @@ licences: Font Awesome Free (fa, fa6; CC BY 4.0), Lucide (lu; ISC), Ionicons
 (io5; MIT), Remix Icon (ri; Apache 2.0), Bootstrap Icons (bs; MIT), Phosphor
 (pi; MIT), Grommet (gr; Apache 2.0), VS Code Codicons (vsc; CC BY 4.0),
 Material Design icons (md; Apache 2.0), Feather (fi; MIT), Line Awesome (lia;
-MIT/CC BY 4.0), Tabler (tb; MIT).
-Carve.svg and the Jog*Labels.svg files are gSender's own.
+MIT/CC BY 4.0), Tabler (tb; MIT), Game Icons (gi; CC BY 3.0), BoxIcons (bi;
+MIT), Github Octicons (go; MIT), IcoMoon Free (im; CC BY 4.0), Ionicons 4
+(io; MIT).
+Carve.svg, the Jog*Labels.svg files and the Surfacing*.svg patterns are
+gSender's own.

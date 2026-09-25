@@ -78,6 +78,9 @@ qt_add_qml_module(gs_ui
         qml/StatsAlarms.qml
         qml/StatsAbout.qml
         qml/StatsPage.qml
+        qml/ToolPage.qml
+        qml/ToolsPage.qml
+        qml/SurfacingTool.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -111,6 +114,10 @@ qt_add_qml_module(gs_ui
         gcode_editor_model.hpp
         stats_model.cpp
         stats_model.hpp
+        program_preview_item.cpp
+        program_preview_item.hpp
+        surfacing_model.cpp
+        surfacing_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
