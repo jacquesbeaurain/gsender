@@ -534,6 +534,52 @@ TEST_F(UiTest, AJobsEndShowsItsSummary) {
     EXPECT_TRUE(waitFor([&] { return !summary->property("visible").toBool(); }));
 }
 
+TEST_F(UiTest, TheConsoleShowsFiltersAndSendsCommands) {
+    // The last tab: scrolled to with the arrow.
+    for (int i = 0; i < 10 && item("toolsScrollRight")->property("can").toBool(); ++i) {
+        tap("toolsScrollRight");
+        QTest::qWait(200);
+    }
+    tap("toolsTab_console");
+    ASSERT_TRUE(waitFor([&] { return item("consoleTab") && item("consoleTab")->isVisible(); }));
+    EXPECT_TRUE(item("consoleDisconnected")->isVisible());
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return !item("consoleDisconnected")->isVisible(); }));
+    QObject* model = item("consoleTab")->property("model").value<QObject*>();
+    ASSERT_NE(model, nullptr);
+    const auto shown = [&] {
+        QStringList lines;
+        QMetaObject::invokeMethod(model, "shownLines", Q_RETURN_ARG(QStringList, lines));
+        return lines;
+    };
+
+    // A command typed and run shows as sent, and its reply follows.
+    item("consoleInput")->forceActiveFocus();
+    type("$I");
+    tap("consoleSend");
+    ASSERT_TRUE(waitFor([&] { return shown().contains("$I"); }));
+    EXPECT_TRUE(waitFor([&] { return shown().contains("ok"); }));
+    EXPECT_TRUE(item("consoleInput")->property("text").toString().isEmpty());
+
+    // Up brings it back.
+    item("consoleInput")->forceActiveFocus();
+    QTest::keyClick(window_, Qt::Key_Up);
+    EXPECT_EQ(item("consoleInput")->property("text").toString(), "$I");
+    QTest::keyClick(window_, Qt::Key_Down);
+    EXPECT_TRUE(item("consoleInput")->property("text").toString().isEmpty());
+    screenshot("ui_console");
+
+    // G-code only: what was sent.
+    tap("consoleFilter_gcode");
+    ASSERT_TRUE(waitFor([&] { return !shown().contains("ok"); }));
+    EXPECT_TRUE(shown().contains("$I"));
+    tap("consoleFilter_all");
+    ASSERT_TRUE(waitFor([&] { return shown().contains("ok"); }));
+
+    tap("consoleClear");
+    EXPECT_TRUE(waitFor([&] { return shown().isEmpty(); }));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

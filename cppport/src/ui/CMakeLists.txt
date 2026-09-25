@@ -49,6 +49,9 @@ qt_add_qml_module(gs_ui
         qml/NotificationBell.qml
         qml/HelperPanel.qml
         qml/JobAlerts.qml
+        qml/ToolTab.qml
+        qml/ToolsWidget.qml
+        qml/ConsoleTab.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -64,6 +67,8 @@ qt_add_qml_module(gs_ui
         dro_model.hpp
         jog_model.cpp
         jog_model.hpp
+        console_model.cpp
+        console_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
