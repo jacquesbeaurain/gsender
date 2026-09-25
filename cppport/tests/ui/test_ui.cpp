@@ -28,6 +28,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdio>
 #include <functional>
 #include <ostream>
@@ -1130,6 +1132,114 @@ TEST_F(UiTest, RotarySurfacingOpensFromTheRotaryTabAndGenerates) {
     screenshot("ui_rotary_surfacing");
     tap("toolGoBack");
     EXPECT_TRUE(waitFor([&] { return item("toolCard_surfacing") && item("toolCard_surfacing")->isVisible(); }));
+}
+
+TEST_F(UiTest, TheCalibrationToolsTuneAndSquareTheMachine) {
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->runner().hasSettings(); }));
+    machine_->simulator()->setSpeed(200);
+    controller::Controller& c = *machine_->controller();
+    const auto idleAt = [&](double x, double y) {
+        const std::array<double, 4> p = machine_->machinePositionMm();
+        return c.state().status.activeState == "Idle" && std::fabs(p[0] - x) < 1e-6 && std::fabs(p[1] - y) < 1e-6;
+    };
+    const auto enter = [&](const QString& name, const QString& value) {
+        QQuickItem* field = item(name);
+        ASSERT_NE(field, nullptr) << name.toStdString();
+        field->forceActiveFocus();
+        QTest::keyClick(window_, Qt::Key_A, Qt::ControlModifier);
+        type(value);
+        QTest::keyClick(window_, Qt::Key_Return);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    };
+    const auto confirm = [&](const QString& name) {
+        QObject* dialog = item("toolsPage")->findChild<QObject*>(name);
+        ASSERT_NE(dialog, nullptr) << name.toStdString();
+        QMetaObject::invokeMethod(dialog, "close");  // as its button does
+        QMetaObject::invokeMethod(dialog, "accepted");
+    };
+
+    // Movement Tuning: X told to move 100 mm, measured 102: $100 = 200 x 100/102.
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_movementTuning") && item("toolCard_movementTuning")->isVisible(); }));
+    tap("toolCard_movementTuning");
+    ASSERT_TRUE(waitFor([&] { return item("movementTuningTool") && item("movementTuningTool")->isVisible(); }));
+    QObject* tuning = item("movementTuningTool")->property("model").value<QObject*>();
+    ASSERT_TRUE(waitFor([&] { return item("tuningStart")->isEnabled(); }));
+    screenshot("ui_movement_tuning_intro");
+    tap("tuningStart");
+    EXPECT_EQ(tuning->property("step").toString(), "mark");
+    tap("tuningMark");
+    ASSERT_TRUE(waitFor([&] { return item("tuningMove")->isEnabled(); }));
+    tap("tuningMove");
+    ASSERT_TRUE(waitFor([&] { return idleAt(100, 0); }));
+    enter("tuningMeasured", "102");
+    EXPECT_EQ(tuning->property("travelled").toDouble(), 102);
+    tap("tuningTravelled");
+    EXPECT_EQ(tuning->property("step").toString(), "result");
+    EXPECT_TRUE(text("tuningResult").contains("off by <b>-2 mm.</b>")) << text("tuningResult").toStdString();
+    ASSERT_TRUE(waitFor([&] { return item("tuningUpdate")->isVisible() && item("tuningUpdate")->isEnabled(); }));
+    screenshot("ui_movement_tuning_result");
+    tap("tuningUpdate");
+    confirm("tuningConfirm");
+    ASSERT_TRUE(waitFor([&] { return c.runner().setting("$100") == "196.08"; }));
+    tap("toolGoBack");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_squaring") && item("toolCard_squaring")->isVisible(); }));
+    item("toastArea")->setProperty("toasts", QVariantList());
+
+    // XY Squaring: mark, move X, mark, move Y, mark; measure the triangle.
+    tap("toolCard_squaring");
+    ASSERT_TRUE(waitFor([&] { return item("squaringTool") && item("squaringTool")->isVisible(); }));
+    QObject* squaring = item("squaringTool")->property("model").value<QObject*>();
+    tap("squaringNext");
+    EXPECT_EQ(text("squaringTitle"), "Mark Reference Points");
+    tap("squaringRow_0");
+    EXPECT_FALSE(item("squaringRow_2")->isEnabled());  // the X move comes first
+    enter("squaringValue_1", "50");
+    ASSERT_TRUE(waitFor([&] { return item("squaringRow_1") && item("squaringRow_1")->isEnabled(); }));
+    EXPECT_TRUE(item("squaringArrow")->isVisible());
+    screenshot("ui_squaring_marking");
+    tap("squaringRow_1");
+    ASSERT_TRUE(waitFor([&] { return idleAt(150, 0); }));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    tap("squaringRow_2");
+    enter("squaringValue_3", "50");
+    ASSERT_TRUE(waitFor([&] { return item("squaringRow_3") && item("squaringRow_3")->isEnabled(); }));
+    tap("squaringRow_3");
+    ASSERT_TRUE(waitFor([&] { return idleAt(150, 50); }));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    tap("squaringRow_4");
+    EXPECT_EQ(squaring->property("markedPoints").toInt(), 3);
+    tap("squaringNext");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_FALSE(item("squaringRow_0")->isEnabled());  // nothing measured yet
+    enter("squaringValue_0", "49");
+    tap("squaringRow_0");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    enter("squaringValue_1", "50");
+    tap("squaringRow_1");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    enter("squaringValue_2", "71");
+    tap("squaringRow_2");
+    EXPECT_EQ(text("squaringNext"), "See Results");
+    tap("squaringNext");
+    ASSERT_EQ(squaring->property("mainStep").toInt(), 3);
+    // 49 x 50 with a 71 diagonal: slightly out, 0.99 mm on the diagonal.
+    EXPECT_TRUE(text("squaringResult").contains("slightly out of square")) << text("squaringResult").toStdString();
+    EXPECT_TRUE(text("squaringResult").contains("0.99mm"));
+    EXPECT_TRUE(item("squaringSide_2")->isVisible());
+    ASSERT_TRUE(item("squaringUpdate")->isVisible());  // X moved 50 but measured 49
+    screenshot("ui_squaring_results");
+    tap("squaringUpdate");
+    confirm("squaringConfirm");
+    ASSERT_TRUE(waitFor([&] {
+        return c.runner().setting("$100") == "200.082" && c.runner().setting("$101") == "200.000";
+    }));
+    item("toastArea")->setProperty("toasts", QVariantList());  // over Back
+    tap("squaringBack");
+    EXPECT_EQ(squaring->property("mainStep").toInt(), 2);
+    tap("squaringRestart");
+    EXPECT_EQ(squaring->property("mainStep").toInt(), 0);
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
