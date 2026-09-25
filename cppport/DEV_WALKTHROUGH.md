@@ -1866,3 +1866,42 @@ The UI tests drive each of these through the simulator: connecting,
 zeroing and typing positions, jogging and presets, loading, running,
 overriding, pausing and stopping a job, Start From Line, the alarm, unlock
 and Helper, Machine Information, the toasts and bell, the job-end summary.
+
+## Step 63 — QML Phase 2: the tool area, tool changes, Step Through, the editor, shortcuts (`src/ui`)
+
+**The tool area** (ToolsWidget, upstream's Tabs): the tabs above the card,
+scrolled with the arrows, each tab loaded when first shown (or asked for
+by a shortcut, `tabItem()`) and kept. Spindle/Laser, Coolant and Rotary
+show as the settings say. Every tab has a view model beside the QML:
+
+- **Probe** (`ProbeModel`): the plate (with the switcher), the routines,
+  the tool diameter - Auto and Tip on AutoZero and BitZero, diameters
+  added in the tab kept as `workspace.tools` (`AppSettings.probeTools`) -
+  the corner, upstream's GIFs (`resources/images/probe`); the run step
+  waits for the probe circuit (latched once the pin triggers).
+- **Macros** (`MacrosModel`): the two columns, run, add/edit (MacroForm
+  with the Variables list), delete, move within and across columns (a
+  mouse after 10 px, a finger after 250 ms), import and export.
+- **Spindle/Laser** and **Coolant** (`SpindleModel`, `CoolantModel`):
+  upstream's ActiveStateButton lights what the modal state has on; speed
+  and power reach the board and the settings 300 ms after the last change.
+- **Rotary** (`RotaryModel` over `app/rotary_actions`, the rules now
+  shared with the widget panel): the mode switch (asked first), the rotary
+  probing, Mounting Setup; Rotary Surfacing asks for the Tools page.
+- **Console** (`ConsoleModel`, a list model over the shared ConsoleLog).
+
+**Tool changes** (`ToolChangeModel`, ToolChange.qml): upstream's floating
+wizard over the page's left two thirds (minimised to a pill), the first
+tool's question, the Code strategy's continue prompt, Job interrupted.
+
+**Step Through** (`StepThroughModel`, `StepToolpathItem`): the widget
+dialog's logic with the source as a list model coloured row by row
+(`gcodeStyledText`); `ToolpathItem` gained `paintContent`/`contentBounds`
+hooks for the stepper's view, and the gestures moved to ToolpathGestures.
+
+**The G-code editor** (`GcodeEditorModel`): upstream's line list, each
+line edited in place, over the visualizer.
+
+**Shortcuts**: `ShortcutManager` takes a `ShortcutScope`, so the Quick
+window has one too (`UiShortcuts`): the machine's handlers in C++, the
+screens' through `Backend.shortcutTriggered`.
