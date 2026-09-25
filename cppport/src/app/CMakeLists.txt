@@ -71,6 +71,8 @@ add_library(gs_app STATIC
     toolchange_dialog.hpp
     toolpath_view.cpp
     toolpath_view.hpp
+    toolpath_scene.cpp
+    toolpath_scene.hpp
     visualizer_theme.cpp
     visualizer_theme.hpp
 )

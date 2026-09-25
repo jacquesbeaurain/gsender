@@ -4,10 +4,10 @@
 // rapids and cutting moves in 3D with orbit/pan/zoom, the tool position, and
 // the job's progress (finished moves dimmed).
 //
-// Drawn with QPainter so it also renders on the offscreen platform (the
-// automated screenshots); the data it draws is renderer-independent, so an
-// OpenGL implementation can replace it if large files need one.
+// The camera and the drawing are in toolpath_scene, shared with the QML
+// visualizer; these are the widgets around them.
 
+#include "toolpath_scene.hpp"
 #include "visualizer_theme.hpp"
 
 #include "gs/gcode/interpreter.hpp"
@@ -38,9 +38,9 @@ class ToolpathCanvas : public QWidget {
 
 public:
     // The visualizer's camera presets; each also fits the program.
-    enum class View { Iso, Top, Front, Right, Left };
+    using View = ToolpathCamera::View;
     void setView(View view);
-    View view() const noexcept { return view_; }
+    View view() const noexcept { return camera_.view(); }
     void cycleView();  // 3D, Top, Front, Right, Left, as upstream's shortcut
     void setTopView() { setView(View::Top); }
     void set3dView() { setView(View::Iso); }
@@ -58,12 +58,12 @@ public:
     double pitchDegrees() const noexcept;
     // Held flat: every view is the top view and dragging only pans.
     void setFlat(bool flat);
-    bool flat() const noexcept { return flat_; }
+    bool flat() const noexcept { return camera_.flat(); }
     void setTheme(const VisualizerTheme& theme);
     // Perspective (upstream's default) shows depth like a camera; otherwise
     // orthographic, parallel lines kept parallel.
     void setPerspective(bool perspective);
-    bool perspective() const noexcept { return perspective_; }
+    bool perspective() const noexcept { return camera_.perspective(); }
     const VisualizerTheme& theme() const noexcept { return *theme_; }
 
     static const QColor kBackground;
@@ -74,10 +74,9 @@ public:
 protected:
     explicit ToolpathCanvas(QWidget* parent = nullptr);
 
-    struct Point3 {
-        double x = 0, y = 0, z = 0;
-    };
-    QPointF project(const Point3& p) const;
+    using Point3 = gs::app::Point3;
+    QPointF project(const Point3& p) const { return camera_.project(p); }
+    ToolpathCamera& camera() noexcept { return camera_; }
 
     // The box fit() frames: the program's, or nothing (a 100 mm square).
     virtual std::optional<gcode::BoundingBox> contentBounds() const = 0;
@@ -112,24 +111,12 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void updateRotation();
     void styleButtons();
 
-    // Camera: rotation about Z (yaw) then tilt towards the viewer (pitch),
-    // orthographic, `scale_` pixels per millimetre, centred on `target_`.
+    ToolpathCamera camera_;
     bool keyboardControl_ = false;
-    View view_ = View::Top;
-    double yaw_ = 0;
-    double pitch_ = 0;
-    double scale_ = 4;
-    Point3 target_;
-    QPointF pan_;
-    std::array<double, 9> rotation_{};  // cached from yaw/pitch
     QPoint lastMouse_;
     Qt::MouseButton dragging_ = Qt::NoButton;
-    bool flat_ = false;
-    bool perspective_ = false;
-    double cameraDistance_ = 400;  // mm from the target, for perspective
     const VisualizerTheme* theme_;
     std::vector<QToolButton*> buttons_;
 
@@ -156,7 +143,6 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 
 private:
-    bool rotaryJob() const;
     void applySettings();
     void programChanged();
     void progressChanged();
