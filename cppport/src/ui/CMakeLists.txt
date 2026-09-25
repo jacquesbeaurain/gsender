@@ -58,6 +58,8 @@ qt_add_qml_module(gs_ui
         qml/SpindleTab.qml
         qml/MacroForm.qml
         qml/MacrosTab.qml
+        qml/ProbeTab.qml
+        qml/RunProbeDialog.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -79,6 +81,8 @@ qt_add_qml_module(gs_ui
         spindle_model.hpp
         macros_model.cpp
         macros_model.hpp
+        probe_model.cpp
+        probe_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
@@ -86,6 +90,13 @@ qt_add_qml_module(gs_ui
         ui_app.cpp
         ui_app.hpp
 )
+
+# Upstream's pictures (the probe routines' GIFs, the rotary tracks).
+file(GLOB_RECURSE GS_IMAGE_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/resources/images/*")
+qt_add_resources(gs_ui images
+    PREFIX "/images"
+    BASE "${PROJECT_SOURCE_DIR}/resources/images"
+    FILES ${GS_IMAGE_FILES})
 
 # The icons (tools/extract_icons.mjs), for the icon provider.
 file(GLOB GS_ICON_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/resources/icons/*.svg")

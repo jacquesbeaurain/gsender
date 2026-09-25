@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <functional>
 #include <ostream>
@@ -122,6 +123,9 @@ protected:
     void tap(const QString& name) {
         QQuickItem* target = item(name);
         ASSERT_NE(target, nullptr) << name.toStdString();
+        // A tap outside the window still reaches the scene; a person's cannot.
+        ASSERT_TRUE(QRect(QPoint(0, 0), window_->size()).contains(centreOf(target)))
+            << name.toStdString() << " is off the window";
         QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(target));
         QCoreApplication::processEvents();
     }
@@ -705,6 +709,56 @@ TEST_F(UiTest, MacrosAreAddedRunMovedAndDeleted) {
     ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
     QMetaObject::invokeMethod(confirm, "accepted");
     EXPECT_TRUE(waitFor([&] { return machine_->macros().list().size() == 1u; }));
+}
+
+TEST_F(UiTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
+    connectSimulator();
+    machine_->simulator()->setSpeed(200);
+    ASSERT_TRUE(waitFor([&] { return item("probeTab") && item("probeTab")->isVisible(); }));
+    QObject* model = item("probeTab")->property("model").value<QObject*>();
+
+    // XYZ needs the tool: 6.35 mm to start with; a custom one is kept.
+    EXPECT_FALSE(item("probeTool")->isVisible());
+    tap("probeRoutine_XYZ");
+    ASSERT_TRUE(waitFor([&] { return model->property("commandId").toString() == "XYZ Touch"; }));
+    ASSERT_TRUE(waitFor([&] { return item("probeTool")->isVisible(); }));
+    EXPECT_EQ(model->property("tool").toString(), "6.35");
+    tap("probeTool");
+    ASSERT_TRUE(waitFor([&] { return item("probeCustomTool") && item("probeCustomTool")->isVisible(); }));
+    item("probeCustomTool")->forceActiveFocus();
+    type("4");
+    tap("probeAddTool");
+    ASSERT_TRUE(waitFor([&] { return model->property("tool").toString() == "4"; }));
+    const auto& tools = machine_->settings().probeTools;
+    EXPECT_TRUE(std::any_of(tools.begin(), tools.end(), [](const auto& t) { return t.metric == 4; }));
+    QMetaObject::invokeMethod(model, "selectTool", Q_ARG(QString, "6.35"));
+    EXPECT_EQ(model->property("cornerName").toString(), "Bottom left");
+    screenshot("ui_probe");
+
+    // The run step: waits for the circuit, then zeroes the corner.
+    const sim::SimAxes start = machine_->simulator()->machinePosition();
+    tap("probeButton");
+    QObject* run = item("probeTab")->findChild<QObject*>("runProbe");
+    ASSERT_NE(run, nullptr);
+    ASSERT_TRUE(waitFor([&] { return run->property("opened").toBool(); }));
+    QQuickItem* startButton = nullptr;
+    ASSERT_TRUE(waitFor([&] { return (startButton = item("startProbe")) && startButton->width() > 0; }));
+    EXPECT_FALSE(startButton->isEnabled());
+    // Wrapped text settles on the second layout pass.
+    ASSERT_TRUE(waitFor([&] { return centreOf(startButton).y() < window_->height(); }));
+    screenshot("ui_probe_run");
+    tap("confirmProbe");
+    ASSERT_TRUE(waitFor([&] { return startButton->isEnabled(); }));
+    tap("startProbe");
+    ASSERT_TRUE(waitFor([&] { return !run->property("visible").toBool(); }));
+    ASSERT_TRUE(waitFor([&] {
+        controller::Controller* c = machine_->controller();
+        return c->feeder().size() == 0 && !c->feeder().isPending() && machine_->simulator()->activeState() == "Idle";
+    }, 10000));
+    const sim::SimAxes offset = machine_->simulator()->workOffset();
+    EXPECT_NEAR(offset[0], start[0] + 5, 1e-6);
+    EXPECT_NEAR(offset[1], start[1] + 5, 1e-6);
+    EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
