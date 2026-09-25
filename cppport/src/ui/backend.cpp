@@ -106,6 +106,7 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
                     }
                 }
             });
+    connect(&machine_, &app::Machine::jobInterrupted, this, &UiBackend::jobInterrupted);
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::connectionChanged);
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::stateChanged);
     connect(&machine_, &app::Machine::stateChanged, this, &UiBackend::stateChanged);

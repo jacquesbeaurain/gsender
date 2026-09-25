@@ -17,6 +17,10 @@ Item {
             jobEnd.errors = errors
             jobEnd.open()
         }
+        function onJobInterrupted(line) {
+            interrupted.line = line
+            interrupted.open()
+        }
         function onMaintenanceDue(tasks) {
             maintenance.tasks = tasks
             maintenance.open()
@@ -68,6 +72,30 @@ Item {
                 text: qsTr("Close")
                 variant: "primary"
                 onClicked: jobEnd.close()
+            }
+        }
+    }
+
+    // gSender's recovery prompt: the job can resume from where it stopped.
+    AlertPopup {
+        id: interrupted
+        objectName: "jobInterrupted"
+        property real line
+        contentItem: ColumnLayout {
+            spacing: 10
+            Label { text: qsTr("Job interrupted"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                color: Theme.contentSecondary
+                text: qsTr("The connection closed while the job was running, around line %1.").arg(interrupted.line)
+                      + "\n\n" + qsTr("Reconnect (and home if needed), then use Start From Line to resume.")
+            }
+            GButton {
+                Layout.alignment: Qt.AlignRight
+                text: qsTr("Close")
+                variant: "primary"
+                onClicked: interrupted.close()
             }
         }
     }

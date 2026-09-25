@@ -62,6 +62,7 @@ qt_add_qml_module(gs_ui
         qml/RunProbeDialog.qml
         qml/RotaryTab.qml
         qml/MountingSetupDialog.qml
+        qml/ToolChange.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -87,6 +88,8 @@ qt_add_qml_module(gs_ui
         probe_model.hpp
         rotary_model.cpp
         rotary_model.hpp
+        tool_change_model.cpp
+        tool_change_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

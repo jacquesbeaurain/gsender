@@ -62,6 +62,10 @@ ApplicationWindow {
         z: 11
     }
     JobAlerts {}
+    ToolChange {
+        anchors.fill: parent
+        z: 9
+    }
     // A tool asked for elsewhere (Rotary Surfacing from the Rotary tab).
     Connections {
         target: Backend
