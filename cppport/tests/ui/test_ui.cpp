@@ -654,6 +654,59 @@ TEST_F(UiTest, TheSpindleRunsAndTheLaserTakesItsPlace) {
     EXPECT_TRUE(waitFor([&] { return spindle() == "M5"; }));
 }
 
+TEST_F(UiTest, MacrosAreAddedRunMovedAndDeleted) {
+    connectSimulator();
+    selectTool("macros");
+    ASSERT_TRUE(waitFor([&] { return item("macrosTab") && item("macrosTab")->isVisible(); }));
+
+    // Add one through the form.
+    tap("macroAdd");
+    QObject* form = item("macrosTab")->findChild<QObject*>("macroForm");
+    ASSERT_NE(form, nullptr);
+    ASSERT_TRUE(waitFor([&] { return form->property("opened").toBool(); }));
+    item("macroName")->forceActiveFocus();
+    type("Probe corner");
+    item("macroContent")->setProperty("text", "G91\nG0 X1\nG90");
+    tap("macroSubmit");
+    ASSERT_TRUE(waitFor([&] { return !form->property("visible").toBool(); }));
+    ASSERT_EQ(machine_->macros().list().size(), 1u);
+    EXPECT_EQ(machine_->macros().list()[0].name, "Probe corner");
+    ASSERT_TRUE(waitFor([&] { return item("macro_Probe corner") != nullptr; }));
+    machine_->macros().create("Second", "G0 X0");
+    Q_EMIT machine_->macrosChanged();
+    ASSERT_TRUE(waitFor([&] { return item("macro_Second") != nullptr; }));
+    screenshot("ui_macros");
+
+    // Run it: the moves reach the machine.
+    tap("macro_Probe corner");
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->state().status.mpos[0] > 0.5; }, 8000));
+
+    // Moved to the other column.
+    QObject* model = item("macrosTab")->property("model").value<QObject*>();
+    const std::string id = machine_->macros().list()[0].id;
+    const std::string from = machine_->macros().find(id)->column;
+    const QString to = from == "column1" ? "column2" : "column1";
+    QMetaObject::invokeMethod(model, "move", Q_ARG(QString, QString::fromStdString(id)), Q_ARG(QString, to),
+                              Q_ARG(int, 0));
+    EXPECT_EQ(machine_->macros().find(id)->column, to.toStdString());
+    EXPECT_EQ(machine_->macros().find(id)->rowIndex, 0);
+    // The old column's delegates go later; find the new ones.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    // Deleted after confirming.
+    // The pop-ups sit over the tool area's right edge.
+    item("toastArea")->setProperty("toasts", QVariantList());
+    tap("macroMenu_Probe corner");
+    QQuickItem* remove = nullptr;
+    ASSERT_TRUE(waitFor([&] { return (remove = item("macroDelete")) && remove->isVisible(); }));
+    QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(remove));
+    QObject* confirm = item("macrosTab")->findChild<QObject*>("confirmDeleteMacro");
+    ASSERT_NE(confirm, nullptr);
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    QMetaObject::invokeMethod(confirm, "accepted");
+    EXPECT_TRUE(waitFor([&] { return machine_->macros().list().size() == 1u; }));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

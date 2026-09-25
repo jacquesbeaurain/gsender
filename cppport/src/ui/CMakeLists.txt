@@ -56,6 +56,8 @@ qt_add_qml_module(gs_ui
         qml/GSwitch.qml
         qml/CoolantTab.qml
         qml/SpindleTab.qml
+        qml/MacroForm.qml
+        qml/MacrosTab.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -75,6 +77,8 @@ qt_add_qml_module(gs_ui
         console_model.hpp
         spindle_model.cpp
         spindle_model.hpp
+        macros_model.cpp
+        macros_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
