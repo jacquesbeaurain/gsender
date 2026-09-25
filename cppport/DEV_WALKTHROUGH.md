@@ -1829,3 +1829,40 @@ dependencies do; CMake skips the QML UI with a message where they are
 missing). On Windows the executables find Qt's QML modules through
 `GS_QT_QML_DIR` (the Qt installation's `qml` directory) - not yet tried
 against the LibPack.
+
+## Step 62 — QML Phase 1: the Carve page's essentials (`src/ui`)
+
+Each Carve widget got a view model (Qt Core, beside `UiBackend`, taking the
+Machine from `UiBackend::instance()`) and QML following upstream's
+component:
+
+- **Connection** (`ConnectionModel`, ConnectionButton): the port list with
+  baud and firmware, Ethernet, the simulators, the error state, and the
+  disconnect menu.
+- **Location** (`DroModel`, `JogModel`; DroPanel, LocationColumn, JogWheel,
+  TabJog, WorkspaceSelector, GoToPopup): the DRO rows (tap the value to
+  type a position, zero, go to), Zero/Home/XY, the workspace selector, the
+  jog wheel (sectors hit-tested by angle, Stop in the middle), Z, the
+  step/feed fields with their +/- (`controller::jogInputNudge`, as
+  upstream), and the Rapid/Normal/Precise presets. The column scales its
+  content to fit the height.
+- **File and job** (`FileModel`, `JobModel`; FileControl, JobControl,
+  ProgressArea, OverrideSlider, StartFromLinePopup): load and recent
+  files, the file's information, Start/Pause/Stop, Outline, Start From
+  Line, the feed and spindle overrides, and the progress (the line running,
+  not the lines sent).
+- **Status and messages** (`StatusModel`; StatusPill, MachineInfoPopup,
+  NotificationBell, ToastArea, HelperPanel, JobAlerts): the alarm's "?"
+  opens the Helper with its description; Click to Unlock, the lock icon and
+  the homing-failure choice (re-home, unlock anyway); Machine Information
+  (firmware, modals, pins, tool, stepper lock). `UiBackend` keeps a
+  `NotificationCenter` (split out of `app/notifications` so both UIs share
+  it) behind the bell - the unread errors, tabs, Clear all - and emits the
+  pop-ups (at most three, `workspace.toastDuration`), the Helper's
+  invalid-line and error-line panels, and the Job End and Maintenance
+  alerts.
+
+The UI tests drive each of these through the simulator: connecting,
+zeroing and typing positions, jogging and presets, loading, running,
+overriding, pausing and stopping a job, Start From Line, the alarm, unlock
+and Helper, Machine Information, the toasts and bell, the job-end summary.
