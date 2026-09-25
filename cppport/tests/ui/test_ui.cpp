@@ -1242,6 +1242,49 @@ TEST_F(UiTest, TheCalibrationToolsTuneAndSquareTheMachine) {
     EXPECT_EQ(squaring->property("mainStep").toInt(), 0);
 }
 
+TEST_F(UiTest, TheShortcutsToolRebindsAndResetsTheKeys) {
+    window_->requestActivate();
+    ASSERT_TRUE(waitFor([&] { return window_->isActive(); }));
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_shortcuts") && item("toolCard_shortcuts")->isVisible(); }));
+    tap("toolCard_shortcuts");
+    ASSERT_TRUE(waitFor([&] { return item("keyboardShortcutsTool") && item("keyboardShortcutsTool")->isVisible(); }));
+    screenshot("ui_shortcuts");
+    item("shortcutsSearch")->forceActiveFocus();
+    type("jog x");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    ASSERT_TRUE(waitFor([&] { return item("shortcutKeys_JOG_X_P") && item("shortcutKeys_JOG_X_P")->isVisible(); }));
+
+    // Shift+Left is Jog X-'s: refused. Alt+Right is free.
+    tap("shortcutKeys_JOG_X_P");
+    QObject* editor = item("keyboardShortcutsTool")->findChild<QObject*>("shortcutEditor");
+    ASSERT_TRUE(waitFor([&] { return editor->property("opened").toBool() && item("shortcutCapture")->hasActiveFocus(); }));
+    QTest::keyClick(window_, Qt::Key_Left, Qt::ShiftModifier);
+    EXPECT_EQ(editor->property("keys").toString(), "Shift+Left");
+    tap("shortcutSave");
+    EXPECT_EQ(editor->property("conflict").toString(), "Jog X- (left)");
+    EXPECT_TRUE(item("shortcutConflict")->isVisible());
+    screenshot("ui_shortcut_conflict");
+    QTest::keyClick(window_, Qt::Key_Right, Qt::AltModifier);
+    EXPECT_EQ(editor->property("keys").toString(), "Alt+Right");
+    tap("shortcutSave");
+    ASSERT_TRUE(waitFor([&] { return !editor->property("visible").toBool(); }));
+    EXPECT_EQ(machine_->settings().shortcuts.at("JOG_X_P").keys, "Alt+Right");
+    auto* shortcuts = window_->findChild<ui::UiShortcuts*>();
+    EXPECT_EQ(shortcuts->manager().actionFor(QKeyCombination(Qt::AltModifier, Qt::Key_Right)), "JOG_X_P");
+
+    // Switched off, then everything back to the defaults.
+    tap("shortcutActive_JOG_X_M");
+    EXPECT_FALSE(machine_->settings().shortcuts.at("JOG_X_M").active);
+    tap("shortcutsReset");
+    QObject* reset = item("keyboardShortcutsTool")->findChild<QObject*>("shortcutsResetConfirm");
+    QMetaObject::invokeMethod(reset, "close");
+    QMetaObject::invokeMethod(reset, "accepted");
+    EXPECT_TRUE(machine_->settings().shortcuts.empty());
+    EXPECT_TRUE(item("shortcutActive_JOG_X_M")->property("checked").toBool());
+    EXPECT_EQ(shortcuts->manager().actionFor(QKeyCombination(Qt::ShiftModifier, Qt::Key_Right)), "JOG_X_P");
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

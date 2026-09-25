@@ -29,7 +29,8 @@ Item {
         surfacing: surfacingTool,
         rotarySurfacing: rotarySurfacingTool,
         movementTuning: movementTuningTool,
-        squaring: squaringTool
+        squaring: squaringTool,
+        shortcuts: keyboardShortcutsTool
     })
 
     function open(key) {
@@ -147,5 +148,9 @@ Item {
     Component {
         id: squaringTool
         SquaringTool {}
+    }
+    Component {
+        id: keyboardShortcutsTool
+        KeyboardShortcutsTool {}
     }
 }
