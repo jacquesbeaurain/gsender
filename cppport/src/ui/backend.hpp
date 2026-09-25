@@ -111,6 +111,9 @@ public:
     Q_INVOKABLE void closeHelper();
     // The Maintenance Alert's Reset Timers.
     Q_INVOKABLE void resetMaintenanceTimers(const QVariantList& ids);
+    // A tool of the Tools page ("rotarySurfacing", "surfacing", ...): the
+    // page, opened on it.
+    Q_INVOKABLE void openTool(const QString& name) { Q_EMIT toolRequested(name); }
 
 Q_SIGNALS:
     void notification(const QString& text, const QString& type);
@@ -122,6 +125,7 @@ Q_SIGNALS:
     // allow: the Job End summary, and the maintenance tasks now due
     // ({id, name, description}).
     void jobEndSummary(bool completed, const QString& time, const QStringList& errors);
+    void toolRequested(const QString& name);
     void maintenanceDue(const QVariantList& tasks);
     void connectionChanged();
     void stateChanged();

@@ -1,5 +1,7 @@
 #include "rotary_panel.hpp"
 
+#include "rotary_actions.hpp"
+
 #include "machine.hpp"
 #include "toolpath_view.hpp"
 
@@ -38,42 +40,7 @@ bool machineFree(Machine& machine) {
     return state == "Idle" || state == "Jog";
 }
 
-// The probing and mounting buttons: connected, idle, no job running.
-bool machineIdle(Machine& machine) {
-    controller::Controller* c = machine.controller();
-    return c && !c->workflow().isRunning() && c->state().status.activeState == "Idle";
-}
-
-// The board's firmware (the default one while disconnected).
-bool isGrbl(Machine& machine) {
-    controller::Controller* c = machine.controller();
-    return c ? c->isGrbl() : machine.settings().defaultFirmware == protocol::Firmware::Grbl;
-}
-
-// Upstream's rules: Grbl has the rotary only in rotary mode (on Y); the
-// Y alignment and the mounting setup are for the machine outside it.
-bool surfacingAvailable(Machine& machine) {
-    return !isGrbl(machine) || machine.rotaryMode();
-}
-
-bool probeZAvailable(Machine& machine) {
-    return machineIdle(machine) && surfacingAvailable(machine);
-}
-
-bool alignYAvailable(Machine& machine) {
-    return machineIdle(machine) && !machine.rotaryMode();
-}
-
-bool mountingAvailable(Machine& machine) {
-    return machineIdle(machine) && !machine.rotaryMode();
-}
-
-// Deviation: upstream's switch only needs a connection; here a running job
-// keeps its firmware settings.
-bool modeSwitchAvailable(Machine& machine) {
-    controller::Controller* c = machine.controller();
-    return c && !c->workflow().isRunning();
-}
+using namespace rotary_actions;
 
 QDoubleSpinBox* spin(double min, double max, int decimals, const QString& suffix) {
     auto* box = new QDoubleSpinBox;
@@ -454,21 +421,7 @@ bool RotaryPanel::setRotaryMode(bool rotaryMode) {
         return false;
     }
     if (rotaryMode) {
-        // updateWorkspaceMode()'s confirmation, by firmware.
-        const QString actions =
-            c->isGrblHal()
-                ? tr("<li>Zero the Y-Axis in its current position</li>"
-                     "<li>Switch these A and Y axis settings:<ul>"
-                     "<li>$101 and $103 (travel resolution)</li><li>$111 and $113 (maximum rate)</li>"
-                     "<li>$121 and $123 (acceleration)</li><li>$131 and $133 (travel amount)</li></ul></li>")
-                : tr("<li>Zero the Y-Axis in its current position</li>"
-                     "<li>Turn soft and hard limits off, if they are on</li>"
-                     "<li>Update the following firmware values:<ul>"
-                     "<li>$101 (Y-Axis travel resolution)</li><li>$111 (Y-Axis maximum rate)</li></ul></li>");
-        const QString wiring =
-            c->isGrblHal() ? QString() : tr("<p>Please make sure you have switched over your wiring for the new setup.</p>");
-        const QString text = tr("<p>Enabling rotary mode will perform the following actions:</p><ol>%1</ol>%2")
-                                 .arg(actions, wiring);
+        const QString text = enableConfirmation(c->isGrblHal());
         if (!confirm(tr("Enable Rotary Mode"), text, tr("OK"))) {
             return false;
         }
