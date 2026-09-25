@@ -48,4 +48,18 @@ ApplicationWindow {
             }
         }
     }
+
+    // The Helper's panel over the top left; the pop-ups at the bottom right.
+    HelperPanel {
+        x: 8
+        y: 60
+        width: window.width / 3
+        height: window.height / 3 - y
+        z: 10
+    }
+    ToastArea {
+        anchors.fill: parent
+        z: 11
+    }
+    JobAlerts {}
 }

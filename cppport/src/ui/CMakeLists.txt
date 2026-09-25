@@ -44,11 +44,18 @@ qt_add_qml_module(gs_ui
         qml/StartFromLinePopup.qml
         qml/JobControl.qml
         qml/ProgressArea.qml
+        qml/MachineInfoPopup.qml
+        qml/ToastArea.qml
+        qml/NotificationBell.qml
+        qml/HelperPanel.qml
+        qml/JobAlerts.qml
     SOURCES
         backend.cpp
         backend.hpp
         connection_model.cpp
         connection_model.hpp
+        status_model.cpp
+        status_model.hpp
         file_model.cpp
         file_model.hpp
         job_model.cpp
