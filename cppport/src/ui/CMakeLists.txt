@@ -65,6 +65,7 @@ qt_add_qml_module(gs_ui
         qml/MountingSetupDialog.qml
         qml/ToolChange.qml
         qml/StepThrough.qml
+        qml/GcodeEditor.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -94,6 +95,8 @@ qt_add_qml_module(gs_ui
         tool_change_model.hpp
         step_through_model.cpp
         step_through_model.hpp
+        gcode_editor_model.cpp
+        gcode_editor_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

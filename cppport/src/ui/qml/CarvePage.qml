@@ -49,6 +49,12 @@ Item {
 
         Visualizer {
             objectName: "carveVisualizer"
+            // The editor takes the visualizer's place while open.
+            GcodeEditor {
+                id: gcodeEditor
+                anchors.fill: parent
+                z: 5
+            }
             ProgressArea {
                 model: jobControl.model
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -82,6 +88,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onOpenStepThrough: stepThrough.openFile()
+                    onOpenEditor: gcodeEditor.visible ? gcodeEditor.close() : gcodeEditor.openFile()
                 }
                 JobControl {
                     id: jobControl
