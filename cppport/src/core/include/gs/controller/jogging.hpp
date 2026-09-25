@@ -43,6 +43,14 @@ enum class JogPreset { Rapid, Normal, Precise };
 JogSpeeds defaultJogSpeeds(JogPreset preset);
 JogPreset nextJogPreset(JogPreset preset);  // Rapid -> Normal -> Precise -> Rapid
 
+// JogInput's - and + buttons: the value one step down or up. The step is a
+// unit of the value's leading digit (0.01 for 0.02, 100 for 234), a digit
+// finer where stepping down would pass it (110 - 10, 0.01 - 0.001); the
+// result is rounded as upstream's formatNewValue: 3 decimals below 1, 2
+// below 10, larger values to their second digit (-: up to it, +: down to
+// it, ex. 115 -> 120 / 110, 45.1 -> 55 / 35). Never below 0.
+double jogInputNudge(double current, bool increment);
+
 // gSender's JogHelper: a key (or button) released within `thresholdMs` jogs
 // one step; held longer, it starts a continuous jog that stops on release.
 // Repeated key-downs while held are ignored (keyboard auto-repeat). As

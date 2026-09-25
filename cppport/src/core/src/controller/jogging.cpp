@@ -2,7 +2,9 @@
 
 #include "gs/util/jsnumber.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cmath>
 
 namespace gs::controller {
 
@@ -110,6 +112,65 @@ void JogHelper::keyUp() {
     startTime_ = loop_.nowMs();
     didPress_ = false;
     distances_.clear();
+}
+
+namespace {
+
+// String.prototype.padEnd / padStart for the digit counts JogInput builds.
+double tenPower(int digits) {  // Number('1'.padEnd(n, '0'))
+    return std::pow(10.0, std::max(0, digits - 1));
+}
+
+double toFixedIfNecessary(double value, int decimals) {  // +parseFloat(v).toFixed(d)
+    return js::stringToNumber(js::toFixed(value, decimals));
+}
+
+// getStep(increment).
+double jogInputStep(double current, bool increment) {
+    const int digitCount = static_cast<int>(js::numberToString(std::floor(current)).size());
+    const std::string text = js::numberToString(current);
+    const std::size_t dot = text.find('.');
+    const int decimalDigits = dot == std::string::npos ? 0 : static_cast<int>(text.size() - dot - 1);
+    const double x = tenPower(digitCount);                    // 234 -> 100
+    const double y = tenPower(digitCount - 1);                // 234 -> 10
+    const double xD = std::pow(10.0, -std::max(1, decimalDigits));      // 0.02 -> 0.01
+    const double yD = std::pow(10.0, -std::max(1, decimalDigits + 1));  // 0.02 -> 0.001
+    double step = 0;
+    if (current == 0) {
+        return increment ? 0.1 : 0;
+    }
+    if (current < 1 || (!increment && current == 1)) {
+        step = !increment && current - xD < xD ? yD : xD;
+    } else {
+        step = !increment && current - x < x ? y : x;
+    }
+    return step < 0.001 ? 0 : step;
+}
+
+// formatNewValue(value, increment).
+double jogInputFormat(double value, bool increment) {
+    value = js::stringToNumber(js::toFixed(value, 4));
+    if (value < 1) {
+        return toFixedIfNecessary(value, 3);
+    }
+    if (value < 10) {
+        return toFixedIfNecessary(value, 2);
+    }
+    const int digitCount = static_cast<int>(js::toFixed(value, 0).size());
+    const double x = tenPower(digitCount - 1);  // 100 -> 10
+    const double lower = tenPower(digitCount);  // 10, 100, 1000
+    const double higher = 2 * lower;            // 20, 200, 2000
+    if (value >= lower && value < higher) {
+        return increment ? std::floor(value / x) * x : std::ceil(value / x) * x;
+    }
+    return js::mathRound(value / x) * x;
+}
+
+}  // namespace
+
+double jogInputNudge(double current, bool increment) {
+    const double step = jogInputStep(current, increment);
+    return jogInputFormat(increment ? current + step : current - step, increment);
 }
 
 }  // namespace gs::controller

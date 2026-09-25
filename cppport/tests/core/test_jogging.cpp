@@ -104,3 +104,28 @@ TEST_F(JogHelperTest, AReleaseWithoutAPressDoesNothing) {
 }
 
 }  // namespace
+
+TEST(JogInput, NudgesByTheLeadingDigit) {
+    // The presets' values (Normal 5 mm, 2 mm, 3000 mm/min; Precise 0.5, 0.1).
+    EXPECT_EQ(jogInputNudge(5, true), 6);
+    EXPECT_EQ(jogInputNudge(5, false), 4);
+    EXPECT_EQ(jogInputNudge(3000, true), 4000);
+    EXPECT_EQ(jogInputNudge(3000, false), 2000);
+    EXPECT_EQ(jogInputNudge(0.5, true), 0.6);
+    EXPECT_EQ(jogInputNudge(0.5, false), 0.4);
+    // A digit finer where the step would pass the leading one.
+    EXPECT_EQ(jogInputNudge(0.1, false), 0.09);
+    EXPECT_EQ(jogInputNudge(110, false), 100);
+    EXPECT_EQ(jogInputNudge(1, false), 0.9);
+    EXPECT_EQ(jogInputNudge(0.02, true), 0.03);
+    EXPECT_EQ(jogInputNudge(0.001, false), 0.001);  // the step would go under 0.001: none, it stays
+    // Zero: + gives 0.1, - stays.
+    EXPECT_EQ(jogInputNudge(0, true), 0.1);
+    EXPECT_EQ(jogInputNudge(0, false), 0);
+    // Larger values round to their second digit (Math.round: 21.5 -> 22).
+    EXPECT_EQ(jogInputNudge(115, true), 220);
+    EXPECT_EQ(jogInputNudge(45.1, true), 55);
+    EXPECT_EQ(jogInputNudge(45.1, false), 35);
+    // Floating point stays clean (0.7 + 0.1).
+    EXPECT_EQ(jogInputNudge(0.7, true), 0.8);
+}

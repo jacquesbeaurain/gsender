@@ -28,9 +28,24 @@ qt_add_qml_module(gs_ui
         qml/CarvePage.qml
         qml/Visualizer.qml
         qml/PlaceholderPage.qml
+        qml/GButton.qml
+        qml/ConfirmDialog.qml
+        qml/NumberField.qml
+        qml/CornerButton.qml
+        qml/GoToPopup.qml
+        qml/DroPanel.qml
+        qml/JogWheel.qml
+        qml/TabJog.qml
+        qml/JogPanel.qml
+        qml/LocationColumn.qml
+        qml/WorkspaceSelector.qml
     SOURCES
         backend.cpp
         backend.hpp
+        dro_model.cpp
+        dro_model.hpp
+        jog_model.cpp
+        jog_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

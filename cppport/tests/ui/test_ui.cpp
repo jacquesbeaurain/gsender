@@ -112,6 +112,11 @@ protected:
         QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(target));
         QCoreApplication::processEvents();
     }
+    void type(const QString& text) {
+        for (const QChar c : text) {
+            QTest::keyClick(window_, c.toLatin1());
+        }
+    }
     void connectSimulator() {
         backend_->connectSimulator();
         ASSERT_TRUE(waitFor([&] {
@@ -222,6 +227,99 @@ TEST_F(UiTest, TheVisualizerOrbitsPansAndZoomsByTouch) {
     EXPECT_EQ(view->property("view").toString(), "top");
     EXPECT_DOUBLE_EQ(view->property("pitch").toDouble(), 0);
     screenshot("ui_visualizer_top");
+}
+
+TEST_F(UiTest, TheDroZeroesTypesAndGoesTo) {
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+    // The wheel's X+ sector steps the Normal preset's 5 mm.
+    QQuickItem* wheel = item("jogWheel");
+    ASSERT_NE(wheel, nullptr);
+    const QPointF xPlus = wheel->mapToScene(QPointF(wheel->width() * 0.92, wheel->height() / 2));
+    QTest::mouseClick(window_, Qt::LeftButton, {}, xPlus.toPoint());
+    ASSERT_TRUE(waitFor([&] { return text("workX") == "5.00" || item("workX")->property("text") == "5.00"; }));
+    EXPECT_EQ(item("machineX")->property("text").toString(), "5.00");
+
+    // X0 zeroes X: the work position reads 0, the machine's stays.
+    tap("zeroX");
+    ASSERT_TRUE(waitFor([&] { return item("workX")->property("text").toString() == "0.00"; }));
+    EXPECT_EQ(item("machineX")->property("text").toString(), "5.00");
+
+    // A typed position makes the current one read it.
+    QQuickItem* workY = item("workY");
+    tap("workY");
+    ASSERT_TRUE(workY->hasActiveFocus());
+    type("12.5");
+    QTest::keyClick(window_, Qt::Key_Return);
+    ASSERT_TRUE(waitFor([&] { return workY->property("text").toString() == "12.50"; }));
+
+    // Go To: absolute X 10.
+    tap("goToButton");
+    QObject* popup = window_->findChild<QObject*>("goToPopup");
+    ASSERT_NE(popup, nullptr);
+    ASSERT_TRUE(waitFor([&] { return popup->property("opened").toBool(); }));
+    QQuickItem* goToX = item("goToX");
+    ASSERT_NE(goToX, nullptr);
+    tap("goToX");
+    type("10");
+    tap("goToGo");
+    ASSERT_TRUE(waitFor([&] { return item("workX")->property("text").toString() == "10.00"; }, 10000));
+
+    // The workspace follows the modal state; G55 selected through the model.
+    EXPECT_EQ(item("workspaceSelector")->property("current").toInt(), 0);
+}
+
+TEST_F(UiTest, TheJogControlsStepHoldAndChangePresets) {
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+    // Presets and the - / + buttons.
+    tap("presetRapid");
+    EXPECT_EQ(item("jogFieldxy")->property("text").toString(), "20");
+    tap("presetNormal");
+    tap("jogPlusxy");
+    EXPECT_EQ(item("jogFieldxy")->property("text").toString(), "6");
+    tap("jogMinusfeedrate");
+    EXPECT_EQ(item("jogFieldfeedrate")->property("text").toString(), "2000");
+
+    // Z+ held: a continuous jog until released.
+    QQuickItem* z = item("jogZ");
+    const QPoint zPlus = z->mapToScene(QPointF(z->width() / 2, z->height() / 4)).toPoint();
+    QTest::mousePress(window_, Qt::LeftButton, {}, zPlus);
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Jog"; }));
+    QTest::mouseRelease(window_, Qt::LeftButton, {}, zPlus);
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Idle"; }));
+    EXPECT_GT(machine_->machinePositionMm()[2], 0);
+
+    // The stop button cancels a jog.
+    QTest::mousePress(window_, Qt::LeftButton, {}, zPlus);
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Jog"; }));
+    QQuickItem* stop = item("jogStop");
+    QTest::mouseRelease(window_, Qt::LeftButton, {}, zPlus);
+    QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(stop));
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Idle"; }));
+    screenshot("ui_location");
+}
+
+TEST_F(UiTest, ZeroingAsksFirstWhenWarned) {
+    app::AppSettings settings = machine_->settings();
+    settings.warnZero = true;
+    machine_->setSettings(settings);
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+    machine_->controller()->gcode("G0 X3");
+    ASSERT_TRUE(waitFor([&] { return item("workX")->property("text").toString() == "3.00"; }));
+    tap("zeroX");
+    QObject* confirm = window_->findChild<QObject*>("confirmZero");
+    ASSERT_NE(confirm, nullptr);
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    EXPECT_EQ(confirm->property("title").toString(), "Zero X Axis");
+    tap("confirmCancel");
+    ASSERT_TRUE(waitFor([&] { return !confirm->property("opened").toBool(); }));
+    EXPECT_EQ(item("workX")->property("text").toString(), "3.00");
+    tap("zeroX");
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    tap("confirmAction");
+    EXPECT_TRUE(waitFor([&] { return item("workX")->property("text").toString() == "0.00"; }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

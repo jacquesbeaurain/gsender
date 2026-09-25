@@ -50,12 +50,10 @@ Item {
             Layout.fillHeight: true
             Layout.preferredHeight: page.portrait ? page.height * 0.45 : page.height * 0.75
         }
-        Pending {
-            objectName: "locationColumn"
+        LocationColumn {
             visible: !page.portrait
-            title: qsTr("Location & Jogging")
-            note: qsTr("DRO, jog pad and presets - Phase 1")
             Layout.preferredWidth: Math.min(page.width * 0.33, 448)
+            Layout.minimumWidth: 400
             Layout.fillHeight: true
         }
         RowLayout {
@@ -91,10 +89,9 @@ Item {
                     Layout.fillHeight: true
                 }
             }
-            Pending {
+            LocationColumn {
+                objectName: "locationColumnPortrait"
                 visible: page.portrait
-                title: qsTr("Location & Jogging")
-                note: qsTr("Phase 1")
                 Layout.preferredWidth: Math.max(page.width / 3, 400)
                 Layout.fillHeight: true
             }

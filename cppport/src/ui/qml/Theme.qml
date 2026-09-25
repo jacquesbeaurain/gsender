@@ -81,6 +81,8 @@ QtObject {
     readonly property int fontBase: 16
     readonly property int fontLg: 18
     readonly property int font3xl: 30
+    readonly property int fontXl: 20
+    readonly property string monoFont: Qt.platform.os === "windows" ? "Consolas" : "monospace"
 
     // The status pill's colours by Grbl state (MachineStatus).
     function stateColor(state) {
