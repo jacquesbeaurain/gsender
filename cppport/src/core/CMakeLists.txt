@@ -10,6 +10,7 @@ add_library(gs_core STATIC
     src/util/zip.cpp
     src/gcode/parser.cpp
     src/gcode/interpreter.cpp
+    src/gcode/highlight.cpp
     src/expr/value.cpp
     src/expr/expression.cpp
     src/expr/builtins.cpp

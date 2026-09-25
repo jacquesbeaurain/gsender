@@ -25,6 +25,8 @@ add_library(gs_app STATIC
     dro_panel.hpp
     gcode_editor_dialog.cpp
     gcode_editor_dialog.hpp
+    gcode_highlighter.cpp
+    gcode_highlighter.hpp
     helper_info.cpp
     helper_info.hpp
     machine.cpp

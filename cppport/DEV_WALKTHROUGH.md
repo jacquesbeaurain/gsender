@@ -1135,8 +1135,8 @@ Deviations: positions and modes come from the port's interpreter (the one
 that draws the toolpath), so the cutter sits on the drawn path - upstream's
 viewer interpreter also moved its marker on G10/G28/G38.x/G92 lines and
 read G91.1 as G91; lines are counted as the rest of the app counts them (no
-empty line after the final newline). Not ported: the syntax colouring of the
-source. (Rotary files turn with the line's A since Step 42.)
+empty line after the final newline). (Rotary files turn with the line's A
+since Step 42; the source is syntax-coloured since Step 60.)
 
 ## Step 40 — G-code Editor (`src/app/gcode_editor_dialog`)
 
@@ -1717,3 +1717,40 @@ so switching it shows the same values in the other units before saving; a
 value is only taken back from its box once edited, so untouched ones keep
 their stored mm exactly (upstream's round trip only happens on typing too).
 Saving a changed preset reloads the selected one in the Jogger.
+
+## Step 60 — G-code syntax colouring (`gs/gcode/highlight`, `src/app/gcode_highlighter`)
+
+The Step Through's source and the G-code Editor colour G-code as upstream
+does, with react-syntax-highlighter's `gcode` language: highlight.js 10.7's
+grammar (lib/languages/gcode.js), run by lowlight with ignoreIllegals one
+line at a time, in the a11y-light theme - a11y-dark with the application's
+dark mode. `highlightLine()` ports that grammar with highlight.js's matching
+rules: at each point the leftmost match of the mode's rules wins, ties to
+the earlier rule; a mode without an end closes after its match; an illegal
+match inside a mode is kept as text; keywords are whole
+`[A-Z_][A-Z0-9_.]*` matches in the top mode's plain text. The quirks decide
+the colours, so they are kept: an "N" anywhere in code starts a symbol that
+runs to the next digits (so "; End" is green from "nd"), numbers match inside
+words ("X1e5" is X, 1, e, 5), ";" starts no comment, "#"/"VC"/"VS" swallow
+text up to the next digits uncoloured, "ENDIF" is never a keyword (its N
+comes first). Only the classes the theme colours matter (comment, meta,
+number, built_in, name, string, symbol, keyword); `attr` and `doctag` take
+their surroundings' colour.
+
+`tools/gen_highlight_fixtures.mjs` runs highlight.js itself over a sample of
+the repository's example programs, the grammar's corners and seeded token
+soup (1,078 lines) into `tests/data/gcode_highlight_golden.json`; the port
+matches every colour run. It works on UTF-8 bytes (the regexes have no u
+flag: \d, \w and case folding are ASCII), the views map runs to QString
+positions.
+
+Upstream colours only the rows in view (its lists are virtualised), and
+colouring a whole document is slow (about 10 us a line in Qt: 2 s for 200,000
+lines), so the views do the same: the Step Through's rows are drawn by a
+delegate (the number column muted, the current one bold blue, as
+GCodeSourceLine), and the editor colours a block as it is painted - the
+layout's formats set and the block marked dirty as QSyntaxHighlighter does,
+which emits no content-change signals - keeping the block's revision in its
+userState so an edited line is coloured again. As upstream's editor, the
+colours are off while a job runs (the lines are plain); upstream also drops
+them mid-scroll, which the port does not need.

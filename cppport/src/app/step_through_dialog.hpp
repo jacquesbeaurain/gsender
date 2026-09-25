@@ -34,6 +34,7 @@ class QWidget;
 namespace gs::app {
 
 class Machine;
+class SourceLineDelegate;
 class StepSourceModel;
 
 // The loaded job's toolpath as the stepper shows it: the lines before the
@@ -161,6 +162,7 @@ private:
     QLineEdit* search_;
     QLabel* matchCount_;
     QListView* source_;
+    SourceLineDelegate* delegate_;
     StepSourceModel* model_;
     // view
     StepThroughView* view_;

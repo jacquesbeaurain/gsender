@@ -8,6 +8,7 @@ add_executable(gs_core_tests
     core/test_history.cpp
     core/test_gcode_parser.cpp
     core/test_gcode_interpreter.cpp
+    core/test_highlight.cpp
     core/test_expression.cpp
     core/test_protocol_parser.cpp
     core/test_protocol_runner.cpp

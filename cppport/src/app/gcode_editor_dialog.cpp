@@ -1,5 +1,6 @@
 #include "gcode_editor_dialog.hpp"
 
+#include "gcode_highlighter.hpp"
 #include "machine.hpp"
 
 #include "gs/job/program_analysis.hpp"
@@ -64,6 +65,50 @@ GcodeTextEdit::GcodeTextEdit(QWidget* parent) : QPlainTextEdit(parent) {
         }
     });
     setViewportMargins(gutterWidth(), 0, 0, 0);
+}
+
+void GcodeTextEdit::setHighlighting(bool enabled, bool dark) {
+    if (enabled == highlight_ && dark == dark_) {
+        return;
+    }
+    highlight_ = enabled;
+    dark_ = dark;
+    clearColours();  // coloured again as they show, in the new theme
+    viewport()->update();
+}
+
+bool GcodeTextEdit::isColoured(int block) const {
+    const QTextBlock at = document()->findBlockByNumber(block);
+    return at.isValid() && at.userState() == at.revision() && !at.layout()->formats().isEmpty();
+}
+
+void GcodeTextEdit::clearColours() {
+    for (QTextBlock block = document()->begin(); block.isValid(); block = block.next()) {
+        if (block.userState() != -1) {
+            clearBlockColours(*document(), block);
+            block.setUserState(-1);
+        }
+    }
+}
+
+void GcodeTextEdit::colourVisibleBlocks() {
+    const int bottom = viewport()->rect().bottom();
+    for (QTextBlock block = firstVisibleBlock(); block.isValid(); block = block.next()) {
+        if (blockBoundingGeometry(block).translated(contentOffset()).top() > bottom) {
+            break;
+        }
+        if (block.userState() != block.revision()) {
+            colourGcodeBlock(*document(), block, dark_);
+            block.setUserState(block.revision());
+        }
+    }
+}
+
+void GcodeTextEdit::paintEvent(QPaintEvent* event) {
+    if (highlight_) {
+        colourVisibleBlocks();
+    }
+    QPlainTextEdit::paintEvent(event);
 }
 
 int GcodeTextEdit::gutterWidth() const {
@@ -218,6 +263,7 @@ GcodeEditorDialog::GcodeEditorDialog(Machine& machine, QWidget* parent) : QDialo
         }
     });
     connect(editor_->document(), &QTextDocument::modificationChanged, this, &GcodeEditorDialog::refresh);
+    connect(&machine_, &Machine::appSettingsChanged, this, &GcodeEditorDialog::refresh);  // dark mode
     connect(editor_, &QPlainTextEdit::selectionChanged, this, &GcodeEditorDialog::refresh);
     connect(search_, &QLineEdit::textChanged, this, &GcodeEditorDialog::setSearch);
     connect(previous_, &QPushButton::clicked, this, &GcodeEditorDialog::previousMatch);
@@ -552,6 +598,7 @@ void GcodeEditorDialog::updateHighlights() {
 void GcodeEditorDialog::refresh() {
     const bool running = jobRunning();
     editor_->setReadOnly(running);
+    editor_->setHighlighting(!running, machine_.settings().darkMode);
     controller::Controller* c = machine_.controller();
     const bool paused = c && c->workflow().state() == controller::WorkflowState::Paused;
     status_->setText(running ? (paused ? chip(tr("Paused"), "#fef3c7", "#a16207") : chip(tr("Running"), "#dcfce7", "#15803d"))
