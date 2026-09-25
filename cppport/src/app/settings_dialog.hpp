@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <array>
+#include <map>
 #include <vector>
 
 class QCheckBox;
@@ -102,6 +103,16 @@ public:
     void setEventHook(const QString& event, const QString& commands, bool enabled);
     void save();  // OK / Apply
 
+    // The General page's jogging presets (Rapid, Normal, Precise): XY and Z
+    // steps and the speed in the Units choice's units, A in degrees.
+    struct JogPresetEditor {
+        QDoubleSpinBox* xyStep;
+        QDoubleSpinBox* zStep;
+        QDoubleSpinBox* aStep;
+        QDoubleSpinBox* feedrate;
+    };
+    const JogPresetEditor& jogPresetEditor(int preset) const { return jogPresets_[static_cast<std::size_t>(preset)]; }
+
 Q_SIGNALS:
     // The firmware page's "Square XY...": the squaring tool, in place of
     // this dialog (it needs the main window's jog controls).
@@ -109,6 +120,22 @@ Q_SIGNALS:
 
 private:
     void load();
+    // Lengths and speeds stored in mm (mm/min) and shown in the Units
+    // choice's units, as upstream's 'variable' settings and JogInput convert
+    // them (convertToImperial to show, convertToMetric what is typed). A
+    // value is only read back from its box once edited, so an untouched one
+    // never drifts through the rounding.
+    QDoubleSpinBox* addLengthField(double maxMm, bool speed);
+    void setLength(QDoubleSpinBox* box, double mm);
+    double length(const QDoubleSpinBox* box) const;
+    void showLengths();  // after a Units change
+    struct LengthField {
+        double mm = 0;
+        double maxMm = 0;
+        bool speed = false;
+    };
+    std::map<QDoubleSpinBox*, LengthField> lengths_;
+    bool showingLengths_ = false;
 
     Machine& machine_;
     QTabWidget* tabs_;
@@ -122,6 +149,9 @@ private:
     QComboBox* units_;
     QSpinBox* decimals_;
     QDoubleSpinBox* safeRetract_;
+    std::array<JogPresetEditor, 3> jogPresets_{};
+    QSpinBox* jogThreshold_;
+    QCheckBox* preventJoggingPastLimits_;
     QCheckBox* warnZero_;
     QSpinBox* toastDuration_;
     QCheckBox* jobEndModal_;

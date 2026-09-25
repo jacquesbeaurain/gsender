@@ -7,6 +7,7 @@
 
 #include <QObject>
 
+#include <array>
 #include <memory>
 
 namespace gs::app {
@@ -59,6 +60,8 @@ private:
     controller::JogSpeeds speeds_;
     int threshold_ = 0;
     bool metric_ = true;
+    // Rapid, Normal, Precise as last applied: a change reloads the selected preset.
+    std::array<controller::JogSpeeds, 3> presets_{};
     bool rotaryJog_ = false;  // the jog in progress is A (or the rotary)
     std::unique_ptr<controller::JogHelper> helper_;
 };
