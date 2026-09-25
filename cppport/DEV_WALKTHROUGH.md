@@ -623,7 +623,7 @@ on/off states, and stores only what differs from the defaults. The
 visualizer gained Front/Right/Left views, view cycling and zoom for the
 shortcuts.
 
-Not ported yet: gamepads, and editing the presets outside the Jog tab.
+Not ported yet: gamepads. (The presets are edited in Settings since Step 59.)
 (The go-to-corner and park shortcuts came with Step 29, macro shortcuts
 with Step 32, the rotary ones with Step 38, Lightweight mode with Step 43.)
 
@@ -705,8 +705,10 @@ switch from the DRO's units badge or the General settings, and:
   stores mm again;
 - Start From Line takes the safe height in inches (default 0.4 in).
 
-The settings dialog's probe values, the outline speed and the visualizer
-stay in mm for now.
+The settings dialog's probe values and the outline speed stay in mm, as
+upstream's Config page shows them (their unit is a fixed "mm"; only the
+safe height - unit "variable" - and the jogging presets follow the
+workspace, which the dialog does since Step 59). The visualizer stays in mm.
 
 ## Step 28 — Tool change wizards (`gs/toolchange`, `src/app/toolchange_dialog`)
 
@@ -1697,3 +1699,21 @@ A test lays out a sysfs tree with a CH340, an Arduino, a placeholder, a real
 UART and a virtual terminal. Opening a real board on Linux still needs a
 human with hardware. Power saving does nothing on Linux and the audio cues
 are the system beep.
+
+## Step 59 — Jogging presets in Settings; the safe height in the workspace units
+
+Upstream's Config page has a Jogging Presets section (widgets.axes.jog):
+Rapid, Normal and Precise, each with its XY and Z steps, A step and speed
+(JogInput), the continuous jog delay (threshold, at least 50 ms) and, under
+Basics, "Stop jogging past limits" (workspace.preventJoggingPastLimits).
+The General page now has them. The Jog tab's own fields stay a temporary
+edit of the speeds in use, as upstream's (it saves them as "custom", which
+no preset reads).
+
+In an inch workspace the steps, the speeds and the safe height show in
+inches: convertToImperial to show (3 decimals), convertToMetric for what is
+typed; A stays in degrees. The dialog's lengths follow its own Units choice,
+so switching it shows the same values in the other units before saving; a
+value is only taken back from its box once edited, so untouched ones keep
+their stored mm exactly (upstream's round trip only happens on typing too).
+Saving a changed preset reloads the selected one in the Jogger.

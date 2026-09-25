@@ -45,6 +45,8 @@
 #include <QMessageBox>
 #include <QLineEdit>
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QSpinBox>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
@@ -485,6 +487,77 @@ TEST_F(AppTest, AutomationsStoreEventHooksThatRunAroundJobs) {
     dialog.save();
     EXPECT_FALSE(hooks.find("gcode:start")->enabled);
     EXPECT_EQ(hooks.find("gcode:start")->commands, "G0 Z7");
+}
+
+TEST_F(AppTest, JoggingPresetsAreEditedInTheSettingsInTheWorkspaceUnits) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.metric = false;
+    settings.safeRetractHeight = 10;
+    machine.setSettings(settings);
+    Jogger jogger(machine);
+    jogger.selectPreset(controller::JogPreset::Normal);
+
+    // Shown in inches (JogInput's convertToImperial), A in degrees.
+    SettingsDialog dialog(machine);
+    const SettingsDialog::JogPresetEditor& normal = dialog.jogPresetEditor(1);
+    EXPECT_EQ(normal.xyStep->value(), 0.197);  // 5 mm
+    EXPECT_EQ(normal.xyStep->suffix(), " in");
+    EXPECT_EQ(normal.zStep->value(), 0.079);  // 2 mm
+    EXPECT_EQ(normal.aStep->value(), 5);
+    EXPECT_EQ(normal.feedrate->value(), 118.11);  // 3000 mm/min
+    EXPECT_EQ(normal.feedrate->suffix(), " in/min");
+    auto* safeHeight = dialog.findChild<QDoubleSpinBox*>("safeRetractHeight");
+    ASSERT_NE(safeHeight, nullptr);
+    EXPECT_EQ(safeHeight->value(), 0.394);  // 10 mm, workspace.safeRetractHeight's 'variable' unit
+    if (const QByteArray out = qgetenv("GS_TEST_SCREENSHOTS"); !out.isEmpty()) {
+        dialog.show();
+        normal.xyStep->parentWidget()->grab().save(QString::fromLocal8Bit(out) + "/settings_general.png");
+    }
+
+    // Untouched values are kept exactly; typed ones are converted back (convertToMetric).
+    normal.xyStep->setValue(0.5);
+    normal.aStep->setValue(15);
+    dialog.save();
+    EXPECT_EQ(machine.settings().jog.normal.xyStep, 12.7);
+    EXPECT_EQ(machine.settings().jog.normal.zStep, 2);
+    EXPECT_EQ(machine.settings().jog.normal.aStep, 15);
+    EXPECT_EQ(machine.settings().jog.normal.feedrate, 3000);
+    EXPECT_EQ(machine.settings().jog.rapid, controller::defaultJogSpeeds(controller::JogPreset::Rapid));
+    EXPECT_EQ(machine.settings().safeRetractHeight, 10);
+    // The selected preset follows at once.
+    EXPECT_EQ(jogger.speeds().xyStep, 0.5);
+    EXPECT_EQ(jogger.speeds().aStep, 15);
+
+    // Switching the dialog's units to mm shows the same values in mm.
+    auto* units = dialog.findChild<QComboBox*>("units");
+    ASSERT_NE(units, nullptr);
+    units->setCurrentIndex(0);
+    EXPECT_EQ(normal.xyStep->value(), 12.7);
+    EXPECT_EQ(normal.xyStep->suffix(), " mm");
+    EXPECT_EQ(normal.feedrate->value(), 3000);
+    EXPECT_EQ(safeHeight->value(), 10);
+    dialog.save();
+    EXPECT_TRUE(machine.settings().metric);
+    EXPECT_EQ(machine.settings().safeRetractHeight, 10);
+    EXPECT_EQ(jogger.speeds().xyStep, 12.7);
+
+    // The delay and the limit protection.
+    for (QCheckBox* box : dialog.findChildren<QCheckBox*>()) {
+        if (box->text() == "Stop jogging past limits") {
+            box->setChecked(true);
+        }
+    }
+    for (QSpinBox* box : dialog.findChildren<QSpinBox*>()) {
+        if (box->suffix() == " ms" && box->minimum() == 50) {
+            box->setValue(700);
+        }
+    }
+    dialog.save();
+    EXPECT_TRUE(machine.settings().jog.preventJoggingPastLimits);
+    EXPECT_EQ(machine.settings().jog.threshold, 700);
 }
 
 TEST_F(AppTest, RecentFilesAndMacroFilesComeAndGo) {

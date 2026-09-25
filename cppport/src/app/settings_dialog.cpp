@@ -6,6 +6,7 @@
 #include "gs/config/records.hpp"
 #include "gs/protocol/firmware_data.hpp"
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/units.hpp"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -607,6 +608,7 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     }
     ipRow->addStretch(1);
     units_ = new QComboBox;
+    units_->setObjectName("units");
     units_->addItems({tr("Millimetres (mm)"), tr("Inches (in)")});
     decimals_ = new QSpinBox;
     decimals_->setRange(0, 5);
@@ -641,13 +643,43 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     generalForm->addRow(tr("Default firmware"), firmware_);
     generalForm->addRow(tr("Connect to IP"), ipRow);
     generalForm->addRow(tr("Ethernet port"), networkPort_);
-    safeRetract_ = new QDoubleSpinBox;
-    safeRetract_->setRange(0, 200);
-    safeRetract_->setDecimals(2);
-    safeRetract_->setSuffix(" mm");
+    safeRetract_ = addLengthField(200, false);
+    safeRetract_->setObjectName("safeRetractHeight");
     safeRetract_->setSpecialValueText(tr("None"));
     safeRetract_->setToolTip(tr("Z lifts this far before go-to-zero moves (machine Z with homing)"));
     generalForm->addRow(tr("Safe retract height"), safeRetract_);
+    // Jogging Presets (widgets.axes.jog).
+    const std::array<QString, 3> presetNames{tr("Rapid"), tr("Normal"), tr("Precise")};
+    for (std::size_t i = 0; i < jogPresets_.size(); ++i) {
+        JogPresetEditor& editor = jogPresets_[i];
+        editor.xyStep = addLengthField(1000, false);
+        editor.zStep = addLengthField(1000, false);
+        editor.aStep = new QDoubleSpinBox;
+        editor.aStep->setRange(0.001, 3600);
+        editor.aStep->setDecimals(3);
+        editor.aStep->setSuffix(" deg");
+        editor.feedrate = addLengthField(100000, true);
+        auto* row = new QHBoxLayout;
+        for (const auto& [label, box] : {std::pair{tr("XY"), editor.xyStep}, std::pair{tr("Z"), editor.zStep},
+                                         std::pair{tr("A"), editor.aStep}, std::pair{tr("Speed"), editor.feedrate}}) {
+            box->setObjectName(QString("jog%1%2").arg(presetNames[i], label));
+            row->addWidget(new QLabel(label));
+            row->addWidget(box, 1);
+        }
+        generalForm->addRow(tr("Jog preset: %1").arg(presetNames[i]), row);
+    }
+    jogThreshold_ = new QSpinBox;
+    jogThreshold_->setRange(50, 10000);
+    jogThreshold_->setSingleStep(50);
+    jogThreshold_->setSuffix(" ms");
+    jogThreshold_->setToolTip(tr("Where regular presses or clicks make single movements, hold for this long to begin "
+                                 "jogging continuously. Some might prefer a longer delay like 700. (Default 250)"));
+    generalForm->addRow(tr("Continuous jog delay"), jogThreshold_);
+    preventJoggingPastLimits_ = new QCheckBox(tr("Stop jogging past limits"));
+    preventJoggingPastLimits_->setToolTip(
+        tr("Prevent jogging in a direction where a limit switch has already been triggered."));
+    generalForm->addRow(QString(), preventJoggingPastLimits_);
+    connect(units_, &QComboBox::currentIndexChanged, this, &SettingsDialog::showLengths);
     warnZero_ = new QCheckBox(tr("Warn when setting zero"));
     warnZero_->setToolTip(tr("The zero buttons ask first - useful if you tend to set zero accidentally"));
     generalForm->addRow(QString(), warnZero_);
@@ -1173,6 +1205,39 @@ SettingsDialog::SettingsDialog(Machine& machine, QWidget* parent) : QDialog(pare
     load();
 }
 
+QDoubleSpinBox* SettingsDialog::addLengthField(double maxMm, bool speed) {
+    auto* box = new QDoubleSpinBox;
+    lengths_[box] = LengthField{0, maxMm, speed};
+    connect(box, &QDoubleSpinBox::valueChanged, this, [this, box](double value) {
+        if (!showingLengths_) {
+            lengths_[box].mm = units_->currentIndex() == 0 ? value : units::convertToMetric(value);
+        }
+    });
+    return box;
+}
+
+void SettingsDialog::setLength(QDoubleSpinBox* box, double mm) {
+    lengths_[box].mm = mm;
+    showLengths();
+}
+
+double SettingsDialog::length(const QDoubleSpinBox* box) const {
+    return lengths_.at(const_cast<QDoubleSpinBox*>(box)).mm;
+}
+
+void SettingsDialog::showLengths() {
+    const bool metric = units_->currentIndex() == 0;
+    showingLengths_ = true;
+    for (auto& [box, field] : lengths_) {
+        const QString unit = metric ? "mm" : "in";
+        box->setSuffix(" " + (field.speed ? unit + "/min" : unit));
+        box->setDecimals(metric ? 2 : 3);
+        box->setRange(0, metric ? field.maxMm : units::convertToImperial(field.maxMm));
+        box->setValue(metric ? field.mm : units::convertToImperial(field.mm));
+    }
+    showingLengths_ = false;
+}
+
 void SettingsDialog::showPage(Page page) {
     tabs_->setCurrentIndex(static_cast<int>(page));
 }
@@ -1226,7 +1291,16 @@ void SettingsDialog::load() {
     }
     units_->setCurrentIndex(s.metric ? 0 : 1);
     decimals_->setValue(s.customDecimalPlaces);
-    safeRetract_->setValue(s.safeRetractHeight);
+    setLength(safeRetract_, s.safeRetractHeight);
+    for (std::size_t i = 0; i < jogPresets_.size(); ++i) {
+        const controller::JogSpeeds& speeds = s.jog.speeds(static_cast<controller::JogPreset>(i));
+        setLength(jogPresets_[i].xyStep, speeds.xyStep);
+        setLength(jogPresets_[i].zStep, speeds.zStep);
+        jogPresets_[i].aStep->setValue(speeds.aStep);
+        setLength(jogPresets_[i].feedrate, speeds.feedrate);
+    }
+    jogThreshold_->setValue(s.jog.threshold);
+    preventJoggingPastLimits_->setChecked(s.jog.preventJoggingPastLimits);
     warnZero_->setChecked(s.warnZero);
     jobEndModal_->setChecked(s.jobEndModal);
     maintenanceNotifications_->setChecked(s.maintenanceNotifications);
@@ -1359,7 +1433,16 @@ void SettingsDialog::save() {
     }
     s.metric = units_->currentIndex() == 0;
     s.customDecimalPlaces = decimals_->value();
-    s.safeRetractHeight = safeRetract_->value();
+    s.safeRetractHeight = length(safeRetract_);
+    for (std::size_t i = 0; i < jogPresets_.size(); ++i) {
+        controller::JogSpeeds& speeds = i == 0 ? s.jog.rapid : i == 1 ? s.jog.normal : s.jog.precise;
+        speeds.xyStep = length(jogPresets_[i].xyStep);
+        speeds.zStep = length(jogPresets_[i].zStep);
+        speeds.aStep = jogPresets_[i].aStep->value();
+        speeds.feedrate = length(jogPresets_[i].feedrate);
+    }
+    s.jog.threshold = jogThreshold_->value();
+    s.jog.preventJoggingPastLimits = preventJoggingPastLimits_->isChecked();
     s.warnZero = warnZero_->isChecked();
     s.jobEndModal = jobEndModal_->isChecked();
     s.maintenanceNotifications = maintenanceNotifications_->isChecked();

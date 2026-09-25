@@ -10,15 +10,19 @@ namespace gs::app {
 
 Jogger::Jogger(Machine& machine, QObject* parent) : QObject(parent), machine_(machine) {
     metric_ = machine_.settings().metric;
+    presets_ = {machine_.settings().jog.rapid, machine_.settings().jog.normal, machine_.settings().jog.precise};
     speeds_ = presetSpeeds(preset_);
     rebuildHelper();
     connect(&machine_, &Machine::appSettingsChanged, this, [this] {
         if (machine_.settings().jog.threshold != threshold_) {
             rebuildHelper();
         }
-        if (machine_.settings().metric != metric_) {
+        const JogSettings& jog = machine_.settings().jog;
+        const std::array<controller::JogSpeeds, 3> presets{jog.rapid, jog.normal, jog.precise};
+        if (machine_.settings().metric != metric_ || presets != presets_) {
             metric_ = machine_.settings().metric;
-            selectPreset(preset_);  // the preset again, in the new units
+            presets_ = presets;
+            selectPreset(preset_);  // the preset again, as now stored and in the units now shown
         }
     });
     // Never leave a continuous jog running when the connection goes.
