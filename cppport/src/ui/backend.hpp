@@ -126,6 +126,8 @@ Q_SIGNALS:
     // ({id, name, description}).
     void jobEndSummary(bool completed, const QString& time, const QStringList& errors);
     void toolRequested(const QString& name);
+    // The connection closed while a job ran, around sender line `line`.
+    void jobInterrupted(qint64 line);
     void maintenanceDue(const QVariantList& tasks);
     void connectionChanged();
     void stateChanged();

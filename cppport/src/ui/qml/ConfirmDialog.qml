@@ -12,7 +12,9 @@ Popup {
     property string message
     property string actionText: qsTr("Continue")
     property string actionVariant: "primary"
+    property string cancelText: qsTr("Cancel")
     signal accepted()
+    signal rejected()  // Cancel (not closing it otherwise)
 
     parent: Overlay.overlay
     anchors.centerIn: parent
@@ -52,9 +54,12 @@ Popup {
             spacing: 8
             GButton {
                 objectName: "confirmCancel"
-                text: qsTr("Cancel")
+                text: dialog.cancelText
                 variant: "outline"
-                onClicked: dialog.close()
+                onClicked: {
+                    dialog.close()
+                    dialog.rejected()
+                }
             }
             GButton {
                 objectName: "confirmAction"

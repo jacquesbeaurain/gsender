@@ -805,6 +805,55 @@ TEST_F(UiTest, TheRotaryTabSwitchesModeAndLoadsTheMountingSetup) {
     EXPECT_TRUE(waitFor([&] { return item("probeRotaryZ")->isEnabled(); }, 8000));
 }
 
+TEST_F(UiTest, AToolChangeWizardCarriesTheJobThroughItsToolChange) {
+    app::AppSettings settings = machine_->settings();
+    settings.toolChange.option = "Standard Re-zero";
+    machine_->setSettings(settings);
+    connectSimulator();
+    machine_->simulator()->setSpeed(20);
+    machine_->loadProgram("tools.nc", "G21 G90\nG0 X5 Z-2\nM6 T2\nG0 X10\n");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+    ASSERT_TRUE(waitFor([&] { return item("startJob")->isEnabled(); }));
+    tap("startJob");
+
+    // The M6 pauses the job and opens the wizard.
+    QQuickItem* wizard = item("toolChangeWizard");
+    ASSERT_TRUE(waitFor([&] { return wizard->isVisible(); }, 8000));
+    EXPECT_TRUE(machine_->controller()->workflow().isPaused());
+    QObject* model = item("toolChange")->property("model").value<QObject*>();
+    const auto step = [&] { return model->property("step").toInt(); };
+    ASSERT_TRUE(waitFor([&] { return model->property("ready").toBool(); }, 8000));
+
+    // Minimised to a pill and back.
+    tap("toolChangeMinimize");
+    ASSERT_TRUE(waitFor([&] { return item("toolChangePill")->isVisible() && !wizard->isVisible(); }));
+    tap("toolChangeRestore");
+    ASSERT_TRUE(waitFor([&] { return wizard->isVisible(); }));
+
+    // Safety First, then Change Bit: an instruction with actions passes
+    // only once one ran.
+    ASSERT_TRUE(waitFor([&] { return item("toolChangeNext")->isEnabled(); }));
+    tap("toolChangeNext");
+    ASSERT_TRUE(waitFor([&] { return item("toolChangeNext")->isEnabled(); }));
+    tap("toolChangeNext");
+    ASSERT_TRUE(waitFor([&] { return step() == 1; }));
+    EXPECT_FALSE(item("toolChangeNext")->isEnabled());
+    EXPECT_EQ(text("toolBannerTool"), "T2");
+    screenshot("ui_toolchange");
+    tap("toolChangeAction_1");  // Set Z0 (paper method)
+    ASSERT_TRUE(waitFor([&] { return step() == 2; }, 8000));
+    EXPECT_NEAR(machine_->simulator()->workOffset()[2], -2, 1e-9);
+
+    // Resume Job: the wizard closes and the job runs on.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    ASSERT_TRUE(waitFor([&] { return item("toolChangeAction_0") && item("toolChangeAction_0")->isEnabled(); }));
+    tap("toolChangeAction_0");
+    ASSERT_TRUE(waitFor([&] { return !model->property("active").toBool(); }, 8000));
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->controller()->workflow().isIdle() && machine_->simulator()->machinePosition()[0] > 9.99;
+    }, 8000));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);
