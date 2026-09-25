@@ -268,6 +268,14 @@ fixes until it is retired.
 - Repeaters over lists rebuilt on every status report (a QVariantList
   property) recreate their delegates each time - taps are lost, a field
   being typed in loses focus. Repeat by count and read `list[index]`.
+- `tap()` fails on a point outside the window (Qt Quick would still
+  deliver it by scene position). Wrapped Labels in a layout settle on a
+  second pass - a popup's first layout can be far too tall - so wait for a
+  control to be inside the window before tapping it. Toasts sit over the
+  tool area's right edge: clear `toastArea`'s `toasts` before tapping there.
+  A Repeater's dropped delegates are only deleted later, and `findItem`
+  still finds them: flush deferred deletes after the model changes.
+  Inline `component` types cannot see the file's ids; use a `Component`.
 - Tests delete Repeater delegates later; `TearDown` flushes deferred
   deletes, or they run at exit after the application is gone (a crash).
 - Headless: tests and `--screenshot` use the software renderer, which has

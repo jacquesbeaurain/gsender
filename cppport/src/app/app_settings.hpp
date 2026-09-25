@@ -137,6 +137,9 @@ struct AppSettings {
     // "Show touch plate switcher" (widgets.probe.touchplateTypeSwitcher): the
     // plate type chosen on the Probe tab too, not only in the settings.
     bool touchplateTypeSwitcher = false;
+    // The probe's tool diameters (workspace.tools): the defaults and the
+    // ones added in the Probe tab.
+    std::vector<probe::ToolDiameter> probeTools = probe::defaultTools();
     // Surfacing tool (mm)
     surfacing::Options surfacing;
     // Spindle/Laser tab

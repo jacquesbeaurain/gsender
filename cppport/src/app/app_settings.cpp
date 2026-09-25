@@ -264,6 +264,33 @@ probe::ProbeSettings loadProbe(const json::object& o) {
     return p;
 }
 
+// workspace.tools: [{metricDiameter, imperialDiameter}]; the defaults when
+// there is no list.
+std::vector<probe::ToolDiameter> loadTools(const json::value* tools) {
+    if (!tools || !tools->is_array()) {
+        return probe::defaultTools();
+    }
+    std::vector<probe::ToolDiameter> list;
+    for (const json::value& tool : tools->as_array()) {
+        if (tool.is_object()) {
+            const double metric = number(tool.as_object(), "metricDiameter", 0);
+            const double imperial = number(tool.as_object(), "imperialDiameter", 0);
+            if (metric > 0 || imperial > 0) {
+                list.push_back({metric, imperial});
+            }
+        }
+    }
+    return list;
+}
+
+json::array saveTools(const std::vector<probe::ToolDiameter>& tools) {
+    json::array list;
+    for (const probe::ToolDiameter& tool : tools) {
+        list.push_back(json::object{{"metricDiameter", tool.metric}, {"imperialDiameter", tool.imperial}});
+    }
+    return list;
+}
+
 json::object saveProbe(const probe::ProbeSettings& p) {
     const probe::PlateThickness& z = p.zThickness;
     return {
@@ -415,6 +442,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
     if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
         settings.probe = loadProbe(probe->as_object());
         settings.touchplateTypeSwitcher = flag(probe->as_object(), "touchplateTypeSwitcher", false);
+        settings.probeTools = loadTools(probe->as_object().if_contains("tools"));
     }
     if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
         settings.surfacing = loadSurfacing(surfacing->as_object());
@@ -552,6 +580,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"probe", [&settings] {
                               json::object probe = saveProbe(settings.probe);
                               probe["touchplateTypeSwitcher"] = settings.touchplateTypeSwitcher;
+                              probe["tools"] = saveTools(settings.probeTools);
                               return probe;
                           }()},
                          {"surfacing", saveSurfacing(settings.surfacing)},
@@ -807,6 +836,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
     }
     s.probe = loadProbe(probe);
     s.touchplateTypeSwitcher = flag(probe, "touchplateTypeSwitcher", false);
+    s.probeTools = loadTools(w.if_contains("tools"));
 
     if (const json::object* axes = child(g, "axes")) {
         if (const json::object* jog = child(*axes, "jog")) {
