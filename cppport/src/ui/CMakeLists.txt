@@ -82,6 +82,10 @@ qt_add_qml_module(gs_ui
         qml/ToolsPage.qml
         qml/SurfacingTool.qml
         qml/RotarySurfacingTool.qml
+        qml/MovementTuningTool.qml
+        qml/SquaringTool.qml
+        qml/SquaringDiagram.qml
+        qml/StepMark.qml
         qml/ToolFormRow.qml
         qml/ToolField.qml
         qml/ToolToggle.qml
@@ -125,6 +129,10 @@ qt_add_qml_module(gs_ui
         surfacing_model.hpp
         rotary_surfacing_model.cpp
         rotary_surfacing_model.hpp
+        movement_tuning_model.cpp
+        movement_tuning_model.hpp
+        squaring_model.cpp
+        squaring_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
