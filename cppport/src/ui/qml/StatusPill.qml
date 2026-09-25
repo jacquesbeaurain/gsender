@@ -20,6 +20,14 @@ Item {
     implicitWidth: 288
     implicitHeight: 60
 
+    Connections {
+        target: Backend
+        function onShortcutTriggered(id) {
+            if (id === "DISPLAY_MACHINE_INFO")
+                machineInfo.opened ? machineInfo.close() : machineInfo.open()
+        }
+    }
+
     function act(needsChoice) {
         if (needsChoice)
             homingFailure.open()

@@ -12,6 +12,21 @@ Item {
 
     property RotaryModel model: RotaryModel {}
 
+    // The switch's and the shortcuts' (SWITCH_WORKSPACE_MODE,
+    // TOGGLE_MOUNTING_SETUP) way in.
+    function toggleMode() {
+        if (!model.canSwitch)
+            return
+        if (model.rotaryMode)
+            model.setRotaryMode(false)
+        else
+            enable.open()
+    }
+    function openMounting() {
+        if (model.mountingAvailable)
+            mounting.openFresh()
+    }
+
     ConfirmDialog {
         id: enable
         objectName: "confirmRotaryMode"
@@ -50,10 +65,7 @@ Item {
                 onToggled: {
                     // The switch shows the mode: a declined change leaves it.
                     checked = Qt.binding(() => tab.model.rotaryMode)
-                    if (!tab.model.rotaryMode)
-                        enable.open()
-                    else
-                        tab.model.setRotaryMode(false)
+                    tab.toggleMode()
                 }
             }
             Label { text: qsTr("Rotary"); color: Theme.contentPrimary }
@@ -76,7 +88,7 @@ Item {
                 text: qsTr("Mounting Setup")
                 fontSize: Theme.fontSm
                 enabled: tab.model.mountingAvailable
-                onClicked: mounting.openFresh()
+                onClicked: tab.openMounting()
             }
             GButton {
                 objectName: "probeRotaryZ"

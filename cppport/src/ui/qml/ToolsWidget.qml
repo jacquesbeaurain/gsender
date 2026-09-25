@@ -29,9 +29,23 @@ Item {
     }
     Component.onCompleted: if (!current && shownTabs.length) current = shownTabs[0].key
 
+    // A tab's content, loaded if it was not yet (a shortcut's target).
+    function tabItem(key) {
+        for (let i = 0; i < loaders.count; ++i) {
+            const loader = loaders.itemAt(i)
+            if (loader && loader.tab.key === key) {
+                loader.wanted = true
+                return loader.item
+            }
+        }
+        return null
+    }
+
     // Chosen, and scrolled into view.
     function select(key, button) {
         current = key
+        if (!button)
+            return
         if (button.x < strip.contentX)
             strip.contentX = button.x
         else if (button.x + button.width > strip.contentX + strip.width)
@@ -122,14 +136,16 @@ Item {
         padding: 4
 
         Repeater {
+            id: loaders
             model: tools.tabs.length
             Loader {
                 required property int index
                 readonly property var tab: tools.tabs[index]
+                property bool wanted: false
                 anchors.fill: parent
                 visible: tab.shown && tools.current === tab.key
-                // Loaded when first shown, then kept.
-                active: visible || status === Loader.Ready
+                // Loaded when first shown (or asked for), then kept.
+                active: visible || wanted || status === Loader.Ready
                 sourceComponent: tab.component
             }
         }

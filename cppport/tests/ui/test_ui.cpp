@@ -7,6 +7,8 @@
 #include "machine.hpp"
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
+#include "ui_shortcuts.hpp"
+#include "shortcuts.hpp"
 
 #include "gs/controller/controller.hpp"
 #include "gs/sim/grbl_simulator.hpp"
@@ -953,6 +955,41 @@ TEST_F(UiTest, TheEditorEditsSearchesAndSavesTheJob) {
     EXPECT_FALSE(model->property("hasChanges").toBool());
     tap("editorClose");
     EXPECT_FALSE(editor->isVisible());
+}
+
+TEST_F(UiTest, KeyboardShortcutsJogZeroAndReachTheScreens) {
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+    window_->requestActivate();
+    ASSERT_TRUE(waitFor([&] { return window_->isActive(); }));
+    const auto mpos = [&] { return machine_->controller()->state().status.mpos; };
+
+    // Shift+Right held jogs X+, released stops.
+    QTest::keyPress(window_, Qt::Key_Right, Qt::ShiftModifier);
+    ASSERT_TRUE(waitFor([&] { return mpos()[0] > 0.5; }));
+    QTest::keyRelease(window_, Qt::Key_Right, Qt::ShiftModifier);
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->state().status.activeState == "Idle"; }, 8000));
+
+    // Shift+W zeroes X.
+    QTest::keyClick(window_, Qt::Key_W, Qt::ShiftModifier);
+    EXPECT_TRUE(waitFor([&] { return std::abs(machine_->controller()->state().status.wpos[0]) < 1e-6; }));
+
+    // Not while typing into a field.
+    selectTool("console");
+    ASSERT_TRUE(waitFor([&] { return item("consoleInput") && item("consoleInput")->isVisible(); }));
+    const double x = mpos()[0];
+    item("consoleInput")->forceActiveFocus();
+    QTest::keyClick(window_, Qt::Key_Right, Qt::ShiftModifier);
+    QTest::qWait(300);
+    EXPECT_EQ(mpos()[0], x);
+    window_->contentItem()->forceActiveFocus();
+
+    // A screen's shortcut: Machine Information.
+    auto* shortcuts = window_->findChild<ui::UiShortcuts*>();
+    ASSERT_NE(shortcuts, nullptr);
+    QObject* info = window_->findChild<QObject*>("machineInfo");
+    EXPECT_TRUE(shortcuts->manager().trigger("DISPLAY_MACHINE_INFO"));
+    EXPECT_TRUE(waitFor([&] { return info->property("opened").toBool(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

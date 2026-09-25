@@ -154,8 +154,45 @@ QKeyCombination shortcutKey(const QKeyEvent& event) {
     return QKeyCombination(modifiers, static_cast<Qt::Key>(key));
 }
 
+namespace {
+
+// Mousetrap's rule: keys typed into inputs, text areas and selects are
+// theirs.
+bool typingIntoWidget() {
+    QWidget* focus = QApplication::focusWidget();
+    if (!focus) {
+        return false;
+    }
+    if (const auto* line = qobject_cast<QLineEdit*>(focus)) {
+        return !line->isReadOnly();
+    }
+    if (const auto* text = qobject_cast<QPlainTextEdit*>(focus)) {
+        return !text->isReadOnly();
+    }
+    if (const auto* text = qobject_cast<QTextEdit*>(focus)) {
+        return !text->isReadOnly();
+    }
+    if (const auto* combo = qobject_cast<QComboBox*>(focus)) {
+        return combo->isEditable();
+    }
+    return qobject_cast<QAbstractSpinBox*>(focus) || qobject_cast<QKeySequenceEdit*>(focus);
+}
+
+ShortcutScope widgetScope(QWidget& window) {
+    return {&window,
+            [&window](QObject* watched) {
+                return watched->isWidgetType() && static_cast<QWidget*>(watched)->window() == &window;
+            },
+            [&window] { return QApplication::activeWindow() == &window; }, typingIntoWidget};
+}
+
+}  // namespace
+
 ShortcutManager::ShortcutManager(Machine& machine, QWidget& window, QObject* parent)
-    : QObject(parent), machine_(machine), window_(window) {
+    : ShortcutManager(machine, widgetScope(window), parent) {}
+
+ShortcutManager::ShortcutManager(Machine& machine, ShortcutScope scope, QObject* parent)
+    : QObject(parent), machine_(machine), scope_(std::move(scope)) {
     rebuild();
     connect(&machine_, &Machine::appSettingsChanged, this, &ShortcutManager::rebuild);
     connect(&machine_, &Machine::macrosChanged, this, &ShortcutManager::rebuild);
@@ -267,36 +304,13 @@ void ShortcutManager::release() {
     }
 }
 
-bool ShortcutManager::typingInto(QObject*) const {
-    // Mousetrap's rule: keys typed into inputs, text areas and selects are
-    // theirs.
-    QWidget* focus = QApplication::focusWidget();
-    if (!focus) {
-        return false;
-    }
-    if (const auto* line = qobject_cast<QLineEdit*>(focus)) {
-        return !line->isReadOnly();
-    }
-    if (const auto* text = qobject_cast<QPlainTextEdit*>(focus)) {
-        return !text->isReadOnly();
-    }
-    if (const auto* text = qobject_cast<QTextEdit*>(focus)) {
-        return !text->isReadOnly();
-    }
-    if (const auto* combo = qobject_cast<QComboBox*>(focus)) {
-        return combo->isEditable();
-    }
-    return qobject_cast<QAbstractSpinBox*>(focus) || qobject_cast<QKeySequenceEdit*>(focus);
-}
-
 bool ShortcutManager::eventFilter(QObject* watched, QEvent* event) {
     const QEvent::Type type = event->type();
-    if (type == QEvent::ApplicationDeactivate || (type == QEvent::WindowDeactivate && watched == &window_)) {
+    if (type == QEvent::ApplicationDeactivate || (type == QEvent::WindowDeactivate && watched == scope_.window)) {
         release();  // never leave a jog running behind another window
         return false;
     }
-    if ((type != QEvent::KeyPress && type != QEvent::KeyRelease) || !watched->isWidgetType() ||
-        static_cast<QWidget*>(watched)->window() != &window_ || QApplication::activeWindow() != &window_) {
+    if ((type != QEvent::KeyPress && type != QEvent::KeyRelease) || !scope_.owns(watched) || !scope_.active()) {
         return false;
     }
     const auto* key = static_cast<QKeyEvent*>(event);
@@ -310,7 +324,7 @@ bool ShortcutManager::eventFilter(QObject* watched, QEvent* event) {
     if (!held_.isEmpty() && key->key() == heldKey_) {
         return true;  // auto-repeat while held
     }
-    if (typingInto(watched)) {
+    if (scope_.typing()) {
         return false;
     }
     const QString id = actionFor(shortcutKey(*key));

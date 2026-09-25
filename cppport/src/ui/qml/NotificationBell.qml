@@ -33,6 +33,13 @@ Item {
         Label { id: badge; anchors.centerIn: parent; text: Backend.unreadErrors; color: "white"; font.pixelSize: 11 }
     }
     TapHandler { onTapped: panel.opened ? panel.close() : panel.open() }
+    Connections {
+        target: Backend
+        function onShortcutTriggered(id) {
+            if (id === "DISPLAY_NOTIFICATIONS")
+                panel.opened ? panel.close() : panel.open()
+        }
+    }
 
     Popup {
         id: panel
