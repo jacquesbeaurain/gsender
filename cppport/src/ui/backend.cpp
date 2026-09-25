@@ -120,4 +120,8 @@ void UiBackend::disconnectMachine() {
     machine_.disconnectFromMachine();
 }
 
+void UiBackend::notify(const QString& text, const QString& type) {
+    Q_EMIT notification(text, type);
+}
+
 }  // namespace gs::ui

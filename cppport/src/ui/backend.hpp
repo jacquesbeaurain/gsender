@@ -74,8 +74,12 @@ public:
     // The built-in simulated boards (the connection popup's last entries).
     Q_INVOKABLE void connectSimulator(bool grblHal = false);
     Q_INVOKABLE void disconnectMachine();
+    // A notification from the UI ("info", "success", "warning", "error"):
+    // the toasts and the bell's list (Machine notices arrive the same way).
+    Q_INVOKABLE void notify(const QString& text, const QString& type = QStringLiteral("info"));
 
 Q_SIGNALS:
+    void notification(const QString& text, const QString& type);
     void connectionChanged();
     void stateChanged();
     void programChanged();

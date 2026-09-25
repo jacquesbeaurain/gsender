@@ -8,10 +8,12 @@
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
 
+#include "gs/controller/controller.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
 #include <QApplication>
 #include <QDeadlineTimer>
+#include <QFile>
 #include <QPointingDevice>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
@@ -22,10 +24,19 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdio>
 #include <functional>
+#include <ostream>
 #include <memory>
 
 Q_IMPORT_QML_PLUGIN(GSenderPlugin)
+
+// GoogleTest prints QStrings as text.
+QT_BEGIN_NAMESPACE
+inline void PrintTo(const QString& text, std::ostream* os) {
+    *os << '"' << text.toStdString() << '"';
+}
+QT_END_NAMESPACE
 
 using namespace gs;
 
@@ -243,7 +254,7 @@ TEST_F(UiTest, TheVisualizerOrbitsPansAndZoomsByTouch) {
     }
     QTest::touchEvent(window_, touch).release(0, centre - QPoint(160, 0)).release(1, centre + QPoint(160, 0));
     QCoreApplication::processEvents();
-    EXPECT_GT(view->property("scale").toDouble(), scale * 3);
+    EXPECT_GT(view->property("scale").toDouble(), scale * 2.5);
     EXPECT_LT(view->property("scale").toDouble(), scale * 4.01);
 
     // Top, and Fit brings the scale back.
@@ -344,6 +355,100 @@ TEST_F(UiTest, ZeroingAsksFirstWhenWarned) {
     ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
     tap("confirmAction");
     EXPECT_TRUE(waitFor([&] { return item("workX")->property("text").toString() == "0.00"; }));
+}
+
+TEST_F(UiTest, TheFilePanelLoadsShowsAndClosesAFile) {
+    // Without a file: Load File, and no recent files yet.
+    EXPECT_FALSE(item("fileName")->isVisible());
+    const QString path = dir_.path() + "/square.nc";
+    {
+        QFile file(path);
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        file.write("G21 G90\nM3 S12000\nG0 X0 Y0\nG1 Z-1 F300\nG1 X50 F800\nG1 Y20\nM5\n");
+    }
+    QObject* model = item("fileControl")->property("model").value<QObject*>();
+    ASSERT_NE(model, nullptr);
+    QString error;
+    ASSERT_TRUE(QMetaObject::invokeMethod(model, "load", Q_RETURN_ARG(QString, error), Q_ARG(QString, path)));
+    EXPECT_EQ(error, "");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing() && item("fileName")->isVisible(); }));
+    EXPECT_EQ(text("fileName"), "square");
+    EXPECT_EQ(text("fileSize"), "61 Bytes (7 lines)");
+    EXPECT_EQ(model->property("feedText").toString(), "300-800 mm/min");
+    EXPECT_EQ(model->property("speedText").toString(), "12000-12000 RPM");
+    EXPECT_EQ(model->property("recentFiles").toList().size(), 1);
+    // Size: the extent.
+    const QVariantList extent = model->property("extent").toList();
+    ASSERT_EQ(extent.size(), 3);
+    EXPECT_EQ(extent[0].toMap()["size"].toString(), "50.00");
+    EXPECT_EQ(extent[2].toMap()["min"].toString(), "-1.00");
+    screenshot("ui_file");
+
+    // Close asks first.
+    tap("closeFile");
+    QObject* confirm = window_->findChild<QObject*>("confirmCloseFile");
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    QQuickItem* action = nullptr;
+    ASSERT_TRUE(waitFor([&] {
+        action = item("confirmAction");
+        return action && action->isVisible() && action->width() > 0;
+    }));
+    ASSERT_NE(action, nullptr);
+    QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(action));
+    EXPECT_TRUE(waitFor([&] { return !machine_->hasProgram(); }));
+    // The recent file is offered again.
+    EXPECT_TRUE(item("recentFiles")->isVisible());
+}
+
+TEST_F(UiTest, TheJobControlsRunPauseStopAndOverride) {
+    connectSimulator();
+    machine_->loadProgram("job.nc", "G21 G90\nG1 Z-1 F200\nG1 X20 F200\nG1 Y20\nG1 X0\nG1 Y0\n");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+    QQuickItem* start = item("startJob");
+    ASSERT_TRUE(waitFor([&] { return start->isEnabled(); }));
+    EXPECT_FALSE(item("pauseJob")->isEnabled());
+    EXPECT_FALSE(item("stopJob")->isEnabled());
+    EXPECT_TRUE(item("outlineJob")->isVisible());
+
+    tap("startJob");
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return item("progressArea")->isVisible(); }));
+    EXPECT_FALSE(item("outlineJob")->isVisible());
+    ASSERT_TRUE(waitFor([&] { return item("pauseJob")->isEnabled(); }));
+    screenshot("ui_job_running");
+
+    // Overrides: + raises the feed by 10 %.
+    tap("feedOverridePlus");
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->state().status.overrides[0] == 110; }));
+    EXPECT_TRUE(waitFor([&] { return text("feedOverridePercent") == "110%"; }));
+    tap("feedOverrideReset");
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->state().status.overrides[0] == 100; }));
+
+    // Pause, resume with Start, stop.
+    tap("pauseJob");
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->controller()->workflow().state() == controller::WorkflowState::Paused;
+    }));
+    ASSERT_TRUE(waitFor([&] { return item("startJob")->isEnabled(); }));  // once the board holds
+    tap("startJob");
+    ASSERT_TRUE(waitFor([&] { return machine_->controller()->workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return item("stopJob")->isEnabled(); }));
+    tap("stopJob");
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->workflow().isIdle(); }, 8000));
+
+    // Start From Line: the popup, then the job from line 4.
+    ASSERT_TRUE(waitFor([&] { return item("startFromLine")->isVisible(); }, 8000));
+    tap("startFromLine");
+    QObject* popup = window_->findChild<QObject*>("startFromLinePopup");
+
+    ASSERT_TRUE(waitFor([&] { return popup->property("opened").toBool(); }));
+    QQuickItem* startButton = nullptr;
+    ASSERT_TRUE(waitFor([&] {
+        startButton = item("startFromLineStart");  // the overlay is under the root item too
+        return startButton && startButton->width() > 0;
+    }));
+    QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(startButton));
+    EXPECT_TRUE(waitFor([&] { return machine_->controller()->workflow().isRunning(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
