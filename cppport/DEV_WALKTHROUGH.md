@@ -433,7 +433,7 @@ The UI talks to the core directly (no socket layer):
   -platform offscreen` runs the real application without a display and saves
   a screenshot - used to check the UI in automation.
 
-The toolpath view is a placeholder in this step.
+The toolpath view is a placeholder in this step (Step 18 draws it).
 
 ## Step 18 — Toolpath view (`src/app/toolpath_view`)
 
@@ -471,8 +471,8 @@ passthrough, default firmware (for boards that do not identify themselves),
 network port, last port/baud, and the tool change context (strategy Ignore -
 gSender's default -, Pause or Code with pre/post hooks, M6 passthrough, skip
 dialog). A "Code" tool change prompts after the pre-hook; Continue runs the
-post-hook and resumes (`toolchange:post`). The re-zero and tool-sensor
-strategies (wizards with probing) are not ported yet.
+post-hook and resumes (`toolchange:post`). (The re-zero and tool-sensor
+strategies - wizards with probing - came with Step 28.)
 
 The Firmware tab lists the board's `$` settings with units and descriptions
 (grblHAL's own `$ES` descriptions first, then the extracted Grbl/grblHAL
@@ -552,9 +552,8 @@ the application's simulator reports its status as a dwell ends
 fast it runs (a real board is read by the 250 ms poll - upstream's race).
 
 The Settings dialog has a Probe page for the plate profile and the probe
-feeds, retractions and distances (stored in mm under `app.probe`). The
-workspace is metric for now; the imperial conversions exist in the core
-(`makeProbingOptions`) for when inch workspaces are added.
+feeds, retractions and distances (stored in mm under `app.probe`). (Inch
+workspaces came with Step 27, through the core's `makeProbingOptions`.)
 
 ## Step 23 — Surfacing (`gs/surfacing`, `src/app/surfacing_dialog`)
 
@@ -1097,8 +1096,8 @@ a tick, and a jog sent right after was refused with error:8.
 The section's wizard is there too: Jog A- / Jog A+ send
 `$J=G21G91A∓10F1000` (A becoming Y on Grbl, as any A word).
 
-Not ported: the "Visualize non-center zeros" offset. (The visualizer's
-rotary display came with Step 42.)
+(The visualizer's rotary display and the "Visualize non-center zeros"
+offset came with Step 42.)
 
 ## Step 39 — G-code Step Through (`gs/job/step_through`, `src/app/step_through_dialog`)
 
