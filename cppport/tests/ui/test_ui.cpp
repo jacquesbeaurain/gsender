@@ -761,6 +761,50 @@ TEST_F(UiTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
 }
 
+TEST_F(UiTest, TheRotaryTabSwitchesModeAndLoadsTheMountingSetup) {
+    app::AppSettings settings = machine_->settings();
+    settings.rotary.showControls = true;
+    machine_->setSettings(settings);
+    connectSimulator();
+    selectTool("rotary");
+    ASSERT_TRUE(waitFor([&] { return item("rotaryTab") && item("rotaryTab")->isVisible(); }));
+
+    // Grbl: the rotary is only there in rotary mode.
+    EXPECT_FALSE(item("probeRotaryZ")->isEnabled());
+    ASSERT_TRUE(waitFor([&] { return item("mountingSetupButton")->isEnabled(); }));
+    screenshot("ui_rotary");
+
+    // Mounting Setup: the choices, then the program as the job.
+    tap("mountingSetupButton");
+    QObject* mounting = item("rotaryTab")->findChild<QObject*>("mountingSetup");
+    ASSERT_TRUE(waitFor([&] { return mounting->property("opened").toBool(); }));
+    QQuickItem* linesUp = nullptr;
+    ASSERT_TRUE(waitFor([&] {
+        linesUp = item("mounting_Lines up");
+        return linesUp && centreOf(linesUp).y() < window_->height();
+    }));
+    tap("mounting_Lines up");
+    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("standard-track-top-view.png"));
+    tap("mounting_10");
+    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("extension-track-top-view.png"));
+    screenshot("ui_mounting_setup");
+    tap("mountingLoad");
+    ASSERT_TRUE(waitFor([&] { return !mounting->property("visible").toBool(); }));
+    EXPECT_TRUE(waitFor([&] { return machine_->programName() == "gSender_Rotary_Mounting_Setup"; }));
+
+    // Rotary mode: asked first.
+    tap("rotaryModeSwitch");
+    QObject* confirm = item("rotaryTab")->findChild<QObject*>("confirmRotaryMode");
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    EXPECT_FALSE(machine_->rotaryMode());
+    EXPECT_FALSE(item("rotaryModeSwitch")->property("checked").toBool());
+    QMetaObject::invokeMethod(confirm, "accepted");
+    ASSERT_TRUE(waitFor([&] { return machine_->rotaryMode(); }));
+    EXPECT_TRUE(waitFor([&] { return item("rotaryModeSwitch")->property("checked").toBool(); }));
+    EXPECT_FALSE(item("mountingSetupButton")->isEnabled());
+    EXPECT_TRUE(waitFor([&] { return item("probeRotaryZ")->isEnabled(); }, 8000));
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

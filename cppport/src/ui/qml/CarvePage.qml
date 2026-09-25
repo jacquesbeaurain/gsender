@@ -37,16 +37,6 @@ Item {
         }
     }
 
-    Component {
-        id: pendingTab
-        Label {
-            text: qsTr("Phase 2")
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Theme.contentMuted
-        }
-    }
-
     GridLayout {
         id: grid
         anchors.fill: parent
@@ -109,7 +99,7 @@ Item {
                             key: "coolant"; label: qsTr("Coolant"); shown: Backend.coolantFunctions
                             component: CoolantTab {}
                         },
-                        ToolTab { key: "rotary"; label: qsTr("Rotary"); shown: Backend.rotaryTab; component: pendingTab },
+                        ToolTab { key: "rotary"; label: qsTr("Rotary"); shown: Backend.rotaryTab; component: RotaryTab {} },
                         ToolTab { key: "console"; label: qsTr("Console"); component: ConsoleTab {} }
                     ]
                 }

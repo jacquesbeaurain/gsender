@@ -49,6 +49,8 @@ add_library(gs_app STATIC
     probe_panel.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
+    rotary_actions.cpp
+    rotary_actions.hpp
     rotary_panel.cpp
     rotary_panel.hpp
     sd_card_dialog.cpp

@@ -62,4 +62,9 @@ ApplicationWindow {
         z: 11
     }
     JobAlerts {}
+    // A tool asked for elsewhere (Rotary Surfacing from the Rotary tab).
+    Connections {
+        target: Backend
+        function onToolRequested(name) { rail.currentIndex = 2 }
+    }
 }
