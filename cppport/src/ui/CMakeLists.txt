@@ -81,6 +81,11 @@ qt_add_qml_module(gs_ui
         qml/ToolPage.qml
         qml/ToolsPage.qml
         qml/SurfacingTool.qml
+        qml/RotarySurfacingTool.qml
+        qml/ToolFormRow.qml
+        qml/ToolField.qml
+        qml/ToolToggle.qml
+        qml/ProgramPreviewPanel.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -118,6 +123,8 @@ qt_add_qml_module(gs_ui
         program_preview_item.hpp
         surfacing_model.cpp
         surfacing_model.hpp
+        rotary_surfacing_model.cpp
+        rotary_surfacing_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

@@ -139,6 +139,9 @@ protected:
     }
     // A tool tab, scrolled to with the arrows as a person would.
     void selectTool(const QString& key) {
+        // A rebuilt strip (the settings showing a tab) settles first.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QTest::qWait(50);
         const QString name = "toolsTab_" + key;
         QQuickItem* strip = item(name) ? item(name)->parentItem() : nullptr;
         ASSERT_NE(strip, nullptr) << name.toStdString();
@@ -1108,6 +1111,25 @@ TEST_F(UiTest, TheSurfacingToolGeneratesAndLoadsItsProgram) {
     tap("surfacingLoad");
     EXPECT_TRUE(waitFor([&] { return machine_->programName() == "gSender_Surfacing.gcode"; }));
     EXPECT_TRUE(waitFor([&] { return item("carvePage")->isVisible(); }));
+}
+
+TEST_F(UiTest, RotarySurfacingOpensFromTheRotaryTabAndGenerates) {
+    app::AppSettings settings = machine_->settings();
+    settings.rotary.showControls = true;
+    settings.defaultFirmware = protocol::Firmware::GrblHal;  // the rotary is there outside rotary mode
+    machine_->setSettings(settings);
+    selectTool("rotary");
+    ASSERT_TRUE(waitFor([&] { return item("rotarySurfacing") && item("rotarySurfacing")->isEnabled(); }));
+    tap("rotarySurfacing");
+    ASSERT_TRUE(waitFor([&] { return item("rotarySurfacingTool") && item("rotarySurfacingTool")->isVisible(); }));
+    EXPECT_TRUE(item("toolsPage")->isVisible());
+    QObject* model = item("rotarySurfacingTool")->property("model").value<QObject*>();
+    tap("rotarySurfacingGenerate");
+    ASSERT_TRUE(waitFor([&] { return model->property("lines").toInt() > 10; }));
+    EXPECT_FALSE(item("rotarySurfacingPreview")->property("empty").toBool());
+    screenshot("ui_rotary_surfacing");
+    tap("toolGoBack");
+    EXPECT_TRUE(waitFor([&] { return item("toolCard_surfacing") && item("toolCard_surfacing")->isVisible(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

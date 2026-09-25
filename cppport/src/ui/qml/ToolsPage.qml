@@ -25,7 +25,7 @@ Item {
         { key: "plugins", title: qsTr("Plugins"), description: qsTr("Manage installed UI plugins"), icon: "PiPuzzlePiece" }
     ]
     // The tools this version has (the rest say so).
-    property var available: ({ surfacing: surfacingTool })
+    property var available: ({ surfacing: surfacingTool, rotarySurfacing: rotarySurfacingTool })
 
     function open(key) {
         if (available[key])
@@ -130,5 +130,9 @@ Item {
     Component {
         id: surfacingTool
         SurfacingTool {}
+    }
+    Component {
+        id: rotarySurfacingTool
+        RotarySurfacingTool {}
     }
 }

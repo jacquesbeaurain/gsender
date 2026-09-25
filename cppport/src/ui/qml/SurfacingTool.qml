@@ -12,47 +12,10 @@ ToolPage {
     objectName: "surfacingTool"
     title: qsTr("Wasteboard Surfacing")
 
-    property SurfacingModel model: SurfacingModel {}
+    property SurfacingModel model: SurfacingModel { objectName: "surfacing" }
     readonly property var o: model.options
     readonly property var d: model.defaults
     readonly property string units: model.units
-
-    // InputArea: the label, then its inputs.
-    component FormRow: RowLayout {
-        property string label
-        default property alias inputs: box.data
-        Layout.fillWidth: true
-        spacing: 12
-        Label {
-            text: parent.label
-            font.pixelSize: Theme.fontSm
-            color: Theme.contentPrimary
-            wrapMode: Text.Wrap
-            Layout.preferredWidth: 150
-        }
-        RowLayout { id: box; Layout.fillWidth: true; spacing: 8 }
-    }
-    component Field: NumberField {
-        property string key
-        Layout.fillWidth: true
-        value: tool.o[key] !== undefined ? tool.o[key] : 0
-        horizontalAlignment: TextInput.AlignHCenter
-        color: Theme.blue[500]
-        font.pixelSize: Theme.fontLg
-        objectName: "surfacing_" + key
-        onCommitted: (text) => { if (text !== "" && !isNaN(Number(text))) tool.model.setOption(key, Number(text)) }
-    }
-    component Toggle: RowLayout {
-        property string key
-        property string label
-        spacing: 6
-        Label { text: parent.label; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-        GSwitch {
-            objectName: "surfacing_" + parent.key
-            checked: !!tool.o[parent.key]
-            onToggled: tool.model.setOption(parent.key, checked)
-        }
-    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -143,22 +106,22 @@ ToolPage {
                                     }
                                 }
                             }
-                            Toggle { key: "cutDirectionFlipped"; label: qsTr("Flip the cut direction") }
+                            ToolToggle { model: tool.model; key: "cutDirectionFlipped"; label: qsTr("Flip the cut direction") }
                         }
                     }
 
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("X & Y")
-                        Field { key: "width" }
+                        ToolField { model: tool.model; key: "width" }
                         Label { text: "&"; color: Theme.contentMuted }
-                        Field { key: "length" }
+                        ToolField { model: tool.model; key: "length" }
                         Label { text: tool.units; color: Theme.contentMuted }
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Cut Depth & Max")
-                        Field { key: "skimDepth" }
+                        ToolField { model: tool.model; key: "skimDepth" }
                         Label { text: "&"; color: Theme.contentMuted }
-                        Field { key: "maxDepth" }
+                        ToolField { model: tool.model; key: "maxDepth" }
                         Label { text: tool.units; color: Theme.contentMuted }
                     }
                     Label {
@@ -169,23 +132,23 @@ ToolPage {
                         color: Theme.red[500]
                         font.pixelSize: Theme.fontSm
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Bit Diameter & Tool Number (optional)")
-                        Field { key: "bitDiameter" }
+                        ToolField { model: tool.model; key: "bitDiameter" }
                         Label { text: "&"; color: Theme.contentMuted }
-                        Field { key: "toolNumber"; decimals: 0 }
+                        ToolField { model: tool.model; key: "toolNumber"; decimals: 0 }
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Stepover")
-                        Field { key: "stepover"; decimals: 0; suffix: "%" }
+                        ToolField { model: tool.model; key: "stepover"; decimals: 0; suffix: "%" }
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Feed Rate")
-                        Field { key: "feedrate"; suffix: tool.units + "/min" }
+                        ToolField { model: tool.model; key: "feedrate"; suffix: tool.units + "/min" }
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Spindle RPM")
-                        Field { key: "spindleRPM"; decimals: 0 }
+                        ToolField { model: tool.model; key: "spindleRPM"; decimals: 0 }
                         ComboBox {
                             objectName: "surfacing_spindle"
                             model: ["M3", "M4"]
@@ -193,79 +156,25 @@ ToolPage {
                             onActivated: (index) => tool.model.setOption("spindle", index === 1 ? "M4" : "M3")
                             Layout.preferredWidth: 90
                         }
-                        Toggle { key: "shouldDwell"; label: qsTr("Delay") }
+                        ToolToggle { model: tool.model; key: "shouldDwell"; label: qsTr("Delay") }
                     }
-                    FormRow {
+                    ToolFormRow {
                         label: qsTr("Coolant Control")
-                        Toggle { key: "mist"; label: qsTr("Mist") }
-                        Toggle { key: "flood"; label: qsTr("Flood") }
+                        ToolToggle { model: tool.model; key: "mist"; label: qsTr("Mist") }
+                        ToolToggle { model: tool.model; key: "flood"; label: qsTr("Flood") }
                         Item { Layout.fillWidth: true }
                     }
                 }
             }
 
             // The preview and the G-code.
-            Rectangle {
+            ProgramPreviewPanel {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredWidth: 1
-                radius: Theme.radiusSmall
-                color: "transparent"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    spacing: 0
-                    property int tab: 0
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 0
-                        Repeater {
-                            model: [qsTr("Visualizer Preview"), tool.model.lines > 0 ? qsTr("G-Code (%1 lines)").arg(tool.model.lines) : qsTr("G-Code")]
-                            Rectangle {
-                                required property string modelData
-                                required property int index
-                                objectName: "surfacingTab_" + index
-                                Layout.fillWidth: true
-                                height: Theme.touchTarget
-                                enabled: index === 0 || tool.model.lines > 0
-                                color: parent.parent.tab === index ? (Theme.dark ? Theme.surfaceRaised : "white") : (Theme.dark ? Theme.surfaceBase : Theme.gray[100])
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: modelData
-                                    font.pixelSize: Theme.fontSm
-                                    color: parent.enabled ? Theme.contentPrimary : Theme.contentDisabled
-                                }
-                                TapHandler { onTapped: parent.parent.parent.tab = index }
-                            }
-                        }
-                    }
-                    StackLayout {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        currentIndex: parent.tab
-                        Item {
-                            clip: true
-                            ProgramPreviewItem {
-                                id: preview
-                                objectName: "surfacingPreview"
-                                anchors.fill: parent
-                                program: tool.model.program
-                            }
-                            ToolpathGestures { anchors.fill: parent; view: preview }
-                        }
-                        ScrollView {
-                            TextArea {
-                                objectName: "surfacingGcode"
-                                readOnly: true
-                                text: tool.model.program
-                                font.family: Theme.monoFont
-                                font.pixelSize: Theme.fontXs
-                                color: Theme.contentPrimary
-                            }
-                        }
-                    }
-                }
+                name: "surfacing"
+                program: tool.model.program
+                lines: tool.model.lines
             }
         }
         RowLayout {
