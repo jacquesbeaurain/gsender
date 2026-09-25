@@ -89,6 +89,12 @@ Rectangle {
         onDoubleTapped: toolpath.fit()
     }
 
+    WorkspaceSelector {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 8
+    }
+
     // The view presets.
     Row {
         anchors.left: parent.left

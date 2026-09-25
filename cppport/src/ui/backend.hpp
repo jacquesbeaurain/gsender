@@ -16,6 +16,7 @@ class QJSEngine;
 class QQmlEngine;
 
 namespace gs::app {
+class Jogger;
 class Machine;
 }
 
@@ -53,6 +54,9 @@ public:
     static UiBackend* create(QQmlEngine* qmlEngine, QJSEngine* jsEngine);
 
     app::Machine& machine() noexcept { return machine_; }
+    // The jog presets and tap/hold jogging, shared by the jog controls and
+    // the keyboard shortcuts.
+    app::Jogger& jogger() noexcept { return *jogger_; }
 
     bool connected() const;
     bool connecting() const;
@@ -78,6 +82,7 @@ Q_SIGNALS:
 
 private:
     app::Machine& machine_;
+    app::Jogger* jogger_;  // a child
 };
 
 }  // namespace gs::ui

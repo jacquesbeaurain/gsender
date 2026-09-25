@@ -1,5 +1,6 @@
 #include "backend.hpp"
 
+#include "jogger.hpp"
 #include "machine.hpp"
 
 #include "gs/controller/actions.hpp"
@@ -15,7 +16,8 @@ QPointer<UiBackend> gInstance;
 
 }  // namespace
 
-UiBackend::UiBackend(app::Machine& machine, QObject* parent) : QObject(parent), machine_(machine) {
+UiBackend::UiBackend(app::Machine& machine, QObject* parent)
+    : QObject(parent), machine_(machine), jogger_(new app::Jogger(machine, this)) {
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::connectionChanged);
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::stateChanged);
     connect(&machine_, &app::Machine::stateChanged, this, &UiBackend::stateChanged);
@@ -55,7 +57,7 @@ QString UiBackend::portLabel() const {
 }
 
 QString UiBackend::firmwareLabel() const {
-    const controller::Controller* c = machine_.controller();
+    controller::Controller* c = machine_.controller();
     if (!c || !machine_.isConnected()) {
         return {};
     }
@@ -73,7 +75,7 @@ QString UiBackend::connectionKind() const {
 }
 
 QString UiBackend::activeState() const {
-    const controller::Controller* c = machine_.controller();
+    controller::Controller* c = machine_.controller();
     return c && machine_.isConnected() ? QString::fromStdString(c->state().status.activeState) : QString();
 }
 
@@ -86,7 +88,7 @@ QString UiBackend::stateText() const {
 }
 
 QString UiBackend::alarmCode() const {
-    const controller::Controller* c = machine_.controller();
+    controller::Controller* c = machine_.controller();
     return c && activeState() == "Alarm" ? QString::fromStdString(c->state().status.alarmCode) : QString();
 }
 
