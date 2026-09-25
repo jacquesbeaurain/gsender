@@ -55,6 +55,7 @@ Qt Widgets rather than QML: it matches FreeCAD, `QOpenGLWidget` makes a
 custom toolpath renderer straightforward (the LibPack has no Qt Quick 3D), and
 widgets can be rendered off-screen for automated screenshots. This is a
 decision point worth revisiting if a touch-first UI becomes the priority.
+(Revisited in Step 61: the port moves to a QML touch UI.)
 
 ## Step 2 — Build system
 
@@ -1753,3 +1754,78 @@ which emits no content-change signals - keeping the block's revision in its
 userState so an edited line is coloured again. As upstream's editor, the
 colours are off while a job runs (the lines are plain); upstream also drops
 them mid-scroll, which the port does not need.
+
+## Step 61 — Direction change: a QML touch UI (`src/ui`, `gsender-qml`)
+
+gSender works well on touch screens; the widget UI does not, and it looks
+unlike upstream (the platform's widget style, colours scattered through
+inline style sheets). The port therefore moves to Qt Quick: a QML UI that
+follows upstream's layout and design tokens with touch-sized controls, over
+the same services. It is built beside the widget application, which keeps
+everything working (and its tests guarding the services) until the QML UI
+has caught up; then the widget UI goes.
+
+**Layers.** The core is unchanged. The app layer's services - `Machine`,
+the settings, the jogger, the console log, the event loop, the highlighter
+(about 3,000 lines, no widgets) - serve both UIs. `src/ui` holds the QML
+module `GSender` (a static library, `gs_ui`, with its plugin) and the
+executable `gsender-qml`:
+
+- `UiBackend` (`Backend` in QML, a singleton registered before the QML
+  loads): the Machine as properties, signals and invokables. As screens are
+  ported, their logic moves into C++ view models (QObjects with properties,
+  Qt Core only) that QML binds to and tests drive without a UI; QML stays
+  declarative.
+- `Theme` (QML singleton): upstream's tokens from `index.css` and
+  `tailwind.config.ts` - surface / content / outline, light and Workshop
+  dark (workspace.enableDarkMode) - its own blue, green, red, orange and
+  purple (not Tailwind's), radii, type sizes and the 44 px touch target.
+- `ToolpathItem`: the visualizer as a `QQuickPaintedItem`. The camera and
+  drawing moved out of the widget (`app/toolpath_scene`: `ToolpathCamera`,
+  the scene painters, `paintMainView`), so both UIs draw the same picture.
+  Visualizer.qml drives it with pointer handlers: one finger or the left
+  button orbits, two fingers, the other buttons or Shift+drag pan, a pinch
+  or the wheel zooms about the fingers or cursor, a double tap fits.
+- Icons: `tools/extract_icons.mjs` renders the react-icons upstream uses to
+  SVG (`resources/icons`, with their licences), and `image://icon/<name>/
+  <rrggbb>` (IconProvider) draws them in a colour - tinting in QML needs
+  shader effects, which the software renderer lacks.
+
+**The shell** (Phase 0): the top bar - the connection button (icon and
+state colour, the check once connected, port and firmware; its menu offers
+the simulators for now), the status pill hanging from the middle (the
+trapezoid, the state's colour and light 30 px name, "Alarm (n)"), the
+status icons - the navigation rail (Carve with its picture, Stats, Tools,
+Config; the page shown tinted blue with a gradient into the page), and the
+Carve page's layout: the visualizer beside the location column over three
+quarters of the height, the file, job and tool widgets below; portrait
+stacks them as upstream. The widgets not ported yet are marked cards.
+
+**Tests** (`gs_ui_tests`): the QML loads headless - the offscreen platform
+with Qt Quick's software renderer - against a real Machine and the
+simulated board; items are found by objectName (Repeater delegates too) and
+driven with QTest taps and touch sequences (one-finger orbit, two-finger
+pinch). `GS_TEST_SCREENSHOTS` saves what they show; `gsender-qml
+--screenshot` does the same for the application.
+
+**Plan.** Each phase ends with the QML screens tested and the walkthrough
+updated:
+
+1. The Carve page's essentials: connection (ports, baud, firmware,
+   Ethernet), the location column (DRO, zeroing, go to, workspaces, the jog
+   pad and presets), file control (load, recent files, file information),
+   job control (start/pause/stop, outline, start from line, feed and spindle
+   overrides), the status pill's alarm/unlock and Helper, notifications.
+2. The tool area's widgets (probe, macros, spindle/laser, coolant, console,
+   rotary), tool change prompts and wizards, Step Through, the G-code
+   editor.
+3. The Stats, Tools and Config pages (settings and the firmware table),
+   the remaining tools and dialogs.
+4. Parity: `gsender-qml` becomes `gsender`; the widget UI and its tests go,
+   their checks of the services kept as view-model and UI tests.
+
+The Qt must have Qt Quick, Quick Controls 2, Svg and Test (the Linux
+dependencies do; CMake skips the QML UI with a message where they are
+missing). On Windows the executables find Qt's QML modules through
+`GS_QT_QML_DIR` (the Qt installation's `qml` directory) - not yet tried
+against the LibPack.

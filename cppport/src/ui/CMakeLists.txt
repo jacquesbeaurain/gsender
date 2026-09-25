@@ -1,0 +1,64 @@
+# The QML touch UI: a QML module (URI GSender) over the application's
+# services (gs_app's Machine and friends), and its executable. Being ported
+# screen by screen beside the widget application (DEV_WALKTHROUGH.md, Step 61).
+
+qt_policy(SET QTP0001 NEW)  # modules under :/qt/qml
+qt_policy(SET QTP0004 NEW)  # qmldir files per directory
+set(CMAKE_AUTOMOC ON)
+
+# Must precede qt_add_qml_module, which writes the qmldir.
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+qt_add_library(gs_ui STATIC)
+qt_add_qml_module(gs_ui
+    URI GSender
+    VERSION 1.0
+    RESOURCE_PREFIX /qt/qml
+    OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/GSender"
+    QML_FILES
+        qml/Main.qml
+        qml/Theme.qml
+        qml/Icon.qml
+        qml/Card.qml
+        qml/TopBar.qml
+        qml/ConnectionButton.qml
+        qml/StatusPill.qml
+        qml/NavRail.qml
+        qml/NavButton.qml
+        qml/CarvePage.qml
+        qml/Visualizer.qml
+        qml/PlaceholderPage.qml
+    SOURCES
+        backend.cpp
+        backend.hpp
+        icon_provider.cpp
+        icon_provider.hpp
+        toolpath_item.cpp
+        toolpath_item.hpp
+        ui_app.cpp
+        ui_app.hpp
+)
+
+# The icons (tools/extract_icons.mjs), for the icon provider.
+file(GLOB GS_ICON_FILES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/resources/icons/*.svg")
+qt_add_resources(gs_ui icons
+    PREFIX "/icons"
+    BASE "${PROJECT_SOURCE_DIR}/resources/icons"
+    FILES ${GS_ICON_FILES})
+
+target_include_directories(gs_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(gs_ui
+    PUBLIC
+        gs_app
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::Svg)
+# Where Qt's own QML modules are, for runs from the build tree (ui_app.cpp).
+if(DEFINED QT6_INSTALL_PREFIX AND DEFINED QT6_INSTALL_QML)
+    target_compile_definitions(gs_ui PRIVATE GS_QT_QML_DIR="${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}")
+endif()
+
+qt_add_executable(gsender-qml WIN32 main.cpp)
+target_link_libraries(gsender-qml PRIVATE gs_ui gs_uiplugin)
+gs_copy_runtime_dlls(gsender-qml)
+gs_deploy_qt_plugins(gsender-qml)
