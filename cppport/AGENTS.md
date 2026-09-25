@@ -244,3 +244,22 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 - The repository normalizes to LF (`.gitattributes`). Scripted edits must not
   write CRLF: in Python use `open(path, 'w', newline='\n')` (or
   `write_bytes`), not `Path.write_text` on Windows.
+
+## Open work
+
+What upstream has that the port does not (keep this list current; the
+walkthrough says how each ported piece maps to upstream):
+
+- **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
+  has no Qt Gamepad - and hardware to verify.
+- **ATC** (features/ATC): the Sienci ATC's wizard (Accessory Installation),
+  its controls and the SD card's ATC macro templates.
+- **Remote mode** (features/RemoteMode): the wireless pendant's web server.
+- **Plugins** (features/Plugins): upstream's plugin system.
+- **macOS serial port listing** (Windows: SetupAPI, Linux: sysfs).
+- **QR codes** beside help links (the Helper panel, the accessory wizards).
+- **Configuration file decision**: share gSender's `~/.sender_rc` or keep
+  the port's own file (walkthrough Step 13) - a decision for the owner.
+- Hardware checks only a person can do: serial connections to real Grbl
+  and grblHAL boards (Windows and Linux), FTP and YMODEM uploads to a real
+  card.
