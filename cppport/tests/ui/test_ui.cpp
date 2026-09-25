@@ -909,6 +909,52 @@ TEST_F(UiTest, StepThroughWalksTheFileLineByLine) {
     EXPECT_TRUE(waitFor([&] { return !dialog->property("visible").toBool(); }));
 }
 
+TEST_F(UiTest, TheEditorEditsSearchesAndSavesTheJob) {
+    machine_->loadProgram("edit.nc", "G21 G90\nG0 X1\nG1 X2 F100\nG1 X3\nM30\n");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+    ASSERT_TRUE(waitFor([&] { return item("openEditor") && item("openEditor")->isVisible(); }));
+    tap("openEditor");
+    QQuickItem* editor = item("gcodeEditor");
+    ASSERT_TRUE(waitFor([&] { return editor->isVisible(); }));
+    QObject* model = editor->property("model").value<QObject*>();
+    EXPECT_EQ(model->property("count").toInt(), 5);
+    ASSERT_TRUE(waitFor([&] { return item("editorLine_1") != nullptr; }));
+    screenshot("ui_editor");
+
+    // Tap a line's text to edit it.
+    QQuickItem* line = item("editorLine_1");
+    QTest::mouseClick(window_, Qt::LeftButton, {}, line->mapToScene(QPointF(line->width() / 2, line->height() / 2)).toPoint());
+    ASSERT_TRUE(waitFor([&] { return editor->property("editingRow").toInt() == 1; }));
+    type("G0 X9");
+    QTest::keyClick(window_, Qt::Key_Return);
+    ASSERT_TRUE(waitFor([&] { return editor->property("editingRow").toInt() == -1; }));
+    EXPECT_TRUE(model->property("hasChanges").toBool());
+
+    // Select two lines (the second with Shift: the range) and delete them.
+    tap("editorSelect_3");
+    QQuickItem* box = item("editorSelect_4");
+    QTest::mouseClick(window_, Qt::LeftButton, Qt::ShiftModifier, centreOf(box));
+    EXPECT_EQ(model->property("selectedCount").toInt(), 2);
+    tap("editorDelete");
+    EXPECT_EQ(model->property("count").toInt(), 3);
+
+    // Search.
+    tap("editorSearchButton");
+    type("x");
+    EXPECT_EQ(model->property("matchCount").toInt(), 2);
+    EXPECT_EQ(text("editorMatches"), "1/2");
+    tap("editorNextMatch");
+    EXPECT_EQ(text("editorMatches"), "2/2");
+
+    // Save: the edited text is the job now.
+    tap("editorSave");
+    EXPECT_TRUE(waitFor([&] { return machine_->programText() == "G21 G90\nG0 X9\nG1 X2 F100"; }))
+        << machine_->programText();
+    EXPECT_FALSE(model->property("hasChanges").toBool());
+    tap("editorClose");
+    EXPECT_FALSE(editor->isVisible());
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

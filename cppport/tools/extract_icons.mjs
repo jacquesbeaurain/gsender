@@ -113,6 +113,15 @@ const icons = [
     ['fa', 'FaUndoAlt'],
     ['fa', 'FaWater'],
     ['fa6', 'FaShower'],
+    // The G-code editor.
+    ['pi', 'PiMouseScroll'],
+    ['lu', 'LuCopyCheck'],
+    ['lu', 'LuTrash2'],
+    ['lu', 'LuSave'],
+    ['lu', 'LuChevronUp'],
+    ['lu', 'LuArrowUp'],
+    ['lu', 'LuCheck'],
+    ['vsc', 'VscDebugStart'],
 ];
 
 for (const [set, name] of icons) {
