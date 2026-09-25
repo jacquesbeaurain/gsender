@@ -70,8 +70,8 @@ tools/build.sh -Config release-nopch -Test
 - GCC warns where MSVC does not, and warnings are errors: e.g. `-Wshadow`
   catches a lambda parameter named `info` inside GoogleTest's
   `INSTANTIATE_TEST_SUITE_P`. Build on both platforms when you can.
-- Windows-only pieces fall back on Linux: serial ports are not listed (the
-  simulator and TCP work), power saving is a no-op, audio cues beep.
+- Serial ports are listed from sysfs on Linux; power saving is a no-op
+  and audio cues beep there.
 - Screenshots: `build/linux-release/bin/gsender -platform offscreen ...`
   with the same arguments as on Windows.
 
