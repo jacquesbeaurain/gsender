@@ -66,6 +66,18 @@ qt_add_qml_module(gs_ui
         qml/ToolChange.qml
         qml/StepThrough.qml
         qml/GcodeEditor.qml
+        qml/PieChart.qml
+        qml/StatCard.qml
+        qml/CardHeader.qml
+        qml/MaintenanceReminder.qml
+        qml/DiagnosticCard.qml
+        qml/StatsOverview.qml
+        qml/StatsJobs.qml
+        qml/StatsMaintenance.qml
+        qml/MaintenanceTaskDialog.qml
+        qml/StatsAlarms.qml
+        qml/StatsAbout.qml
+        qml/StatsPage.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -97,6 +109,8 @@ qt_add_qml_module(gs_ui
         step_through_model.hpp
         gcode_editor_model.cpp
         gcode_editor_model.hpp
+        stats_model.cpp
+        stats_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

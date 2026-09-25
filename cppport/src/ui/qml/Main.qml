@@ -42,7 +42,7 @@ ApplicationWindow {
                 currentIndex: rail.currentIndex
 
                 CarvePage {}
-                PlaceholderPage { objectName: "statsPage"; title: qsTr("Stats"); phase: qsTr("Phase 3") }
+                StatsPage {}
                 PlaceholderPage { objectName: "toolsPage"; title: qsTr("Tools"); phase: qsTr("Phase 3") }
                 PlaceholderPage { objectName: "configPage"; title: qsTr("Config"); phase: qsTr("Phase 3") }
             }
@@ -70,5 +70,10 @@ ApplicationWindow {
     Connections {
         target: Backend
         function onToolRequested(name) { rail.currentIndex = 2 }
+        function onPageRequested(name) {
+            const index = ["carve", "stats", "tools", "config"].indexOf(name)
+            if (index >= 0)
+                rail.currentIndex = index
+        }
     }
 }

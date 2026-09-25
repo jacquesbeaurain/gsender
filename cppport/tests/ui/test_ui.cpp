@@ -10,6 +10,7 @@
 #include "ui_shortcuts.hpp"
 #include "shortcuts.hpp"
 
+#include "gs/config/history.hpp"
 #include "gs/controller/controller.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
@@ -990,6 +991,88 @@ TEST_F(UiTest, KeyboardShortcutsJogZeroAndReachTheScreens) {
     QObject* info = window_->findChild<QObject*>("machineInfo");
     EXPECT_TRUE(shortcuts->manager().trigger("DISPLAY_MACHINE_INFO"));
     EXPECT_TRUE(waitFor([&] { return info->property("opened").toBool(); }));
+}
+
+TEST_F(UiTest, TheStatsPageShowsTheRecordAndManagesMaintenance) {
+    // A record to show: a job, a task, an alarm.
+    config::ConfigStore& store = machine_->config();
+    config::JobRecord job;
+    job.file = "sign.nc";
+    job.totalLines = 1200;
+    job.port = "Simulator";
+    job.startTime = 1'790'000'000'000;
+    job.duration = 65'000;
+    job.completed = true;
+    config::JobStatsStore(store).record(job, 65'000);
+    config::AlarmRecord alarm;
+    alarm.alarm = true;
+    alarm.code = "2";
+    alarm.source = "Console";
+    alarm.time = 1'790'000'100'000;
+    alarm.message = "Soft limit";
+    config::AlarmHistory(store).record(alarm);
+    Q_EMIT machine_->historyChanged();
+    connectSimulator();
+
+    tap("navStats");
+    ASSERT_TRUE(waitFor([&] { return item("statsOverview") && item("statsOverview")->isVisible(); }));
+    QObject* model = item("statsPage")->property("model").value<QObject*>();
+    ASSERT_TRUE(waitFor([&] { return model->property("recentJobs").toList().size() == 1; }));
+    EXPECT_EQ(model->property("alarmPreview").toList().size(), 1);
+    EXPECT_FALSE(model->property("releases").toList().isEmpty());
+    screenshot("ui_stats");
+
+    // Jobs: searched.
+    tap("statMenu_jobs");
+    ASSERT_TRUE(waitFor([&] { return item("statsJobs")->isVisible(); }));
+    QQuickItem* jobs = item("jobHistory");
+    EXPECT_EQ(jobs->property("count").toInt(), 1);
+    item("jobSearch")->forceActiveFocus();
+    type("nothing");
+    EXPECT_EQ(jobs->property("count").toInt(), 0);
+
+    // Maintenance: add a task through the form, then reset it (asked first).
+    tap("statMenu_maintenance");
+    ASSERT_TRUE(waitFor([&] { return item("statsMaintenance")->isVisible(); }));
+    const auto tasks = [&] { return config::MaintenanceStore(store).list(); };
+    const std::size_t before = tasks().size();
+    tap("addTask");
+    QObject* dialog = item("statsPage")->findChild<QObject*>("maintenanceTaskDialog");
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    tap("submitTask");  // empty: refused
+    EXPECT_TRUE(dialog->property("opened").toBool());
+    item("taskName")->forceActiveFocus();
+    type("Oil rails");
+    item("taskRangeStart")->forceActiveFocus();
+    type("10");
+    item("taskRangeEnd")->forceActiveFocus();
+    type("20");
+    tap("submitTask");
+    ASSERT_TRUE(waitFor([&] { return !dialog->property("visible").toBool(); }));
+    ASSERT_EQ(tasks().size(), before + 1);
+    const int id = tasks().back().id;
+    config::MaintenanceStore(store).addRunTime(5 * 3'600'000);
+    QMetaObject::invokeMethod(model, "reload");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    ASSERT_TRUE(waitFor([&] { return item(QString("resetTask_%1").arg(id)) != nullptr; }));
+    tap(QString("resetTask_%1").arg(id));
+    QObject* confirm = item("statsPage")->findChild<QObject*>("statsConfirm");
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    QMetaObject::invokeMethod(confirm, "close");  // as its button does
+    QMetaObject::invokeMethod(confirm, "accepted");
+    EXPECT_EQ(tasks().back().currentTime, 0);
+    screenshot("ui_stats_maintenance");
+
+    // Alarms: cleared.
+    tap("statMenu_alarms");
+    ASSERT_TRUE(waitFor([&] { return item("statsAlarms")->isVisible(); }));
+    tap("clearAlarms");
+    ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
+    QMetaObject::invokeMethod(confirm, "close");
+    QMetaObject::invokeMethod(confirm, "accepted");
+    EXPECT_TRUE(config::AlarmHistory(store).list().empty());
+    tap("statMenu_about");
+    ASSERT_TRUE(waitFor([&] { return item("statsAbout")->isVisible(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

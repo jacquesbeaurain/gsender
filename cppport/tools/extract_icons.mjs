@@ -122,6 +122,22 @@ const icons = [
     ['lu', 'LuArrowUp'],
     ['lu', 'LuCheck'],
     ['vsc', 'VscDebugStart'],
+    // The Stats page.
+    ['fa', 'FaTrash'],
+    ['fa', 'FaGithub'],
+    ['fa6', 'FaBookBookmark'],
+    ['im', 'ImBubbles4'],
+    ['lu', 'LuCircleCheck'],
+    ['lu', 'LuCircleX'],
+    ['lu', 'LuPen'],
+    ['fa', 'FaExternalLinkAlt'],
+    ['go', 'GoArrowUpRight'],
+    ['fa', 'FaCheckCircle'],
+    ['fa6', 'FaCircleXmark'],
+    ['fa', 'FaDownload'],
+    ['io', 'IoIosWarning'],
+    ['pi', 'PiMaskHappyBold'],
+    ['fa', 'FaCircle'],
 ];
 
 for (const [set, name] of icons) {
