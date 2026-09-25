@@ -13,6 +13,7 @@ AbstractButton {
     property bool active: false
     property string iconName
     property color iconColor: foreground
+    property color textColor: foreground
     property int iconSize: 20
     property int fontSize: Theme.fontBase
     property bool mono: false
@@ -20,13 +21,13 @@ AbstractButton {
 
     readonly property var variants: ({
         primary: { bg: Theme.blue[500], border: Theme.blue[500], fg: "white" },
-        secondary: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : "#689AC9",
+        secondary: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : Theme.robin[500],
                      fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] },
-        alt: { bg: "#689AC9", border: "#689AC9", fg: "white" },
+        alt: { bg: Theme.robin[500], border: Theme.robin[500], fg: "white" },
         warning: { bg: Qt.rgba(0xbb / 255, 0x6a / 255, 0x0c / 255, 0.9), border: "#c9883d", fg: "white" },
         error: { bg: Theme.red[500], border: Theme.red[700], fg: "white" },
         success: { bg: Theme.green[500], border: Theme.green[700], fg: "white" },
-        outline: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : "#689AC9",
+        outline: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : Theme.robin[500],
                    fg: Theme.contentPrimary },
         ghost: { bg: "transparent", border: "transparent", fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] }
     })
@@ -81,7 +82,7 @@ AbstractButton {
             Label {
                 visible: button.text !== ""
                 text: button.text
-                color: button.foreground
+                color: button.textColor
                 font.pixelSize: button.fontSize
                 font.family: button.mono ? Theme.monoFont : font.family
                 font.bold: button.bold

@@ -52,6 +52,10 @@ qt_add_qml_module(gs_ui
         qml/ToolTab.qml
         qml/ToolsWidget.qml
         qml/ConsoleTab.qml
+        qml/ActiveStateButton.qml
+        qml/GSwitch.qml
+        qml/CoolantTab.qml
+        qml/SpindleTab.qml
     SOURCES
         backend.cpp
         backend.hpp
@@ -69,6 +73,8 @@ qt_add_qml_module(gs_ui
         jog_model.hpp
         console_model.cpp
         console_model.hpp
+        spindle_model.cpp
+        spindle_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

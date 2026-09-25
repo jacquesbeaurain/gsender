@@ -47,6 +47,10 @@ class UiBackend final : public QObject {
     Q_PROPERTY(QString programName READ programName NOTIFY programChanged)
     // workspace.enableDarkMode: the Workshop dark theme.
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY appSettingsChanged)
+    // The tool area's optional tabs: Spindle/Laser, Coolant, Rotary.
+    Q_PROPERTY(bool spindleFunctions READ spindleFunctions NOTIFY appSettingsChanged)
+    Q_PROPERTY(bool coolantFunctions READ coolantFunctions NOTIFY appSettingsChanged)
+    Q_PROPERTY(bool rotaryTab READ rotaryTab NOTIFY appSettingsChanged)
     // The notifications (NotificationsArea): {message, type, read, ago},
     // newest first, and the unread errors the bell counts.
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY notificationsChanged)
@@ -82,6 +86,9 @@ public:
     bool hasProgram() const;
     QString programName() const;
     bool darkMode() const;
+    bool spindleFunctions() const;
+    bool coolantFunctions() const;
+    bool rotaryTab() const;
     void setDarkMode(bool dark);
     QVariantList notifications() const;
     int unreadErrors() const;

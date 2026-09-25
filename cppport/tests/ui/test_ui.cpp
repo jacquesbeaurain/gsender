@@ -130,6 +130,26 @@ protected:
             QTest::keyClick(window_, c.toLatin1());
         }
     }
+    // A tool tab, scrolled to with the arrows as a person would.
+    void selectTool(const QString& key) {
+        const QString name = "toolsTab_" + key;
+        QQuickItem* strip = item(name) ? item(name)->parentItem() : nullptr;
+        ASSERT_NE(strip, nullptr) << name.toStdString();
+        const auto inView = [&] {
+            QQuickItem* tab = item(name);
+            const QRectF box = tab->mapRectToItem(window_->contentItem(), QRectF(0, 0, tab->width(), tab->height()));
+            QQuickItem* flick = strip->parentItem()->parentItem();
+            const QRectF view = flick->mapRectToItem(window_->contentItem(), QRectF(0, 0, flick->width(), flick->height()));
+            return view.contains(box.center());
+        };
+        for (const char* arrow : {"toolsScrollLeft", "toolsScrollRight"}) {
+            for (int i = 0; i < 10 && !inView() && item(arrow)->property("can").toBool(); ++i) {
+                tap(arrow);
+                QTest::qWait(200);
+            }
+        }
+        tap(name);
+    }
     void connectSimulator() {
         backend_->connectSimulator();
         ASSERT_TRUE(waitFor([&] {
@@ -535,12 +555,7 @@ TEST_F(UiTest, AJobsEndShowsItsSummary) {
 }
 
 TEST_F(UiTest, TheConsoleShowsFiltersAndSendsCommands) {
-    // The last tab: scrolled to with the arrow.
-    for (int i = 0; i < 10 && item("toolsScrollRight")->property("can").toBool(); ++i) {
-        tap("toolsScrollRight");
-        QTest::qWait(200);
-    }
-    tap("toolsTab_console");
+    selectTool("console");
     ASSERT_TRUE(waitFor([&] { return item("consoleTab") && item("consoleTab")->isVisible(); }));
     EXPECT_TRUE(item("consoleDisconnected")->isVisible());
     connectSimulator();
@@ -578,6 +593,65 @@ TEST_F(UiTest, TheConsoleShowsFiltersAndSendsCommands) {
 
     tap("consoleClear");
     EXPECT_TRUE(waitFor([&] { return shown().isEmpty(); }));
+}
+
+TEST_F(UiTest, CoolantTurnsOnAndOff) {
+    connectSimulator();
+    selectTool("coolant");
+    ASSERT_TRUE(waitFor([&] { return item("coolantTab") && item("coolantTab")->isVisible(); }));
+    const auto coolant = [&] { return machine_->controller()->state().parserState.modal.coolant; };
+    tap("coolantMist");
+    ASSERT_TRUE(waitFor([&] { return item("coolantMist")->property("active").toBool(); }));
+    tap("coolantFlood");
+    ASSERT_TRUE(waitFor([&] { return item("coolantFlood")->property("active").toBool(); }));
+    EXPECT_EQ(coolant().size(), 2u);
+    screenshot("ui_coolant");
+    tap("coolantOff");
+    EXPECT_TRUE(waitFor([&] { return !item("coolantMist")->property("active").toBool(); }));
+    EXPECT_FALSE(item("coolantFlood")->property("active").toBool());
+}
+
+TEST_F(UiTest, TheSpindleRunsAndTheLaserTakesItsPlace) {
+    // Hidden until the settings show it.
+    EXPECT_EQ(item("toolsTab_spindle"), nullptr);
+    app::AppSettings settings = machine_->settings();
+    settings.spindleFunctions = true;
+    machine_->setSettings(settings);
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return item("toolsTab_spindle") != nullptr; }));
+    selectTool("spindle");
+    ASSERT_TRUE(waitFor([&] { return item("spindleTab") && item("spindleTab")->isVisible(); }));
+    const auto spindle = [&] { return machine_->controller()->state().parserState.modal.spindle; };
+
+    tap("spindleForward");
+    ASSERT_TRUE(waitFor([&] { return spindle() == "M3"; }));
+    EXPECT_TRUE(waitFor([&] { return item("spindleForward")->property("active").toBool(); }));
+    screenshot("ui_spindle");
+    tap("spindleStop");
+    ASSERT_TRUE(waitFor([&] { return spindle() == "M5"; }));
+
+    // The speed: kept in the settings once it settles.
+    QObject* model = item("spindleTab")->property("model").value<QObject*>();
+    QMetaObject::invokeMethod(model, "setSpeed", Q_ARG(double, 500));
+    QMetaObject::invokeMethod(model, "applyNow");
+    EXPECT_EQ(machine_->settings().spindle.speed, 500);
+    EXPECT_TRUE(waitFor([&] { return text("spindleSpeedText") == "500 RPM"; }));
+    // Within the board's $31..$30 (Grbl's default $30 is 1000).
+    QMetaObject::invokeMethod(model, "setSpeed", Q_ARG(double, 12000));
+    EXPECT_TRUE(waitFor([&] { return text("spindleSpeedText") == "1000 RPM"; }));
+
+    // Laser mode: the laser's controls.
+    EXPECT_FALSE(item("laserOn")->isVisible());
+    tap("laserModeSwitch");
+    ASSERT_TRUE(waitFor([&] { return machine_->laserMode(); }));
+    ASSERT_TRUE(waitFor([&] { return item("laserOn")->isVisible(); }));
+    EXPECT_FALSE(item("spindleForward")->isVisible());
+    ASSERT_TRUE(waitFor([&] { return item("laserOn")->isEnabled(); }));
+    tap("laserOn");
+    EXPECT_TRUE(waitFor([&] { return item("laserOn")->property("active").toBool(); }));
+    screenshot("ui_laser");
+    tap("laserOff");
+    EXPECT_TRUE(waitFor([&] { return spindle() == "M5"; }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

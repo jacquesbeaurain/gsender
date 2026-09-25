@@ -87,7 +87,7 @@ Popup {
             color: Theme.contentPrimary
         }
         RowLayout {
-            Switch {
+            GSwitch {
                 objectName: "stepperLock"
                 checked: popup.model.stepperLocked
                 enabled: popup.model.connected
