@@ -1568,6 +1568,35 @@ TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     screenshot("ui_config_probe");
 }
 
+TEST_F(UiTest, TheKeyboardMapAndTheStatusIconsShowTheShortcuts) {
+    // The map: the shortcuts that work now, by category; closing it turns it off.
+    EXPECT_FALSE(item("keyboardMap")->isVisible());
+    backend_->setKeyboardMap(true);
+    ASSERT_TRUE(waitFor([&] { return item("keyboardMap")->isVisible(); }));
+    ASSERT_TRUE(waitFor([&] { return item("keyboardMapGroup_Jogging") != nullptr; }));
+    const QVariantList groups = backend_->activeShortcuts();
+    ASSERT_FALSE(groups.isEmpty());
+    EXPECT_EQ(groups.front().toMap()["category"].toString(), "General");
+    bool jogRight = false;
+    for (const QVariant& group : groups) {
+        for (const QVariant& shortcut : group.toMap()["shortcuts"].toList()) {
+            jogRight = jogRight || shortcut.toMap()["title"].toString() == "Jog X+ (right)";
+        }
+    }
+    EXPECT_TRUE(jogRight);
+    screenshot("ui_keyboard_map");
+    tap("closeKeyboardMap");
+    EXPECT_FALSE(machine_->settings().accessibility.showKeyboardMap);
+    EXPECT_FALSE(item("keyboardMap")->isVisible());
+
+    // The status icons open their tools; the gamepad's is not here yet.
+    tap("statusKeyboard");
+    ASSERT_TRUE(waitFor([&] { return item("keyboardShortcutsTool") && item("keyboardShortcutsTool")->isVisible(); }));
+    tap("statusGamepad");
+    ASSERT_FALSE(backend_->notificationCenter().list().empty());
+    EXPECT_EQ(backend_->notificationCenter().list().front().message, "Gamepad is not available in this version yet");
+}
+
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     const QColor light = window_->color();
     backend_->setDarkMode(true);

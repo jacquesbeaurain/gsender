@@ -91,6 +91,7 @@ qt_add_qml_module(gs_ui
         qml/AccessoryInstallerTool.qml
         qml/ConfigPage.qml
         qml/ConfigRow.qml
+        qml/KeyboardMap.qml
         qml/WizardAction.qml
         qml/WizardStepPage.qml
         qml/WizardText.qml

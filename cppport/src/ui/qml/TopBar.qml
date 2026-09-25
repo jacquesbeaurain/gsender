@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import GSender
 
@@ -29,9 +30,30 @@ Rectangle {
         anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         spacing: 16
-        // StatusIcons and the notifications' bell; their panels come later.
+        // The notifications' bell and StatusIcons: Keyboard Shortcuts (green
+        // while shortcuts are on) and Gamepad Shortcuts, each opening its tool.
         NotificationBell {}
-        Icon { name: "FaRegKeyboard"; color: Theme.green[500]; width: 28; height: 28 }
-        Icon { name: "LuGamepad2"; color: Theme.contentMuted; width: 28; height: 28 }
+        Repeater {
+            model: [
+                { name: "statusKeyboard", icon: "FaRegKeyboard", tool: "shortcuts", tip: qsTr("Keyboard Shortcuts") },
+                { name: "statusGamepad", icon: "LuGamepad2", tool: "gamepad", tip: qsTr("Gamepad Shortcuts") }
+            ]
+            Item {
+                required property var modelData
+                objectName: modelData.name
+                implicitWidth: 36
+                implicitHeight: 36
+                Icon {
+                    anchors.centerIn: parent
+                    name: parent.modelData.icon
+                    color: parent.modelData.tool === "shortcuts" && Backend.shortcutsEnabled ? Theme.green[500] : Theme.contentMuted
+                    width: 28; height: 28
+                }
+                HoverHandler { id: hover }
+                ToolTip.visible: hover.hovered
+                ToolTip.text: modelData.tip
+                TapHandler { onTapped: Backend.openTool(parent.modelData.tool) }
+            }
+        }
     }
 }

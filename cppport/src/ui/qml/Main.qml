@@ -61,6 +61,14 @@ ApplicationWindow {
         anchors.fill: parent
         z: 11
     }
+    KeyboardMap {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        width: Math.min(1000, window.width - 64)
+        height: window.height * 0.7
+        z: 8
+    }
     JobAlerts {}
     ToolChange {
         anchors.fill: parent
