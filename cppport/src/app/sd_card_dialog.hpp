@@ -27,6 +27,10 @@ namespace gs::app {
 class Machine;
 class NotificationCenter;
 
+// The file dialog's filter, as the upload's accept attribute.
+QString sdFileFilter();
+// "Some files were rejected:" and each "name: reason".
+QString sdRefusedText(const QStringList& refused);
 // validateSDFilename(): the firmware's filename_valid() - the reason a name
 // is refused, or nullopt.
 std::optional<QString> sdFilenameProblem(const QString& name);

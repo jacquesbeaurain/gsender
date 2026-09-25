@@ -11,6 +11,8 @@ Item {
     objectName: "toolsPage"
 
     property string current: ""
+    // The SD card's, kept so an upload is followed after Go Back.
+    readonly property SdCardModel sdCardModel: SdCardModel { objectName: "sdCard" }
 
     // The tools there are: {key, title, description, icon, component}.
     readonly property var cards: [
@@ -30,7 +32,8 @@ Item {
         rotarySurfacing: rotarySurfacingTool,
         movementTuning: movementTuningTool,
         squaring: squaringTool,
-        shortcuts: keyboardShortcutsTool
+        shortcuts: keyboardShortcutsTool,
+        sd: sdCardTool
     })
 
     function open(key) {
@@ -152,5 +155,9 @@ Item {
     Component {
         id: keyboardShortcutsTool
         KeyboardShortcutsTool {}
+    }
+    Component {
+        id: sdCardTool
+        SdCardTool { model: tools.sdCardModel }
     }
 }

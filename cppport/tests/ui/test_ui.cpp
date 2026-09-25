@@ -5,6 +5,7 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "notification_center.hpp"
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
 #include "ui_shortcuts.hpp"
@@ -23,6 +24,7 @@
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QUrl>
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <gtest/gtest.h>
@@ -1283,6 +1285,63 @@ TEST_F(UiTest, TheShortcutsToolRebindsAndResetsTheKeys) {
     EXPECT_TRUE(machine_->settings().shortcuts.empty());
     EXPECT_TRUE(item("shortcutActive_JOG_X_M")->property("checked").toBool());
     EXPECT_EQ(shortcuts->manager().actionFor(QKeyCombination(Qt::ShiftModifier, Qt::Key_Right)), "JOG_X_P");
+}
+
+TEST_F(UiTest, TheSdCardToolUploadsAndDeletesFilesOnAGrblHalCard) {
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_sd") && item("toolCard_sd")->isVisible(); }));
+    tap("toolCard_sd");
+    ASSERT_TRUE(waitFor([&] { return item("sdCardTool") && item("sdCardTool")->isVisible(); }));
+    QObject* model = item("sdCardTool")->property("model").value<QObject*>();
+    EXPECT_EQ(text("sdStatus"), "Disconnected");
+    EXPECT_EQ(text("sdMessage"), "Must be connected to use SD card functionality.");
+    EXPECT_FALSE(item("sdUpload")->isEnabled());
+
+    backend_->connectSimulator(true);
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->isConnected() && machine_->controller()->runner().hasSettings() && text("sdStatus") == "Mounted";
+    }));
+    EXPECT_EQ(text("sdMessage"), "No files found");
+    ASSERT_TRUE(waitFor([&] { return item("sdUpload")->isEnabled(); }));
+
+    // The modal keeps the files it can send and reports the others.
+    const QString square = dir_.path() + "/square.nc";
+    QFile file(square);
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.write("G21 G90\nG1 X10 F1200\nG1 Y10\nG1 X0\nG1 Y0\n");
+    file.close();
+    tap("sdUpload");
+    QObject* modal = item("sdCardTool")->findChild<QObject*>("sdUploadModal");
+    ASSERT_TRUE(waitFor([&] { return modal->property("opened").toBool(); }));
+    QMetaObject::invokeMethod(model, "addPending",
+                              Q_ARG(QVariantList, (QVariantList{QUrl::fromLocalFile(square), dir_.path() + "/notes.md"})));
+    ASSERT_EQ(model->property("pending").toList().size(), 1);
+    ASSERT_FALSE(backend_->notificationCenter().list().empty());
+    EXPECT_EQ(backend_->notificationCenter().list().front().message,
+              "Some files were rejected:\nnotes.md: Invalid file type");
+    ASSERT_TRUE(waitFor([&] { return item("sdUploadPending") && item("sdUploadPending")->isVisible(); }));
+    EXPECT_EQ(text("sdUploadPending"), "Upload (1)");
+    screenshot("ui_sd_upload");
+    tap("sdUploadPending");
+
+    // Up over YMODEM, then listed.
+    ASSERT_TRUE(waitFor([&] { return model->property("uploadState").toString() != "idle"; }));
+    ASSERT_TRUE(waitFor([&] { return machine_->simulator()->sdFiles().count("square.nc") == 1; }, 10000));
+    ASSERT_TRUE(waitFor([&] { return item("sdFile_square.nc") != nullptr; }, 10000));
+    ASSERT_TRUE(waitFor([&] { return model->property("uploadState").toString() == "idle"; }));
+    EXPECT_EQ(text("sdFilesTitle"), "Files (1)");
+    ASSERT_TRUE(waitFor([&] { return item("sdDelete_square.nc")->isEnabled(); }));
+    screenshot("ui_sd_card");
+
+    // Delete asks, and the file leaves the list at once.
+    item("toastArea")->setProperty("toasts", QVariantList());
+    tap("sdDelete_square.nc");
+    QObject* confirm = item("sdCardTool")->findChild<QObject*>("sdDeleteConfirm");
+    EXPECT_EQ(confirm->property("message").toString(), "Are you sure you want to delete square.nc?");
+    QMetaObject::invokeMethod(confirm, "close");
+    QMetaObject::invokeMethod(confirm, "accepted");
+    EXPECT_EQ(text("sdMessage"), "No files found");
+    ASSERT_TRUE(waitFor([&] { return machine_->simulator()->sdFiles().count("square.nc") == 0; }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
