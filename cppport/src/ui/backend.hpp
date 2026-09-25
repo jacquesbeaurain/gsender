@@ -71,6 +71,7 @@ public:
     bool darkMode() const;
     void setDarkMode(bool dark);
 
+    // The built-in simulated boards (the connection popup's last entries).
     Q_INVOKABLE void connectSimulator(bool grblHal = false);
     Q_INVOKABLE void disconnectMachine();
 

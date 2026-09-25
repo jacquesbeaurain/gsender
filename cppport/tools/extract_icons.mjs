@@ -36,6 +36,7 @@ const icons = [
     ['bs', 'BsCheckCircleFill'],
     ['pi', 'PiPlugLight'],
     ['gr', 'GrSatellite'],
+    ['fa', 'FaArrowAltCircleRight'],
     ['lu', 'LuBell'],
     ['fa6', 'FaRegKeyboard'],
     ['lu', 'LuGamepad2'],
