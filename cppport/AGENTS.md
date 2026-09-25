@@ -268,6 +268,8 @@ fixes until it is retired.
 - Repeaters over lists rebuilt on every status report (a QVariantList
   property) recreate their delegates each time - taps are lost, a field
   being typed in loses focus. Repeat by count and read `list[index]`.
+- Tests delete Repeater delegates later; `TearDown` flushes deferred
+  deletes, or they run at exit after the application is gone (a crash).
 - Headless: tests and `--screenshot` use the software renderer, which has
   no shader effects (no MultiEffect, no layer effects); keep to items,
   Shapes and QPainter-drawn items.
@@ -280,8 +282,9 @@ fixes until it is retired.
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
-- **The QML touch UI** (Step 61): Phase 0 (shell, theme, visualizer,
-  tests) is done; Phases 1-4 port the screens and retire the widget UI.
+- **The QML touch UI** (Steps 61-62): Phases 0 (shell, theme, visualizer,
+  tests) and 1 (the Carve page's essentials) are done; Phases 2-4 port the
+  remaining screens and retire the widget UI.
 
 - **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
   has no Qt Gamepad - and hardware to verify.
