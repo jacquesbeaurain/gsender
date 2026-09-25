@@ -35,6 +35,8 @@ add_library(gs_app STATIC
     jogger.hpp
     main_window.cpp
     main_window.hpp
+    notification_center.cpp
+    notification_center.hpp
     notifications.cpp
     notifications.hpp
     panels.cpp

@@ -104,6 +104,8 @@ protected:
 
     void TearDown() override {
         engine_.reset();
+        // Delegates a Repeater dropped are deleted later; not at exit.
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         backend_.reset();
         machine_.reset();
         loop_.reset();
@@ -435,6 +437,10 @@ TEST_F(UiTest, TheJobControlsRunPauseStopAndOverride) {
     ASSERT_TRUE(waitFor([&] { return item("stopJob")->isEnabled(); }));
     tap("stopJob");
     EXPECT_TRUE(waitFor([&] { return machine_->controller()->workflow().isIdle(); }, 8000));
+    QObject* summary = window_->findChild<QObject*>("jobEndSummary");
+    ASSERT_TRUE(waitFor([&] { return summary->property("opened").toBool(); }));
+    tap("jobEndClose");
+    ASSERT_TRUE(waitFor([&] { return !summary->property("visible").toBool(); }));
 
     // Start From Line: the popup, then the job from line 4.
     ASSERT_TRUE(waitFor([&] { return item("startFromLine")->isVisible(); }, 8000));
@@ -449,6 +455,83 @@ TEST_F(UiTest, TheJobControlsRunPauseStopAndOverride) {
     }));
     QTest::mouseClick(window_, Qt::LeftButton, {}, centreOf(startButton));
     EXPECT_TRUE(waitFor([&] { return machine_->controller()->workflow().isRunning(); }));
+}
+
+TEST_F(UiTest, AnAlarmExplainsItselfAndUnlocks) {
+    connectSimulator();
+    EXPECT_FALSE(item("unlockButton")->isVisible());
+    machine_->simulator()->triggerAlarm(3);
+    ASSERT_TRUE(waitFor([&] { return text("statusText") == "Alarm (3)"; }));
+    ASSERT_TRUE(waitFor([&] { return item("unlockButton")->isVisible(); }));
+
+    // The ? opens the Helper with the alarm's description.
+    EXPECT_FALSE(item("helperPanel")->isVisible());
+    tap("alarmHelp");
+    ASSERT_TRUE(waitFor([&] { return item("helperPanel")->isVisible(); }));
+    EXPECT_TRUE(text("helperTitle").contains("Alarm"));
+    EXPECT_FALSE(text("helperText").isEmpty());
+    screenshot("ui_alarm");
+    tap("helperClose");
+    EXPECT_TRUE(waitFor([&] { return !item("helperPanel")->isVisible(); }));
+
+    tap("unlockButton");
+    EXPECT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
+}
+
+TEST_F(UiTest, MachineInformationShowsTheFirmwareAndPins) {
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
+    tap("machineInfoButton");
+    QObject* popup = window_->findChild<QObject*>("machineInfo");
+    ASSERT_NE(popup, nullptr);
+    ASSERT_TRUE(waitFor([&] { return popup->property("opened").toBool(); }));
+    EXPECT_NE(item("stepperLock"), nullptr);
+    screenshot("ui_machine_info");
+}
+
+TEST_F(UiTest, NotificationsPopUpAndCollectInTheBell) {
+    EXPECT_FALSE(item("unreadErrors")->isVisible());
+    backend_->notify("Something went wrong", "error");
+    backend_->notify("All good", "success");
+    QCoreApplication::processEvents();
+    QQuickItem* toasts = item("toastArea");
+    ASSERT_TRUE(waitFor([&] { return toasts->property("count").toInt() == 2; }));
+    EXPECT_TRUE(waitFor([&] { return item("unreadErrors")->isVisible(); }));
+    screenshot("ui_toasts");
+
+    // At most three at once.
+    backend_->notify("Three", "info");
+    backend_->notify("Four", "info");
+    EXPECT_TRUE(waitFor([&] { return toasts->property("count").toInt() == 3; }));
+
+    // The bell lists them and reads them on opening.
+    tap("notificationBell");
+    QObject* panel = window_->findChild<QObject*>("notificationPanel");
+    ASSERT_TRUE(waitFor([&] { return panel->property("opened").toBool(); }));
+    EXPECT_FALSE(item("unreadErrors")->isVisible());
+    QQuickItem* list = nullptr;
+    ASSERT_TRUE(waitFor([&] { return (list = item("notificationList")) != nullptr; }));
+    EXPECT_EQ(list->property("count").toInt(), 4);
+    tap("notificationTab_error");
+    EXPECT_TRUE(waitFor([&] { return list->property("count").toInt() == 1; }));
+    tap("clearNotifications");
+    EXPECT_TRUE(waitFor([&] { return list->property("count").toInt() == 0; }));
+}
+
+TEST_F(UiTest, AJobsEndShowsItsSummary) {
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+    machine_->loadProgram("job.nc", "G21 G90\nG1 X2 F500\nG1 X0\n");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+    ASSERT_TRUE(waitFor([&] { return item("startJob")->isEnabled(); }));
+    tap("startJob");
+    QObject* summary = window_->findChild<QObject*>("jobEndSummary");
+    ASSERT_NE(summary, nullptr);
+    ASSERT_TRUE(waitFor([&] { return summary->property("opened").toBool(); }, 10000));
+    EXPECT_EQ(text("jobEndStatus"), "COMPLETE");
+    screenshot("ui_job_end");
+    tap("jobEndClose");
+    EXPECT_TRUE(waitFor([&] { return !summary->property("visible").toBool(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {

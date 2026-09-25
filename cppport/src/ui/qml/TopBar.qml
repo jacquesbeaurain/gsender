@@ -30,7 +30,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 16
         // StatusIcons and the notifications' bell; their panels come later.
-        Icon { name: "LuBell"; color: Theme.contentMuted; width: 26; height: 26 }
+        NotificationBell {}
         Icon { name: "FaRegKeyboard"; color: Theme.green[500]; width: 28; height: 28 }
         Icon { name: "LuGamepad2"; color: Theme.contentMuted; width: 28; height: 28 }
     }
