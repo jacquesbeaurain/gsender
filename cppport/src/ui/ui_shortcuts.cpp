@@ -19,6 +19,9 @@ namespace {
 // Mousetrap's rule: keys typed into an editable text field are its own.
 bool typingInQuick(QQuickWindow& window) {
     QQuickItem* focus = window.activeFocusItem();
+    if (focus && focus->property("capturesKeys").toBool()) {
+        return true;  // recording a shortcut's keys
+    }
     if (!focus || !(focus->inherits("QQuickTextInput") || focus->inherits("QQuickTextEdit"))) {
         return false;
     }

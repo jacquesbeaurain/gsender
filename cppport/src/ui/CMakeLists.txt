@@ -86,6 +86,7 @@ qt_add_qml_module(gs_ui
         qml/SquaringTool.qml
         qml/SquaringDiagram.qml
         qml/StepMark.qml
+        qml/KeyboardShortcutsTool.qml
         qml/ToolFormRow.qml
         qml/ToolField.qml
         qml/ToolToggle.qml
@@ -133,6 +134,8 @@ qt_add_qml_module(gs_ui
         movement_tuning_model.hpp
         squaring_model.cpp
         squaring_model.hpp
+        shortcuts_model.cpp
+        shortcuts_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp
