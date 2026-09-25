@@ -1905,3 +1905,53 @@ line edited in place, over the visualizer.
 **Shortcuts**: `ShortcutManager` takes a `ShortcutScope`, so the Quick
 window has one too (`UiShortcuts`): the machine's handlers in C++, the
 screens' through `Backend.shortcutTriggered`.
+
+## Step 64 — QML Phase 3: the Stats, Tools and Config pages (`src/ui`)
+
+**Stats** (`StatsModel`, StatsPage.qml): Overview (the job results pie -
+Chart.js drawn with Qt Quick Shapes, `PieChart` - recent jobs, upcoming
+maintenance, the configuration, Get Help with the diagnostic file), Jobs,
+Maintenance (tasks added, edited, reset, deleted), Alarms and About, chosen
+from the floating menu.
+
+**Tools** (ToolsPage.qml): the cards; each tool opens on the page with Go
+Back (`ToolPage`). Gamepad and Plugins say they are not in this version.
+
+- **Surfacing** and **Rotary Surfacing** (`SurfacingModel`,
+  `RotarySurfacingModel`): the forms, a top-view preview
+  (`ProgramPreviewItem`) and the G-code; Load to Main Visualizer.
+- **Movement Tuning** and **XY Squaring** (`MovementTuningModel`,
+  `SquaringModel`): the widget dialogs' wizards; the squaring triangle is
+  drawn with Shapes (SquaringDiagram.qml).
+- **Keyboard Shortcuts** (`ShortcutsModel`): the table with search and
+  category, a key-recording popup (conflicts refused; the window's
+  shortcuts leave a field with `capturesKeys` alone), Reset All. Changes
+  save as they are made, as upstream's page does.
+- **SD Card** (`SdCardModel`): kept by the Tools page, so an upload is
+  followed after Go Back; the list, the upload modal (browse or drop).
+- **Accessory Installation** (`AccessoryModel`): the four wizards as data
+  (configurations, steps, what goes beside them, the closing pages) with
+  their checks and page actions; the page runs the hub, the landing pages,
+  the steps (skipped ones passed over, pages made afresh) and the closing
+  page, each step page its own component (Acc*.qml).
+
+**Config** (`ConfigModel`, ConfigPage.qml, ConfigRow.qml): upstream's
+SettingsMenu rather than the widget dialog's tabs - its sections mix
+gSender's preferences (described rows with a getter and setter on a staged
+copy of the settings) with the board's `$` settings (the firmware table's
+descriptions and editors: switch, bits, exclusive bits, axes, select,
+text). The board's settings no section places are listed last, so none is
+out of reach. Edits are staged and marked; changes compare in the staged
+units (a unit switch alone changes nothing else); Apply Settings saves the
+preferences and event hooks and writes the board's settings, then `$$`.
+Settings away from their default reset (the board's to the profile's
+default). The section menu, search, the changed-only filter, the machine
+profile, the board's defaults and EEPROM files, the application settings'
+files, the sections' test buttons and live pins complete it. The rows are
+built once per change (`rowsStale_`); the machine's live state has its own
+signal so status reports do not rebuild them.
+
+**The keyboard map** (KeyboardMap.qml): the window's active shortcuts by
+category (`Backend.activeShortcuts`), over the bottom while Accessibility's
+setting is on. **The top bar's icons** open the Keyboard Shortcuts and
+Gamepad tools (the keyboard green while shortcuts are on).
