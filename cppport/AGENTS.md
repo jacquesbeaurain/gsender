@@ -276,6 +276,10 @@ fixes until it is retired.
   A Repeater's dropped delegates are only deleted later, and `findItem`
   still finds them: flush deferred deletes after the model changes.
   Inline `component` types cannot see the file's ids; use a `Component`.
+- A model that is a QAbstractItemModel cannot have invokables named like
+  its virtuals (`revert`, `submit`). Qt Layouts' `preferredWidth` is
+  pixels, not a ratio: size side columns explicitly and let one fill.
+  TapHandler's point has no modifiers: use `acceptedModifiers` handlers.
 - Tests delete Repeater delegates later; `TearDown` flushes deferred
   deletes, or they run at exit after the application is gone (a crash).
 - Headless: tests and `--screenshot` use the software renderer, which has
@@ -290,9 +294,11 @@ fixes until it is retired.
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
-- **The QML touch UI** (Steps 61-62): Phases 0 (shell, theme, visualizer,
-  tests) and 1 (the Carve page's essentials) are done; Phases 2-4 port the
-  remaining screens and retire the widget UI.
+- **The QML touch UI** (Steps 61-63): Phases 0 (shell, theme, visualizer,
+  tests), 1 (the Carve page's essentials) and 2 (the tool area, tool
+  changes, Step Through, the editor, shortcuts) are done; Phases 3-4 port
+  the Stats, Tools and Config pages and the remaining dialogs, then retire
+  the widget UI.
 
 - **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
   has no Qt Gamepad - and hardware to verify.
