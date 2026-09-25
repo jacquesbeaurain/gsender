@@ -87,6 +87,7 @@ qt_add_qml_module(gs_ui
         qml/SquaringDiagram.qml
         qml/StepMark.qml
         qml/KeyboardShortcutsTool.qml
+        qml/SdCardTool.qml
         qml/ToolFormRow.qml
         qml/ToolField.qml
         qml/ToolToggle.qml
@@ -136,6 +137,8 @@ qt_add_qml_module(gs_ui
         squaring_model.hpp
         shortcuts_model.cpp
         shortcuts_model.hpp
+        sd_card_model.cpp
+        sd_card_model.hpp
         icon_provider.cpp
         icon_provider.hpp
         toolpath_item.cpp

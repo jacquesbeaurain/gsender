@@ -61,6 +61,11 @@ const icons = [
     ['fi', 'FiClock'],
     ['lu', 'LuPencil'],
     ['lu', 'LuFootprints'],
+    // The SD card (features/SDCard, lucide-react).
+    ['lu', 'LuRefreshCw'],
+    ['lu', 'LuUpload'],
+    ['lu', 'LuHardDrive'],
+    ['lu', 'LuFile'],
     ['io5', 'IoPlayOutline'],
     ['pi', 'PiPause'],
     ['fi', 'FiOctagon'],

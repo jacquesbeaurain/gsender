@@ -34,15 +34,6 @@ namespace {
 const QStringList kAcceptedExtensions{".gcode", ".nc",   ".ncc", ".ngc",   ".cnc",
                                       ".txt",   ".text", ".tap", ".macro", ".json"};
 
-// The file dialog's filter, as the upload's accept attribute.
-QString fileFilter() {
-    QStringList patterns;
-    for (const QString& extension : kAcceptedExtensions) {
-        patterns << "*" + extension;
-    }
-    return QObject::tr("SD card files (%1)").arg(patterns.join(' '));
-}
-
 QStringList droppedFiles(const QMimeData* data) {
     QStringList paths;
     for (const QUrl& url : data->urls()) {
@@ -53,11 +44,19 @@ QStringList droppedFiles(const QMimeData* data) {
     return paths;
 }
 
-QString refusedText(const QStringList& refused) {
+}  // namespace
+
+QString sdRefusedText(const QStringList& refused) {
     return QObject::tr("Some files were rejected:\n%1").arg(refused.join('\n'));
 }
 
-}  // namespace
+QString sdFileFilter() {
+    QStringList patterns;
+    for (const QString& extension : kAcceptedExtensions) {
+        patterns << "*" + extension;
+    }
+    return QObject::tr("SD card files (%1)").arg(patterns.join(' '));
+}
 
 std::optional<QString> sdFilenameProblem(const QString& name) {
     if (name.size() > 40) {
@@ -156,7 +155,7 @@ SdUploadDialog::SdUploadDialog(std::function<void(const QString&)> refused, QWid
 }
 
 void SdUploadDialog::browse() {
-    addFiles(QFileDialog::getOpenFileNames(this, tr("Upload Files"), QString(), fileFilter()));
+    addFiles(QFileDialog::getOpenFileNames(this, tr("Upload Files"), QString(), sdFileFilter()));
 }
 
 void SdUploadDialog::addFiles(const QStringList& paths) {
@@ -165,7 +164,7 @@ void SdUploadDialog::addFiles(const QStringList& paths) {
     }
     const SdFileCheck check = checkSdFiles(paths);
     if (!check.refused.isEmpty() && refused_) {
-        refused_(refusedText(check.refused));
+        refused_(sdRefusedText(check.refused));
     }
     files_ << check.accepted;
     refresh();
@@ -512,7 +511,7 @@ void SdCardDialog::openUpload() {
 QStringList SdCardDialog::upload(const QStringList& paths) {
     const SdFileCheck check = checkSdFiles(paths);
     if (!check.refused.isEmpty()) {
-        notifications_.add(refusedText(check.refused), NotificationType::Error);
+        notifications_.add(sdRefusedText(check.refused), NotificationType::Error);
     }
     controller::Controller* c = machine_.controller();
     if (!c || check.accepted.isEmpty()) {
