@@ -37,6 +37,16 @@ Item {
         }
     }
 
+    Component {
+        id: pendingTab
+        Label {
+            text: qsTr("Phase 2")
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Theme.contentMuted
+        }
+    }
+
     GridLayout {
         id: grid
         anchors.fill: parent
@@ -85,12 +95,17 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                 }
-                Pending {
-                    objectName: "toolsWidget"
-                    title: qsTr("Tools")
-                    note: qsTr("Probe, macros, spindle, coolant, console - Phase 2")
+                ToolsWidget {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    tabs: [
+                        ToolTab { key: "probe"; label: qsTr("Probe"); component: pendingTab },
+                        ToolTab { key: "macros"; label: qsTr("Macros"); component: pendingTab },
+                        ToolTab { key: "spindle"; label: qsTr("Spindle/Laser"); component: pendingTab },
+                        ToolTab { key: "coolant"; label: qsTr("Coolant"); component: pendingTab },
+                        ToolTab { key: "rotary"; label: qsTr("Rotary"); component: pendingTab },
+                        ToolTab { key: "console"; label: qsTr("Console"); component: ConsoleTab {} }
+                    ]
                 }
             }
             LocationColumn {

@@ -38,6 +38,15 @@ QtObject {
     })
     readonly property color yellow600: "#ca8a04"   // Tailwind's (not overridden)
 
+    // The console's content: always dark, whatever the mode (MessageIcon,
+    // ConsoleList). Sent reads bright, responses sit back, colour marks what
+    // needs attention.
+    readonly property var consoleColors: ({
+        surface: "#090D12", border: Qt.rgba(1, 1, 1, 0.1), rowBorder: Qt.rgba(1, 1, 1, 0.03),
+        gcode: "#F4F7FA", gcodeIcon: "#659dd2", response: "#A0AABA", system: "#37ab87",
+        warning: "#fdba74", error: "#facc15", alarm: "#dc2626"
+    })
+
     // Surfaces.
     readonly property color surfaceBase: dark ? "#151B23" : gray[100]
     readonly property color surfaceSunken: dark ? "#090D12" : gray[200]
