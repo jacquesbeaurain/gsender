@@ -39,6 +39,48 @@ Item {
 
     StepThrough { id: stepThrough }
 
+    // The keyboard shortcuts for this page's screens.
+    Connections {
+        target: Backend
+        function onShortcutTriggered(id) {
+            switch (id) {
+            case "LOAD_FILE":
+                if (fileControl.model.canLoad)
+                    fileControl.load()
+                break
+            case "OPEN_PROBE": {
+                const probe = tools.tabItem("probe")
+                tools.select("probe", null)
+                if (probe)
+                    probe.openRun()
+                break
+            }
+            case "PROBE_ROUTINE_SCROLL_RIGHT":
+            case "PROBE_ROUTINE_SCROLL_LEFT": {
+                const probe = tools.tabItem("probe")
+                if (probe)
+                    probe.model.stepCommand(id.endsWith("RIGHT") ? 1 : -1)
+                break
+            }
+            case "SWITCH_WORKSPACE_MODE": {
+                const rotary = tools.tabItem("rotary")
+                if (rotary)
+                    rotary.toggleMode()
+                break
+            }
+            case "TOGGLE_MOUNTING_SETUP": {
+                const rotary = tools.tabItem("rotary")
+                if (rotary)
+                    rotary.openMounting()
+                break
+            }
+            case "TOGGLE_ROTARY_SURFACING":
+                Backend.openTool("rotarySurfacing")
+                break
+            }
+        }
+    }
+
     GridLayout {
         id: grid
         anchors.fill: parent
@@ -85,6 +127,7 @@ Item {
                 rowSpacing: 4
                 columnSpacing: 4
                 FileControl {
+                    id: fileControl
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onOpenStepThrough: stepThrough.openFile()
@@ -96,6 +139,7 @@ Item {
                     Layout.fillHeight: true
                 }
                 ToolsWidget {
+                    id: tools
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     tabs: [

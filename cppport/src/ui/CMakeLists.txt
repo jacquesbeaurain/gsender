@@ -102,6 +102,8 @@ qt_add_qml_module(gs_ui
         toolpath_item.cpp
         toolpath_item.hpp
         ui_app.cpp
+        ui_shortcuts.cpp
+        ui_shortcuts.hpp
         ui_app.hpp
 )
 

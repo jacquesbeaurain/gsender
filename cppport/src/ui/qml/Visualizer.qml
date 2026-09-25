@@ -22,6 +22,25 @@ Rectangle {
         anchors.fill: parent
     }
 
+    // The visualizer's keyboard shortcuts.
+    Connections {
+        target: Backend
+        function onShortcutTriggered(id) {
+            const views = { VISUALIZER_VIEW_3D: "3d", VISUALIZER_VIEW_TOP: "top", VISUALIZER_VIEW_FRONT: "front",
+                            VISUALIZER_VIEW_RIGHT: "right", VISUALIZER_VIEW_LEFT: "left", VISUALIZER_VIEW_RESET: "3d" }
+            if (views[id])
+                toolpath.setView(views[id])
+            else if (id === "VISUALIZER_VIEW_CYCLE")
+                toolpath.cycleView()
+            else if (id === "VISUALIZER_ZOOM_IN")
+                toolpath.zoomAt(toolpath.width / 2, toolpath.height / 2, 1.25)
+            else if (id === "VISUALIZER_ZOOM_OUT")
+                toolpath.zoomAt(toolpath.width / 2, toolpath.height / 2, 0.8)
+            else if (id === "VISUALIZER_ZOOM_FIT")
+                toolpath.fit()
+        }
+    }
+
     ToolpathGestures {
         anchors.fill: parent
         view: toolpath

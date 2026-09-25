@@ -1,5 +1,8 @@
 #include "ui_app.hpp"
 
+#include "backend.hpp"
+#include "ui_shortcuts.hpp"
+
 #include "icon_provider.hpp"
 
 #include <QDir>
@@ -27,7 +30,11 @@ QQuickWindow* loadMainWindow(QQmlApplicationEngine& engine) {
 #endif
     engine.loadFromModule("GSender", "Main");
     const QList<QObject*> roots = engine.rootObjects();
-    return roots.isEmpty() ? nullptr : qobject_cast<QQuickWindow*>(roots.front());
+    QQuickWindow* window = roots.isEmpty() ? nullptr : qobject_cast<QQuickWindow*>(roots.front());
+    if (window && UiBackend::instance()) {
+        new UiShortcuts(*UiBackend::instance(), *window);  // the window's child
+    }
+    return window;
 }
 
 }  // namespace gs::ui

@@ -47,12 +47,23 @@ const ShortcutAction* findShortcutAction(const std::vector<ShortcutAction>& acti
 // flag dropped.
 QKeyCombination shortcutKey(const QKeyEvent& event);
 
+// Where shortcuts apply: the window (its deactivation releases a held jog),
+// whether a key event is the window's, whether the window is the active one,
+// and whether the focus is in a text field (the keys are its then).
+struct ShortcutScope {
+    QObject* window = nullptr;
+    std::function<bool(QObject* watched)> owns;
+    std::function<bool()> active;
+    std::function<bool()> typing;
+};
+
 class ShortcutManager final : public QObject {
     Q_OBJECT
 
 public:
     // Shortcuts run only while `window` is the active window.
     ShortcutManager(Machine& machine, QWidget& window, QObject* parent = nullptr);
+    ShortcutManager(Machine& machine, ShortcutScope scope, QObject* parent = nullptr);
     ~ShortcutManager() override;
 
     // The effective binding: the user's, else the default.
@@ -89,11 +100,10 @@ private:
     };
 
     void rebuild();
-    bool typingInto(QObject* watched) const;
     const ShortcutAction* action(const QString& id) const;
 
     Machine& machine_;
-    QWidget& window_;
+    ShortcutScope scope_;
     std::vector<ShortcutAction> actions_;  // the table and the macros
     std::map<QString, Handler> handlers_;
     std::function<void(const QString&)> macroHandler_;
