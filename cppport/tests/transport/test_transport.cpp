@@ -13,11 +13,14 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <istream>
 #include <map>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <string>
 #include <thread>
 #include <vector>
@@ -173,10 +176,82 @@ TEST(Transport, RecognizedPortsNeedAKnownVendorAndProduct) {
     EXPECT_FALSE(isRecognizedPort("", ""));
 }
 
-TEST(Transport, ListingPortsReportsComPorts) {
+TEST(Transport, ListingPortsReportsSerialDevices) {
     for (const SerialPortInfo& port : listSerialPorts()) {
+#ifdef _WIN32
         EXPECT_TRUE(port.path.starts_with("COM")) << port.path;
+#else
+        EXPECT_TRUE(port.path.starts_with("/dev/")) << port.path;
+#endif
     }
+}
+
+// A sysfs tree as Linux lays it out: /sys/class/tty/<name>/device links into
+// /sys/devices, where a USB adapter's ids sit on the USB device above the
+// interface.
+TEST(Transport, LinuxPortsAreListedFromSysfs) {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / ("gs_sysfs_" + std::to_string(std::random_device{}()));
+    fs::remove_all(root);
+    const auto write = [](const fs::path& file, const std::string& text) {
+        fs::create_directories(file.parent_path());
+        std::ofstream(file) << text << "\n";
+    };
+    const auto link = [](const fs::path& target, const fs::path& at) {
+        fs::create_directories(at.parent_path());
+        fs::create_directory_symlink(target, at);
+    };
+    const fs::path devices = root / "sys/devices";
+    const fs::path tty = root / "sys/class/tty";
+    try {
+        // CH340 (ttyUSB: interface -> ttyUSB0 port device).
+        const fs::path ch340 = devices / "pci0/usb1/1-1";
+        write(ch340 / "idVendor", "1a86");
+        write(ch340 / "idProduct", "7523");
+        write(ch340 / "product", "USB Serial");
+        fs::create_directories(ch340 / "1-1:1.0/ttyUSB0");
+        link(ch340 / "1-1:1.0/ttyUSB0", tty / "ttyUSB0/device");
+        // Arduino (ttyACM: the interface itself).
+        const fs::path uno = devices / "pci0/usb1/1-2";
+        write(uno / "idVendor", "2341");
+        write(uno / "idProduct", "0043");
+        write(uno / "manufacturer", "Arduino (www.arduino.cc)");
+        fs::create_directories(uno / "1-2:1.0");
+        link(uno / "1-2:1.0", tty / "ttyACM0/device");
+        // An 8250 placeholder, a real UART and a virtual terminal (no device).
+        fs::create_directories(devices / "platform/serial8250");
+        link(devices / "platform/serial8250", tty / "ttyS1/device");
+        fs::create_directories(devices / "pnp0/00:04");
+        link(devices / "pnp0/00:04", tty / "ttyS0/device");
+        fs::create_directories(tty / "tty1");
+        // udev's stable name for the CH340.
+        fs::create_directories(root / "dev/serial/by-id");
+        fs::create_symlink("../../ttyUSB0", root / "dev/serial/by-id/usb-1a86_USB_Serial-if00-port0");
+    } catch (const fs::filesystem_error& e) {
+        fs::remove_all(root);
+        GTEST_SKIP() << "no symbolic links here: " << e.what();
+    }
+
+    const std::vector<SerialPortInfo> ports =
+        listSerialPortsFromSysfs((tty).string(), (root / "dev/serial/by-id").string(), "/dev");
+    fs::remove_all(root);
+    ASSERT_EQ(ports.size(), 3u);
+    EXPECT_EQ(ports[0].path, "/dev/ttyACM0");
+    EXPECT_EQ(ports[0].vendorId, "2341");
+    EXPECT_EQ(ports[0].productId, "0043");
+    EXPECT_EQ(ports[0].manufacturer, "Arduino (www.arduino.cc)");
+    EXPECT_EQ(ports[0].friendlyName, "ttyACM0 (ttyACM0)");
+    EXPECT_EQ(ports[0].pnpId, "");
+    EXPECT_TRUE(isRecognizedPort(ports[0].vendorId, ports[0].productId));
+    EXPECT_EQ(ports[1].path, "/dev/ttyS0");
+    EXPECT_EQ(ports[1].vendorId, "");
+    EXPECT_FALSE(isRecognizedPort(ports[1].vendorId, ports[1].productId));
+    EXPECT_EQ(ports[2].path, "/dev/ttyUSB0");
+    EXPECT_EQ(ports[2].vendorId, "1A86");
+    EXPECT_EQ(ports[2].productId, "7523");
+    EXPECT_EQ(ports[2].friendlyName, "USB Serial (ttyUSB0)");
+    EXPECT_EQ(ports[2].pnpId, "usb-1a86_USB_Serial-if00-port0");
+    EXPECT_TRUE(isRecognizedPort(ports[2].vendorId, ports[2].productId));
 }
 
 // ---- the link --------------------------------------------------------------------------

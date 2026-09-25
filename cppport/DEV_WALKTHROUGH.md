@@ -360,8 +360,8 @@ The store takes any path; the application picks one.
   lost to the peer or an I/O error reports `onClosed`; `close()` is silent.
 - `listSerialPorts()` enumerates COM ports with SetupAPI (manufacturer,
   friendly name, PnP id, USB vendor/product ids); `isRecognizedPort()` applies
-  the engine's vendor/product allow-lists. Linux/macOS enumeration is not
-  written yet.
+  the engine's vendor/product allow-lists. On Linux the ports come from
+  sysfs (Step 58); macOS enumeration is not written yet.
 
 Tests (`tests/transport`, their own executable) run the link over loopback
 TCP, including feeding a `Session` that identifies Grbl from its banner.
@@ -1684,5 +1684,16 @@ off) and `-Wshadow` (a lambda parameter named `info` inside
 window takes the 1200 px width it is given; with Linux's wider fonts its
 minimum is larger, so the test checks that the grab has the window's width.
 
-On Linux serial ports are not listed yet (the simulator and network boards
-work), power saving does nothing and the audio cues are the system beep.
+Serial ports are listed from sysfs as node-serialport's Linux listing
+reports them (`listSerialPortsFromSysfs`): the tty devices named ttyS,
+ttyUSB, ttyACM, ttyAMA... that have a device behind them, as `/dev/<name>`;
+a USB adapter's vendor and product ids, manufacturer and product from the
+USB device above its interface; the pnpId is the device's
+`/dev/serial/by-id` name. It reads sysfs rather than `udevadm info -e`, so
+the manufacturer is the device's own string (node-serialport prefers udev's
+hardware database name), and it leaves out the ttyS placeholders the kernel
+creates for 8250 UARTs that are not fitted (node-serialport lists them all).
+A test lays out a sysfs tree with a CH340, an Arduino, a placeholder, a real
+UART and a virtual terminal. Opening a real board on Linux still needs a
+human with hardware. Power saving does nothing on Linux and the audio cues
+are the system beep.

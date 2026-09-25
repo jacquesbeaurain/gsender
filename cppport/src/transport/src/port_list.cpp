@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
+#include <fstream>
+#include <map>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -73,6 +76,24 @@ std::string portName(HDEVINFO devices, SP_DEVINFO_DATA& device) {
 }
 #endif
 
+namespace fs = std::filesystem;
+
+// The first line of a sysfs attribute file; empty when it is missing.
+std::string readAttribute(const fs::path& file) {
+    std::ifstream in(file);
+    std::string line;
+    std::getline(in, line);
+    return std::string(str::trim(line));
+}
+
+// node-serialport's Linux listing (bindings-cpp linux-list.ts) keeps the
+// tty devices named like this.
+bool isSerialName(std::string_view name) {
+    constexpr std::array<std::string_view, 9> kPrefixes{"ttyS",  "ttyWCH", "ttyACM", "ttyUSB",   "ttyAMA",
+                                                        "ttyMFD", "ttyO",  "ttyXRUSB", "rfcomm"};
+    return std::any_of(kPrefixes.begin(), kPrefixes.end(), [name](std::string_view p) { return name.starts_with(p); });
+}
+
 }  // namespace
 
 std::string usbId(std::string_view pnpId, std::string_view key) {
@@ -123,7 +144,59 @@ std::vector<SerialPortInfo> listSerialPorts() {
         ports.push_back(std::move(info));
     }
     SetupDiDestroyDeviceInfoList(devices);
+#elif defined(__linux__)
+    ports = listSerialPortsFromSysfs("/sys/class/tty", "/dev/serial/by-id", "/dev");
 #endif
+    return ports;
+}
+
+std::vector<SerialPortInfo> listSerialPortsFromSysfs(const std::string& ttyClassDir, const std::string& byIdDir,
+                                                     const std::string& devDir) {
+    std::error_code error;
+    // /dev/serial/by-id/<name> -> ../../ttyUSB0: udev's stable names, which
+    // node-serialport reports as the pnpId.
+    std::map<std::string, std::string> byId;
+    for (const fs::directory_entry& link : fs::directory_iterator(byIdDir, error)) {
+        const fs::path target = fs::read_symlink(link.path(), error);
+        if (!error) {
+            byId[target.filename().string()] = link.path().filename().string();
+        }
+    }
+    std::vector<SerialPortInfo> ports;
+    for (const fs::directory_entry& entry : fs::directory_iterator(ttyClassDir, error)) {
+        const std::string name = entry.path().filename().string();
+        const fs::path device = fs::canonical(entry.path() / "device", error);
+        // Virtual terminals and pseudo terminals have no device behind them.
+        if (error || !isSerialName(name)) {
+            error.clear();
+            continue;
+        }
+        // The kernel creates ttyS0..31 for 8250 UARTs whether or not one is
+        // fitted; those placeholders hang off the serial8250 platform device.
+        if (name.starts_with("ttyS") && device.filename() == "serial8250") {
+            continue;
+        }
+        SerialPortInfo info;
+        info.path = (fs::path(devDir) / name).string();
+        if (const auto it = byId.find(name); it != byId.end()) {
+            info.pnpId = it->second;
+        }
+        // A USB adapter's ids are on the USB device, the interface's parent
+        // (ttyACM) or grandparent (ttyUSB).
+        for (fs::path dir = device; dir.has_relative_path() && dir != dir.parent_path(); dir = dir.parent_path()) {
+            if (fs::exists(dir / "idVendor", error)) {
+                info.vendorId = str::toUpper(readAttribute(dir / "idVendor"));
+                info.productId = str::toUpper(readAttribute(dir / "idProduct"));
+                info.manufacturer = readAttribute(dir / "manufacturer");
+                const std::string product = readAttribute(dir / "product");
+                info.friendlyName = (product.empty() ? name : product) + " (" + name + ")";
+                break;
+            }
+        }
+        ports.push_back(std::move(info));
+    }
+    std::sort(ports.begin(), ports.end(),
+              [](const SerialPortInfo& a, const SerialPortInfo& b) { return a.path < b.path; });
     return ports;
 }
 
