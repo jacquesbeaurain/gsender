@@ -294,11 +294,11 @@ fixes until it is retired.
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
-- **The QML touch UI** (Steps 61-63): Phases 0 (shell, theme, visualizer,
-  tests), 1 (the Carve page's essentials) and 2 (the tool area, tool
-  changes, Step Through, the editor, shortcuts) are done; Phases 3-4 port
-  the Stats, Tools and Config pages and the remaining dialogs, then retire
-  the widget UI.
+- **The QML touch UI** (Steps 61-64): Phases 0 (shell, theme, visualizer,
+  tests), 1 (the Carve page's essentials), 2 (the tool area, tool changes,
+  Step Through, the editor, shortcuts) and 3 (the Stats, Tools and Config
+  pages, the keyboard map) are done; Phase 4 makes it the application and
+  retires the widget UI.
 
 - **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
   has no Qt Gamepad - and hardware to verify.
