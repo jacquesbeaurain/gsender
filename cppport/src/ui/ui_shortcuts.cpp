@@ -38,6 +38,7 @@ UiShortcuts::UiShortcuts(UiBackend& backend, QQuickWindow& window) : QObject(&wi
     manager_ = new app::ShortcutManager(backend_.machine(), std::move(scope), this);
     spindle_ = new SpindleModel(this);
     install();
+    backend_.setShortcutManager(manager_);  // the keyboard map
 }
 
 void UiShortcuts::install() {

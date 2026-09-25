@@ -3,6 +3,7 @@
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
+#include "shortcuts.hpp"
 
 #include "gs/controller/actions.hpp"
 #include "gs/controller/controller.hpp"
@@ -199,6 +200,50 @@ bool UiBackend::coolantFunctions() const {
 
 bool UiBackend::rotaryTab() const {
     return machine_.settings().rotary.showControls;
+}
+
+bool UiBackend::keyboardMap() const {
+    return machine_.settings().accessibility.showKeyboardMap;
+}
+
+void UiBackend::setKeyboardMap(bool shown) {
+    if (shown != keyboardMap()) {
+        app::AppSettings settings = machine_.settings();
+        settings.accessibility.showKeyboardMap = shown;
+        machine_.setSettings(settings);
+    }
+}
+
+bool UiBackend::shortcutsEnabled() const {
+    return machine_.settings().shortcutsEnabled;
+}
+
+void UiBackend::setShortcutManager(app::ShortcutManager* manager) {
+    shortcuts_ = manager;
+}
+
+QVariantList UiBackend::activeShortcuts() const {
+    QVariantList list;
+    if (!shortcuts_) {
+        return list;
+    }
+    // Upstream's order of the categories.
+    static const char* const kCategories[] = {"General", "Location",  "Jogging",    "Spindle/Laser",
+                                              "Coolant", "Carving",   "Toolbar",    "Visualizer",
+                                              "Macros",  "Overrides", "Probing"};
+    const std::vector<app::ShortcutManager::ActiveShortcut> active = shortcuts_->activeShortcuts();
+    for (const char* category : kCategories) {
+        QVariantList shortcuts;
+        for (const app::ShortcutManager::ActiveShortcut& shortcut : active) {
+            if (shortcut.category == QLatin1String(category)) {
+                shortcuts.append(QVariantMap{{"title", shortcut.title}, {"keys", shortcut.keys}});
+            }
+        }
+        if (!shortcuts.isEmpty()) {
+            list.append(QVariantMap{{"category", QString::fromLatin1(category)}, {"shortcuts", shortcuts}});
+        }
+    }
+    return list;
 }
 
 bool UiBackend::darkMode() const {

@@ -9,6 +9,7 @@
 
 #include <QColor>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -21,6 +22,7 @@ namespace gs::app {
 class Jogger;
 class Machine;
 class NotificationCenter;
+class ShortcutManager;
 }
 
 namespace gs::ui {
@@ -61,6 +63,10 @@ class UiBackend final : public QObject {
     Q_PROPERTY(QString helperTitle READ helperTitle NOTIFY helperChanged)
     Q_PROPERTY(QString helperText READ helperText NOTIFY helperChanged)  // rich text
     Q_PROPERTY(QString helperLink READ helperLink NOTIFY helperChanged)
+    // Accessibility's "Show keyboard shortcut map": the overlay of the
+    // shortcuts that work now; whether shortcuts are on at all.
+    Q_PROPERTY(bool keyboardMap READ keyboardMap WRITE setKeyboardMap NOTIFY appSettingsChanged)
+    Q_PROPERTY(bool shortcutsEnabled READ shortcutsEnabled NOTIFY appSettingsChanged)
 
 public:
     explicit UiBackend(app::Machine& machine, QObject* parent = nullptr);
@@ -97,6 +103,14 @@ public:
     QString helperText() const { return helperText_; }
     QString helperLink() const { return helperLink_; }
     app::NotificationCenter& notificationCenter() noexcept { return *notifications_; }
+    bool keyboardMap() const;
+    void setKeyboardMap(bool shown);
+    bool shortcutsEnabled() const;
+    // The window's shortcuts (UiShortcuts registers them).
+    void setShortcutManager(app::ShortcutManager* manager);
+    // The shortcuts that work now, by upstream's categories:
+    // [{category, shortcuts: [{title, keys}]}].
+    Q_INVOKABLE QVariantList activeShortcuts() const;
 
     // The built-in simulated boards (the connection popup's last entries).
     Q_INVOKABLE void connectSimulator(bool grblHal = false);
@@ -143,6 +157,7 @@ private:
     app::Machine& machine_;
     app::Jogger* jogger_;                      // a child
     app::NotificationCenter* notifications_;   // a child
+    QPointer<app::ShortcutManager> shortcuts_;  // the window's
     bool helperVisible_ = false;
     QString helperTitle_;
     QString helperText_;
