@@ -101,9 +101,15 @@ Item {
                     tabs: [
                         ToolTab { key: "probe"; label: qsTr("Probe"); component: pendingTab },
                         ToolTab { key: "macros"; label: qsTr("Macros"); component: pendingTab },
-                        ToolTab { key: "spindle"; label: qsTr("Spindle/Laser"); component: pendingTab },
-                        ToolTab { key: "coolant"; label: qsTr("Coolant"); component: pendingTab },
-                        ToolTab { key: "rotary"; label: qsTr("Rotary"); component: pendingTab },
+                        ToolTab {
+                            key: "spindle"; label: qsTr("Spindle/Laser"); shown: Backend.spindleFunctions
+                            component: SpindleTab {}
+                        },
+                        ToolTab {
+                            key: "coolant"; label: qsTr("Coolant"); shown: Backend.coolantFunctions
+                            component: CoolantTab {}
+                        },
+                        ToolTab { key: "rotary"; label: qsTr("Rotary"); shown: Backend.rotaryTab; component: pendingTab },
                         ToolTab { key: "console"; label: qsTr("Console"); component: ConsoleTab {} }
                     ]
                 }

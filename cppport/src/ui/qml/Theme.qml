@@ -36,6 +36,11 @@ QtObject {
     readonly property var purple: ({
         50: "#EEEDFE", 100: "#CECBF6", 200: "#AFA9EC", 400: "#7F77DD", 600: "#534AB7"
     })
+    // Upstream's robin (the secondary buttons' border, the active glow).
+    readonly property var robin: ({
+        100: "#ecf2f8", 200: "#c7d9eb", 300: "#a1c0dd", 400: "#7ca7d0", 500: "#689AC9",
+        600: "#568ec3", 700: "#3c74a9"
+    })
     readonly property color yellow600: "#ca8a04"   // Tailwind's (not overridden)
 
     // The console's content: always dark, whatever the mode (MessageIcon,

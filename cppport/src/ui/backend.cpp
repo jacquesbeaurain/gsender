@@ -188,6 +188,18 @@ QString UiBackend::programName() const {
     return machine_.programName();
 }
 
+bool UiBackend::spindleFunctions() const {
+    return machine_.settings().spindleFunctions;
+}
+
+bool UiBackend::coolantFunctions() const {
+    return machine_.settings().coolantFunctions;
+}
+
+bool UiBackend::rotaryTab() const {
+    return machine_.settings().rotary.showControls;
+}
+
 bool UiBackend::darkMode() const {
     return machine_.settings().darkMode;
 }
