@@ -56,8 +56,8 @@ QVariantMap chart(const std::vector<std::pair<std::string, double>>& perPort) {
 }
 
 // MaintenancePreview: the upcoming tasks with their reminder.
-QVariantList preview(const std::vector<config::MaintenanceTask>& tasks, std::size_t limit) {
-    QVariantList list;
+std::vector<StatsModel::UpcomingRow> preview(const std::vector<config::MaintenanceTask>& tasks, std::size_t limit) {
+    std::vector<StatsModel::UpcomingRow> list;
     for (const config::MaintenanceTask& task : config::upcomingMaintenance(tasks, limit)) {
         QString word;
         QString color;
@@ -67,10 +67,7 @@ QVariantList preview(const std::vector<config::MaintenanceTask>& tasks, std::siz
             case config::MaintenanceDue::Soon: word = QObject::tr("Soon"); color = "#689AC9"; break;
             case config::MaintenanceDue::Low: word = QObject::tr("Low"); color = "#059669"; break;
         }
-        list.append(QVariantMap{{"name", qs(task.name)},
-                                {"hours", QObject::tr("%1 hrs").arg(number(config::hoursUntilDue(task)))},
-                                {"word", word},
-                                {"color", color}});
+        list.push_back({qs(task.name), QObject::tr("%1 hrs").arg(number(config::hoursUntilDue(task))), word, color});
     }
     return list;
 }
@@ -78,6 +75,58 @@ QVariantList preview(const std::vector<config::MaintenanceTask>& tasks, std::siz
 }  // namespace
 
 StatsModel::StatsModel(QObject* parent) : UiModelBase(parent) {
+    statRowsModel_.setRoles({
+        {Qt::UserRole + 1, "label", [](const StatRow& r) { return r.label; }},
+        {Qt::UserRole + 2, "value", [](const StatRow& r) { return r.value; }},
+    });
+    recentJobsModel_.setRoles({
+        {Qt::UserRole + 1, "file", [](const RecentJobRow& r) { return r.file; }},
+        {Qt::UserRole + 2, "duration", [](const RecentJobRow& r) { return r.duration; }},
+        {Qt::UserRole + 3, "complete", [](const RecentJobRow& r) { return r.complete; }},
+    });
+    configurationModel_.setRoles({
+        {Qt::UserRole + 1, "label", [](const ConfigRow& r) { return r.label; }},
+        {Qt::UserRole + 2, "value", [](const ConfigRow& r) { return r.value; }},
+    });
+    alarmPreviewModel_.setRoles({
+        {Qt::UserRole + 1, "alarm", [](const AlarmPreviewRow& r) { return r.alarm; }},
+        {Qt::UserRole + 2, "what", [](const AlarmPreviewRow& r) { return r.what; }},
+        {Qt::UserRole + 3, "when", [](const AlarmPreviewRow& r) { return r.when; }},
+    });
+    jobsModel_.setRoles({
+        {Qt::UserRole + 1, "file", [](const JobRow& r) { return r.file; }},
+        {Qt::UserRole + 2, "path", [](const JobRow& r) { return r.path; }},
+        {Qt::UserRole + 3, "duration", [](const JobRow& r) { return r.duration; }},
+        {Qt::UserRole + 4, "durationMs", [](const JobRow& r) { return r.durationMs; }},
+        {Qt::UserRole + 5, "lines", [](const JobRow& r) { return r.lines; }},
+        {Qt::UserRole + 6, "start", [](const JobRow& r) { return r.start; }},
+        {Qt::UserRole + 7, "complete", [](const JobRow& r) { return r.complete; }},
+        {Qt::UserRole + 8, "search", [](const JobRow& r) { return r.search; }},
+    });
+    tasksModel_.setRoles({
+        {Qt::UserRole + 1, "id", [](const TaskRow& r) { return r.id; }},
+        {Qt::UserRole + 2, "name", [](const TaskRow& r) { return r.name; }},
+        {Qt::UserRole + 3, "description", [](const TaskRow& r) { return r.description; }},
+        {Qt::UserRole + 4, "state", [](const TaskRow& r) { return r.state; }},
+        {Qt::UserRole + 5, "hours", [](const TaskRow& r) { return r.hours; }},
+        {Qt::UserRole + 6, "search", [](const TaskRow& r) { return r.search; }},
+    });
+    const auto upcomingRoles = std::vector<StructListModel<UpcomingRow>::Role>{
+        {Qt::UserRole + 1, "name", [](const UpcomingRow& r) { return r.name; }},
+        {Qt::UserRole + 2, "hours", [](const UpcomingRow& r) { return r.hours; }},
+        {Qt::UserRole + 3, "word", [](const UpcomingRow& r) { return r.word; }},
+        {Qt::UserRole + 4, "color", [](const UpcomingRow& r) { return r.color; }},
+    };
+    upcomingModel_.setRoles(upcomingRoles);
+    upcomingMoreModel_.setRoles(upcomingRoles);
+    alarmsModel_.setRoles({
+        {Qt::UserRole + 1, "alarm", [](const AlarmRow& r) { return r.alarm; }},
+        {Qt::UserRole + 2, "title", [](const AlarmRow& r) { return r.title; }},
+        {Qt::UserRole + 3, "time", [](const AlarmRow& r) { return r.time; }},
+        {Qt::UserRole + 4, "message", [](const AlarmRow& r) { return r.message; }},
+        {Qt::UserRole + 5, "line", [](const AlarmRow& r) { return r.line; }},
+    });
+
     // Bursts (a connection's settings, a job's end) are gathered into one.
     refresh_ = new QTimer(this);
     refresh_->setSingleShot(true);
@@ -89,6 +138,16 @@ StatsModel::StatsModel(QObject* parent) : UiModelBase(parent) {
     }
     reload();
 }
+
+QVariantList StatsModel::statRows() const { return statRowsModel_.toVariantList(); }
+QVariantList StatsModel::recentJobs() const { return recentJobsModel_.toVariantList(); }
+QVariantList StatsModel::configuration() const { return configurationModel_.toVariantList(); }
+QVariantList StatsModel::alarmPreview() const { return alarmPreviewModel_.toVariantList(); }
+QVariantList StatsModel::jobs() const { return jobsModel_.toVariantList(); }
+QVariantList StatsModel::tasks() const { return tasksModel_.toVariantList(); }
+QVariantList StatsModel::upcoming() const { return upcomingModel_.toVariantList(); }
+QVariantList StatsModel::upcomingMore() const { return upcomingMoreModel_.toVariantList(); }
+QVariantList StatsModel::alarms() const { return alarmsModel_.toVariantList(); }
 
 void StatsModel::reload() {
     config::ConfigStore& store = machine_.config();
@@ -105,24 +164,26 @@ void StatsModel::reload() {
     const config::JobResults results = config::calculateJobStats(portJobs);
     completeJobs_ = results.completeJobs;
     incompleteJobs_ = results.incompleteJobs;
-    const auto row = [isConnected](const QString& label, const QString& value) {
-        return QVariantMap{{"label", label}, {"value", isConnected ? value : QStringLiteral("-")}};
+    const auto row = [isConnected](const QString& label, const QString& value) -> ConfigRow {
+        return {label, isConnected ? value : QStringLiteral("-")};
     };
-    statRows_ = {
-        row(tr("Total jobs run"), QString::number(results.completeJobs + results.incompleteJobs)),
-        row(tr("Total cutting time"), qs(config::statTimeString(results.totalCutTime))),
-        row(tr("Average job time"), qs(config::statTimeString(results.averageCutTime))),
-        row(tr("Longest job"), qs(config::statTimeString(results.longestCutTime))),
+    const auto statRow = [isConnected](const QString& label, const QString& value) -> StatRow {
+        return {label, isConnected ? value : QStringLiteral("-")};
     };
+    statRowsModel_.reset({
+        statRow(tr("Total jobs run"), QString::number(results.completeJobs + results.incompleteJobs)),
+        statRow(tr("Total cutting time"), qs(config::statTimeString(results.totalCutTime))),
+        statRow(tr("Average job time"), qs(config::statTimeString(results.averageCutTime))),
+        statRow(tr("Longest job"), qs(config::statTimeString(results.longestCutTime))),
+    });
 
     // Recent Jobs: the last five, whatever the port.
-    recentJobs_.clear();
+    std::vector<RecentJobRow> recentJobs;
     int shown = 0;
     for (auto it = stats.jobs.rbegin(); it != stats.jobs.rend() && shown < 5; ++it, ++shown) {
-        recentJobs_.append(QVariantMap{{"file", qs(it->file)},
-                                       {"duration", qs(config::previewDuration(static_cast<double>(it->duration)))},
-                                       {"complete", it->completed}});
+        recentJobs.push_back({qs(it->file), qs(config::previewDuration(static_cast<double>(it->duration))), it->completed});
     }
+    recentJobsModel_.reset(std::move(recentJobs));
 
     // Configuration.
     const config::MachineProfile& machineProfile = machine_.machineProfile();
@@ -141,26 +202,27 @@ void StatsModel::reload() {
         }
         axes = list.join(", ");
     }
-    configuration_ = {
+    configurationModel_.reset({
         row(tr("Connection"), connection),
         row(tr("Axes"), axes),
         row(tr("Soft limits"), enabled(setting("$20") == "1")),
         row(tr("Homing"), enabled(js::stringToNumber(setting("$22")) > 0)),
         row(tr("Home location"), qs(controller::homingString(setting("$23")))),
         row(tr("Report inches"), enabled(setting("$13") == "1")),
-    };
+    });
 
     // Alarms & Errors: the latest four.
-    alarmPreview_.clear();
+    std::vector<AlarmPreviewRow> alarmPreview;
     for (std::size_t i = 0; i < alarms.size() && i < 4; ++i) {
         const config::AlarmRecord& alarm = alarms[i];
-        alarmPreview_.append(QVariantMap{{"alarm", alarm.alarm},
-                                         {"what", QString("%1 %2").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code))},
-                                         {"when", tr("on %1").arg(qs(config::isoTime(alarm.time)))}});
+        alarmPreview.push_back({alarm.alarm,
+                                QString("%1 %2").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code)),
+                                tr("on %1").arg(qs(config::isoTime(alarm.time)))});
     }
+    alarmPreviewModel_.reset(std::move(alarmPreview));
 
     // Jobs, newest first.
-    jobs_.clear();
+    std::vector<JobRow> jobList;
     for (auto it = stats.jobs.rbegin(); it != stats.jobs.rend(); ++it) {
         const config::JobRecord& job = *it;
         // What the search looks through: the records' values (includesString).
@@ -169,24 +231,26 @@ void StatsModel::reload() {
                                            job.completed ? "COMPLETE" : "STOPPED"}
                                    .join('\n')
                                    .toLower();
-        jobs_.append(QVariantMap{
-            {"file", qs(job.file)},
-            {"path", qs(job.path)},
-            {"duration", qs(util::millisecondsToTimeStamp(static_cast<double>(job.duration)))},
-            {"durationMs", static_cast<double>(job.duration)},
-            {"lines", static_cast<int>(job.totalLines)},
-            {"start", enUsDateTime(job.startTime)},
-            {"complete", job.completed},
-            {"search", search},
+        jobList.push_back({
+            qs(job.file),
+            qs(job.path),
+            qs(util::millisecondsToTimeStamp(static_cast<double>(job.duration))),
+            static_cast<double>(job.duration),
+            static_cast<int>(job.totalLines),
+            enUsDateTime(job.startTime),
+            job.completed,
+            search,
         });
     }
+    jobsModel_.reset(std::move(jobList));
+
     // Per CNC, the ports as the newest jobs first meet them.
     const std::vector<config::JobRecord> newestFirst(stats.jobs.rbegin(), stats.jobs.rend());
     jobsPerCnc_ = chart(config::jobsPerPort(newestFirst));
     runTimePerCnc_ = chart(config::runTimePerPort(newestFirst));
 
     // Maintenance.
-    tasks_.clear();
+    std::vector<TaskRow> taskRows;
     for (const config::MaintenanceTask& task : config::maintenanceListOrder(tasks)) {
         // determineTime(): the hours until due, "Due", or urgent.
         QString state = "urgent";
@@ -197,31 +261,33 @@ void StatsModel::reload() {
         } else if (task.currentTime <= task.rangeEnd) {
             state = "due";
         }
-        tasks_.append(QVariantMap{
-            {"id", task.id},
-            {"name", qs(task.name)},
-            {"description", qs(task.description)},
-            {"state", state},
-            {"hours", hours},
-            {"search", QStringList{state == "due" ? tr("Due") : hours, qs(task.name), qs(task.description)}
-                           .join('\n')
-                           .toLower()},
+        taskRows.push_back({
+            task.id,
+            qs(task.name),
+            qs(task.description),
+            state,
+            hours,
+            QStringList{state == "due" ? tr("Due") : hours, qs(task.name), qs(task.description)}
+                .join('\n')
+                .toLower(),
         });
     }
-    upcoming_ = preview(tasks, 3);
-    upcomingMore_ = preview(tasks, 6);
+    tasksModel_.reset(std::move(taskRows));
+    upcomingModel_.reset(preview(tasks, 3));
+    upcomingMoreModel_.reset(preview(tasks, 6));
 
     // Alarms, newest first.
-    alarms_.clear();
+    std::vector<AlarmRow> alarmRows;
     for (const config::AlarmRecord& alarm : alarms) {
-        alarms_.append(QVariantMap{
-            {"alarm", alarm.alarm},
-            {"title", QString("%1 %2 - %3").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code), qs(alarm.source))},
-            {"time", tr("at %1").arg(enUsDateTime(alarm.time))},
-            {"message", alarm.message.empty() ? tr("No associated message") : qs(alarm.message)},
-            {"line", qs(alarm.line)},
+        alarmRows.push_back({
+            alarm.alarm,
+            QString("%1 %2 - %3").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code), qs(alarm.source)),
+            tr("at %1").arg(enUsDateTime(alarm.time)),
+            alarm.message.empty() ? tr("No associated message") : qs(alarm.message),
+            qs(alarm.line),
         });
     }
+    alarmsModel_.reset(std::move(alarmRows));
     Q_EMIT changed();
 }
 

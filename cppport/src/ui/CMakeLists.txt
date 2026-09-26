@@ -177,6 +177,8 @@ qt_add_qml_module(gs_ui
         ui_model_base.hpp
         wizard_model_base.cpp
         wizard_model_base.hpp
+        struct_list_model.cpp
+        struct_list_model.hpp
 )
 
 # Upstream's pictures (the probe routines' GIFs, the rotary tracks).
