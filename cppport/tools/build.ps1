@@ -151,7 +151,7 @@ try {
         $timer = [Diagnostics.Stopwatch]::StartNew()
         $runs = @()
         foreach ($exe in Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe') {
-            $shards = if ($exe.BaseName -eq 'gs_app_tests') { [Math]::Max(1, $AppShards) } else { 1 }
+            $shards = if ($exe.BaseName -eq 'gs_app_tests' -or $exe.BaseName -eq 'gs_ui_tests') { [Math]::Max(1, $AppShards) } else { 1 }
             for ($i = 0; $i -lt $shards; $i++) {
                 $info = [Diagnostics.ProcessStartInfo]::new($exe.FullName)
                 foreach ($arg in $gtestArgs) { $info.ArgumentList.Add($arg) }
