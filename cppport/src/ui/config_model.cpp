@@ -126,6 +126,76 @@ Pref selectPref(QString key, QString label, QString description, QStringList opt
     return p;
 }
 
+
+// Member-pointer binding helpers for AppSettings properties
+
+inline Pref bindBool(QString key, QString label, QString description, bool app::AppSettings::*field) {
+    return boolPref(std::move(key), std::move(label), std::move(description),
+                    [field](const ConfigModel&, const Staged& st) { return QVariant(st.s.*field); },
+                    [field](ConfigModel&, Staged& st, const QVariant& v) { st.s.*field = v.toBool(); });
+}
+
+template <typename Sub>
+inline Pref bindBool(QString key, QString label, QString description, Sub app::AppSettings::*sub, bool Sub::*field) {
+    return boolPref(std::move(key), std::move(label), std::move(description),
+                    [sub, field](const ConfigModel&, const Staged& st) { return QVariant((st.s.*sub).*field); },
+                    [sub, field](ConfigModel&, Staged& st, const QVariant& v) { (st.s.*sub).*field = v.toBool(); });
+}
+
+template <typename Sub, typename Sub2>
+inline Pref bindBool(QString key, QString label, QString description, Sub app::AppSettings::*sub, Sub2 Sub::*sub2, bool Sub2::*field) {
+    return boolPref(std::move(key), std::move(label), std::move(description),
+                    [sub, sub2, field](const ConfigModel&, const Staged& st) { return QVariant(((st.s.*sub).*sub2).*field); },
+                    [sub, sub2, field](ConfigModel&, Staged& st, const QVariant& v) { ((st.s.*sub).*sub2).*field = v.toBool(); });
+}
+
+
+inline Pref bindInt(QString key, QString label, QString description, int min, int max, QString unit, int app::AppSettings::*field) {
+    return numberPref(std::move(key), std::move(label), std::move(description), min, max, 0, std::move(unit),
+                      [field](const ConfigModel&, const Staged& st) { return QVariant(st.s.*field); },
+                      [field](ConfigModel&, Staged& st, const QVariant& v) { st.s.*field = v.toInt(); });
+}
+
+template <typename Sub>
+inline Pref bindInt(QString key, QString label, QString description, int min, int max, QString unit, Sub app::AppSettings::*sub, int Sub::*field) {
+    return numberPref(std::move(key), std::move(label), std::move(description), min, max, 0, std::move(unit),
+                      [sub, field](const ConfigModel&, const Staged& st) { return QVariant((st.s.*sub).*field); },
+                      [sub, field](ConfigModel&, Staged& st, const QVariant& v) { (st.s.*sub).*field = v.toInt(); });
+}
+
+inline Pref bindDouble(QString key, QString label, QString description, double min, double max, int decimals, QString unit, double app::AppSettings::*field) {
+    return numberPref(std::move(key), std::move(label), std::move(description), min, max, decimals, std::move(unit),
+                      [field](const ConfigModel&, const Staged& st) { return QVariant(st.s.*field); },
+                      [field](ConfigModel&, Staged& st, const QVariant& v) { st.s.*field = v.toDouble(); });
+}
+
+template <typename Sub>
+inline Pref bindDouble(QString key, QString label, QString description, double min, double max, int decimals, QString unit, Sub app::AppSettings::*sub, double Sub::*field) {
+    return numberPref(std::move(key), std::move(label), std::move(description), min, max, decimals, std::move(unit),
+                      [sub, field](const ConfigModel&, const Staged& st) { return QVariant((st.s.*sub).*field); },
+                      [sub, field](ConfigModel&, Staged& st, const QVariant& v) { (st.s.*sub).*field = v.toDouble(); });
+}
+
+template <typename Sub, typename Sub2>
+inline Pref bindDouble(QString key, QString label, QString description, double min, double max, int decimals, QString unit, Sub app::AppSettings::*sub, Sub2 Sub::*sub2, double Sub2::*field) {
+    return numberPref(std::move(key), std::move(label), std::move(description), min, max, decimals, std::move(unit),
+                      [sub, sub2, field](const ConfigModel&, const Staged& st) { return QVariant(((st.s.*sub).*sub2).*field); },
+                      [sub, sub2, field](ConfigModel&, Staged& st, const QVariant& v) { ((st.s.*sub).*sub2).*field = v.toDouble(); });
+}
+
+inline Pref bindString(QString key, QString label, QString description, QStringList options, std::string app::AppSettings::*field) {
+    return selectPref(std::move(key), std::move(label), std::move(description), std::move(options),
+                      [field](const ConfigModel&, const Staged& st) { return QVariant(QString::fromStdString(st.s.*field)); },
+                      [field](ConfigModel&, Staged& st, const QVariant& v) { st.s.*field = v.toString().toStdString(); });
+}
+
+template <typename Sub>
+inline Pref bindString(QString key, QString label, QString description, QStringList options, Sub app::AppSettings::*sub, std::string Sub::*field) {
+    return selectPref(std::move(key), std::move(label), std::move(description), std::move(options),
+                      [sub, field](const ConfigModel&, const Staged& st) { return QVariant(QString::fromStdString((st.s.*sub).*field)); },
+                      [sub, field](ConfigModel&, Staged& st, const QVariant& v) { (st.s.*sub).*field = v.toString().toStdString(); });
+}
+
 Pref withType(Pref p, QString type) {
     p.type = std::move(type);
     return p;
@@ -274,9 +344,9 @@ void ConfigModel::buildMenu() {
     basics.push_back(add(selectPref("units", tr("Carve screen units"),
                                     tr("What units would you like gSender to show you?"), {"mm", "in"},
                                     GETTER(QString(s.metric ? "mm" : "in")), SETTER(s.metric = v.toString() == "mm"))));
-    basics.push_back(add(boolPref("autoReconnect", tr("Reconnect automatically"),
+    basics.push_back(add(bindBool("autoReconnect", tr("Reconnect automatically"),
                                   tr("Automatically reconnect to the last machine you used when you open gSender."),
-                                  GETTER(s.autoReconnect), SETTER(s.autoReconnect = v.toBool()))));
+                                  &app::AppSettings::autoReconnect)));
     basics.push_back(add(selectPref(
         "defaultFirmware", tr("Firmware fallback"),
         tr("Assumed when a connected board does not identify itself"), {"Grbl", "grblHAL"},
@@ -298,45 +368,39 @@ void ConfigModel::buildMenu() {
         tr("Detailed follows the toolpath's hull; Square its box; Rapidless Square the box of its cutting moves"),
         outlineModes, GETTER(QString::fromUtf8(job::outlineModeName(s.outlineMode).data())),
         SETTER(s.outlineMode = job::outlineModeFromName(v.toString().toStdString()).value_or(s.outlineMode)))));
-    basics.push_back(add(numberPref("outlineSpeed", tr("Outline speed"),
+    basics.push_back(add(bindDouble("outlineSpeed", tr("Outline speed"),
                                     tr("The outline's feed rate; 0 moves at rapid (G0)."), 0, 20000, 0, "mm/min",
-                                    GETTER(s.outlineSpeed), SETTER(s.outlineSpeed = v.toDouble()))));
-    basics.push_back(add(boolPref("revertWorkspace", tr("Revert workspace"),
+                                    &app::AppSettings::outlineSpeed)));
+    basics.push_back(add(bindBool("revertWorkspace", tr("Revert workspace"),
                                   tr("Allow g-code 'job finishing' commands like M2 and M30 to reset your CNCs "
                                      "workspace back to G54 at the end of each job."),
-                                  GETTER(s.revertWorkspace), SETTER(s.revertWorkspace = v.toBool()))));
-    basics.push_back(add(boolPref("powerSaving", tr("Power Saving"), tr("Allow screen to blank/sleep."),
-                                  GETTER(s.powerSaving), SETTER(s.powerSaving = v.toBool()))));
-    basics.push_back(add(boolPref("promptExit", tr("Prompt on exit"),
-                                  tr("Pop up a confirmation window when exiting the program."), GETTER(s.promptExit),
-                                  SETTER(s.promptExit = v.toBool()))));
-    basics.push_back(add(selectPref("backupFrequency", tr("Run settings backup"),
+                                  &app::AppSettings::revertWorkspace)));
+    basics.push_back(add(bindBool("powerSaving", tr("Power Saving"), tr("Allow screen to blank/sleep."),
+                                  &app::AppSettings::powerSaving)));
+    basics.push_back(add(bindBool("promptExit", tr("Prompt on exit"),
+                                  tr("Pop up a confirmation window when exiting the program."),
+                                  &app::AppSettings::promptExit)));
+    basics.push_back(add(bindString("backupFrequency", tr("Run settings backup"),
                                     tr("Choose how often gSender will backup your settings. Useful in case you need "
                                        "to revert them in the future."),
-                                    {"On Update", "Daily", "Weekly", "Monthly"}, GETTER(str(s.backupFrequency)),
-                                    SETTER(s.backupFrequency = v.toString().toStdString()))));
-    {
-        Pref p = withType(boolPref("backupLocation", tr("Settings backup location"),
-                                   tr("Choose the location to backup your settings to. Default: your OS's appData "
-                                      "location."),
-                                   GETTER(str(s.backupLocation)),
-                                   SETTER(s.backupLocation = v.toString().trimmed().toStdString())),
-                          "path");
-        basics.push_back(add(p));
-    }
+                                    {"On Update", "Daily", "Weekly", "Monthly"},
+                                    &app::AppSettings::backupFrequency)));
+    basics.push_back(add(withType(bindString("backupLocation", tr("Settings backup location"),
+                                                           tr("Choose the location to backup your settings to. Default: your OS's appData "
+                                                              "location."),
+                                                           {}, &app::AppSettings::backupLocation),
+                                                "path")));
     basics.push_back(sub(tr("UI Options")));
-    basics.push_back(add(boolPref("darkMode", tr("Dark mode"), tr("The application in dark colours."),
-                                  GETTER(s.darkMode), SETTER(s.darkMode = v.toBool()))));
-    basics.push_back(add(numberPref("customDecimalPlaces", tr("DRO zeros"),
+    basics.push_back(add(bindBool("darkMode", tr("Dark mode"), tr("The application in dark colours."),
+                                  &app::AppSettings::darkMode)));
+    basics.push_back(add(bindInt("customDecimalPlaces", tr("DRO zeros"),
                                     tr("Decimal places of the position display. 0 keeps the defaults (2 in mm, 3 in "
                                        "inches)."),
-                                    0, 5, 0, QString(), GETTER(s.customDecimalPlaces),
-                                    SETTER(s.customDecimalPlaces = v.toInt()))));
+                                    0, 5, QString(), &app::AppSettings::customDecimalPlaces)));
     basics.push_back(sub(tr("Visualizer options")));
-    basics.push_back(add(selectPref("visualizerTheme", tr("Visualizer theme"),
+    basics.push_back(add(bindString("visualizerTheme", tr("Visualizer theme"),
                                     tr("Independent colour control for the visualizer."), app::visualizerThemeNames(),
-                                    GETTER(str(s.visualizerTheme)),
-                                    SETTER(s.visualizerTheme = v.toString().toStdString()))));
+                                    &app::AppSettings::visualizerTheme)));
     basics.push_back(add(selectPref("projection", tr("Camera projection"),
                                     tr("Perspective (default) shows depth like a normal camera view. Orthographic "
                                        "removes that depth distortion, keeping parallel lines parallel - useful for "
@@ -344,31 +408,31 @@ void ConfigModel::buildMenu() {
                                     {"Perspective", "Orthographic"},
                                     GETTER(QString(s.perspective ? "Perspective" : "Orthographic")),
                                     SETTER(s.perspective = v.toString() == "Perspective"))));
-    basics.push_back(add(boolPref("showBoundingBox", tr("Show bounding box"),
+    basics.push_back(add(bindBool("showBoundingBox", tr("Show bounding box"),
                                   tr("Draw a wireframe around the extents of the loaded G-code file."),
-                                  GETTER(s.showBoundingBox), SETTER(s.showBoundingBox = v.toBool()))));
-    basics.push_back(add(boolPref("boundingBoxLabels", tr("Show bounding box labels"),
-                                  tr("Show X/Y/Z dimension labels on the bounding box."), GETTER(s.boundingBoxLabels),
-                                  SETTER(s.boundingBoxLabels = v.toBool()))));
-    basics.push_back(add(boolPref("showMachineBed", tr("Show machine bed indicator"),
+                                  &app::AppSettings::showBoundingBox)));
+    basics.push_back(add(bindBool("boundingBoxLabels", tr("Show bounding box labels"),
+                                  tr("Show X/Y/Z dimension labels on the bounding box."),
+                                  &app::AppSettings::boundingBoxLabels)));
+    basics.push_back(add(bindBool("showMachineBed", tr("Show machine bed indicator"),
                                   tr("Draw an outline of the machine's homed work area once homing is complete."),
-                                  GETTER(s.showMachineBed), SETTER(s.showMachineBed = v.toBool()))));
-    basics.push_back(add(boolPref("trimGridToBed", tr("Trim grid to machine bed"),
+                                  &app::AppSettings::showMachineBed)));
+    basics.push_back(add(bindBool("trimGridToBed", tr("Trim grid to machine bed"),
                                   tr("When the machine bed indicator is shown, clip the background grid to just past "
                                      "the bed's edges instead of a fixed square."),
-                                  GETTER(s.trimGridToBed), SETTER(s.trimGridToBed = v.toBool()))));
-    basics.push_back(add(boolPref("hideProcessedLines", tr("Hide processed lines"),
-                                  tr("Hide processed g-code lines in the visualizer."), GETTER(s.hideProcessedLines),
-                                  SETTER(s.hideProcessedLines = v.toBool()))));
-    basics.push_back(add(selectPref("liteOption", tr("Lightweight options"),
+                                  &app::AppSettings::trimGridToBed)));
+    basics.push_back(add(bindBool("hideProcessedLines", tr("Hide processed lines"),
+                                  tr("Hide processed g-code lines in the visualizer."),
+                                  &app::AppSettings::hideProcessedLines)));
+    basics.push_back(add(bindString("liteOption", tr("Lightweight options"),
                                     tr("Enable with the feather when big files are slowing down your computer. "
                                        "(Light turns off 3D file view, Everything disables the visualizer)"),
-                                    {"Light", "Everything"}, GETTER(str(s.liteOption)),
-                                    SETTER(s.liteOption = v.toString().toStdString()))));
-    basics.push_back(add(boolPref("followTool", tr("Follow tool during runtime"),
+                                    {"Light", "Everything"},
+                                    &app::AppSettings::liteOption)));
+    basics.push_back(add(bindBool("followTool", tr("Follow tool during runtime"),
                                   tr("While a job is running, pan the camera to track the tool in X/Y, keeping the "
                                      "same viewing angle and height."),
-                                  GETTER(s.followTool), SETTER(s.followTool = v.toBool()))));
+                                  &app::AppSettings::followTool)));
     basics.push_back(sub(tr("Jogging Presets")));
     {
         const QString names[] = {tr("Rapid"), tr("Normal"), tr("Precise")};
@@ -397,33 +461,32 @@ void ConfigModel::buildMenu() {
             basics.push_back(add(p));
         }
     }
-    basics.push_back(add(numberPref("jogThreshold", tr("Continuous jog delay"),
+    basics.push_back(add(bindInt("jogThreshold", tr("Continuous jog delay"),
                                     tr("Where regular presses or clicks make single movements, hold for this long to "
                                        "begin jogging continuously. Some might prefer a longer delay like 700. "
                                        "(Default 250)"),
-                                    50, 10000, 0, "ms", GETTER(s.jog.threshold), SETTER(s.jog.threshold = v.toInt()))));
+                                    50, 10000, "ms", &app::AppSettings::jog, &app::JogSettings::threshold)));
     basics.push_back(sub(tr("Notifications")));
-    basics.push_back(add(boolPref("warnBadFile", tr("Warn if bad file"),
-                                  tr("Report the invalid lines of a file when it loads."), GETTER(s.warnBadFile),
-                                  SETTER(s.warnBadFile = v.toBool()))));
-    basics.push_back(add(boolPref("showLineWarnings", tr("Warn on bad line"),
+    basics.push_back(add(bindBool("warnBadFile", tr("Warn if bad file"),
+                                  tr("Report the invalid lines of a file when it loads."),
+                                  &app::AppSettings::warnBadFile)));
+    basics.push_back(add(bindBool("showLineWarnings", tr("Warn on bad line"),
                                   tr("Report the offending line when a job line errors."),
-                                  GETTER(s.preferences.showLineWarnings),
-                                  SETTER(s.preferences.showLineWarnings = v.toBool()))));
-    basics.push_back(add(boolPref("warnZero", tr("Warn when setting zero"),
+                                  &app::AppSettings::preferences, &controller::Preferences::showLineWarnings)));
+    basics.push_back(add(bindBool("warnZero", tr("Warn when setting zero"),
                                   tr("The zero buttons ask first - useful if you tend to set zero accidentally"),
-                                  GETTER(s.warnZero), SETTER(s.warnZero = v.toBool()))));
-    basics.push_back(add(boolPref("jobEndModal", tr("Job end notifications"),
-                                  tr("Show a carving summary at the end of each job."), GETTER(s.jobEndModal),
-                                  SETTER(s.jobEndModal = v.toBool()))));
-    basics.push_back(add(boolPref("maintenanceNotifications", tr("Maintenance notifications"),
+                                  &app::AppSettings::warnZero)));
+    basics.push_back(add(bindBool("jobEndModal", tr("Job end notifications"),
+                                  tr("Show a carving summary at the end of each job."),
+                                  &app::AppSettings::jobEndModal)));
+    basics.push_back(add(bindBool("maintenanceNotifications", tr("Maintenance notifications"),
                                   tr("Show upcoming maintenance tasks at the end of each job."),
-                                  GETTER(s.maintenanceNotifications), SETTER(s.maintenanceNotifications = v.toBool()))));
-    basics.push_back(add(numberPref("toastDuration", tr("Pop-up notification duration"),
-                                    tr("How long notifications stay visible, in milliseconds, before auto-dismissing. "
-                                       "(-1 keeps them up until manually dismissed, -2 disables them, Default 0 keeps "
-                                       "default duration)"),
-                                    -2, 10000, 0, "ms", GETTER(s.toastDuration), SETTER(s.toastDuration = v.toInt()))));
+                                  &app::AppSettings::maintenanceNotifications)));
+    basics.push_back(add(bindInt("toastDuration", tr("Pop-up notification duration"),
+                                 tr("How long notifications stay visible, in milliseconds, before auto-dismissing. "
+                                    "(-1 keeps them up until manually dismissed, -2 disables them, Default 0 keeps "
+                                    "default duration)"),
+                                 -2, 10000, "ms", &app::AppSettings::toastDuration)));
     basics.push_back(sub(tr("Shortcuts")));
     basics.push_back(action("keyboardShortcuts"));
     menu_.emplace_back(tr("Basics"), std::move(basics));
@@ -454,55 +517,46 @@ void ConfigModel::buildMenu() {
         "plateType", tr("Touch plate type"), tr("Select the touch plate you're using with your machine."),
         plateTypes, GETTER(QString::fromUtf8(probe::plateTypeName(s.probe.plateType).data())),
         SETTER(s.probe.plateType = probe::plateTypeFromName(v.toString().toStdString()).value_or(s.probe.plateType)))));
-    probeRows.push_back(add(boolPref("touchplateTypeSwitcher", tr("Show touch plate switcher"),
+    probeRows.push_back(add(bindBool("touchplateTypeSwitcher", tr("Show touch plate switcher"),
                                      tr("Show a button on Probe tab to allow switching between touch plate types."),
-                                     GETTER(s.touchplateTypeSwitcher), SETTER(s.touchplateTypeSwitcher = v.toBool()))));
-    const auto mm = [&](const char* key, const QString& label, const QString& description, double max,
-                        std::function<QVariant(const ConfigModel&, const Staged&)> get,
-                        std::function<void(ConfigModel&, Staged&, const QVariant&)> set, const QString& unit = "mm") {
-        return add(numberPref(key, label, description, 0, max, 3, unit, std::move(get), std::move(set)));
-    };
-    probeRows.push_back(mm("tipDiameter3D", tr("Tip diameter"), tr("The 3D probe's tip diameter."), 20,
-                           GETTER(s.probe.tipDiameter3D), SETTER(s.probe.tipDiameter3D = v.toDouble())));
-    probeRows.push_back(mm("standardBlock", tr("Block thickness"), tr("The standard block's Z thickness."), 100,
-                           GETTER(s.probe.zThickness.standardBlock),
-                           SETTER(s.probe.zThickness.standardBlock = v.toDouble())));
-    probeRows.push_back(mm("autoZero", tr("AutoZero thickness"), tr("The AutoZero plate's Z thickness."), 100,
-                           GETTER(s.probe.zThickness.autoZero), SETTER(s.probe.zThickness.autoZero = v.toDouble())));
-    probeRows.push_back(mm("zProbe", tr("Puck thickness"), tr("The Z probe puck's thickness."), 100,
-                           GETTER(s.probe.zThickness.zProbe), SETTER(s.probe.zThickness.zProbe = v.toDouble())));
-    probeRows.push_back(mm("probe3D", tr("Z offset"), tr("The 3D probe's Z offset."), 100,
-                           GETTER(s.probe.zThickness.probe3D), SETTER(s.probe.zThickness.probe3D = v.toDouble())));
-    probeRows.push_back(mm("bitZero", tr("BitZero thickness (XYZ)"), tr("The BitZero's inset thickness."), 100,
-                           GETTER(s.probe.zThickness.bitZero), SETTER(s.probe.zThickness.bitZero = v.toDouble())));
-    probeRows.push_back(mm("bitZeroZOnly", tr("BitZero thickness (Z-only)"), tr("The BitZero's Z-only thickness."),
-                           100, GETTER(s.probe.zThickness.bitZeroZOnly),
-                           SETTER(s.probe.zThickness.bitZeroZOnly = v.toDouble())));
-    probeRows.push_back(mm("xyThickness", tr("XY thickness"), tr("The standard block's XY thickness."), 100,
-                           GETTER(s.probe.xyThickness), SETTER(s.probe.xyThickness = v.toDouble())));
-    probeRows.push_back(mm("xyRetract3D", tr("XY retract"), tr("How far the 3D probe backs off in X and Y."), 100,
-                           GETTER(s.probe.xyRetract3D), SETTER(s.probe.xyRetract3D = v.toDouble())));
-    probeRows.push_back(mm("zProbeDistance", tr("Z probe distance"), tr("How far Z travels looking for the plate."),
-                           500, GETTER(s.probe.zProbeDistance), SETTER(s.probe.zProbeDistance = v.toDouble())));
-    probeRows.push_back(mm("probeFastFeedrate", tr("Fast find"), tr("The first, faster probe's speed."), 10000,
-                           GETTER(s.probe.probeFastFeedrate), SETTER(s.probe.probeFastFeedrate = v.toDouble()),
-                           "mm/min"));
-    probeRows.push_back(mm("probeFeedrate", tr("Slow find"), tr("The second, slower probe's speed."), 10000,
-                           GETTER(s.probe.probeFeedrate), SETTER(s.probe.probeFeedrate = v.toDouble()), "mm/min"));
-    probeRows.push_back(mm("retractionDistance", tr("Retraction"), tr("How far to back off between probes."), 100,
-                           GETTER(s.probe.retractionDistance), SETTER(s.probe.retractionDistance = v.toDouble())));
-    probeRows.push_back(mm("probeMovementSpeed", tr("Probe Movement Speed"),
-                           tr("The speed of the moves between probes; 0 moves at rapid (G0)."), 20000,
-                           GETTER(s.probe.probeMovementSpeed), SETTER(s.probe.probeMovementSpeed = v.toDouble()),
-                           "mm/min"));
-    probeRows.push_back(mm("zRetractNormal", tr("Final Z retract"), tr("How high Z ends after probing."), 100,
-                           GETTER(s.probe.zRetractNormal), SETTER(s.probe.zRetractNormal = v.toDouble())));
-    probeRows.push_back(mm("zRetractAuto", tr("Final Z retract (AutoZero)"),
-                           tr("How high Z ends after probing with the AutoZero."), 100, GETTER(s.probe.zRetractAuto),
-                           SETTER(s.probe.zRetractAuto = v.toDouble())));
-    probeRows.push_back(add(boolPref("connectivityTest", tr("Connection test"),
-                                     tr("Check the probe circuit before probing."), GETTER(s.probe.connectivityTest),
-                                     SETTER(s.probe.connectivityTest = v.toBool()))));
+                                     &app::AppSettings::touchplateTypeSwitcher)));
+    probeRows.push_back(add(bindDouble("tipDiameter3D", tr("Tip diameter"), tr("The 3D probe's tip diameter."), 0, 20, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::tipDiameter3D)));
+    probeRows.push_back(add(bindDouble("standardBlock", tr("Block thickness"), tr("The standard block's Z thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::standardBlock)));
+    probeRows.push_back(add(bindDouble("autoZero", tr("AutoZero thickness"), tr("The AutoZero plate's Z thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::autoZero)));
+    probeRows.push_back(add(bindDouble("zProbe", tr("Puck thickness"), tr("The Z probe puck's thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::zProbe)));
+    probeRows.push_back(add(bindDouble("probe3D", tr("Z offset"), tr("The 3D probe's Z offset."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::probe3D)));
+    probeRows.push_back(add(bindDouble("bitZero", tr("BitZero thickness (XYZ)"), tr("The BitZero's inset thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::bitZero)));
+    probeRows.push_back(add(bindDouble("bitZeroZOnly", tr("BitZero thickness (Z-only)"), tr("The BitZero's Z-only thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zThickness, &probe::PlateThickness::bitZeroZOnly)));
+    probeRows.push_back(add(bindDouble("xyThickness", tr("XY thickness"), tr("The standard block's XY thickness."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::xyThickness)));
+    probeRows.push_back(add(bindDouble("xyRetract3D", tr("XY retract"), tr("How far the 3D probe backs off in X and Y."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::xyRetract3D)));
+    probeRows.push_back(add(bindDouble("zProbeDistance", tr("Z probe distance"), tr("How far Z travels looking for the plate."), 0, 500, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zProbeDistance)));
+    probeRows.push_back(add(bindDouble("probeFastFeedrate", tr("Fast find"), tr("The first, faster probe's speed."), 0, 10000, 3, "mm/min",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::probeFastFeedrate)));
+    probeRows.push_back(add(bindDouble("probeFeedrate", tr("Slow find"), tr("The second, slower probe's speed."), 0, 10000, 3, "mm/min",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::probeFeedrate)));
+    probeRows.push_back(add(bindDouble("retractionDistance", tr("Retraction"), tr("How far to back off between probes."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::retractionDistance)));
+    probeRows.push_back(add(bindDouble("probeMovementSpeed", tr("Probe Movement Speed"),
+                                       tr("The speed of the moves between probes; 0 moves at rapid (G0)."), 0, 20000, 3, "mm/min",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::probeMovementSpeed)));
+    probeRows.push_back(add(bindDouble("zRetractNormal", tr("Final Z retract"), tr("How high Z ends after probing."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zRetractNormal)));
+    probeRows.push_back(add(bindDouble("zRetractAuto", tr("Final Z retract (AutoZero)"),
+                                       tr("How high Z ends after probing with the AutoZero."), 0, 100, 3, "mm",
+                                       &app::AppSettings::probe, &probe::ProbeSettings::zRetractAuto)));
+    probeRows.push_back(add(bindBool("connectivityTest", tr("Connection test"),
+                                     tr("Check the probe circuit before probing."),
+                                     &app::AppSettings::probe, &probe::ProbeSettings::connectivityTest)));
     probeRows.push_back(action("probePin"));
     menu_.emplace_back(tr("Probe"), std::move(probeRows));
 
@@ -519,10 +573,9 @@ void ConfigModel::buildMenu() {
     // ---- Homing/Limits ----
     std::vector<Entry> homing;
     eeproms(homing, {"$5", "$22", "$130", "$131", "$132", "$133", "$20", "$40"});
-    homing.push_back(add(boolPref("preventJoggingPastLimits", tr("Stop jogging past limits"),
+    homing.push_back(add(bindBool("preventJoggingPastLimits", tr("Stop jogging past limits"),
                                   tr("Prevent jogging in a direction where a limit switch has already been triggered."),
-                                  GETTER(s.jog.preventJoggingPastLimits),
-                                  SETTER(s.jog.preventJoggingPastLimits = v.toBool()))));
+                                  &app::AppSettings::jog, &app::JogSettings::preventJoggingPastLimits)));
     homing.push_back(eeprom("$21"));
     homing.push_back(action("limitPins"));
     homing.push_back(sub(tr("Homing Behaviour")));
@@ -538,22 +591,21 @@ void ConfigModel::buildMenu() {
 
     // ---- Spindle/Laser ----
     std::vector<Entry> spindle;
-    spindle.push_back(add(boolPref("spindleFunctions", tr("Spindle/laser controls"),
+    spindle.push_back(add(bindBool("spindleFunctions", tr("Spindle/laser controls"),
                                    tr("Show the Spindle/Laser tab and related functions on the main Carve page."),
-                                   GETTER(s.spindleFunctions), SETTER(s.spindleFunctions = v.toBool()))));
+                                   &app::AppSettings::spindleFunctions)));
     eeproms(spindle, {"$32", "$394", "$392"});
-    spindle.push_back(add(numberPref("spindleDelay", tr("Insert dwell for spindle commands"),
+    spindle.push_back(add(bindDouble("spindleDelay", tr("Insert dwell for spindle commands"),
                                      tr("Dwell after each spindle start (M3/M4) in loaded jobs"), 0, 60, 1, "s",
-                                     GETTER(s.preferences.spindleDelay),
-                                     SETTER(s.preferences.spindleDelay = v.toDouble()))));
+                                     &app::AppSettings::preferences, &controller::Preferences::spindleDelay)));
     spindle.push_back(eeprom("$539"));
-    spindle.push_back(add(numberPref("spindleMin", tr("Minimum spindle speed"),
+    spindle.push_back(add(bindDouble("spindleMin", tr("Minimum spindle speed"),
                                      tr("Written back as $31 when switching from laser to spindle mode"), 0, 100000, 0,
-                                     "rpm", GETTER(s.spindle.spindleMin), SETTER(s.spindle.spindleMin = v.toDouble()))));
+                                     "rpm", &app::AppSettings::spindle, &app::SpindleSettings::spindleMin)));
     spindle.push_back(eeprom("$31"));
-    spindle.push_back(add(numberPref("spindleMax", tr("Maximum spindle speed"),
+    spindle.push_back(add(bindDouble("spindleMax", tr("Maximum spindle speed"),
                                      tr("Written back as $30 when switching from laser to spindle mode"), 0, 100000, 0,
-                                     "rpm", GETTER(s.spindle.spindleMax), SETTER(s.spindle.spindleMax = v.toDouble()))));
+                                     "rpm", &app::AppSettings::spindle, &app::SpindleSettings::spindleMax)));
     spindle.push_back(eeprom("$30"));
     eeproms(spindle, {"$395", "$511", "$512", "$513", "$520", "$521", "$522", "$523"});
     spindle.push_back(action("spindleTest"));
@@ -564,39 +616,39 @@ void ConfigModel::buildMenu() {
                       "$471", "$476", "$477", "$478", "$479", "$681"});
     spindle.push_back(sub(tr("Laser")));
     spindle.push_back(eeprom("$743"));
-    spindle.push_back(add(numberPref("laserMin", tr("Minimum laser power"),
+    spindle.push_back(add(bindDouble("laserMin", tr("Minimum laser power"),
                                      tr("Match this to the minimum S word setting in your laser CAM software. ($31 in "
                                         "laser mode; grblHAL $731, Default 0)"),
-                                     0, 100000, 3, QString(), GETTER(s.spindle.laser.minPower),
-                                     SETTER(s.spindle.laser.minPower = v.toDouble()))));
+                                     0, 100000, 3, QString(),
+                                     &app::AppSettings::spindle, &app::SpindleSettings::laser, &app::LaserSettings::minPower)));
     spindle.push_back(eeprom("$731"));
-    spindle.push_back(add(numberPref("laserMax", tr("Maximum laser power"),
+    spindle.push_back(add(bindDouble("laserMax", tr("Maximum laser power"),
                                      tr("Match this to the maximum S word setting in your laser CAM software. ($30 in "
                                         "laser mode; grblHAL $730, Default 255)"),
-                                     0, 100000, 3, QString(), GETTER(s.spindle.laser.maxPower),
-                                     SETTER(s.spindle.laser.maxPower = v.toDouble()))));
+                                     0, 100000, 3, QString(),
+                                     &app::AppSettings::spindle, &app::SpindleSettings::laser, &app::LaserSettings::maxPower)));
     spindle.push_back(eeprom("$730"));
-    spindle.push_back(add(boolPref("laserOnOutline", tr("Laser on during outline"),
+    spindle.push_back(add(bindBool("laserOnOutline", tr("Laser on during outline"),
                                    tr("Turn on the laser at its lowest power to see the job position better"),
-                                   GETTER(s.spindle.laser.onOutline), SETTER(s.spindle.laser.onOutline = v.toBool()))));
-    spindle.push_back(add(numberPref("laserX", tr("Laser X offset"),
+                                   &app::AppSettings::spindle, &app::SpindleSettings::laser, &app::LaserSettings::onOutline)));
+    spindle.push_back(add(bindDouble("laserX", tr("Laser X offset"),
                                      tr("X-axis offset from the spindle (mark with a v-bit, then track the laser to "
                                         "that mark; grblHAL $770)"),
-                                     -1000, 1000, 3, "mm", GETTER(s.spindle.laser.xOffset),
-                                     SETTER(s.spindle.laser.xOffset = v.toDouble()))));
+                                     -1000, 1000, 3, "mm",
+                                     &app::AppSettings::spindle, &app::SpindleSettings::laser, &app::LaserSettings::xOffset)));
     spindle.push_back(eeprom("$741"));
-    spindle.push_back(add(numberPref("laserY", tr("Laser Y offset"), tr("Y-axis offset from the spindle (grblHAL $771)"),
-                                     -1000, 1000, 3, "mm", GETTER(s.spindle.laser.yOffset),
-                                     SETTER(s.spindle.laser.yOffset = v.toDouble()))));
+    spindle.push_back(add(bindDouble("laserY", tr("Laser Y offset"), tr("Y-axis offset from the spindle (grblHAL $771)"),
+                                     -1000, 1000, 3, "mm",
+                                     &app::AppSettings::spindle, &app::SpindleSettings::laser, &app::LaserSettings::yOffset)));
     eeproms(spindle, {"$742", "$733", "$734", "$735", "$736"});
     spindle.push_back(action("laserTest"));
     menu_.emplace_back(tr("Spindle/Laser"), std::move(spindle));
 
     // ---- Accessory Outputs ----
     std::vector<Entry> outputs;
-    outputs.push_back(add(boolPref("coolantFunctions", tr("Coolant controls"),
+    outputs.push_back(add(bindBool("coolantFunctions", tr("Coolant controls"),
                                    tr("Show the coolant tab and related functions on the main Carve page."),
-                                   GETTER(s.coolantFunctions), SETTER(s.coolantFunctions = v.toBool()))));
+                                   &app::AppSettings::coolantFunctions)));
     outputs.push_back(eeprom("$673"));
     outputs.push_back(eeprom("$456", "$750"));
     outputs.push_back(eeprom("$457", "$751"));
@@ -609,10 +661,10 @@ void ConfigModel::buildMenu() {
 
     // ---- Rotary ----
     std::vector<Entry> rotaryRows;
-    rotaryRows.push_back(add(boolPref("rotaryControls", tr("Rotary controls"),
+    rotaryRows.push_back(add(bindBool("rotaryControls", tr("Rotary controls"),
                                       tr("Show the Rotary tab and related functions on the main Carve page. Turning "
                                          "it off leaves rotary mode."),
-                                      GETTER(s.rotary.showControls), SETTER(s.rotary.showControls = v.toBool()))));
+                                      &app::AppSettings::rotary, &app::RotarySettings::showControls)));
     rotaryRows.push_back(eeprom("$376"));
     // Upstream's hybrid settings: grblHAL's own A axis ($103, $113), else what
     // rotary mode writes to Grbl's Y ($101, $111).
@@ -642,15 +694,14 @@ void ConfigModel::buildMenu() {
                                       GETTER(rotaryFirmware(st, "$21") == "1"),
                                       SETTER(setRotaryFirmware(st, "$21", v.toBool() ? "1" : "0")))));
     rotaryRows.push_back(eeprom("$538"));
-    rotaryRows.push_back(add(boolPref("diameterOffset", tr("Visualize non-center zeros"),
+    rotaryRows.push_back(add(bindBool("diameterOffset", tr("Visualize non-center zeros"),
                                       tr("For any rotary files that aren't zeroed to the centerpoint, apply an offset "
                                          "when a cylinder diameter is found in the file."),
-                                      GETTER(s.rotary.diameterOffset), SETTER(s.rotary.diameterOffset = v.toBool()))));
-    rotaryRows.push_back(add(boolPref("useAaxisForGrbl", tr("Use A-axis for grbl"),
+                                      &app::AppSettings::rotary, &app::RotarySettings::diameterOffset)));
+    rotaryRows.push_back(add(bindBool("useAaxisForGrbl", tr("Use A-axis for grbl"),
                                       tr("Enables A-axis controls and commands to be sent for devices running "
                                          "modified 4-axis grbl, rather than translating A into Y. (grbl only)"),
-                                      GETTER(s.preferences.useAaxisForGrbl),
-                                      SETTER(s.preferences.useAaxisForGrbl = v.toBool()))));
+                                      &app::AppSettings::preferences, &controller::Preferences::useAaxisForGrbl)));
     rotaryRows.push_back(action("aJog"));
     menu_.emplace_back(tr("Rotary"), std::move(rotaryRows));
 
@@ -683,9 +734,9 @@ void ConfigModel::buildMenu() {
     for (const char* option : app::kToolChangeOptions) {
         strategies << QString::fromLatin1(option);
     }
-    tools.push_back(add(boolPref("passthrough", tr("Passthrough"),
+    tools.push_back(add(bindBool("passthrough", tr("Passthrough"),
                                  tr("Send M6 to the firmware (it handles tool changes)"),
-                                 GETTER(s.toolChange.passthrough), SETTER(s.toolChange.passthrough = v.toBool()))));
+                                 &app::AppSettings::toolChange, &controller::ToolChangeContext::passthrough)));
     tools.push_back(add(hiddenUnless(
         selectPref("toolChangeOption", tr("gSender strategy"),
                    tr("Ignore: comment M6 out. Pause: pause the job at M6. Standard Re-zero: a wizard to change the "
@@ -698,10 +749,9 @@ void ConfigModel::buildMenu() {
     const auto isOption = [](const char* option) {
         return [option](const Staged& st) { return st.s.toolChange.passthrough || st.s.toolChange.option != option; };
     };
-    tools.push_back(add(hiddenUnless(boolPref("skipDialog", tr("Skip dialog"),
+    tools.push_back(add(hiddenUnless(bindBool("skipDialog", tr("Skip dialog"),
                                               tr("Code: run both hooks without asking in between"),
-                                              GETTER(s.toolChange.skipDialog),
-                                              SETTER(s.toolChange.skipDialog = v.toBool())),
+                                              &app::AppSettings::toolChange, &controller::ToolChangeContext::skipDialog),
                                      isOption("Code"))));
     tools.push_back(add(hiddenUnless(location("toolChangePosition", tr("Fixed sensor location"),
                                               tr("Where the fixed tool sensor is (machine coordinates)."),
@@ -711,15 +761,13 @@ void ConfigModel::buildMenu() {
     for (const char* behaviour : toolchange::kFirstToolBehaviours) {
         firstTools << QString::fromLatin1(behaviour);
     }
-    tools.push_back(add(hiddenUnless(selectPref("firstToolBehaviour", tr("First tool behaviour"),
+    tools.push_back(add(hiddenUnless(bindString("firstToolBehaviour", tr("First tool behaviour"),
                                                 tr("What the first tool change of a job does."), firstTools,
-                                                GETTER(str(s.firstToolBehaviour)),
-                                                SETTER(s.firstToolBehaviour = v.toString().toStdString())),
+                                                &app::AppSettings::firstToolBehaviour),
                                      isOption("Fixed Tool Sensor"))));
-    tools.push_back(add(hiddenUnless(boolPref("moveToManualPosition", tr("Set tool change location"),
+    tools.push_back(add(hiddenUnless(bindBool("moveToManualPosition", tr("Set tool change location"),
                                               tr("Move to a tool change location to change bits"),
-                                              GETTER(s.moveToManualPosition),
-                                              SETTER(s.moveToManualPosition = v.toBool())),
+                                              &app::AppSettings::moveToManualPosition),
                                      [](const Staged& st) { return st.s.toolChange.passthrough; })));
     tools.push_back(add(hiddenUnless(location("manualPosition", tr("Manual tool change location"),
                                               tr("Where the machine goes to change bits (machine coordinates)."),
@@ -760,11 +808,10 @@ void ConfigModel::buildMenu() {
         };
         ethernet.push_back(add(ip));
     }
-    ethernet.push_back(add(numberPref("networkPort", tr("Ethernet port"),
+    ethernet.push_back(add(bindInt("networkPort", tr("Ethernet port"),
                                       tr("The port exposed by the controller for Ethernet connectivity. (Used when "
                                          "attempting to connect over Ethernet, Default 23)"),
-                                      1, 65535, 0, QString(), GETTER(s.networkPort),
-                                      SETTER(s.networkPort = v.toInt()))));
+                                      1, 65535, QString(), &app::AppSettings::networkPort)));
     eeproms(ethernet, {"$301", "$302", "$303", "$304", "$70", "$300", "$305", "$307", "$308", "$535"});
     menu_.emplace_back(tr("Ethernet"), std::move(ethernet));
 
@@ -789,88 +836,75 @@ void ConfigModel::buildMenu() {
     // ---- Accessibility ----
     std::vector<Entry> a11y;
     a11y.push_back(sub(tr("Announcements")));
-    a11y.push_back(add(boolPref("statusAnnouncements", tr("Machine status"),
+    a11y.push_back(add(bindBool("statusAnnouncements", tr("Machine status"),
                                 tr("Automatically announce machine status changes using screen readers. (Idle, "
                                    "Running, Alarm, etc.)"),
-                                GETTER(s.accessibility.statusAnnouncements),
-                                SETTER(s.accessibility.statusAnnouncements = v.toBool()))));
-    a11y.push_back(add(boolPref("jobProgressAnnouncements", tr("Job progress"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::statusAnnouncements)));
+    a11y.push_back(add(bindBool("jobProgressAnnouncements", tr("Job progress"),
                                 tr("Periodically announce job completion percentage."),
-                                GETTER(s.accessibility.jobProgressAnnouncements),
-                                SETTER(s.accessibility.jobProgressAnnouncements = v.toBool()))));
-    a11y.push_back(add(hiddenUnless(numberPref("jobProgressIncrement", tr("Progress increment"),
-                                               tr("The percentage increment at which to announce job progress. "
-                                                  "(Default 10%)"),
-                                               1, 50, 0, "%", GETTER(s.accessibility.jobProgressIncrement),
-                                               SETTER(s.accessibility.jobProgressIncrement = v.toInt())),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::jobProgressAnnouncements)));
+    a11y.push_back(add(hiddenUnless(bindInt("jobProgressIncrement", tr("Progress increment"),
+                                            tr("The percentage increment at which to announce job progress. "
+                                               "(Default 10%)"),
+                                            1, 50, "%",
+                                            &app::AppSettings::accessibility, &app::AccessibilitySettings::jobProgressIncrement),
                                     [](const Staged& st) { return !st.s.accessibility.jobProgressAnnouncements; })));
     a11y.push_back(sub(tr("Audio Cues")));
-    a11y.push_back(add(boolPref("audioCues", tr("Enable audio cues"), tr("Play short sounds for specific machine events."),
-                                GETTER(s.accessibility.audioCues), SETTER(s.accessibility.audioCues = v.toBool()))));
+    a11y.push_back(add(bindBool("audioCues", tr("Enable audio cues"), tr("Play short sounds for specific machine events."),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::audioCues)));
     const auto cueHidden = [](const Staged& st) { return !st.s.accessibility.audioCues; };
-    a11y.push_back(add(hiddenUnless(boolPref("cueJobComplete", tr("Job complete sound"),
+    a11y.push_back(add(hiddenUnless(bindBool("cueJobComplete", tr("Job complete sound"),
                                              tr("Play sound when a job finishes."),
-                                             GETTER(s.accessibility.cueJobComplete),
-                                             SETTER(s.accessibility.cueJobComplete = v.toBool())),
+                                             &app::AppSettings::accessibility, &app::AccessibilitySettings::cueJobComplete),
                                     cueHidden)));
-    a11y.push_back(add(hiddenUnless(boolPref("cueAlarm", tr("Alarm sound"),
+    a11y.push_back(add(hiddenUnless(bindBool("cueAlarm", tr("Alarm sound"),
                                              tr("Play sound when the machine enters an alarm state."),
-                                             GETTER(s.accessibility.cueAlarm),
-                                             SETTER(s.accessibility.cueAlarm = v.toBool())),
+                                             &app::AppSettings::accessibility, &app::AccessibilitySettings::cueAlarm),
                                     cueHidden)));
-    a11y.push_back(add(hiddenUnless(boolPref("cueToolChange", tr("Tool change sound"),
+    a11y.push_back(add(hiddenUnless(bindBool("cueToolChange", tr("Tool change sound"),
                                              tr("Play sound when a tool change is required."),
-                                             GETTER(s.accessibility.cueToolChange),
-                                             SETTER(s.accessibility.cueToolChange = v.toBool())),
+                                             &app::AppSettings::accessibility, &app::AccessibilitySettings::cueToolChange),
                                     cueHidden)));
-    a11y.push_back(add(hiddenUnless(boolPref("cueProbeSuccess", tr("Probe success sound"),
+    a11y.push_back(add(hiddenUnless(bindBool("cueProbeSuccess", tr("Probe success sound"),
                                              tr("Play sound after a successful probe."),
-                                             GETTER(s.accessibility.cueProbeSuccess),
-                                             SETTER(s.accessibility.cueProbeSuccess = v.toBool())),
+                                             &app::AppSettings::accessibility, &app::AccessibilitySettings::cueProbeSuccess),
                                     cueHidden)));
     a11y.push_back(sub(tr("Navigation & Visuals")));
-    a11y.push_back(add(boolPref("focusRings", tr("Focus rings"),
+    a11y.push_back(add(bindBool("focusRings", tr("Focus rings"),
                                 tr("Show a high-contrast ring around the currently focused element for better "
                                    "keyboard navigation visibility."),
-                                GETTER(s.accessibility.focusRings), SETTER(s.accessibility.focusRings = v.toBool()))));
-    a11y.push_back(add(boolPref("focusTrapping", tr("Focus trapping"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::focusRings)));
+    a11y.push_back(add(bindBool("focusTrapping", tr("Focus trapping"),
                                 tr("Keep keyboard focus within modals and dialogs when they are open."),
-                                GETTER(s.accessibility.focusTrapping),
-                                SETTER(s.accessibility.focusTrapping = v.toBool()))));
-    a11y.push_back(add(boolPref("reducedMotion", tr("Reduced motion"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::focusTrapping)));
+    a11y.push_back(add(bindBool("reducedMotion", tr("Reduced motion"),
                                 tr("Minimize animations and UI transitions for improved visibility and accessibility."),
-                                GETTER(s.accessibility.reducedMotion),
-                                SETTER(s.accessibility.reducedMotion = v.toBool()))));
-    a11y.push_back(add(selectPref("spindleInput", tr("Spindle speed input type"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::reducedMotion)));
+    a11y.push_back(add(bindString("spindleInput", tr("Spindle speed input type"),
                                   tr("Choose between a slider or a number input for adjusting spindle speed."),
-                                  {"Slider", "Number"}, GETTER(str(s.spindle.inputType)),
-                                  SETTER(s.spindle.inputType = v.toString().toStdString()))));
-    a11y.push_back(add(selectPref("displayScale", tr("App display scale"),
+                                  {"Slider", "Number"},
+                                  &app::AppSettings::spindle, &app::SpindleSettings::inputType)));
+    a11y.push_back(add(bindString("displayScale", tr("App display scale"),
                                   tr("Override the app's display scale independently of your OS' DPI settings. Takes "
                                      "effect the next time gSender starts."),
                                   {"50%", "67%", "75%", "100%", "125%", "150%", "175%", "200%"},
-                                  GETTER(str(s.accessibility.displayScale)),
-                                  SETTER(s.accessibility.displayScale = v.toString().toStdString()))));
+                                  &app::AppSettings::accessibility, &app::AccessibilitySettings::displayScale)));
     a11y.push_back(sub(tr("Visualizer")));
-    a11y.push_back(add(boolPref("visualizerKeyboardControl", tr("Keyboard control"),
+    a11y.push_back(add(bindBool("visualizerKeyboardControl", tr("Keyboard control"),
                                 tr("Allow orbiting, panning, and zooming of the 3D visualizer using arrow keys and "
                                    "hotkeys."),
-                                GETTER(s.accessibility.visualizerKeyboardControl),
-                                SETTER(s.accessibility.visualizerKeyboardControl = v.toBool()))));
-    a11y.push_back(add(boolPref("gcodeSummary", tr("Job summary"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::visualizerKeyboardControl)));
+    a11y.push_back(add(bindBool("gcodeSummary", tr("Job summary"),
                                 tr("Provide a text summary of the loaded g-code file for screen readers."),
-                                GETTER(s.accessibility.gcodeSummary),
-                                SETTER(s.accessibility.gcodeSummary = v.toBool()))));
-    a11y.push_back(add(hiddenUnless(boolPref("gcodeSummaryVisible", tr("Show summary visually"),
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::gcodeSummary)));
+    a11y.push_back(add(hiddenUnless(bindBool("gcodeSummaryVisible", tr("Show summary visually"),
                                              tr("Display the g-code summary text visually above the visualizer."),
-                                             GETTER(s.accessibility.gcodeSummaryVisible),
-                                             SETTER(s.accessibility.gcodeSummaryVisible = v.toBool())),
+                                             &app::AppSettings::accessibility, &app::AccessibilitySettings::gcodeSummaryVisible),
                                     [](const Staged& st) { return !st.s.accessibility.gcodeSummary; })));
     a11y.push_back(sub(tr("Keyboard Map")));
-    a11y.push_back(add(boolPref("showKeyboardMap", tr("Show keyboard shortcut map"),
+    a11y.push_back(add(bindBool("showKeyboardMap", tr("Show keyboard shortcut map"),
                                 tr("Show an overlay with active keyboard shortcuts."),
-                                GETTER(s.accessibility.showKeyboardMap),
-                                SETTER(s.accessibility.showKeyboardMap = v.toBool()))));
+                                &app::AppSettings::accessibility, &app::AccessibilitySettings::showKeyboardMap)));
     menu_.emplace_back(tr("Accessibility"), std::move(a11y));
 
     // The board's settings no section places (filled per board in rows()).

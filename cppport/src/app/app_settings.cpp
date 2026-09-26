@@ -30,6 +30,23 @@ bool flag(const json::object& object, std::string_view key, bool fallback) {
     return value && value->is_bool() ? value->as_bool() : fallback;
 }
 
+inline void readProp(const json::object& o, std::string_view key, bool& target) {
+    target = flag(o, key, target);
+}
+inline void readProp(const json::object& o, std::string_view key, double& target) {
+    target = number(o, key, target);
+}
+inline void readProp(const json::object& o, std::string_view key, int& target) {
+    target = static_cast<int>(number(o, key, static_cast<double>(target)));
+}
+inline void readProp(const json::object& o, std::string_view key, std::int64_t& target) {
+    target = static_cast<std::int64_t>(number(o, key, static_cast<double>(target)));
+}
+inline void readProp(const json::object& o, std::string_view key, std::string& target) {
+    target = text(o, key, target);
+}
+
+
 std::vector<RecentFile> loadRecentFiles(const json::value* value) {
     std::vector<RecentFile> files;
     if (!value || !value->is_array()) {
@@ -95,19 +112,27 @@ double numberOrText(const json::object& object, std::string_view key, double fal
     return number(object, key, fallback);
 }
 
+inline void readPropOrText(const json::object& o, std::string_view key, double& target) {
+    target = numberOrText(o, key, target);
+}
+inline void readPropOrText(const json::object& o, std::string_view key, int& target) {
+    target = static_cast<int>(numberOrText(o, key, static_cast<double>(target)));
+}
+
+
 rotary::StockTurningOptions loadStockTurning(const json::object& o) {
     rotary::StockTurningOptions t;
-    t.stockLength = numberOrText(o, "stockLength", t.stockLength);
-    t.stepdown = numberOrText(o, "stepdown", t.stepdown);
-    t.bitDiameter = numberOrText(o, "bitDiameter", t.bitDiameter);
-    t.spindleRPM = numberOrText(o, "spindleRPM", t.spindleRPM);
-    t.feedrate = numberOrText(o, "feedrate", t.feedrate);
-    t.stepover = numberOrText(o, "stepover", t.stepover);
-    t.startHeight = numberOrText(o, "startHeight", t.startHeight);
-    t.finalHeight = numberOrText(o, "finalHeight", t.finalHeight);
-    t.enableRehoming = flag(o, "enableRehoming", t.enableRehoming);
-    t.shouldDwell = flag(o, "shouldDwell", t.shouldDwell);
-    t.toolNumber = static_cast<int>(numberOrText(o, "toolNumber", t.toolNumber));
+    readPropOrText(o, "stockLength", t.stockLength);
+    readPropOrText(o, "stepdown", t.stepdown);
+    readPropOrText(o, "bitDiameter", t.bitDiameter);
+    readPropOrText(o, "spindleRPM", t.spindleRPM);
+    readPropOrText(o, "feedrate", t.feedrate);
+    readPropOrText(o, "stepover", t.stepover);
+    readPropOrText(o, "startHeight", t.startHeight);
+    readPropOrText(o, "finalHeight", t.finalHeight);
+    readProp(o, "enableRehoming", t.enableRehoming);
+    readProp(o, "shouldDwell", t.shouldDwell);
+    readPropOrText(o, "toolNumber", t.toolNumber);
     return t;
 }
 
@@ -144,18 +169,18 @@ SpindleSettings loadSpindle(const json::object& o) {
     SpindleSettings s;
     s.laserMode = text(o, "mode", "spindle") == "laser";
     s.inputType = text(o, "inputType", "Slider") == "Number" ? "Number" : "Slider";
-    s.speed = number(o, "speed", s.speed);
-    s.spindleMax = number(o, "spindleMax", s.spindleMax);
-    s.spindleMin = number(o, "spindleMin", s.spindleMin);
+    readProp(o, "speed", s.speed);
+    readProp(o, "spindleMax", s.spindleMax);
+    readProp(o, "spindleMin", s.spindleMin);
     if (const json::value* laser = o.if_contains("laser"); laser && laser->is_object()) {
         const json::object& l = laser->as_object();
-        s.laser.onOutline = flag(l, "laserOnOutline", s.laser.onOutline);
-        s.laser.power = number(l, "power", s.laser.power);
-        s.laser.duration = number(l, "duration", s.laser.duration);
-        s.laser.xOffset = number(l, "xOffset", s.laser.xOffset);
-        s.laser.yOffset = number(l, "yOffset", s.laser.yOffset);
-        s.laser.minPower = number(l, "minPower", s.laser.minPower);
-        s.laser.maxPower = number(l, "maxPower", s.laser.maxPower);
+        readProp(l, "laserOnOutline", s.laser.onOutline);
+        readProp(l, "power", s.laser.power);
+        readProp(l, "duration", s.laser.duration);
+        readProp(l, "xOffset", s.laser.xOffset);
+        readProp(l, "yOffset", s.laser.yOffset);
+        readProp(l, "minPower", s.laser.minPower);
+        readProp(l, "maxPower", s.laser.maxPower);
     }
     return s;
 }
@@ -179,27 +204,27 @@ json::object saveSpindle(const SpindleSettings& s) {
 // The port keeps gSender's own shape, so both read the same way.
 AccessibilitySettings loadAccessibility(const json::object& o) {
     AccessibilitySettings a;
-    a.statusAnnouncements = flag(o, "statusAnnouncements", false);
-    a.jobProgressAnnouncements = flag(o, "jobProgressAnnouncements", false);
+    readProp(o, "statusAnnouncements", a.statusAnnouncements);
+    readProp(o, "jobProgressAnnouncements", a.jobProgressAnnouncements);
     a.jobProgressIncrement = std::clamp(static_cast<int>(number(o, "jobProgressIncrement", 10)), 1, 50);
-    a.focusRings = flag(o, "focusRings", false);
-    a.focusTrapping = flag(o, "focusTrapping", false);
-    a.visualizerKeyboardControl = flag(o, "visualizerKeyboardControl", false);
+    readProp(o, "focusRings", a.focusRings);
+    readProp(o, "focusTrapping", a.focusTrapping);
+    readProp(o, "visualizerKeyboardControl", a.visualizerKeyboardControl);
     if (const json::value* cues = o.if_contains("audioCues"); cues && cues->is_object()) {
         const json::object& c = cues->as_object();
-        a.audioCues = flag(c, "enabled", false);
-        a.cueJobComplete = flag(c, "jobComplete", false);
-        a.cueAlarm = flag(c, "alarmTriggered", false);
-        a.cueToolChange = flag(c, "toolChange", false);
-        a.cueProbeSuccess = flag(c, "probeSuccess", false);
+        readProp(c, "enabled", a.audioCues);
+        readProp(c, "jobComplete", a.cueJobComplete);
+        readProp(c, "alarmTriggered", a.cueAlarm);
+        readProp(c, "toolChange", a.cueToolChange);
+        readProp(c, "probeSuccess", a.cueProbeSuccess);
     }
-    a.reducedMotion = flag(o, "reducedMotion", false);
+    readProp(o, "reducedMotion", a.reducedMotion);
     if (const json::value* summary = o.if_contains("gcodeSummary"); summary && summary->is_object()) {
-        a.gcodeSummary = flag(summary->as_object(), "enabled", false);
-        a.gcodeSummaryVisible = flag(summary->as_object(), "showVisually", false);
+        readProp(summary->as_object(), "enabled", a.gcodeSummary);
+        readProp(summary->as_object(), "showVisually", a.gcodeSummaryVisible);
     }
-    a.showKeyboardMap = flag(o, "showKeyboardMap", false);
-    a.displayScale = text(o, "displayScaleFactor", "100%");
+    readProp(o, "showKeyboardMap", a.showKeyboardMap);
+    readProp(o, "displayScaleFactor", a.displayScale);
     return a;
 }
 
@@ -242,24 +267,24 @@ probe::ProbeSettings loadProbe(const json::object& o) {
     p.plateType = probe::plateTypeFromName(text(o, "touchplateType")).value_or(p.plateType);
     if (const json::value* z = o.if_contains("zThickness"); z && z->is_object()) {
         const json::object& t = z->as_object();
-        p.zThickness.standardBlock = number(t, "standardBlock", p.zThickness.standardBlock);
-        p.zThickness.autoZero = number(t, "autoZero", p.zThickness.autoZero);
-        p.zThickness.zProbe = number(t, "zProbe", p.zThickness.zProbe);
-        p.zThickness.probe3D = number(t, "probe3D", p.zThickness.probe3D);
-        p.zThickness.bitZero = number(t, "bitZero", p.zThickness.bitZero);
-        p.zThickness.bitZeroZOnly = number(t, "bitZeroZOnly", p.zThickness.bitZeroZOnly);
+        readProp(t, "standardBlock", p.zThickness.standardBlock);
+        readProp(t, "autoZero", p.zThickness.autoZero);
+        readProp(t, "zProbe", p.zThickness.zProbe);
+        readProp(t, "probe3D", p.zThickness.probe3D);
+        readProp(t, "bitZero", p.zThickness.bitZero);
+        readProp(t, "bitZeroZOnly", p.zThickness.bitZeroZOnly);
     }
-    p.xyThickness = number(o, "xyThickness", p.xyThickness);
-    p.probeFeedrate = number(o, "probeFeedrate", p.probeFeedrate);
-    p.probeFastFeedrate = number(o, "probeFastFeedrate", p.probeFastFeedrate);
-    p.retractionDistance = number(o, "retractionDistance", p.retractionDistance);
-    p.zRetractNormal = number(o, "zRetractNormal", p.zRetractNormal);
-    p.zRetractAuto = number(o, "zRetractAuto", p.zRetractAuto);
-    p.zProbeDistance = number(o, "zProbeDistance", p.zProbeDistance);
-    p.tipDiameter3D = number(o, "tipDiameter3D", p.tipDiameter3D);
-    p.xyRetract3D = number(o, "xyRetract3D", p.xyRetract3D);
-    p.probeMovementSpeed = number(o, "probeMovementSpeed", p.probeMovementSpeed);
-    p.connectivityTest = flag(o, "connectivityTest", p.connectivityTest);
+    readProp(o, "xyThickness", p.xyThickness);
+    readProp(o, "probeFeedrate", p.probeFeedrate);
+    readProp(o, "probeFastFeedrate", p.probeFastFeedrate);
+    readProp(o, "retractionDistance", p.retractionDistance);
+    readProp(o, "zRetractNormal", p.zRetractNormal);
+    readProp(o, "zRetractAuto", p.zRetractAuto);
+    readProp(o, "zProbeDistance", p.zProbeDistance);
+    readProp(o, "tipDiameter3D", p.tipDiameter3D);
+    readProp(o, "xyRetract3D", p.xyRetract3D);
+    readProp(o, "probeMovementSpeed", p.probeMovementSpeed);
+    readProp(o, "connectivityTest", p.connectivityTest);
     p.direction = static_cast<int>(number(o, "direction", p.direction)) & 3;
     return p;
 }
@@ -318,22 +343,22 @@ json::object saveProbe(const probe::ProbeSettings& p) {
 
 surfacing::Options loadSurfacing(const json::object& o) {
     surfacing::Options s;
-    s.bitDiameter = number(o, "bitDiameter", s.bitDiameter);
-    s.stepover = number(o, "stepover", s.stepover);
-    s.feedrate = number(o, "feedrate", s.feedrate);
-    s.length = number(o, "length", s.length);
-    s.width = number(o, "width", s.width);
-    s.skimDepth = number(o, "skimDepth", s.skimDepth);
-    s.maxDepth = number(o, "maxDepth", s.maxDepth);
-    s.spindleRPM = number(o, "spindleRPM", s.spindleRPM);
+    readProp(o, "bitDiameter", s.bitDiameter);
+    readProp(o, "stepover", s.stepover);
+    readProp(o, "feedrate", s.feedrate);
+    readProp(o, "length", s.length);
+    readProp(o, "width", s.width);
+    readProp(o, "skimDepth", s.skimDepth);
+    readProp(o, "maxDepth", s.maxDepth);
+    readProp(o, "spindleRPM", s.spindleRPM);
     s.type = surfacing::patternFromName(text(o, "type")).value_or(s.type);
     s.startPosition = surfacing::startPositionFromName(text(o, "startPosition")).value_or(s.startPosition);
-    s.spindle = text(o, "spindle", s.spindle);
-    s.cutDirectionFlipped = flag(o, "cutDirectionFlipped", s.cutDirectionFlipped);
-    s.shouldDwell = flag(o, "shouldDwell", s.shouldDwell);
-    s.flood = flag(o, "flood", s.flood);
-    s.mist = flag(o, "mist", s.mist);
-    s.toolNumber = static_cast<int>(number(o, "toolNumber", s.toolNumber));
+    readProp(o, "spindle", s.spindle);
+    readProp(o, "cutDirectionFlipped", s.cutDirectionFlipped);
+    readProp(o, "shouldDwell", s.shouldDwell);
+    readProp(o, "flood", s.flood);
+    readProp(o, "mist", s.mist);
+    readProp(o, "toolNumber", s.toolNumber);
     return s;
 }
 
@@ -377,10 +402,10 @@ controller::JogSpeeds loadSpeeds(const json::object& root, std::string_view key,
         return speeds;
     }
     const json::object& o = value->as_object();
-    speeds.xyStep = number(o, "xyStep", speeds.xyStep);
-    speeds.zStep = number(o, "zStep", speeds.zStep);
-    speeds.aStep = number(o, "aStep", speeds.aStep);
-    speeds.feedrate = number(o, "feedrate", speeds.feedrate);
+    readProp(o, "xyStep", speeds.xyStep);
+    readProp(o, "zStep", speeds.zStep);
+    readProp(o, "aStep", speeds.aStep);
+    readProp(o, "feedrate", speeds.feedrate);
     return speeds;
 }
 
@@ -420,28 +445,28 @@ AppSettings appSettingsFromJson(const json::object& root) {
     AppSettings settings;
     if (const json::value* tool = root.if_contains("toolChange"); tool && tool->is_object()) {
         const json::object& t = tool->as_object();
-        settings.toolChange.option = text(t, "option", "Ignore");
-        settings.toolChange.passthrough = flag(t, "passthrough", false);
-        settings.toolChange.preHook = text(t, "preHook");
-        settings.toolChange.postHook = text(t, "postHook");
-        settings.toolChange.skipDialog = flag(t, "skipDialog", false);
-        settings.firstToolBehaviour = text(t, "firstToolBehaviour", settings.firstToolBehaviour);
-        settings.moveToManualPosition = flag(t, "moveToManualPosition", false);
+        readProp(t, "option", settings.toolChange.option);
+        readProp(t, "passthrough", settings.toolChange.passthrough);
+        readProp(t, "preHook", settings.toolChange.preHook);
+        readProp(t, "postHook", settings.toolChange.postHook);
+        readProp(t, "skipDialog", settings.toolChange.skipDialog);
+        readProp(t, "firstToolBehaviour", settings.firstToolBehaviour);
+        readProp(t, "moveToManualPosition", settings.moveToManualPosition);
         settings.manualPosition = loadPosition(t, "manualPosition");
     }
     settings.toolChangePosition = loadPosition(root, "toolChangePosition");
-    settings.preferences.spindleDelay = number(root, "spindleDelay", 0);
-    settings.preferences.showLineWarnings = flag(root, "showLineWarnings", false);
-    settings.preferences.useAaxisForGrbl = flag(root, "useAaxisForGrbl", false);
-    settings.port = text(root, "port");
-    settings.baudRate = static_cast<int>(number(root, "baudRate", 115200));
-    settings.networkPort = static_cast<int>(number(root, "networkPort", 23));
+    readProp(root, "spindleDelay", settings.preferences.spindleDelay);
+    readProp(root, "showLineWarnings", settings.preferences.showLineWarnings);
+    readProp(root, "useAaxisForGrbl", settings.preferences.useAaxisForGrbl);
+    readProp(root, "port", settings.port);
+    readProp(root, "baudRate", settings.baudRate);
+    readProp(root, "networkPort", settings.networkPort);
     settings.ethernetIp = loadIp(root.if_contains("ethernetIp"), settings.ethernetIp);
     settings.defaultFirmware =
         text(root, "defaultFirmware", "Grbl") == "grblHAL" ? protocol::Firmware::GrblHal : protocol::Firmware::Grbl;
     if (const json::value* probe = root.if_contains("probe"); probe && probe->is_object()) {
         settings.probe = loadProbe(probe->as_object());
-        settings.touchplateTypeSwitcher = flag(probe->as_object(), "touchplateTypeSwitcher", false);
+        readProp(probe->as_object(), "touchplateTypeSwitcher", settings.touchplateTypeSwitcher);
         settings.probeTools = loadTools(probe->as_object().if_contains("tools"));
     }
     if (const json::value* surfacing = root.if_contains("surfacing"); surfacing && surfacing->is_object()) {
@@ -461,43 +486,43 @@ AppSettings appSettingsFromJson(const json::object& root) {
         settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
         settings.jog.normal = loadSpeeds(j, "normal", settings.jog.normal);
         settings.jog.precise = loadSpeeds(j, "precise", settings.jog.precise);
-        settings.jog.threshold = static_cast<int>(number(j, "threshold", settings.jog.threshold));
-        settings.jog.preventJoggingPastLimits = flag(j, "preventJoggingPastLimits", false);
+        readProp(j, "threshold", settings.jog.threshold);
+        readProp(j, "preventJoggingPastLimits", settings.jog.preventJoggingPastLimits);
     }
     settings.metric = text(root, "units", "mm") != "in";
-    settings.customDecimalPlaces = static_cast<int>(number(root, "customDecimalPlaces", 0));
-    settings.safeRetractHeight = number(root, "safeRetractHeight", 0);
-    settings.warnZero = flag(root, "warnZero", false);
+    readProp(root, "customDecimalPlaces", settings.customDecimalPlaces);
+    readProp(root, "safeRetractHeight", settings.safeRetractHeight);
+    readProp(root, "warnZero", settings.warnZero);
     settings.park = loadPosition(root, "park");
-    settings.stepperRestoreValue = text(root, "stepperRestoreValue");
+    readProp(root, "stepperRestoreValue", settings.stepperRestoreValue);
     settings.recentFiles = loadRecentFiles(root.if_contains("recentFiles"));
     settings.outlineMode = job::outlineModeFromName(text(root, "outlineMode")).value_or(settings.outlineMode);
-    settings.outlineSpeed = number(root, "outlineSpeed", 0);
-    settings.toastDuration = static_cast<int>(number(root, "toastDuration", 0));
-    settings.jobEndModal = flag(root, "jobEndModal", true);
-    settings.maintenanceNotifications = flag(root, "maintenanceNotifications", true);
-    settings.liteMode = flag(root, "liteMode", false);
-    settings.autoReconnect = flag(root, "autoReconnect", false);
-    settings.revertWorkspace = flag(root, "revertWorkspace", false);
-    settings.powerSaving = flag(root, "powerSaving", false);
-    settings.promptExit = flag(root, "promptExit", false);
-    settings.spindleFunctions = flag(root, "spindleFunctions", false);
-    settings.coolantFunctions = flag(root, "coolantFunctions", true);
-    settings.hideProcessedLines = flag(root, "hideProcessedLines", false);
-    settings.warnBadFile = flag(root, "warnBadFile", false);
-    settings.visualizerTheme = text(root, "visualizerTheme", "Dark");
+    readProp(root, "outlineSpeed", settings.outlineSpeed);
+    readProp(root, "toastDuration", settings.toastDuration);
+    readProp(root, "jobEndModal", settings.jobEndModal);
+    readProp(root, "maintenanceNotifications", settings.maintenanceNotifications);
+    readProp(root, "liteMode", settings.liteMode);
+    readProp(root, "autoReconnect", settings.autoReconnect);
+    readProp(root, "revertWorkspace", settings.revertWorkspace);
+    readProp(root, "powerSaving", settings.powerSaving);
+    readProp(root, "promptExit", settings.promptExit);
+    readProp(root, "spindleFunctions", settings.spindleFunctions);
+    readProp(root, "coolantFunctions", settings.coolantFunctions);
+    readProp(root, "hideProcessedLines", settings.hideProcessedLines);
+    readProp(root, "warnBadFile", settings.warnBadFile);
+    readProp(root, "visualizerTheme", settings.visualizerTheme);
     settings.perspective = text(root, "projection", "Perspective") != "Orthographic";
-    settings.darkMode = flag(root, "darkMode", false);
-    settings.machineProfileId = static_cast<int>(number(root, "machineProfileId", -1));
-    settings.showBoundingBox = flag(root, "showBoundingBox", true);
-    settings.boundingBoxLabels = flag(root, "boundingBoxLabels", false);
-    settings.showMachineBed = flag(root, "showMachineBed", false);
-    settings.trimGridToBed = flag(root, "trimGridToBed", false);
-    settings.followTool = flag(root, "followTool", false);
-    settings.backupFrequency = text(root, "backupFrequency", "On Update");
-    settings.backupLocation = text(root, "backupLocation");
-    settings.lastBackupTime = static_cast<std::int64_t>(number(root, "lastBackupTime", 0));
-    settings.lastBackupVersion = text(root, "lastBackupVersion");
+    readProp(root, "darkMode", settings.darkMode);
+    readProp(root, "machineProfileId", settings.machineProfileId);
+    readProp(root, "showBoundingBox", settings.showBoundingBox);
+    readProp(root, "boundingBoxLabels", settings.boundingBoxLabels);
+    readProp(root, "showMachineBed", settings.showMachineBed);
+    readProp(root, "trimGridToBed", settings.trimGridToBed);
+    readProp(root, "followTool", settings.followTool);
+    readProp(root, "backupFrequency", settings.backupFrequency);
+    readProp(root, "backupLocation", settings.backupLocation);
+    readProp(root, "lastBackupTime", settings.lastBackupTime);
+    readProp(root, "lastBackupVersion", settings.lastBackupVersion);
     settings.liteOption = text(root, "liteOption", "Light") == "Everything" ? "Everything" : "Light";
     if (const json::value* shortcuts = root.if_contains("shortcuts"); shortcuts && shortcuts->is_object()) {
         for (const auto& [id, value] : shortcuts->as_object()) {
@@ -507,7 +532,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
             }
         }
     }
-    settings.shortcutsEnabled = flag(root, "shortcutsEnabled", true);
+    readProp(root, "shortcutsEnabled", settings.shortcutsEnabled);
     return settings;
 }
 
