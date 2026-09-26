@@ -69,11 +69,8 @@ QVariantMap settingRow(const QString& label, const std::string& value, bool ok, 
 
 }  // namespace
 
-AccessoryModel::AccessoryModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::connectionChanged, &app::Machine::settingsChanged, &app::Machine::stateChanged,
-                        &app::Machine::appSettingsChanged}) {
-        connect(&machine_, signal, this, &AccessoryModel::changed);
-    }
+AccessoryModel::AccessoryModel(QObject* parent) : UiModelBase(parent) {
+    connectMachineSignals(true, false);
 }
 
 // ---- the board ---------------------------------------------------------------------------------
@@ -106,14 +103,6 @@ void AccessoryModel::send(const std::vector<std::string>& code) {
 
 bool AccessoryModel::atciFirmware() const {
     return firmwareBuild() >= app::kAtciSupportedVersion;
-}
-
-bool AccessoryModel::connected() const {
-    return machine_.isConnected();
-}
-
-QString AccessoryModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 bool AccessoryModel::probeActive() const {
@@ -354,11 +343,6 @@ void AccessoryModel::applyTlsOptions(const QString& firstTool, bool manualLocati
     settings.toolChange.passthrough = false;
     settings.probe.probeFastFeedrate = 1000;
     machine_.setSettings(settings);  // updateToolchangeContext()
-}
-
-QString AccessoryModel::positionText(double mm) const {
-    const app::AppSettings& settings = machine_.settings();
-    return QString::fromStdString(units::positionText(mm, settings.metric, settings.customDecimalPlaces));
 }
 
 double AccessoryModel::positionMm(const QString& text) const {

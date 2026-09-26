@@ -15,24 +15,12 @@
 namespace gs::ui {
 namespace {
 
-// canClick: connected, no job running, idle.
-bool idle(app::Machine& machine) {
-    controller::Controller* c = machine.controller();
-    return c && !c->workflow().isRunning() && c->state().status.activeState == "Idle";
-}
-
 }  // namespace
 
 // ---- coolant ------------------------------------------------------------------------
 
-CoolantModel::CoolantModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::workflowChanged, &app::Machine::connectionChanged}) {
-        connect(&machine_, signal, this, &CoolantModel::changed);
-    }
-}
-
-bool CoolantModel::canClick() const {
-    return idle(machine_);
+CoolantModel::CoolantModel(QObject* parent) : UiModelBase(parent) {
+    connectMachineSignals(false, true);
 }
 
 bool CoolantModel::hasCoolant(const char* code) const {
@@ -72,7 +60,7 @@ void CoolantModel::off() {
 
 // ---- spindle and laser --------------------------------------------------------------
 
-SpindleModel::SpindleModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+SpindleModel::SpindleModel(QObject* parent) : UiModelBase(parent) {
     speedTimer_ = new QTimer(this);
     speedTimer_->setSingleShot(true);
     speedTimer_->setInterval(300);
@@ -106,14 +94,6 @@ void SpindleModel::sync() {
     if (!powerTimer_->isActive()) {
         power_ = settings.spindle.laser.power;
     }
-}
-
-bool SpindleModel::canClick() const {
-    return idle(machine_);
-}
-
-bool SpindleModel::connected() const {
-    return machine_.isConnected();
 }
 
 bool SpindleModel::laserMode() const {

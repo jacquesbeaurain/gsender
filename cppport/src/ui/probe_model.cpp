@@ -27,13 +27,11 @@ QString number(double value) {
 
 }  // namespace
 
-ProbeModel::ProbeModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+ProbeModel::ProbeModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::appSettingsChanged, this, &ProbeModel::settingsChanged);
     // A touch once seen keeps the check passed (setProbeConnectivity).
     connect(&machine_, &app::Machine::stateChanged, this, [this] { checked_ = checked_ || machine_.probeTriggered(); });
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::connectionChanged, &app::Machine::workflowChanged}) {
-        connect(&machine_, signal, this, &ProbeModel::changed);
-    }
+    connectMachineSignals(false, true);
     settingsChanged();
 }
 
@@ -57,15 +55,6 @@ void ProbeModel::settingsChanged() {
         }
     }
     Q_EMIT changed();
-}
-
-bool ProbeModel::canClick() const {
-    controller::Controller* c = machine_.controller();
-    return c && !c->workflow().isRunning() && c->state().status.activeState == "Idle";
-}
-
-bool ProbeModel::connected() const {
-    return machine_.isConnected();
 }
 
 QString ProbeModel::plateType() const {
@@ -101,10 +90,6 @@ QString ProbeModel::commandId() const {
 bool ProbeModel::needsTool() const {
     const auto commands = probe::probeCommands(machine_.settings().probe.plateType);
     return selected_ < static_cast<int>(commands.size()) && commands[selected_].needsTool;
-}
-
-QString ProbeModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 QVariantList ProbeModel::tools() const {

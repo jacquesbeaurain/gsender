@@ -46,7 +46,7 @@ QVariantMap toMap(const surfacing::Options& o) {
 
 }  // namespace
 
-SurfacingModel::SurfacingModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+SurfacingModel::SurfacingModel(QObject* parent) : UiModelBase(parent) {
     const surfacing::Options& stored = machine_.settings().surfacing;
     options_ = machine_.settings().metric ? stored : surfacing::toImperial(stored);
     connect(&machine_, &app::Machine::stateChanged, this, &SurfacingModel::stateChanged);
@@ -59,10 +59,6 @@ QVariantMap SurfacingModel::options() const {
 
 QVariantMap SurfacingModel::defaults() const {
     return toMap(machine_.settings().metric ? surfacing::Options{} : surfacing::toImperial(surfacing::Options{}));
-}
-
-QString SurfacingModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 QString SurfacingModel::depthWarning() const {

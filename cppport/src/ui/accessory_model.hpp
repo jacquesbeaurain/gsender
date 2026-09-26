@@ -8,7 +8,7 @@
 // (AccessoryInstallerTool.qml) runs the hub, the landing pages and the
 // steps.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -28,7 +28,7 @@ class Machine;
 
 namespace gs::ui {
 
-class AccessoryModel : public QObject {
+class AccessoryModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -38,8 +38,6 @@ class AccessoryModel : public QObject {
     // kind: image, jogging, commands (autospin / spindle), tlsSettings,
     // tlsInput, link.
     Q_PROPERTY(QVariantList wizards READ wizards NOTIFY changed)
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)
     Q_PROPERTY(bool probeActive READ probeActive NOTIFY changed)
     // The machine position (mm), or empty without a controller.
     Q_PROPERTY(QVariantList machinePosition READ machinePosition NOTIFY changed)
@@ -65,8 +63,6 @@ public:
     explicit AccessoryModel(QObject* parent = nullptr);
 
     QVariantList wizards() const;
-    bool connected() const;
-    QString units() const;
     bool probeActive() const;
     QVariantList machinePosition() const;
     QStringList firstToolBehaviours() const;
@@ -95,7 +91,6 @@ public:
     Q_INVOKABLE bool loadVacuumGrid();
     Q_INVOKABLE void applyTlsOptions(const QString& firstTool, bool manualLocation);
     // A position in workspace units, and back to mm.
-    Q_INVOKABLE QString positionText(double mm) const;
     Q_INVOKABLE double positionMm(const QString& text) const;
     Q_INVOKABLE void setTlsLocation(double x, double y, double z);
     Q_INVOKABLE void setManualPosition(double x, double y, double z);
@@ -109,8 +104,6 @@ public:
     Q_INVOKABLE void applySpindle();
     Q_INVOKABLE void applyModbus();
 
-Q_SIGNALS:
-    void changed();
 
 private:
     long long firmwareBuild() const;
@@ -120,7 +113,6 @@ private:
     bool load(const QString& resource, const QString& name);
     controller::LocationSettings locationSettings() const;
 
-    app::Machine& machine_;
 };
 
 }  // namespace gs::ui

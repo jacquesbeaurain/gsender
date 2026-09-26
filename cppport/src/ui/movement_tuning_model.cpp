@@ -18,11 +18,8 @@ QString number(double value) {
 }  // namespace
 
 MovementTuningModel::MovementTuningModel(QObject* parent)
-    : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::connectionChanged,
-                        &app::Machine::appSettingsChanged, &app::Machine::settingsChanged}) {
-        connect(&machine_, signal, this, &MovementTuningModel::changed);
-    }
+    : UiModelBase(parent) {
+    connectMachineSignals(true, false);
     setAxis(QStringLiteral("X"));
 }
 
@@ -46,14 +43,6 @@ void MovementTuningModel::setMoveDistance(double distance) {
 void MovementTuningModel::setTravelled(double distance) {
     travelled_ = distance;
     Q_EMIT changed();
-}
-
-QString MovementTuningModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
-}
-
-bool MovementTuningModel::connected() const {
-    return machine_.controller() != nullptr;
 }
 
 bool MovementTuningModel::canMove() const {

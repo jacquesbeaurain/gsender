@@ -7,7 +7,7 @@
 // routine's picture; and the run step: the probe circuit check, then the
 // routine.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -19,12 +19,10 @@ class Machine;
 
 namespace gs::ui {
 
-class ProbeModel : public QObject {
+class ProbeModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(bool canClick READ canClick NOTIFY changed)
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     Q_PROPERTY(QString plateType READ plateType NOTIFY changed)
     Q_PROPERTY(QStringList plateTypes READ plateTypes CONSTANT)
     Q_PROPERTY(bool plateSwitcher READ plateSwitcher NOTIFY changed)
@@ -37,7 +35,6 @@ class ProbeModel : public QObject {
     // removable}; the units' name.
     Q_PROPERTY(QString tool READ tool NOTIFY changed)
     Q_PROPERTY(QVariantList tools READ tools NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)
     Q_PROPERTY(int corner READ corner NOTIFY changed)
     Q_PROPERTY(QString cornerName READ cornerName NOTIFY changed)
     // The picture (ProbeImage): a qrc URL of upstream's GIF.
@@ -51,8 +48,6 @@ class ProbeModel : public QObject {
 public:
     explicit ProbeModel(QObject* parent = nullptr);
 
-    bool canClick() const;
-    bool connected() const;
     QString plateType() const;
     QStringList plateTypes() const;
     bool plateSwitcher() const;
@@ -62,7 +57,6 @@ public:
     bool needsTool() const;
     QString tool() const { return tool_; }
     QVariantList tools() const;
-    QString units() const;
     int corner() const;
     QString cornerName() const;
     QString image() const;
@@ -90,15 +84,12 @@ public:
     // Runs the routine; false when it cannot.
     Q_INVOKABLE bool start();
 
-Q_SIGNALS:
-    void changed();
 
 private:
     int probeTypeIndex() const;  // Diameter, Auto, Tip
     double toolDiameter() const;
     void settingsChanged();
 
-    app::Machine& machine_;
     int selected_ = 0;
     QString tool_;
     bool checked_ = false;
