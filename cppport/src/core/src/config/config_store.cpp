@@ -5,8 +5,10 @@
 
 #include <boost/json.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <optional>
 #include <sstream>
@@ -84,11 +86,12 @@ const json::object& defaults() {
 }  // namespace
 
 bool writeFileAtomic(const fs::path& file, std::string_view content, std::string* error) {
-    const fs::path temp = fs::path(file).concat("." + std::to_string(processId()) + ".tmp");
+    static std::atomic<std::uint64_t> counter{0};
+    const fs::path temp = fs::path(file).concat("." + std::to_string(processId()) + "." + std::to_string(++counter) + ".tmp");
     std::FILE* stream = openForWrite(temp);
     if (!stream) {
         if (error) {
-            *error = "cannot create " + temp.string();
+            *error = "cannot create " + temp.string() + " (" + std::to_string(errno) + ": " + std::strerror(errno) + ")";
         }
         return false;
     }
