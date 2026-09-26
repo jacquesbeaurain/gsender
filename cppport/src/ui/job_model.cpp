@@ -25,7 +25,7 @@ QString clock(double seconds) {
 
 }  // namespace
 
-JobModel::JobModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+JobModel::JobModel(QObject* parent) : UiModelBase(parent) {
     for (auto signal : {&app::Machine::workflowChanged, &app::Machine::connectionChanged,
                         &app::Machine::programChanged, &app::Machine::appSettingsChanged,
                         &app::Machine::stateChanged, &app::Machine::settingsChanged}) {
@@ -137,14 +137,6 @@ double JobModel::defaultSafeHeight() const {
     const bool metric = machine_.settings().metric;
     const double retract = machine_.settings().safeRetractHeight;
     return retract == 0 ? (metric ? 10 : 0.4) : (metric ? retract : units::convertToImperial(retract));
-}
-
-QString JobModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
-}
-
-bool JobModel::connected() const {
-    return machine_.isConnected();
 }
 
 int JobModel::feedOverride() const {

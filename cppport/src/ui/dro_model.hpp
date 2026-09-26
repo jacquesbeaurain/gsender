@@ -4,7 +4,7 @@
 // what may be clicked, and the DRO's actions - the rules of the widget DRO
 // (app/dro_panel), which the QML one replaces.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -15,15 +15,10 @@ class Machine;
 
 namespace gs::ui {
 
-class DroModel : public QObject {
+class DroModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
-    // canClick: connected, no job running, idle or jogging.
-    Q_PROPERTY(bool canClick READ canClick NOTIFY changed)
-    Q_PROPERTY(bool metric READ metric NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)  // "mm" / "in"
     Q_PROPERTY(bool rotaryMode READ rotaryMode NOTIFY changed)
     // Homing ($22 > 0) and whether the machine has homed: the corners and
     // Park show with homing and work once homed.
@@ -49,10 +44,6 @@ class DroModel : public QObject {
 public:
     explicit DroModel(QObject* parent = nullptr);
 
-    bool connected() const;
-    bool canClick() const;
-    bool metric() const;
-    QString units() const;
     bool rotaryMode() const;
     bool homingEnabled() const;
     bool homed() const;
@@ -84,11 +75,8 @@ public:
     Q_INVOKABLE QVariantList goToPrefill(const QString& mode) const;
     Q_INVOKABLE void goTo(const QString& mode, double x, double y, double z, double a);
 
-Q_SIGNALS:
-    void changed();
 
 private:
-    app::Machine& machine_;
     bool homingMode_ = false;
 };
 

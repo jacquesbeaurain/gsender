@@ -15,15 +15,6 @@
 namespace gs::ui {
 namespace {
 
-// A position as the DRO shows it: the workspace units, A in degrees.
-QString positionText(const app::Machine& machine, char axis, double mm) {
-    if (axis == 'A') {
-        return QString::number(mm, 'f', 3);
-    }
-    const app::AppSettings& s = machine.settings();
-    return QString::fromStdString(units::positionText(mm, s.metric, s.customDecimalPlaces));
-}
-
 controller::GoToMode goToMode(const QString& mode) {
     return mode == "INC" ? controller::GoToMode::Incremental
                          : mode == "MCS" ? controller::GoToMode::Machine : controller::GoToMode::Absolute;
@@ -31,7 +22,7 @@ controller::GoToMode goToMode(const QString& mode) {
 
 }  // namespace
 
-DroModel::DroModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+DroModel::DroModel(QObject* parent) : UiModelBase(parent) {
     for (auto signal : {&app::Machine::appSettingsChanged, &app::Machine::stateChanged, &app::Machine::settingsChanged,
                         &app::Machine::connectionChanged, &app::Machine::workflowChanged}) {
         connect(&machine_, signal, this, [this] {
@@ -41,22 +32,6 @@ DroModel::DroModel(QObject* parent) : QObject(parent), machine_(UiBackend::insta
             Q_EMIT changed();
         });
     }
-}
-
-bool DroModel::connected() const {
-    return machine_.controller() != nullptr && machine_.isConnected();
-}
-
-bool DroModel::canClick() const {
-    return machine_.canMove();
-}
-
-bool DroModel::metric() const {
-    return machine_.settings().metric;
-}
-
-QString DroModel::units() const {
-    return metric() ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 bool DroModel::rotaryMode() const {
@@ -111,8 +86,8 @@ QVariantList DroModel::rows() const {
         r["axis"] = QString(QChar(axis));
         // The rotary's degrees (on Y in rotary mode) print as A.
         const char unit = label == "A" ? 'A' : axis;
-        r["work"] = shown ? positionText(machine_, unit, wpos[index]) : QStringLiteral("0.00");
-        r["machine"] = shown ? positionText(machine_, unit, mpos[index]) : QStringLiteral("0.00");
+        r["work"] = shown ? positionText(wpos[index], unit) : QStringLiteral("0.00");
+        r["machine"] = shown ? positionText(mpos[index], unit) : QStringLiteral("0.00");
         r["enabled"] = can && enabled;
         r["gotoEnabled"] = can && gotoEnabled;
         return r;

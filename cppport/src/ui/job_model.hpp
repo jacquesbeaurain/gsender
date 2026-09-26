@@ -5,7 +5,7 @@
 // job runs (ProgressArea, SDCardProgress), and the feed and spindle
 // overrides (FeedOverride).
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QtQml/qqmlregistration.h>
 
@@ -15,7 +15,7 @@ class Machine;
 
 namespace gs::ui {
 
-class JobModel : public QObject {
+class JobModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -40,10 +40,8 @@ class JobModel : public QObject {
     Q_PROPERTY(int totalLines READ totalLines NOTIFY changed)
     Q_PROPERTY(int lastLine READ lastLine NOTIFY changed)
     Q_PROPERTY(double defaultSafeHeight READ defaultSafeHeight NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)
     // Overrides (%) and what they act on: the feed in the workspace units a
     // minute, the spindle's RPM (or the laser's power).
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     Q_PROPERTY(int feedOverride READ feedOverride NOTIFY overridesChanged)
     Q_PROPERTY(int spindleOverride READ spindleOverride NOTIFY overridesChanged)
     Q_PROPERTY(QString feedText READ feedText NOTIFY overridesChanged)
@@ -70,8 +68,6 @@ public:
     int totalLines() const;
     int lastLine() const;
     double defaultSafeHeight() const;
-    QString units() const;
-    bool connected() const;
     int feedOverride() const;
     int spindleOverride() const;
     QString feedText() const;
@@ -91,13 +87,11 @@ public:
     Q_INVOKABLE void setSpindleOverride(int percent);
 
 Q_SIGNALS:
-    void changed();
     void progressChanged();
     void overridesChanged();
     void notice(const QString& text);
 
 private:
-    app::Machine& machine_;
 };
 
 }  // namespace gs::ui
