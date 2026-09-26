@@ -9,7 +9,7 @@
 
 #include "gs/toolchange/wizards.hpp"
 
-#include "ui_model_base.hpp"
+#include "wizard_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -26,7 +26,7 @@ class Machine;
 
 namespace gs::ui {
 
-class ToolChangeModel : public UiModelBase {
+class ToolChangeModel : public WizardModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -58,16 +58,16 @@ public:
     QString title() const;
     QString intro() const;
     QVariantList steps() const;
-    int step() const { return step_; }
-    int substep() const { return substep_; }
+    int step() const { return stepIndex_; }
+    int substep() const { return substepIndex_; }
     QVariantMap current() const;
     QString toolLabel() const;
     QString comment() const { return comment_; }
     bool running() const { return running_; }
     bool ready() const;
     bool currentDone() const;
-    bool canBack() const;
-    bool canNext() const;
+    bool canBack() const override;
+    bool canNext() const override;
     bool last() const;
     int flatCount() const;
     int flatIndex() const;
@@ -75,8 +75,8 @@ public:
     // The first tool's answer: the full wizard, or measure only.
     Q_INVOKABLE void answerFirstTool(bool fullWizard);
     Q_INVOKABLE void runAction(int index);
-    Q_INVOKABLE void next();
-    Q_INVOKABLE void back();
+    Q_INVOKABLE void next() override;
+    Q_INVOKABLE void back() override;
     // Closes the wizard; the job stays paused.
     Q_INVOKABLE void cancel();
     // "Code": the tool is changed - the post-hook runs and the job resumes.
@@ -95,8 +95,6 @@ private:
     void advance();
 
     std::optional<toolchange::Wizard> wizard_;
-    int step_ = 0;
-    int substep_ = 0;
     bool running_ = false;
     std::set<std::pair<int, int>> done_;
     QString option_;

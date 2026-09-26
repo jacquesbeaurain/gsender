@@ -92,6 +92,7 @@ qt_add_qml_module(gs_ui
         qml/ConfigPage.qml
         qml/ConfigRow.qml
         qml/KeyboardMap.qml
+        qml/WizardContainer.qml
         qml/WizardAction.qml
         qml/WizardStepPage.qml
         qml/WizardText.qml
@@ -174,6 +175,8 @@ qt_add_qml_module(gs_ui
         ui_app.hpp
         ui_model_base.cpp
         ui_model_base.hpp
+        wizard_model_base.cpp
+        wizard_model_base.hpp
 )
 
 # Upstream's pictures (the probe routines' GIFs, the rotary tracks).

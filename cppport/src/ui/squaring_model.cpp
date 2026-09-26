@@ -16,8 +16,9 @@ QString number(double value) {
 
 }  // namespace
 
-SquaringModel::SquaringModel(QObject* parent) : UiModelBase(parent) {
+SquaringModel::SquaringModel(QObject* parent) : WizardModelBase(parent) {
     connectMachineSignals(true, false);
+    setTotalSteps(4);
     buildSteps();
 }
 
@@ -51,11 +52,11 @@ void SquaringModel::buildSteps() {
 QString SquaringModel::title() const {
     static const char* const kTitles[] = {QT_TR_NOOP("Initial Setup"), QT_TR_NOOP("Mark Reference Points"),
                                           QT_TR_NOOP("Take Measurements"), QT_TR_NOOP("Results")};
-    return tr(kTitles[mainStep_]);
+    return tr(kTitles[stepIndex_]);
 }
 
 QString SquaringModel::description() const {
-    switch (mainStep_) {
+    switch (stepIndex_) {
         case 0:
             return tr("If your CNC is making skewed cuts, it's because the X and Y axes aren't squared to each other. "
                       "This can be fixed (5 - 10 minutes).");
@@ -66,7 +67,7 @@ QString SquaringModel::description() const {
 }
 
 QString SquaringModel::instruction() const {
-    if (mainStep_ == 0) {
+    if (stepIndex_ == 0) {
         return tr("To know how much adjustment is needed, follow the steps below. Prepare:") + "\n  - " +
                tr("3 squares of tape marked with an 'X'") + "\n  - " + tr("A long ruler or measuring tape") +
                "\n  - " +
@@ -76,7 +77,7 @@ QString SquaringModel::instruction() const {
                   "touching the wasteboard, then continue.");
     }
     const std::vector<Row>& rows = currentRows();
-    return rows.empty() ? QString() : rows[static_cast<std::size_t>(subStep_)].description;
+    return rows.empty() ? QString() : rows[static_cast<std::size_t>(substepIndex_)].description;
 }
 
 QVariantList SquaringModel::rows() const {
@@ -85,9 +86,9 @@ QVariantList SquaringModel::rows() const {
     const bool canMove = machine_.canMove();
     for (std::size_t i = 0; i < rows.size(); ++i) {
         const Row& row = rows[i];
-        const bool current = static_cast<int>(i) == subStep_ && !row.completed;
-        const bool isMove = mainStep_ == 1 && row.hasValue;
-        const bool isMeasure = mainStep_ == 2;
+        const bool current = static_cast<int>(i) == substepIndex_ && !row.completed;
+        const bool isMove = stepIndex_ == 1 && row.hasValue;
+        const bool isMeasure = stepIndex_ == 2;
         list.append(QVariantMap{
             {"button", row.button},
             {"hasValue", row.hasValue},
@@ -101,7 +102,7 @@ QVariantList SquaringModel::rows() const {
 }
 
 bool SquaringModel::canGoNext() const {
-    if (mainStep_ >= 3) {
+    if (stepIndex_ >= 3) {
         return false;
     }
     const std::vector<Row>& rows = currentRows();
@@ -112,28 +113,27 @@ void SquaringModel::next() {
     if (!canGoNext()) {
         return;
     }
-    ++mainStep_;
-    subStep_ = 0;
+    ++stepIndex_;
+    substepIndex_ = 0;
     Q_EMIT changed();
 }
 
 void SquaringModel::back() {
-    if (mainStep_ == 0) {
+    if (stepIndex_ == 0) {
         return;
     }
-    for (const int step : {mainStep_, mainStep_ - 1}) {
+    for (const int step : {stepIndex_, stepIndex_ - 1}) {
         for (Row& row : rows_[static_cast<std::size_t>(step)]) {
             row.completed = false;
         }
     }
-    --mainStep_;
-    subStep_ = 0;
+    --stepIndex_;
+    substepIndex_ = 0;
     Q_EMIT changed();
 }
 
 void SquaringModel::restart() {
-    mainStep_ = 0;
-    subStep_ = 0;
+    WizardModelBase::restart();
     triangle_ = {};
     moves_ = {};
     buildSteps();
@@ -141,15 +141,15 @@ void SquaringModel::restart() {
 }
 
 bool SquaringModel::completeRow(int index) {
-    std::vector<Row>& rows = rows_[static_cast<std::size_t>(mainStep_)];
-    if (index < 0 || index >= static_cast<int>(rows.size()) || index != subStep_) {
+    std::vector<Row>& rows = rows_[static_cast<std::size_t>(stepIndex_)];
+    if (index < 0 || index >= static_cast<int>(rows.size()) || index != substepIndex_) {
         return false;
     }
     Row& row = rows[static_cast<std::size_t>(index)];
     if (row.completed) {
         return false;
     }
-    if (mainStep_ == 1 && row.hasValue) {
+    if (stepIndex_ == 1 && row.hasValue) {
         // jogMachine(): the move, remembered for the steps/mm check.
         if (!machine_.canMove()) {
             return false;
@@ -157,7 +157,7 @@ bool SquaringModel::completeRow(int index) {
         const char axis = row.button.contains('X') ? 'X' : 'Y';
         machine_.runSquaringMove(axis, row.value);
         (axis == 'X' ? moves_.x : moves_.y) = row.value;
-    } else if (mainStep_ == 2) {
+    } else if (stepIndex_ == 2) {
         if (!(row.value > 0)) {
             return false;
         }
@@ -166,18 +166,18 @@ bool SquaringModel::completeRow(int index) {
     row.completed = true;
     const auto open = std::find_if(rows.begin(), rows.end(), [](const Row& r) { return !r.completed; });
     if (open != rows.end()) {
-        subStep_ = static_cast<int>(open - rows.begin());
+        substepIndex_ = static_cast<int>(open - rows.begin());
     }
     Q_EMIT changed();
     return true;
 }
 
 void SquaringModel::setRowValue(int index, double value) {
-    std::vector<Row>& rows = rows_[static_cast<std::size_t>(mainStep_)];
+    std::vector<Row>& rows = rows_[static_cast<std::size_t>(stepIndex_)];
     if (index < 0 || index >= static_cast<int>(rows.size()) || !rows[static_cast<std::size_t>(index)].hasValue) {
         return;
     }
-    rows[static_cast<std::size_t>(index)].value = mainStep_ == 2 ? std::max(0.0, value) : value;
+    rows[static_cast<std::size_t>(index)].value = stepIndex_ == 2 ? std::max(0.0, value) : value;
     Q_EMIT changed();
 }
 
@@ -188,7 +188,7 @@ calibration::StepsAdjustment SquaringModel::adjustment() const {
 
 bool SquaringModel::updateNeeded() const {
     const calibration::StepsAdjustment a = adjustment();
-    return mainStep_ == 3 && (a.x.needed || a.y.needed);
+    return stepIndex_ == 3 && (a.x.needed || a.y.needed);
 }
 
 QString SquaringModel::updateText() const {
@@ -200,7 +200,7 @@ QString SquaringModel::updateText() const {
 }
 
 QString SquaringModel::resultText() const {
-    if (mainStep_ != 3) {
+    if (stepIndex_ != 3) {
         return {};
     }
     const calibration::SquaringResult r = calibration::squaringResult(triangle_, machine_.settings().metric);
@@ -260,16 +260,16 @@ void SquaringModel::updateFirmware() {
 }
 
 int SquaringModel::markedPoints() const {
-    if (mainStep_ == 0) {
+    if (stepIndex_ == 0) {
         return 0;
     }
-    if (mainStep_ > 1) {
+    if (stepIndex_ > 1) {
         return 3;
     }
     const std::vector<Row>& rows = currentRows();
     int marked = 0;
     for (std::size_t i = 0; i < rows.size(); ++i) {
-        if (static_cast<int>(i) <= subStep_ && !rows[i].hasValue) {
+        if (static_cast<int>(i) <= substepIndex_ && !rows[i].hasValue) {
             ++marked;
         }
     }
@@ -277,22 +277,22 @@ int SquaringModel::markedPoints() const {
 }
 
 int SquaringModel::activePoint() const {
-    if (mainStep_ != 1) {
+    if (stepIndex_ != 1) {
         return -1;
     }
-    const Row& row = currentRows()[static_cast<std::size_t>(subStep_)];
+    const Row& row = currentRows()[static_cast<std::size_t>(substepIndex_)];
     return row.completed || row.hasValue ? -1 : row.button.back().digitValue() - 1;
 }
 
 int SquaringModel::activeSide() const {
-    return mainStep_ == 2 && !currentRows()[static_cast<std::size_t>(subStep_)].completed ? subStep_ : -1;
+    return stepIndex_ == 2 && !currentRows()[static_cast<std::size_t>(substepIndex_)].completed ? substepIndex_ : -1;
 }
 
 QString SquaringModel::moving() const {
-    if (mainStep_ != 1) {
+    if (stepIndex_ != 1) {
         return {};
     }
-    const Row& row = currentRows()[static_cast<std::size_t>(subStep_)];
+    const Row& row = currentRows()[static_cast<std::size_t>(substepIndex_)];
     if (row.completed || !row.hasValue) {
         return {};
     }

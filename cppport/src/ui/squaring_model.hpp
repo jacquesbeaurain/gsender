@@ -6,7 +6,7 @@
 
 #include "gs/calibration/calibration.hpp"
 
-#include "ui_model_base.hpp"
+#include "wizard_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -19,7 +19,7 @@ class Machine;
 
 namespace gs::ui {
 
-class SquaringModel : public UiModelBase {
+class SquaringModel : public WizardModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -45,13 +45,14 @@ class SquaringModel : public UiModelBase {
 public:
     explicit SquaringModel(QObject* parent = nullptr);
 
-    int mainStep() const { return mainStep_; }
-    int subStep() const { return subStep_; }
+    int mainStep() const { return stepIndex_; }
+    int subStep() const { return substepIndex_; }
     QString title() const;
     QString description() const;
     QString instruction() const;
     QVariantList rows() const;
     bool canGoNext() const;
+    bool canNext() const override { return canGoNext(); }
     QString resultText() const;
     bool updateNeeded() const;
     QString updateText() const;
@@ -61,9 +62,9 @@ public:
     QString moving() const;
     QVariantList sides() const;
 
-    Q_INVOKABLE void next();
-    Q_INVOKABLE void back();  // upstream resets this step and the one before
-    Q_INVOKABLE void restart();
+    Q_INVOKABLE void next() override;
+    Q_INVOKABLE void back() override;  // upstream resets this step and the one before
+    Q_INVOKABLE void restart() override;
     // The current step's row `index`, as its button: marks, moves (the X
     // and Y rows) and measurements (their values must be positive).
     Q_INVOKABLE bool completeRow(int index);
@@ -80,11 +81,9 @@ private:
         bool completed = false;
     };
     void buildSteps();
-    const std::vector<Row>& currentRows() const { return rows_[static_cast<std::size_t>(mainStep_)]; }
+    const std::vector<Row>& currentRows() const { return rows_[static_cast<std::size_t>(stepIndex_)]; }
     calibration::StepsAdjustment adjustment() const;
 
-    int mainStep_ = 0;
-    int subStep_ = 0;
     std::vector<std::vector<Row>> rows_;
     calibration::Triangle triangle_;
     calibration::SquaringMoves moves_;

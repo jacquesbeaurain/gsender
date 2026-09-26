@@ -4,7 +4,7 @@
 // move it a set distance, measure how far it went, and rescale its steps/mm
 // ($100-$102), as the widget dialog does.
 
-#include "ui_model_base.hpp"
+#include "wizard_model_base.hpp"
 #include <QString>
 #include <QtQml/qqmlregistration.h>
 
@@ -14,7 +14,7 @@ class Machine;
 
 namespace gs::ui {
 
-class MovementTuningModel : public UiModelBase {
+class MovementTuningModel : public WizardModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -40,6 +40,7 @@ public:
     double travelled() const { return travelled_; }
     void setTravelled(double distance);
     bool canMove() const;
+    bool canNext() const override { return canMove(); }
     QString instruction() const;
     bool accurate() const { return moveDistance_ == travelled_; }
     QString resultText() const;
@@ -51,13 +52,13 @@ public:
     Q_INVOKABLE void confirmTravelled();  // "Set Distance Travelled"
     Q_INVOKABLE double recommendedStepsPerMm() const;
     Q_INVOKABLE void updateFirmware();   // once asked
-    Q_INVOKABLE void restart();
+    Q_INVOKABLE void restart() override;
 
 
 private:
     enum Step { Intro, Mark, Move, Measure, Result };
 
-    Step step_ = Intro;
+    // stepIndex_ in WizardModelBase tracks Intro=0, Mark=1, Move=2, Measure=3, Result=4
     char axis_ = 'X';
     double moveDistance_ = 0;
     double travelled_ = 0;

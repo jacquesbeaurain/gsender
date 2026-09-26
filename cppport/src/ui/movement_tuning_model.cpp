@@ -18,14 +18,15 @@ QString number(double value) {
 }  // namespace
 
 MovementTuningModel::MovementTuningModel(QObject* parent)
-    : UiModelBase(parent) {
+    : WizardModelBase(parent) {
     connectMachineSignals(true, false);
+    setTotalSteps(5);
     setAxis(QStringLiteral("X"));
 }
 
 QString MovementTuningModel::step() const {
     static const char* const kSteps[] = {"intro", "mark", "move", "measure", "result"};
-    return QString::fromLatin1(kSteps[step_]);
+    return QString::fromLatin1(kSteps[stepIndex_]);
 }
 
 void MovementTuningModel::setAxis(const QString& axis) {
@@ -50,7 +51,7 @@ bool MovementTuningModel::canMove() const {
 }
 
 QString MovementTuningModel::instruction() const {
-    switch (step_) {
+    switch (stepIndex_) {
         case Mark:
             return tr("First, mark next to the gantry in the location shown with your marker, pencil, or using a "
                       "strip of tape.");
@@ -82,36 +83,32 @@ QString MovementTuningModel::updateText() const {
 }
 
 bool MovementTuningModel::start() {
-    if (step_ != Intro || !machine_.canMove()) {
+    if (stepIndex_ != Intro || !machine_.canMove()) {
         return false;
     }
-    step_ = Mark;
-    Q_EMIT changed();
+    setStepIndex(Mark);
     return true;
 }
 
 void MovementTuningModel::markLocation() {
-    if (step_ == Mark) {
-        step_ = Move;
-        Q_EMIT changed();
+    if (stepIndex_ == Mark) {
+        setStepIndex(Move);
     }
 }
 
 bool MovementTuningModel::moveAxis() {
     // Deviation: a move refused (not idle, or towards a triggered limit)
     // does not count as made; upstream went on regardless.
-    if (step_ != Move || !machine_.canMove() || !machine_.runTuningMove(axis_, moveDistance_)) {
+    if (stepIndex_ != Move || !machine_.canMove() || !machine_.runTuningMove(axis_, moveDistance_)) {
         return false;
     }
-    step_ = Measure;
-    Q_EMIT changed();
+    setStepIndex(Measure);
     return true;
 }
 
 void MovementTuningModel::confirmTravelled() {
-    if (step_ == Measure) {
-        step_ = Result;
-        Q_EMIT changed();
+    if (stepIndex_ == Measure) {
+        setStepIndex(Result);
     }
 }
 
@@ -126,7 +123,7 @@ void MovementTuningModel::updateFirmware() {
 }
 
 void MovementTuningModel::restart() {
-    step_ = Intro;
+    WizardModelBase::restart();
     setAxis(QStringLiteral("X"));
 }
 

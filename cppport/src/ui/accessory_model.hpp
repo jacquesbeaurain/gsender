@@ -8,7 +8,7 @@
 // (AccessoryInstallerTool.qml) runs the hub, the landing pages and the
 // steps.
 
-#include "ui_model_base.hpp"
+#include "wizard_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -28,7 +28,7 @@ class Machine;
 
 namespace gs::ui {
 
-class AccessoryModel : public UiModelBase {
+class AccessoryModel : public WizardModelBase {
     Q_OBJECT
     QML_ELEMENT
 
