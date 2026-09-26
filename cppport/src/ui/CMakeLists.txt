@@ -28,7 +28,6 @@ qt_add_qml_module(gs_ui
         qml/CarvePage.qml
         qml/Visualizer.qml
         qml/ToolpathGestures.qml
-        qml/PlaceholderPage.qml
         qml/GButton.qml
         qml/ConfirmDialog.qml
         qml/NumberField.qml
