@@ -98,7 +98,7 @@
       "name": "test-base",
       "hidden": true,
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+      "execution": { "jobs": 0, "noTestsAction": "error", "stopOnFailure": false }
     },
     { "name": "ninja-debug", "inherits": "test-base", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "inherits": "test-base", "configurePreset": "ninja-release" },

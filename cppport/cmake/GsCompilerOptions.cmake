@@ -7,6 +7,7 @@ target_compile_features(gs_compile_options INTERFACE cxx_std_20)
 
 if(MSVC)
     target_compile_options(gs_compile_options INTERFACE
+        /MP
         /W4
         /permissive-
         /utf-8

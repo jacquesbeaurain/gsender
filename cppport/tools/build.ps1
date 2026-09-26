@@ -140,7 +140,18 @@ try {
     }
 
     $buildArgs = @('--build', '--preset', $preset)
-    if ($Target) { $buildArgs += '--target'; $buildArgs += $Target }
+    $effectiveTargets = @()
+    if ($Target) {
+        $effectiveTargets = @($Target)
+    } elseif ($Filter) {
+        if ($Filter -like 'UiTest*') { $effectiveTargets = @('gs_ui_tests') }
+        elseif ($Filter -like 'AppTest*') { $effectiveTargets = @('gs_app_tests') }
+        elseif ($Filter -like '*Transport*') { $effectiveTargets = @('gs_transport_tests') }
+    }
+    if ($effectiveTargets.Count -gt 0) {
+        $buildArgs += '--target'
+        $buildArgs += $effectiveTargets
+    }
     Invoke-Step 'build' { cmake @buildArgs } $diagnostics
 
     if ($Test) {
@@ -150,7 +161,13 @@ try {
         # against the simulator, mostly waiting - split into GoogleTest shards.
         $timer = [Diagnostics.Stopwatch]::StartNew()
         $runs = @()
-        foreach ($exe in Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe') {
+        $candidateExes = @(Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe')
+        if ($Filter) {
+            if ($Filter -like 'UiTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_ui_tests' }) }
+            elseif ($Filter -like 'AppTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_app_tests' }) }
+            elseif ($Filter -like '*Transport*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_transport_tests' }) }
+        }
+        foreach ($exe in $candidateExes) {
             $shards = if ($exe.BaseName -eq 'gs_app_tests' -or $exe.BaseName -eq 'gs_ui_tests') { [Math]::Max(1, $AppShards) } else { 1 }
             for ($i = 0; $i -lt $shards; $i++) {
                 $info = [Diagnostics.ProcessStartInfo]::new($exe.FullName)
