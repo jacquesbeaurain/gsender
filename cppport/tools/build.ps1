@@ -171,13 +171,22 @@ try {
             $shards = if ($exe.BaseName -eq 'gs_app_tests' -or $exe.BaseName -eq 'gs_ui_tests') { [Math]::Max(1, $AppShards) } else { 1 }
             for ($i = 0; $i -lt $shards; $i++) {
                 $info = [Diagnostics.ProcessStartInfo]::new($exe.FullName)
-                foreach ($arg in $gtestArgs) { $info.ArgumentList.Add($arg) }
+                if ($null -ne $info.PSObject.Properties['ArgumentList'] -and $null -ne $info.ArgumentList) {
+                    foreach ($arg in $gtestArgs) { $info.ArgumentList.Add($arg) }
+                } else {
+                    $info.Arguments = ($gtestArgs -join ' ')
+                }
                 $info.UseShellExecute = $false
                 $info.RedirectStandardOutput = $true
                 $info.RedirectStandardError = $true
                 if ($shards -gt 1) {
-                    $info.Environment['GTEST_TOTAL_SHARDS'] = "$shards"
-                    $info.Environment['GTEST_SHARD_INDEX'] = "$i"
+                    if ($null -ne $info.PSObject.Properties['Environment'] -and $null -ne $info.Environment) {
+                        $info.Environment['GTEST_TOTAL_SHARDS'] = "$shards"
+                        $info.Environment['GTEST_SHARD_INDEX'] = "$i"
+                    } else {
+                        $info.EnvironmentVariables['GTEST_TOTAL_SHARDS'] = "$shards"
+                        $info.EnvironmentVariables['GTEST_SHARD_INDEX'] = "$i"
+                    }
                 }
                 $process = [Diagnostics.Process]::Start($info)
                 # Drain both pipes while the process runs, so it never blocks on a full one.
