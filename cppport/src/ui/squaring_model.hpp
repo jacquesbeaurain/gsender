@@ -6,7 +6,7 @@
 
 #include "gs/calibration/calibration.hpp"
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -19,7 +19,7 @@ class Machine;
 
 namespace gs::ui {
 
-class SquaringModel : public QObject {
+class SquaringModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -31,7 +31,6 @@ class SquaringModel : public QObject {
     // Each {button, hasValue, value, completed, current, enabled}.
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
     Q_PROPERTY(bool canGoNext READ canGoNext NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)
     Q_PROPERTY(QString resultText READ resultText NOTIFY changed)  // styled text
     Q_PROPERTY(bool updateNeeded READ updateNeeded NOTIFY changed)
     Q_PROPERTY(QString updateText READ updateText NOTIFY changed)
@@ -53,7 +52,6 @@ public:
     QString instruction() const;
     QVariantList rows() const;
     bool canGoNext() const;
-    QString units() const;
     QString resultText() const;
     bool updateNeeded() const;
     QString updateText() const;
@@ -72,8 +70,6 @@ public:
     Q_INVOKABLE void setRowValue(int index, double value);
     Q_INVOKABLE void updateFirmware();  // once asked
 
-Q_SIGNALS:
-    void changed();
 
 private:
     struct Row {
@@ -87,7 +83,6 @@ private:
     const std::vector<Row>& currentRows() const { return rows_[static_cast<std::size_t>(mainStep_)]; }
     calibration::StepsAdjustment adjustment() const;
 
-    app::Machine& machine_;
     int mainStep_ = 0;
     int subStep_ = 0;
     std::vector<std::vector<Row>> rows_;

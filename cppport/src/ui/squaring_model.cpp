@@ -16,11 +16,8 @@ QString number(double value) {
 
 }  // namespace
 
-SquaringModel::SquaringModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::connectionChanged,
-                        &app::Machine::appSettingsChanged, &app::Machine::settingsChanged}) {
-        connect(&machine_, signal, this, &SquaringModel::changed);
-    }
+SquaringModel::SquaringModel(QObject* parent) : UiModelBase(parent) {
+    connectMachineSignals(true, false);
     buildSteps();
 }
 
@@ -109,10 +106,6 @@ bool SquaringModel::canGoNext() const {
     }
     const std::vector<Row>& rows = currentRows();
     return std::all_of(rows.begin(), rows.end(), [](const Row& row) { return row.completed; });
-}
-
-QString SquaringModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 void SquaringModel::next() {

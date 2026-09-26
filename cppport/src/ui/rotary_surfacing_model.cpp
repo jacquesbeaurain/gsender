@@ -20,7 +20,7 @@ QVariantMap toMap(const rotary::StockTurningOptions& o) {
 }  // namespace
 
 RotarySurfacingModel::RotarySurfacingModel(QObject* parent)
-    : QObject(parent), machine_(UiBackend::instance()->machine()) {
+    : UiModelBase(parent) {
     const rotary::StockTurningOptions& stored = machine_.settings().rotary.stockTurning;
     options_ = machine_.settings().metric ? stored : rotary::toImperial(stored);
     connect(&machine_, &app::Machine::stateChanged, this, &RotarySurfacingModel::stateChanged);
@@ -34,10 +34,6 @@ QVariantMap RotarySurfacingModel::options() const {
 QVariantMap RotarySurfacingModel::defaults() const {
     return toMap(machine_.settings().metric ? rotary::StockTurningOptions{}
                                             : rotary::toImperial(rotary::StockTurningOptions{}));
-}
-
-QString RotarySurfacingModel::units() const {
-    return machine_.settings().metric ? QStringLiteral("mm") : QStringLiteral("in");
 }
 
 bool RotarySurfacingModel::free() const {

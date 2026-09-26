@@ -6,7 +6,7 @@
 
 #include "gs/surfacing/surfacing.hpp"
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -17,7 +17,7 @@ class Machine;
 
 namespace gs::ui {
 
-class SurfacingModel : public QObject {
+class SurfacingModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -27,7 +27,6 @@ class SurfacingModel : public QObject {
     // "center"), pattern ("spiral"/"zigzag"), cutDirectionFlipped.
     Q_PROPERTY(QVariantMap options READ options NOTIFY optionsChanged)
     Q_PROPERTY(QVariantMap defaults READ defaults CONSTANT)
-    Q_PROPERTY(QString units READ units CONSTANT)
     Q_PROPERTY(QString depthWarning READ depthWarning NOTIFY optionsChanged)
     Q_PROPERTY(bool free READ free NOTIFY stateChanged)  // idle, jogging or not reporting
     Q_PROPERTY(QString program READ program NOTIFY programChanged)
@@ -38,7 +37,6 @@ public:
 
     QVariantMap options() const;
     QVariantMap defaults() const;
-    QString units() const;
     QString depthWarning() const;
     bool free() const;
     QString program() const { return program_; }
@@ -58,7 +56,6 @@ Q_SIGNALS:
 private:
     void save();
 
-    app::Machine& machine_;
     surfacing::Options options_;  // in the workspace's units
     QString program_;
 };

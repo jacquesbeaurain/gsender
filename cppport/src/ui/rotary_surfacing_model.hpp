@@ -7,7 +7,7 @@
 
 #include "gs/rotary/rotary.hpp"
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -18,7 +18,7 @@ class Machine;
 
 namespace gs::ui {
 
-class RotarySurfacingModel : public QObject {
+class RotarySurfacingModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -26,7 +26,6 @@ class RotarySurfacingModel : public QObject {
     // toolNumber, stepover, feedrate, spindleRPM, shouldDwell, enableRehoming.
     Q_PROPERTY(QVariantMap options READ options NOTIFY optionsChanged)
     Q_PROPERTY(QVariantMap defaults READ defaults CONSTANT)
-    Q_PROPERTY(QString units READ units CONSTANT)
     Q_PROPERTY(bool free READ free NOTIFY stateChanged)
     Q_PROPERTY(QString program READ program NOTIFY programChanged)
     Q_PROPERTY(int lines READ lines NOTIFY programChanged)
@@ -36,7 +35,6 @@ public:
 
     QVariantMap options() const;
     QVariantMap defaults() const;
-    QString units() const;
     bool free() const;
     QString program() const { return program_; }
     int lines() const { return program_.isEmpty() ? 0 : static_cast<int>(program_.count('\n')) + 1; }
@@ -53,7 +51,6 @@ Q_SIGNALS:
 private:
     void save();
 
-    app::Machine& machine_;
     rotary::StockTurningOptions options_;  // in the workspace's units
     QString program_;
 };

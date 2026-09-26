@@ -5,7 +5,7 @@
 // (canClick); what is on follows the board's modal state (M3/M4/M5,
 // M7/M8/M9).
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -18,18 +18,16 @@ class Machine;
 
 namespace gs::ui {
 
-class CoolantModel : public QObject {
+class CoolantModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(bool canClick READ canClick NOTIFY changed)
     Q_PROPERTY(bool mistActive READ mistActive NOTIFY changed)
     Q_PROPERTY(bool floodActive READ floodActive NOTIFY changed)
 
 public:
     explicit CoolantModel(QObject* parent = nullptr);
 
-    bool canClick() const;
     bool mistActive() const;
     bool floodActive() const;
 
@@ -37,22 +35,16 @@ public:
     Q_INVOKABLE void flood();  // M8
     Q_INVOKABLE void off();    // M9
 
-Q_SIGNALS:
-    void changed();
-
 private:
     bool hasCoolant(const char* code) const;
     void command(const char* code);
 
-    app::Machine& machine_;
 };
 
-class SpindleModel : public QObject {
+class SpindleModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(bool canClick READ canClick NOTIFY changed)
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     // Laser mode ($32): the Laser controls instead of the Spindle's.
     Q_PROPERTY(bool laserMode READ laserMode NOTIFY changed)
     // The modal spindle state: M3 forward, M4 reverse (the laser lit on either).
@@ -75,8 +67,6 @@ class SpindleModel : public QObject {
 public:
     explicit SpindleModel(QObject* parent = nullptr);
 
-    bool canClick() const;
-    bool connected() const;
     bool laserMode() const;
     bool forward() const;
     bool reverse() const;
@@ -105,16 +95,12 @@ public:
     // The flush of both debounces now (tests).
     Q_INVOKABLE void applyNow();
 
-Q_SIGNALS:
-    void changed();
-
 private:
     void command(const std::string& gcode);
     void applySpeed();
     void applyPower();
     void sync();  // the settings' values, unless a change is waiting
 
-    app::Machine& machine_;
     double speed_ = 0;
     double power_ = 0;
     bool spindleOn_ = false;  // started here: speed changes follow
