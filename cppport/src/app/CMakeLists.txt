@@ -55,6 +55,8 @@ add_library(gs_app STATIC
     rotary_panel.hpp
     sd_card_dialog.cpp
     sd_card_dialog.hpp
+    sd_card_utils.cpp
+    sd_card_utils.hpp
     settings_dialog.cpp
     settings_dialog.hpp
     shortcuts.cpp
@@ -119,7 +121,5 @@ gs_precompile_headers(gs_app
     <QtCore> <QtGui> <QtWidgets>
     <algorithm> <functional> <memory> <string> <vector>)
 
-add_executable(gsender WIN32 main.cpp)
-target_link_libraries(gsender PRIVATE gs_app)
-gs_copy_runtime_dlls(gsender)
-gs_deploy_qt_plugins(gsender)
+# gsender executable is now built from src/ui (QML UI)
+

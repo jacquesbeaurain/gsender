@@ -3,7 +3,7 @@
 #include "backend.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
-#include "sd_card_dialog.hpp"
+#include "sd_card_utils.hpp"
 
 #include "gs/controller/controller.hpp"
 

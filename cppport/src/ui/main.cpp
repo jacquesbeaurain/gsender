@@ -8,12 +8,14 @@
 // exits; with -platform offscreen it needs no display.
 
 #include "backend.hpp"
+#include "app_settings.hpp"
 #include "machine.hpp"
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDateTime>
 #include <QDir>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -38,6 +40,24 @@ int main(int argc, char** argv) {
     }
     gs::ui::configureQuick(offscreen);
 
+    // Accessibility's display scale: Qt takes QT_SCALE_FACTOR once, before
+    // the application exists (one set in the environment wins).
+    if (qEnvironmentVariableIsEmpty("QT_SCALE_FACTOR")) {
+        QString configFile = QDir::home().filePath(".gsender-cpp_rc");
+        for (int i = 1; i < argc; ++i) {
+            const std::string_view arg(argv[i]);
+            if ((arg == "--config" || arg == "-config") && i + 1 < argc) {
+                configFile = QString::fromLocal8Bit(argv[i + 1]);
+            } else if (arg.starts_with("--config=")) {
+                configFile = QString::fromLocal8Bit(argv[i] + 9);
+            }
+        }
+        const double scale = gs::app::displayScaleFactor(configFile.toStdWString());
+        if (scale != 1.0) {
+            qputenv("QT_SCALE_FACTOR", QByteArray::number(scale));
+        }
+    }
+
     QApplication app(argc, argv);
     QApplication::setApplicationName("gSender (C++)");
     QApplication::setApplicationVersion("0.1.0");
@@ -55,8 +75,9 @@ int main(int argc, char** argv) {
     const QCommandLineOption screenshot("screenshot", "Save a screenshot of the window and exit.", "png");
     const QCommandLineOption wait("wait", "Milliseconds before the screenshot (default 1500).", "ms", "1500");
     const QCommandLineOption size("size", "Window size, e.g. 1400x900.", "WxH", "1400x900");
+    const QCommandLineOption startJob("start", "Start the loaded job once the machine is ready.");
     const QCommandLineOption view("view", "Toolpath view: 3d, top, front, right or left.", "view", "3d");
-    parser.addOptions({simulator, simulatorHal, load, config, dark, screenshot, wait, size, view});
+    parser.addOptions({simulator, simulatorHal, load, config, startJob, dark, screenshot, wait, size, view});
     parser.process(app);
 
     const QString configFile = parser.isSet(config)
@@ -65,6 +86,9 @@ int main(int argc, char** argv) {
                                          .filePath(".gsender-cpp_rc");
     gs::app::QtEventLoop loop;
     gs::app::Machine machine(loop, configFile.toStdWString());
+    if (!parser.isSet(screenshot)) {
+        machine.backupSettingsIfDue(QApplication::applicationVersion(), QDateTime::currentMSecsSinceEpoch());
+    }
     gs::ui::UiBackend backend(machine);
     gs::ui::UiBackend::setInstance(&backend);
     if (parser.isSet(dark)) {
@@ -80,6 +104,7 @@ int main(int argc, char** argv) {
     const QStringList dimensions = parser.value(size).split('x');
     window->resize(dimensions.value(0).toInt() > 0 ? dimensions.value(0).toInt() : 1400,
                    dimensions.value(1).toInt() > 0 ? dimensions.value(1).toInt() : 900);
+    window->show();
     if (QObject* toolpath = window->findChild<QObject*>("toolpath")) {
         QMetaObject::invokeMethod(toolpath, "setView", Q_ARG(QString, parser.value(view)));
     }
@@ -89,6 +114,18 @@ int main(int argc, char** argv) {
     }
     if (parser.isSet(load)) {
         machine.loadFile(parser.value(load));
+    }
+    if (parser.isSet(startJob)) {
+        auto* poll = new QTimer(window);
+        QObject::connect(poll, &QTimer::timeout, window, [&machine, poll] {
+            gs::controller::Controller* c = machine.controller();
+            if (c && c->runner().hasSettings() && c->state().status.activeState == "Idle" && machine.hasProgram() &&
+                !machine.isAnalyzing()) {
+                poll->stop();
+                c->start();
+            }
+        });
+        poll->start(100);
     }
     if (parser.isSet(screenshot)) {
         const QString file = parser.value(screenshot);
