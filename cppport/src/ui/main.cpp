@@ -13,7 +13,7 @@
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QCommandLineParser>
 #include <QDateTime>
 #include <QDir>
@@ -58,10 +58,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    QApplication app(argc, argv);
-    QApplication::setApplicationName("gSender (C++)");
-    QApplication::setApplicationVersion("0.1.0");
-    QApplication::setWindowIcon(QIcon(":/about/icon-square.png"));
+    QGuiApplication app(argc, argv);
+    QGuiApplication::setApplicationName("gSender (C++)");
+    QGuiApplication::setApplicationVersion("0.1.0");
+    QGuiApplication::setWindowIcon(QIcon(":/about/icon-square.png"));
 
     QCommandLineParser parser;
     parser.setApplicationDescription("CNC control for Grbl and grblHAL - touch UI");
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
     gs::app::QtEventLoop loop;
     gs::app::Machine machine(loop, configFile.toStdWString());
     if (!parser.isSet(screenshot)) {
-        machine.backupSettingsIfDue(QApplication::applicationVersion(), QDateTime::currentMSecsSinceEpoch());
+        machine.backupSettingsIfDue(QGuiApplication::applicationVersion(), QDateTime::currentMSecsSinceEpoch());
     }
     gs::ui::UiBackend backend(machine);
     gs::ui::UiBackend::setInstance(&backend);
@@ -131,8 +131,8 @@ int main(int argc, char** argv) {
         const QString file = parser.value(screenshot);
         QTimer::singleShot(parser.value(wait).toInt(), window, [window, file] {
             window->grabWindow().save(file);
-            QApplication::quit();
+            QGuiApplication::quit();
         });
     }
-    return QApplication::exec();
+    return QGuiApplication::exec();
 }

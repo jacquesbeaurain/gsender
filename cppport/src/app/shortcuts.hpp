@@ -15,7 +15,6 @@
 #include <vector>
 
 class QKeyEvent;
-class QWidget;
 
 namespace gs::app {
 
@@ -61,8 +60,6 @@ class ShortcutManager final : public QObject {
     Q_OBJECT
 
 public:
-    // Shortcuts run only while `window` is the active window.
-    ShortcutManager(Machine& machine, QWidget& window, QObject* parent = nullptr);
     ShortcutManager(Machine& machine, ShortcutScope scope, QObject* parent = nullptr);
     ~ShortcutManager() override;
 

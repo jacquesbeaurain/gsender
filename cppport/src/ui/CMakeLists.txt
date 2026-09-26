@@ -164,6 +164,10 @@ qt_add_qml_module(gs_ui
         icon_provider.hpp
         toolpath_item.cpp
         toolpath_item.hpp
+        toolpath_scene.cpp
+        toolpath_scene.hpp
+        visualizer_theme.cpp
+        visualizer_theme.hpp
         ui_app.cpp
         ui_shortcuts.cpp
         ui_shortcuts.hpp
@@ -191,6 +195,7 @@ target_link_libraries(gs_ui
         Qt6::Quick
         Qt6::QuickControls2
         Qt6::QuickDialogs2
+        Qt6::OpenGL
         Qt6::Svg)
 # Where Qt's own QML modules are, for runs from the build tree (ui_app.cpp).
 if(DEFINED QT6_INSTALL_PREFIX AND DEFINED QT6_INSTALL_QML)

@@ -28,10 +28,6 @@ add_library(gs_app STATIC
     sd_card_utils.hpp
     shortcuts.cpp
     shortcuts.hpp
-    toolpath_scene.cpp
-    toolpath_scene.hpp
-    visualizer_theme.cpp
-    visualizer_theme.hpp
 )
 target_include_directories(gs_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gs_app
@@ -40,9 +36,7 @@ target_link_libraries(gs_app
         gs::core
         gs::transport
         Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        Qt6::OpenGL)
+        Qt6::Gui)
 if(WIN32)
     target_link_libraries(gs_app PRIVATE winmm)  # PlaySound: the audio cues
 endif()
@@ -68,5 +62,5 @@ qt_add_resources(gs_app about_assets
 # identifiers in the core headers: use Q_EMIT / Q_SIGNALS / Q_SLOTS.
 target_compile_definitions(gs_app PUBLIC QT_NO_KEYWORDS)
 gs_precompile_headers(gs_app
-    <QtCore> <QtGui> <QtWidgets>
+    <QtCore> <QtGui>
     <algorithm> <functional> <memory> <string> <vector>)

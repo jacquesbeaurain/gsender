@@ -15,7 +15,7 @@
 #include "gs/controller/controller.hpp"
 #include "gs/sim/grbl_simulator.hpp"
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QDeadlineTimer>
 #include <QFile>
 #include <QPointingDevice>
@@ -50,11 +50,11 @@ using namespace gs;
 
 namespace {
 
-QApplication& application() {
+QGuiApplication& application() {
     static int argc = 1;
     static char name[] = "gs_ui_tests";
     static char* argv[] = {name, nullptr};
-    static QApplication* app = [] {
+    static QGuiApplication* app = [] {
 #ifdef _WIN32
         _setmaxstdio(2048);
 #endif
@@ -63,7 +63,7 @@ QApplication& application() {
             qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
         }
         ui::configureQuick(true);
-        return new QApplication(argc, argv);
+        return new QGuiApplication(argc, argv);
     }();
     return *app;
 }
