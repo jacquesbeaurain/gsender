@@ -19,6 +19,13 @@ ShortcutsModel::ShortcutsModel(QObject* parent)
     : UiModelBase(parent),
       actions_(app::shortcutActions(machine_)),
       edits_(machine_.settings().shortcuts) {
+    rowsModel_.setRoles({
+        {Qt::UserRole + 1, "id", [](const ShortcutRow& r) { return r.id; }},
+        {Qt::UserRole + 2, "title", [](const ShortcutRow& r) { return r.title; }},
+        {Qt::UserRole + 3, "keys", [](const ShortcutRow& r) { return r.keys; }},
+        {Qt::UserRole + 4, "category", [](const ShortcutRow& r) { return r.category; }},
+        {Qt::UserRole + 5, "active", [](const ShortcutRow& r) { return r.active; }},
+    });
     connect(&machine_, &app::Machine::appSettingsChanged, this, &ShortcutsModel::changed);
 }
 
@@ -56,8 +63,8 @@ void ShortcutsModel::setSearch(const QString& search) {
     Q_EMIT changed();
 }
 
-QVariantList ShortcutsModel::rows() const {
-    QVariantList list;
+void ShortcutsModel::syncRows() const {
+    std::vector<ShortcutRow> list;
     for (const app::ShortcutAction& action : actions_) {
         if (!category_.isEmpty() && action.category != category_) {
             continue;
@@ -67,15 +74,20 @@ QVariantList ShortcutsModel::rows() const {
             !action.category.contains(search_, Qt::CaseInsensitive)) {
             continue;
         }
-        list.append(QVariantMap{
-            {"id", action.id},
-            {"title", title},
-            {"keys", nativeKeys(keys(action.id))},
-            {"category", action.category},
-            {"active", isActive(action.id)},
+        list.push_back({
+            action.id,
+            title,
+            nativeKeys(keys(action.id)),
+            action.category,
+            isActive(action.id),
         });
     }
-    return list;
+    rowsModel_.reset(std::move(list));
+}
+
+QVariantList ShortcutsModel::rows() const {
+    syncRows();
+    return rowsModel_.toVariantList();
 }
 
 QString ShortcutsModel::keyFor(int key, int modifiers, const QString& text) const {

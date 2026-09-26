@@ -35,6 +35,20 @@ QStringList localPaths(const QVariantList& files) {
 SdCardModel::SdCardModel(QObject* parent)
     : UiModelBase(parent),
       notifications_(UiBackend::instance()->notificationCenter()) {
+    filesModel_.setRoles({
+        {Qt::UserRole + 1, "name", [](const FileItem& item) { return item.name; }},
+        {Qt::UserRole + 2, "size", [](const FileItem& item) { return item.size; }},
+        {Qt::UserRole + 3, "atci", [](const FileItem& item) { return item.atci; }},
+        {Qt::UserRole + 4, "unusable", [](const FileItem& item) { return item.unusable; }},
+        {Qt::UserRole + 5, "problem", [](const FileItem& item) { return item.problem; }},
+        {Qt::UserRole + 6, "runnable", [](const FileItem& item) { return item.runnable; }},
+        {Qt::UserRole + 7, "deletable", [](const FileItem& item) { return item.deletable; }},
+    });
+    pendingModel_.setRoles({
+        {Qt::UserRole + 1, "path", [](const PendingItem& item) { return item.path; }},
+        {Qt::UserRole + 2, "name", [](const PendingItem& item) { return item.name; }},
+        {Qt::UserRole + 3, "size", [](const PendingItem& item) { return item.size; }},
+    });
     connect(&machine_, &app::Machine::connectionChanged, this, [this] {
         if (!machine_.isConnected()) {
             deleted_.clear();
@@ -147,33 +161,43 @@ std::vector<SdCardModel::Row> SdCardModel::rows() const {
     return rows;
 }
 
-QVariantList SdCardModel::files() const {
-    QVariantList list;
+void SdCardModel::syncFiles() const {
+    std::vector<FileItem> items;
     for (const Row& row : rows()) {
-        list.append(QVariantMap{
-            {"name", row.name},
-            {"size", app::formatSdFileSize(row.size)},
-            {"atci", app::isAtciFile(row.name)},
-            {"unusable", row.unusable},
-            {"problem", app::sdFilenameProblem(row.name).value_or(tr("File flagged as unusable by firmware"))},
-            {"runnable", row.runnable},
-            {"deletable", row.deletable},
+        items.push_back({
+            row.name,
+            app::formatSdFileSize(row.size),
+            app::isAtciFile(row.name),
+            row.unusable,
+            app::sdFilenameProblem(row.name).value_or(tr("File flagged as unusable by firmware")),
+            row.runnable,
+            row.deletable,
         });
     }
-    return list;
+    filesModel_.reset(std::move(items));
+}
+
+void SdCardModel::syncPending() const {
+    std::vector<PendingItem> items;
+    for (const QString& path : pending_) {
+        const QFileInfo info(path);
+        items.push_back({
+            path,
+            info.fileName(),
+            app::formatSdFileSize(info.size()),
+        });
+    }
+    pendingModel_.reset(std::move(items));
+}
+
+QVariantList SdCardModel::files() const {
+    syncFiles();
+    return filesModel_.toVariantList();
 }
 
 QVariantList SdCardModel::pending() const {
-    QVariantList list;
-    for (const QString& path : pending_) {
-        const QFileInfo info(path);
-        list.append(QVariantMap{
-            {"path", path},
-            {"name", info.fileName()},
-            {"size", app::formatSdFileSize(info.size())},
-        });
-    }
-    return list;
+    syncPending();
+    return pendingModel_.toVariantList();
 }
 
 QString SdCardModel::fileFilter() const {

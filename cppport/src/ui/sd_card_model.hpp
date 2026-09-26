@@ -6,6 +6,7 @@
 // an upload is followed to its end after Go Back.
 
 #include "ui_model_base.hpp"
+#include "struct_list_model.hpp"
 #include <QSet>
 #include <QString>
 #include <QStringList>
@@ -31,6 +32,8 @@ class SdCardModel : public UiModelBase {
     Q_PROPERTY(QString message READ message NOTIFY changed)
     // Each {name, size (text), atci, unusable, problem, runnable, deletable}.
     Q_PROPERTY(QVariantList files READ files NOTIFY changed)
+    Q_PROPERTY(StructListModelBase* filesModel READ filesModel CONSTANT)
+    Q_PROPERTY(StructListModelBase* pendingModel READ pendingModel CONSTANT)
     Q_PROPERTY(QString uploadState READ uploadState NOTIFY changed)  // idle, uploading, complete
     Q_PROPERTY(int uploadProgress READ uploadProgress NOTIFY changed)
     // The Upload modal's files: each {path, name, size}.
@@ -45,6 +48,8 @@ public:
     bool mounted() const;
     QString message() const;
     QVariantList files() const;
+    StructListModelBase* filesModel() { return &filesModel_; }
+    StructListModelBase* pendingModel() { return &pendingModel_; }
     QString uploadState() const { return uploadState_; }
     int uploadProgress() const { return progress_; }
     QVariantList pending() const;
@@ -75,16 +80,37 @@ private:
         bool runnable = false;
         bool deletable = false;
     };
+
+    struct FileItem {
+        QString name;
+        QString size;
+        bool atci = false;
+        bool unusable = false;
+        QString problem;
+        bool runnable = false;
+        bool deletable = false;
+    };
+
+    struct PendingItem {
+        QString path;
+        QString name;
+        QString size;
+    };
+
     std::vector<Row> rows() const;
     bool toolsAvailable(QString* reason) const;
     void setUploadState(const QString& state);
     void refused(const QStringList& refused);
+    void syncFiles() const;
+    void syncPending() const;
 
     app::NotificationCenter& notifications_;
     QString uploadState_ = QStringLiteral("idle");
     int progress_ = 0;
     QSet<QString> deleted_;  // gone from the list until the card is listed again
     QStringList pending_;
+    mutable StructListModel<FileItem> filesModel_;
+    mutable StructListModel<PendingItem> pendingModel_;
 };
 
 }  // namespace gs::ui

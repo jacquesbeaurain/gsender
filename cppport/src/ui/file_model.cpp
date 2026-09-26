@@ -57,10 +57,26 @@ std::vector<double> wordValues(const std::vector<std::string>& words) {
 }  // namespace
 
 FileModel::FileModel(QObject* parent) : UiModelBase(parent) {
+    recentFilesModel_.setRoles({
+        {Qt::UserRole + 1, "name", [](const app::RecentFile& f) { return QString::fromStdString(f.fileName); }},
+        {Qt::UserRole + 2, "path", [](const app::RecentFile& f) { return QString::fromStdString(f.filePath); }},
+    });
     connectMachineSignals(true, true);
     for (auto signal : {&app::Machine::programChanged, &app::Machine::historyChanged}) {
-        connect(&machine_, signal, this, &FileModel::changed);
+        connect(&machine_, signal, this, [this] {
+            updateRecentFiles();
+            Q_EMIT changed();
+        });
     }
+    connect(&machine_, &app::Machine::appSettingsChanged, this, [this] {
+        updateRecentFiles();
+        Q_EMIT changed();
+    });
+    updateRecentFiles();
+}
+
+void FileModel::updateRecentFiles() {
+    recentFilesModel_.reset(machine_.settings().recentFiles);
 }
 
 bool FileModel::loaded() const {
@@ -189,14 +205,7 @@ bool FileModel::canReload() const {
 }
 
 QVariantList FileModel::recentFiles() const {
-    QVariantList files;
-    for (const app::RecentFile& file : machine_.settings().recentFiles) {
-        QVariantMap entry;
-        entry["name"] = QString::fromStdString(file.fileName);
-        entry["path"] = QString::fromStdString(file.filePath);
-        files.append(entry);
-    }
-    return files;
+    return recentFilesModel_.toVariantList();
 }
 
 QVariantMap FileModel::lastJob() const {
