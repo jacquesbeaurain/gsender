@@ -77,7 +77,7 @@ QVariantList preview(const std::vector<config::MaintenanceTask>& tasks, std::siz
 
 }  // namespace
 
-StatsModel::StatsModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+StatsModel::StatsModel(QObject* parent) : UiModelBase(parent) {
     // Bursts (a connection's settings, a job's end) are gathered into one.
     refresh_ = new QTimer(this);
     refresh_->setSingleShot(true);
@@ -88,10 +88,6 @@ StatsModel::StatsModel(QObject* parent) : QObject(parent), machine_(UiBackend::i
         connect(&machine_, signal, refresh_, qOverload<>(&QTimer::start));
     }
     reload();
-}
-
-bool StatsModel::connected() const {
-    return machine_.isConnected() && machine_.controller();
 }
 
 void StatsModel::reload() {

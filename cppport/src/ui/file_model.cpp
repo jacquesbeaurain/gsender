@@ -56,10 +56,9 @@ std::vector<double> wordValues(const std::vector<std::string>& words) {
 
 }  // namespace
 
-FileModel::FileModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::programChanged, &app::Machine::appSettingsChanged,
-                        &app::Machine::workflowChanged, &app::Machine::connectionChanged,
-                        &app::Machine::historyChanged}) {
+FileModel::FileModel(QObject* parent) : UiModelBase(parent) {
+    connectMachineSignals(true, true);
+    for (auto signal : {&app::Machine::programChanged, &app::Machine::historyChanged}) {
         connect(&machine_, signal, this, &FileModel::changed);
     }
 }

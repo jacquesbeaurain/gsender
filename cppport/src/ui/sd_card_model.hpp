@@ -5,7 +5,7 @@
 // their progress, as the widget dialog does. The Tools page keeps one, so
 // an upload is followed to its end after Go Back.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QSet>
 #include <QString>
 #include <QStringList>
@@ -19,7 +19,7 @@ class NotificationCenter;
 
 namespace gs::ui {
 
-class SdCardModel : public QObject {
+class SdCardModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -66,8 +66,6 @@ public:
     Q_INVOKABLE bool canRun(const QString& name) const;
     Q_INVOKABLE bool canDelete(const QString& name) const;
 
-Q_SIGNALS:
-    void changed();
 
 private:
     struct Row {
@@ -82,7 +80,6 @@ private:
     void setUploadState(const QString& state);
     void refused(const QStringList& refused);
 
-    app::Machine& machine_;
     app::NotificationCenter& notifications_;
     QString uploadState_ = QStringLiteral("idle");
     int progress_ = 0;

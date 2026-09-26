@@ -5,7 +5,7 @@
 // (app/rotary_actions has the rules). Rotary Surfacing is a tool of the
 // Tools page.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QtQml/qqmlregistration.h>
 
@@ -15,7 +15,7 @@ class Machine;
 
 namespace gs::ui {
 
-class RotaryModel : public QObject {
+class RotaryModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -49,11 +49,8 @@ public:
     Q_INVOKABLE QString mountingImage(bool linesUp, int holes) const;
     Q_INVOKABLE bool loadMounting(bool linesUp, bool quarterInchBit, int holes, bool longExtension);
 
-Q_SIGNALS:
-    void changed();
 
 private:
-    app::Machine& machine_;
 };
 
 }  // namespace gs::ui
