@@ -69,7 +69,7 @@ QVariantMap settingRow(const QString& label, const std::string& value, bool ok, 
 
 }  // namespace
 
-AccessoryModel::AccessoryModel(QObject* parent) : UiModelBase(parent) {
+AccessoryModel::AccessoryModel(QObject* parent) : WizardModelBase(parent) {
     connectMachineSignals(true, false);
 }
 
