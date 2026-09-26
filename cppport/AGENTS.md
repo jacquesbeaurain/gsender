@@ -99,9 +99,17 @@ way:
 - **Keep headers light.** Heavy headers (`boost/regex.hpp`, `boost/json.hpp`,
   `<regex>`) belong in `.cpp` files. A first-party header that many TUs include
   costs every one of them a recompile per edit.
-- **Loop.** While iterating: `-Filter` for the tests at hand, `-Target gs_core`
-  to check library code compiles before writing its tests. Before each
-  commit: `./tools/build.ps1 -Test` (all suites, ~4.5 s).
+- **Compiler multi-processing (`/MP`).** MSVC options enable `/MP` for concurrent
+  translation-unit compiles.
+- **Smart target and test inference.** When `-Filter` is passed without an
+  explicit `-Target` (e.g. `-Filter 'UiTest*'`), `tools/build.ps1` infers the
+  specific test target and only invokes the matching test executable, avoiding
+  unneeded target rebuilds and process-spawn overhead.
+- **Sharded UI test runs.** Both `gs_app_tests` and `gs_ui_tests` run across
+  shards (`-AppShards`, default 4) to run touch/simulator flows concurrently.
+- **Loop.** While iterating: `-Filter` for the tests at hand (routine turns build
+  Release only; no-PCH runs are reserved for final milestone checks). Before each
+  commit: `./tools/build.ps1 -Test` (all suites).
 - **Commit cadence.** Commit each coherent, tested increment: a ported
   component with the tests that pin its behaviour. Don't hold several
   components back for one big commit, and don't hold a commit back for
