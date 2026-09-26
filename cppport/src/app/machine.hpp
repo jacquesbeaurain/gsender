@@ -41,6 +41,12 @@ class GrblSimulator;
 namespace gs::app {
 
 class QtEventLoop;
+class JobService;
+class JogService;
+class ProbeService;
+class ToolChangeService;
+class FirmwareService;
+
 
 // Toolpath segments for the visualizer: x0,y0,z0, x1,y1,z1 per segment, and
 // the sender line each segment belongs to (for progress colouring).
@@ -63,12 +69,34 @@ Toolpath traceToolpath(const std::string& program);
 class Machine final : public QObject {
     Q_OBJECT
 
+    friend class JobService;
+    friend class JogService;
+    friend class ProbeService;
+    friend class ToolChangeService;
+    friend class FirmwareService;
+
 public:
     // The port names that connect to the built-in simulated boards: Grbl,
     // and grblHAL with an SD card.
     static const QString kSimulatorPort;
     static const QString kSimulatorHalPort;
     static bool isSimulatorPort(const QString& port) { return port == kSimulatorPort || port == kSimulatorHalPort; }
+
+    // ---- Domain Services ----
+    JobService& jobService() noexcept { return *jobService_; }
+    const JobService& jobService() const noexcept { return *jobService_; }
+    JogService& jogService() noexcept { return *jogService_; }
+    const JogService& jogService() const noexcept { return *jogService_; }
+    ProbeService& probeService() noexcept { return *probeService_; }
+    const ProbeService& probeService() const noexcept { return *probeService_; }
+    ToolChangeService& toolChangeService() noexcept { return *toolChangeService_; }
+    const ToolChangeService& toolChangeService() const noexcept { return *toolChangeService_; }
+    FirmwareService& firmwareService() noexcept { return *firmwareService_; }
+    const FirmwareService& firmwareService() const noexcept { return *firmwareService_; }
+
+    void completeToolChangeWizard();
+    void cancelToolChangeWizard();
+    void clearSpindles() { spindles_.clear(); }
 
     Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent = nullptr);
     ~Machine() override;
@@ -150,7 +178,7 @@ public:
                                                             bool fullFirstWizard = true);
     // Whether the running wizard's start-up G-code has gone out; actions
     // wait for it (it stores the position they return to).
-    bool isToolChangeWizardReady() const noexcept { return wizardReady_; }
+    bool isToolChangeWizardReady() const;
     // An action of the wizard: wizard:step, then its G-code; the controller
     // answers with wizardNext once the lines are through.
     void runWizardAction(int step, int substep, const std::vector<std::string>& gcode);
@@ -364,6 +392,11 @@ private:
     std::map<std::string, bool> accessoryConnected_;
     std::int64_t lastLine_ = 1;
     std::shared_ptr<std::atomic<bool>> analysisCancel_;
+    std::unique_ptr<JobService> jobService_;
+    std::unique_ptr<JogService> jogService_;
+    std::unique_ptr<ProbeService> probeService_;
+    std::unique_ptr<ToolChangeService> toolChangeService_;
+    std::unique_ptr<FirmwareService> firmwareService_;
 };
 
 }  // namespace gs::app
