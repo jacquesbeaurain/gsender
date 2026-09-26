@@ -1,4 +1,9 @@
 #include "machine.hpp"
+#include "firmware_service.hpp"
+#include "job_service.hpp"
+#include "jog_service.hpp"
+#include "probe_service.hpp"
+#include "tool_change_service.hpp"
 
 #include "qt_event_loop.hpp"
 #include "shortcuts.hpp"
@@ -182,6 +187,11 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     config_.load(std::move(configFile));
     settings_ = loadAppSettings(config_);
     *preferences_ = settings_.preferences;
+    jobService_ = std::make_unique<JobService>(*this);
+    jogService_ = std::make_unique<JogService>(*this);
+    probeService_ = std::make_unique<ProbeService>(*this);
+    toolChangeService_ = std::make_unique<ToolChangeService>(*this);
+    firmwareService_ = std::make_unique<FirmwareService>(*this);
 }
 
 Machine::~Machine() {
@@ -348,304 +358,106 @@ void Machine::disconnectFromMachine() {
 // ---- tool change wizards ---------------------------------------------------------------
 
 bool Machine::isWizardStrategy(const std::string& option) {
-    return option == "Standard Re-zero" || option == "Flexible Re-zero" || option == "Fixed Tool Sensor";
+    return ToolChangeService::isWizardStrategy(option);
 }
 
 std::optional<toolchange::Wizard> Machine::startToolChangeWizard(const std::string& option, int count,
                                                                  bool fullFirstWizard) {
-    controller::Controller* c = controller();
-    if (!c || !isWizardStrategy(option)) {
-        return std::nullopt;
-    }
-    const toolchange::ProbeSettings probe = toolchange::toolChangeProbeSettings(settings_.probe);
-    toolchange::MachineFacts facts;
-    facts.reportInches = c->runner().setting("$13");
-    facts.reportInches = facts.reportInches.empty() ? "0" : facts.reportInches;
-    facts.softLimits = c->runner().setting("$20");
-    facts.zMaxTravel = c->runner().setting("$132");
-    facts.machineZ = c->runner().machinePosition()[2];
-    facts.tool = c->runner().modal().tool;
+    return toolChangeService_->startToolChangeWizard(option, count, fullFirstWizard);
+}
 
-    toolchange::Wizard wizard;
-    if (option == "Standard Re-zero") {
-        wizard = toolchange::standardRezero(probe, facts);
-    } else if (option == "Flexible Re-zero") {
-        wizard = toolchange::flexibleRezero(count, probe, facts);
-    } else {
-        // determineFixedSensorInstructions(): later tools always get the full
-        // wizard; the first one as the settings (or the operator) say.
-        const std::string& first = settings_.firstToolBehaviour;
-        const bool full = count > 1 || first == toolchange::kFirstToolBehaviours[0] ||
-                          (first == toolchange::kFirstToolBehaviours[1] && fullFirstWizard);
-        wizard = full ? toolchange::fixedToolSensor(count, probe, facts, settings_.toolChangePosition,
-                                                    settings_.manualPosition, settings_.moveToManualPosition)
-                      : toolchange::probeToolLength(probe, facts, settings_.toolChangePosition);
-    }
-    wizardReady_ = false;
-    if (wizard.startDirect) {
-        c->gcode(wizard.start);
-        wizardReady_ = true;
-    } else {
-        std::string text;
-        for (const std::string& line : wizard.start) {
-            text += line + "\n";
-        }
-        c->wizardStart(text, [this] {
-            wizardReady_ = true;
-            Q_EMIT toolChangeWizardReady();
-        });
-    }
-    return wizard;
+bool Machine::isToolChangeWizardReady() const {
+    return toolChangeService_->isToolChangeWizardReady();
 }
 
 void Machine::runWizardAction(int step, int substep, const std::vector<std::string>& gcode) {
-    if (controller::Controller* c = controller()) {
-        c->wizardStep(step, substep);
-        c->gcode(gcode);
-    }
+    toolChangeService_->runWizardAction(step, substep, gcode);
+}
+
+void Machine::completeToolChangeWizard() {
+    toolChangeService_->completeToolChangeWizard();
+}
+
+void Machine::cancelToolChangeWizard() {
+    toolChangeService_->cancelToolChangeWizard();
 }
 
 // ---- file context and outline -------------------------------------------------------------
 
 expr::Value Machine::fileContext() const {
-    // min/max over every vertex, rapids included (GcodeViewer.computeBBox).
-    double min[3] = {0, 0, 0};
-    double max[3] = {0, 0, 0};
-    bool any = false;
-    for (const std::vector<float>* segments : {&toolpath_.rapids, &toolpath_.feeds}) {
-        for (std::size_t i = 0; i + 2 < segments->size(); i += 3) {
-            for (std::size_t axis = 0; axis < 3; ++axis) {
-                const double v = (*segments)[i + axis];
-                min[axis] = any ? std::min(min[axis], v) : v;
-                max[axis] = any ? std::max(max[axis], v) : v;
-            }
-            any = true;
-        }
-    }
-    expr::Value context = expr::Value::object();
-    context.set("xmin", expr::Value(min[0]));
-    context.set("xmax", expr::Value(max[0]));
-    context.set("ymin", expr::Value(min[1]));
-    context.set("ymax", expr::Value(max[1]));
-    context.set("zmin", expr::Value(min[2]));
-    context.set("zmax", expr::Value(max[2]));
-    return context;
+    return jobService_->fileContext();
 }
 
 bool Machine::runOutline(QString* error) {
-    const auto fail = [error](const QString& why) {
-        if (error) {
-            *error = why;
-        }
-        return false;
-    };
-    controller::Controller* c = controller();
-    if (!c || !hasProgram() || analyzing_ || !c->workflow().isIdle() || c->state().status.activeState != "Idle") {
-        return fail(tr("Load a file and wait for an idle machine."));
-    }
-    job::OutlineInput input;
-    input.mode = settings_.outlineMode;
-    // "Laser on during outline": in laser mode the trace runs lit at S1.
-    input.isLaser = settings_.spindle.laser.onOutline && laserMode();
-    input.outlineSpeed = settings_.outlineSpeed;
-    input.bbox = analysis_.bounds;
-    input.content = programText_;
-    // The toolpath's vertices in program order, rapids included.
-    std::vector<std::pair<std::uint32_t, const float*>> segments;
-    for (std::size_t i = 0; i < toolpath_.rapidLines.size(); ++i) {
-        segments.emplace_back(toolpath_.rapidLines[i], &toolpath_.rapids[i * 6]);
-    }
-    for (std::size_t i = 0; i < toolpath_.feedLines.size(); ++i) {
-        segments.emplace_back(toolpath_.feedLines[i], &toolpath_.feeds[i * 6]);
-    }
-    std::stable_sort(segments.begin(), segments.end(),
-                     [](const auto& a, const auto& b) { return a.first < b.first; });
-    for (const auto& [line, segment] : segments) {
-        input.vertices.insert(input.vertices.end(), segment, segment + 6);
-    }
-    // Lift 5 mm, or what is left above the machine position with homing.
-    const std::string homing = c->runner().setting("$22");
-    const bool homingEnabled = !homing.empty() && homing != "0";
-    const double zMpos = std::fabs(c->runner().machinePosition()[2]);
-    input.zTravel = homingEnabled ? std::min(zMpos - 1, 5.0) : 5.0;
-    const auto program = job::outlineProgram(input);
-    if (!program) {
-        return fail(tr("The file has no toolpath to outline."));
-    }
-    c->gcode(*program, fileContext());
-    Q_EMIT successNotice(tr("Running file outline"));
-    return true;
+    return jobService_->runOutline(error);
 }
 
 // ---- start from line ---------------------------------------------------------------------
 
 bool Machine::startFromLine(std::size_t line, double safeHeight) {
-    controller::Controller* c = controller();
-    if (!c || !hasProgram() || analyzing_ || !c->workflow().isIdle()) {
-        return false;
-    }
-    controller::StartOptions options;
-    options.lineToStartFrom = line;
-    options.zMax = analysis_.bounds.max.z;
-    options.safeHeight = safeHeight;
-    options.spindleDelay = settings_.preferences.spindleDelay;
-    c->start(options);
-    return true;
+    return jobService_->startFromLine(line, safeHeight);
 }
 
 // ---- positions ------------------------------------------------------------------------
 
 void Machine::zeroAxis(char axis) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(controller::zeroAxisCommand(axis));
-    }
+    jogService_->zeroAxis(axis);
 }
 
 void Machine::zeroAllAxes() {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    const bool hasA = c->state().axes.letters.find('A') != std::string::npos;
-    for (const std::string& command : controller::zeroAllCommands(c->isGrblHal(), hasA)) {
-        c->gcode(command);
-    }
+    jogService_->zeroAllAxes();
 }
 
 void Machine::goToZero(std::string_view axes) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    const std::string homing = c->runner().setting("$22");
-    const bool homingEnabled = !homing.empty() && js::stringToNumber(homing) != 0;
-    c->gcodeSafe(controller::goToZeroCommands(axes, homingEnabled, settings_.safeRetractHeight,
-                                              c->runner().machinePosition()[2]),
-                 "G21");
+    jogService_->goToZero(axes);
 }
 
 std::array<double, 4> Machine::workPositionMm() const {
-    std::array<double, 4> out{};
-    if (const controller::Controller* c = controller()) {
-        const bool inches = c->runner().setting("$13") == "1";
-        for (std::size_t i = 0; i < 4; ++i) {
-            const double value = c->state().status.wpos.axis("xyza"[i]);
-            out[i] = inches && i < 3 ? units::in2mm(value) : value;
-        }
-    }
-    return out;
+    return jogService_->workPositionMm();
 }
 
 std::array<double, 4> Machine::machinePositionMm() const {
-    std::array<double, 4> out{};
-    if (const controller::Controller* c = controller()) {
-        const bool inches = c->runner().setting("$13") == "1";
-        for (std::size_t i = 0; i < 4; ++i) {
-            const double value = c->state().status.mpos.axis("xyza"[i]);
-            out[i] = inches && i < 3 ? units::in2mm(value) : value;
-        }
-    }
-    return out;
+    return jogService_->machinePositionMm();
 }
 
 bool Machine::canMove() const {
-    controller::Controller* c = controller();
-    if (!c || c->workflow().isRunning()) {
-        return false;
-    }
-    const std::string& state = c->state().status.activeState;
-    return state == "Idle" || state == "Jog";
+    return jogService_->canMove();
 }
 
 bool Machine::homingEnabled() const {
-    const controller::Controller* c = controller();
-    return c && js::stringToNumber(c->runner().setting("$22", "0")) > 0;
+    return jogService_->homingEnabled();
 }
 
 bool Machine::singleAxisHoming() const {
-    const controller::Controller* c = controller();
-    return c && controller::singleAxisHomingEnabled(c->runner().setting("$22", "0"));
+    return jogService_->singleAxisHoming();
 }
 
 void Machine::selectWorkspace(const QString& wcs) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(wcs.toStdString());
-    }
+    jogService_->selectWorkspace(wcs);
 }
 
 void Machine::setWorkPosition(char axis, double value) {
-    if (controller::Controller* c = controller()) {
-        c->gcodeSafe({controller::manualOffsetCommand(axis, value)}, settings_.metric ? "G21" : "G20");
-    }
+    jogService_->setWorkPosition(axis, value);
 }
 
 void Machine::homeAxis(char axis) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(controller::homeAxisCommand(axis));
-    }
+    jogService_->homeAxis(axis);
 }
-
-namespace {
-
-controller::LocationSettings locationSettings(const controller::Controller& c) {
-    const protocol::Runner& runner = c.runner();
-    return {runner.setting("$22"), runner.setting("$23"), runner.setting("$27"), runner.setting("$130"),
-            runner.setting("$131")};
-}
-
-}  // namespace
 
 void Machine::goToCorner(controller::MachineCorner corner) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    const controller::LocationSettings settings = locationSettings(*c);
-    const std::vector<std::string> gcode =
-        controller::cornerCommands(corner, settings, c->homingFlag(), settings.pullOffDistance(), c->isGrblHal());
-    if (gcode.empty()) {
-        Q_EMIT notice(tr("Unable to find machine limits - make sure they're set in preferences"));
-        return;
-    }
-    c->gcode(gcode);
+    jogService_->goToCorner(corner);
 }
 
 void Machine::goToPark() {
-    if (controller::Controller* c = controller()) {
-        const toolchange::MachinePosition& park = settings_.park;
-        c->gcode(controller::parkCommands({park.x, park.y, park.z}, locationSettings(*c)));
-    }
+    jogService_->goToPark();
 }
 
 void Machine::goToMachinePosition(const toolchange::MachinePosition& position) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(controller::locationCommands({position.x, position.y, position.z}, locationSettings(*c)));
-    }
+    jogService_->goToMachinePosition(position);
 }
 
 void Machine::goToLocation(controller::GoToMode mode, double x, double y, double z, double a) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    controller::GoToLocation location;
-    location.mode = mode;
-    location.x = x;
-    location.y = y;
-    location.z = z;
-    location.a = a;
-    // A goes along in rotary mode (the rotary replaces Y) or on a grblHAL
-    // board that reports one.
-    location.yAvailable = !settings_.rotary.rotaryMode;
-    location.aAvailable =
-        settings_.rotary.rotaryMode || (c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos);
-    location.metric = settings_.metric;
-    location.homingEnabled = js::stringToNumber(c->runner().setting("$22", "0")) != 0;
-    location.safeRetractHeight = settings_.safeRetractHeight;
-    location.machineZ = machinePositionMm()[2];
-    const double workZ = workPositionMm()[2];
-    location.workZ = settings_.metric ? workZ : units::convertToImperial(workZ);
-    c->gcodeSafe(controller::goToLocationCommands(location), settings_.metric ? "G21" : "G20");
+    jogService_->goToLocation(mode, x, y, z, a);
 }
 
 // ---- status and machine information ------------------------------------------------------
@@ -660,303 +472,77 @@ QString Machine::alarmDescription(const std::string& code) const {
 }
 
 bool Machine::stepperLocked() const {
-    const controller::Controller* c = controller();
-    return c && c->runner().setting("$1") == "255";
+    return firmwareService_->stepperLocked();
 }
 
 void Machine::setStepperLock(bool lock) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    AppSettings settings = settings_;
-    if (lock) {
-        settings.stepperRestoreValue = c->runner().setting("$1");
-        c->gcode(std::vector<std::string>{"$1=255", "$$"});
-    } else {
-        const std::string value = settings.stepperRestoreValue.empty() ? "50" : settings.stepperRestoreValue;
-        c->gcode(std::vector<std::string>{"$1=" + value, "$$"});
-        settings.stepperRestoreValue.clear();
-    }
-    setSettings(settings);
+    firmwareService_->setStepperLock(lock);
 }
 
 // ---- spindle and laser ----------------------------------------------------------------------
 
 bool Machine::laserMode() const {
-    const controller::Controller* c = controller();
-    const std::string mode = c ? c->runner().setting("$32") : std::string();
-    return mode.empty() ? settings_.spindle.laserMode : js::stringToNumber(mode) != 0;
+    return firmwareService_->laserMode();
 }
 
 double Machine::laserMaxPower() const {
-    const controller::Controller* c = controller();
-    if (c && c->isGrblHal()) {
-        const std::string max = c->runner().setting("$730", "255");
-        return js::stringToNumber(max);
-    }
-    return settings_.spindle.laser.maxPower;
+    return firmwareService_->laserMaxPower();
 }
 
 void Machine::setLaserMode(bool laser) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    protocol::Runner& runner = c->runner();
-    const bool hal = c->isGrblHal();
-    AppSettings s = settings_;
-    controller::ModeSwitch change;
-    change.toLaser = laser;
-    change.metric = s.metric;
-    change.deviceUnits = runner.modal().units;
-    change.spindleOn = runner.modal().spindle != "M5";
-    change.wcs = runner.modal().wcs;
-    const std::array<double, 4> work = workPositionMm();
-    change.workX = work[0];
-    change.workY = work[1];
-    if (hal) {
-        // The SLB's laser offset lives in the firmware: $770/$771 (older $741/$742).
-        const auto offset = [&runner](const char* key, const char* older) {
-            std::string value = runner.setting(key);
-            if (value.empty()) {
-                value = runner.setting(older);
-            }
-            return value.empty() ? 0.0 : js::stringToNumber(value);
-        };
-        change.offset = {offset("$770", "$741"), offset("$771", "$742")};
-    } else {
-        change.offset = {s.spindle.laser.xOffset, s.spindle.laser.yOffset};
-    }
-    const double currentMax = js::stringToNumber(runner.setting("$30", "30000"));
-    const double currentMin = js::stringToNumber(runner.setting("$31", "1000"));
-    if (laser) {
-        if (!hal) {  // grblHAL's laser has its own range
-            s.spindle.spindleMax = currentMax;
-            s.spindle.spindleMin = currentMin;
-            change.range = std::pair{s.spindle.laser.maxPower, s.spindle.laser.minPower};
-        }
-    } else {
-        const bool laserSpindle = hal && std::any_of(spindles_.begin(), spindles_.end(), [](const auto& spindle) {
-                                      return spindle.label == "SLB_LASER" || spindle.label == "PWM2";
-                                  });
-        if (!laserSpindle) {
-            s.spindle.laser.maxPower = currentMax;
-            s.spindle.laser.minPower = currentMin;
-            change.range = std::pair{s.spindle.spindleMax, s.spindle.spindleMin};
-        }
-    }
-    s.spindle.laserMode = laser;
-    setSettings(s);
-    c->gcode(controller::modeSwitchCommands(change));
-    // As upstream's store, the new values count at once (no $$ follows).
-    if (change.range) {
-        runner.setSetting("$30", js::numberToString(change.range->first));
-        runner.setSetting("$31", js::numberToString(change.range->second));
-    }
-    runner.setSetting("$32", laser ? "1" : "0");
-    Q_EMIT settingsChanged();
+    firmwareService_->setLaserMode(laser);
 }
 
 void Machine::selectSpindle(int id) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return;
-    }
-    spindles_.clear();  // clearSpindles(): the list comes again
-    Q_EMIT spindlesChanged();
-    c->gcode(std::vector<std::string>{"M104 Q" + std::to_string(id), c->spindleListCommand()});
+    firmwareService_->selectSpindle(id);
 }
 
 // ---- rotary ------------------------------------------------------------------------------
 
 bool Machine::setRotaryMode(bool rotaryMode) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return false;
-    }
-    AppSettings settings = settings_;
-    rotary::ModeSwitch change;
-    change.enable = rotaryMode;
-    change.grblHal = c->isGrblHal();
-    if (!change.grblHal) {
-        if (rotaryMode) {
-            // What Y had, to restore on leaving.
-            settings.rotary.defaults = rotary::currentFirmwareValues(c->settings().settings);
-            change.grblSettings = settings.rotary.firmware;
-        } else {
-            change.grblSettings = settings.rotary.defaults;
-        }
-    }
-    c->gcode(rotary::modeSwitchCommands(change, c->settings().settings));
-    if (change.grblHal) {
-        c->setRotaryMode(rotaryMode);
-    }
-    settings.rotary.rotaryMode = rotaryMode;
-    setSettings(settings);
-    return true;
+    return firmwareService_->setRotaryMode(rotaryMode);
 }
 
 bool Machine::runRotaryProbe(bool yAlignment) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return false;
-    }
-    const bool inches = c->runner().setting("$13") == "1";
-    c->gcodeSafe(yAlignment ? rotary::yAxisAlignmentProbing(inches) : rotary::zAxisProbing(inches),
-                 inches ? "G20" : "G21");
-    return true;
+    return probeService_->runRotaryProbe(yAlignment);
 }
 
 // ---- calibration tools --------------------------------------------------------------------
 
 bool Machine::runTuningMove(char axis, double distance) {
-    controller::Controller* c = controller();
-    if (!c) {
-        return false;
-    }
-    const auto axes = controller::filterAxesForLimits({{axis, distance}}, c->state().status.pinState,
-                                                      settings_.jog.preventJoggingPastLimits);
-    if (!axes) {
-        return false;
-    }
-    c->gcode(calibration::tuningMove(axis, distance, settings_.metric));
-    return true;
+    return firmwareService_->runTuningMove(axis, distance);
 }
 
 void Machine::runSquaringMove(char axis, double distance) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(calibration::squaringMove(axis, distance, settings_.metric));
-    }
+    firmwareService_->runSquaringMove(axis, distance);
 }
 
 double Machine::settingNumber(const std::string& key) const {
-    const controller::Controller* c = controller();
-    const std::string value = c ? c->runner().setting(key) : std::string();
-    return value.empty() ? std::nan("") : js::stringToNumber(value);
+    return firmwareService_->settingNumber(key);
 }
 
 void Machine::writeFirmwareSettings(const std::vector<std::string>& lines) {
-    if (controller::Controller* c = controller()) {
-        c->gcode(lines);
-    }
+    firmwareService_->writeFirmwareSettings(lines);
 }
 
 // ---- probing ----------------------------------------------------------------------------
 
 std::vector<std::string> Machine::probeRoutine(probe::Axes axes, probe::ProbeType type, double toolDiameter,
                                                int corner) const {
-    controller::Controller* c = controller();
-    if (!c) {
-        return {};
-    }
-    // The widget reads `settings.$13 ?? '0'` and the like.
-    const auto setting = [&](const char* key, const char* fallback) {
-        const std::string value = c->runner().setting(key);
-        return value.empty() ? std::string(fallback) : value;
-    };
-    probe::MachineFacts facts;
-    facts.grblHal = c->firmware() == protocol::Firmware::GrblHal;
-    facts.reportInches = setting("$13", "0");
-    facts.homing = setting("$22", "0");
-    facts.zMaxTravel = setting("$132", "0");
-    facts.machineZ = c->runner().machinePosition()[2];
-    const probe::ProbingOptions options =
-        probe::makeProbingOptions(settings_.probe, settings_.metric, axes, type, toolDiameter, facts);
-    return probe::probeCode(options, corner);
+    return probeService_->probeRoutine(axes, type, toolDiameter, corner);
 }
 
 bool Machine::runProbe(std::vector<std::string> code) {
-    controller::Controller* c = controller();
-    if (!c || code.empty() || !c->workflow().isIdle()) {
-        return false;
-    }
-    code.push_back(c->runner().modal().distance);
-    c->gcodeSafe(code, "G21");
-    probing_ = true;
-    return true;
+    return probeService_->runProbe(std::move(code));
 }
 
 bool Machine::probeTriggered() const {
-    controller::Controller* c = controller();
-    return c && c->state().status.probeActive;
+    return probeService_->probeTriggered();
 }
 
-void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner, probe::Axes axes) {
-    if (!simulator_) {
-        return;
-    }
-    const sim::SimAxes at = simulator_->machinePosition();
-    const probe::ProbeSettings& p = settings_.probe;
-    const double sx = corner == probe::kBottomLeft || corner == probe::kTopLeft ? 1 : -1;
-    const double sy = corner == probe::kBottomLeft || corner == probe::kBottomRight ? 1 : -1;
-    // The tool diameter comes in the workspace units; the simulator is mm.
-    const double diameterMm = settings_.metric ? toolDiameter : units::in2mm(toolDiameter);
-    double radius = type == probe::ProbeType::Diameter ? diameterMm / 2 : 0;
-    std::vector<sim::Solid> solids;
-    switch (p.plateType) {
-        case probe::PlateType::StandardBlock: {
-            // The bit 5 mm in from the plate's outer faces.
-            const double thickness = p.zThickness.standardBlock;
-            solids = sim::touchPlateOnCorner(corner, at[0] + 5 * sx, at[1] + 5 * sy, at[2] - 10 - thickness, thickness,
-                                             p.xyThickness);
-            break;
-        }
-        case probe::PlateType::ZProbe: {
-            const double top = at[2] - 10;
-            solids = {sim::Solid{{at[0] - 25, at[1] - 25, top - p.zThickness.zProbe}, {at[0] + 25, at[1] + 25, top}}};
-            break;
-        }
-        case probe::PlateType::Probe3D:
-            // A touch probe closes its circuit on the stock itself; the tip
-            // starts 5 mm in from the corner.
-            radius = p.tipDiameter3D / 2;
-            solids = sim::touchPlateOnCorner(corner, at[0] - 5 * sx, at[1] - 5 * sy, at[2] - 10, 0, 0, 100, 30);
-            break;
-        case probe::PlateType::AutoZero: {
-            // The bit 10 mm over the middle of the pocket, whose floor is the
-            // plate's thickness above the stock and whose centre is 22.5 mm
-            // in from both edges. The pocket narrows near its floor: a V-bit's
-            // tip finds walls 10 mm out (0.5 mm up), a bit 20 mm out (3 mm
-            // up).
-            const double floor = at[2] - 10;
-            solids = {sim::Solid{{at[0] - 35, at[1] - 35, floor - 5}, {at[0] + 35, at[1] + 35, floor}}};
-            const auto ring = [&](double inner, double bottom, double top) {
-                solids.push_back({{at[0] - 35, at[1] - 35, bottom}, {at[0] - inner, at[1] + 35, top}});
-                solids.push_back({{at[0] + inner, at[1] - 35, bottom}, {at[0] + 35, at[1] + 35, top}});
-                solids.push_back({{at[0] - inner, at[1] - 35, bottom}, {at[0] + inner, at[1] - inner, top}});
-                solids.push_back({{at[0] - inner, at[1] + inner, bottom}, {at[0] + inner, at[1] + 35, top}});
-            };
-            ring(10, floor, floor + 1);
-            ring(20, floor + 1, floor + 12);
-            break;
-        }
-        case probe::PlateType::BitZero: {
-            // BitZero V2: a 13 mm block on the stock with its bore over the
-            // corner. XY (and XYZ) start inside the bore, 5 mm above the
-            // stock and a little off its centre; Z alone starts 10 mm over
-            // the block.
-            const double thickness = 13;
-            double cx = at[0] - 1;
-            double cy = at[1] + 0.5;
-            double stockTop = at[2] - 5;
-            if (!axes.x && !axes.y) {
-                cx = at[0] - 20 * sx;
-                cy = at[1] - 20 * sy;
-                stockTop = at[2] - 10 - thickness;
-            }
-            const double top = stockTop + thickness;
-            solids = {
-                {{cx - 30, cy - 30, stockTop}, {cx - 10, cy + 30, top}},
-                {{cx + 10, cy - 30, stockTop}, {cx + 30, cy + 30, top}},
-                {{cx - 10, cy - 30, stockTop}, {cx + 10, cy - 10, top}},
-                {{cx - 10, cy + 10, stockTop}, {cx + 10, cy + 30, top}},
-            };
-            break;
-        }
-    }
-    simulator_->setProbeSolids(std::move(solids));
-    simulator_->setToolRadius(radius);
+void Machine::placeSimulatedPlate(probe::ProbeType type, double toolDiameter, int corner,
+                                  probe::Axes axes) {
+    probeService_->placeSimulatedPlate(type, toolDiameter, corner, axes);
 }
 
 // ---- controller events ----------------------------------------------------------------
@@ -1331,34 +917,15 @@ void Machine::resetMaintenanceTimers(const std::vector<int>& ids) {
 // ---- program ---------------------------------------------------------------------------
 
 bool Machine::loadFile(const QString& path, QString* error) {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        if (error) {
-            *error = file.errorString();
-        }
-        return false;
-    }
-    const QByteArray bytes = file.readAll();
-    const QFileInfo info(path);
-    loadProgram(info.fileName(), std::string(bytes.constData(), static_cast<std::size_t>(bytes.size())),
-                info.absoluteFilePath());
-    AppSettings settings = settings_;
-    addRecentFile(settings.recentFiles, {info.fileName().toStdString(), info.absoluteFilePath().toStdString(),
-                                         info.size(), QDateTime::currentMSecsSinceEpoch()});
-    setSettings(settings);
-    return true;
+    return jobService_->loadFile(path, error);
 }
 
 void Machine::forgetRecentFile(const QString& path) {
-    AppSettings settings = settings_;
-    std::erase_if(settings.recentFiles, [&path](const RecentFile& f) { return f.filePath == path.toStdString(); });
-    setSettings(settings);
+    jobService_->forgetRecentFile(path);
 }
 
 void Machine::clearRecentFiles() {
-    AppSettings settings = settings_;
-    settings.recentFiles.clear();
-    setSettings(settings);
+    jobService_->clearRecentFiles();
 }
 
 void Machine::loadProgram(const QString& name, std::string text, const QString& path) {

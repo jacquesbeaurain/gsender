@@ -10,6 +10,16 @@ add_library(gs_app STATIC
     console_log.hpp
     diagnostics.cpp
     diagnostics.hpp
+    firmware_service.cpp
+    firmware_service.hpp
+    job_service.cpp
+    job_service.hpp
+    jog_service.cpp
+    jog_service.hpp
+    probe_service.cpp
+    probe_service.hpp
+    tool_change_service.cpp
+    tool_change_service.hpp
     gcode_highlighter.cpp
     gcode_highlighter.hpp
     jogger.cpp
