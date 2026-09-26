@@ -1,82 +1,33 @@
-# The Qt Widgets application. Its code lives in a library so tests can link it.
+# The application services library (Machine, AppSettings, NotificationCenter,
+# Jogger, ToolpathScene, Shortcuts, ConsoleLog, Diagnostics).
 
 add_library(gs_app STATIC
-    accessibility.cpp
-    accessibility.hpp
-    accessory_installer.cpp
-    accessory_installer.hpp
     accessory_wizards.cpp
     accessory_wizards.hpp
     app_settings.cpp
     app_settings.hpp
-    appearance.cpp
-    appearance.hpp
-    calibration_dialogs.cpp
-    calibration_dialogs.hpp
     console_log.cpp
     console_log.hpp
-    console_panel.cpp
-    console_panel.hpp
-    controls.cpp
-    controls.hpp
     diagnostics.cpp
     diagnostics.hpp
-    dro_panel.cpp
-    dro_panel.hpp
-    gcode_editor_dialog.cpp
-    gcode_editor_dialog.hpp
     gcode_highlighter.cpp
     gcode_highlighter.hpp
-    helper_info.cpp
-    helper_info.hpp
-    machine.cpp
-    machine.hpp
     jogger.cpp
     jogger.hpp
-    main_window.cpp
-    main_window.hpp
+    machine.cpp
+    machine.hpp
     notification_center.cpp
     notification_center.hpp
-    notifications.cpp
-    notifications.hpp
-    panels.cpp
-    panels.hpp
-    pie_chart.cpp
-    pie_chart.hpp
     power.cpp
     power.hpp
-    probe_panel.cpp
-    probe_panel.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
     rotary_actions.cpp
     rotary_actions.hpp
-    rotary_panel.cpp
-    rotary_panel.hpp
-    sd_card_dialog.cpp
-    sd_card_dialog.hpp
     sd_card_utils.cpp
     sd_card_utils.hpp
-    settings_dialog.cpp
-    settings_dialog.hpp
     shortcuts.cpp
     shortcuts.hpp
-    shortcuts_dialog.cpp
-    shortcuts_dialog.hpp
-    start_from_line_dialog.cpp
-    start_from_line_dialog.hpp
-    step_through_dialog.cpp
-    step_through_dialog.hpp
-    stats_dialog.cpp
-    stats_dialog.hpp
-    status_area.cpp
-    status_area.hpp
-    surfacing_dialog.cpp
-    surfacing_dialog.hpp
-    toolchange_dialog.cpp
-    toolchange_dialog.hpp
-    toolpath_view.cpp
-    toolpath_view.hpp
     toolpath_scene.cpp
     toolpath_scene.hpp
     visualizer_theme.cpp
@@ -91,8 +42,7 @@ target_link_libraries(gs_app
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
-        Qt6::OpenGL
-        Qt6::OpenGLWidgets)
+        Qt6::OpenGL)
 if(WIN32)
     target_link_libraries(gs_app PRIVATE winmm)  # PlaySound: the audio cues
 endif()
@@ -120,6 +70,3 @@ target_compile_definitions(gs_app PUBLIC QT_NO_KEYWORDS)
 gs_precompile_headers(gs_app
     <QtCore> <QtGui> <QtWidgets>
     <algorithm> <functional> <memory> <string> <vector>)
-
-# gsender executable is now built from src/ui (QML UI)
-
