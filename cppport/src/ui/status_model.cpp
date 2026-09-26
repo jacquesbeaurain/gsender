@@ -31,15 +31,11 @@ constexpr Pin kPins[] = {
 
 }  // namespace
 
-StatusModel::StatusModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+StatusModel::StatusModel(QObject* parent) : UiModelBase(parent) {
     for (auto signal : {&app::Machine::stateChanged, &app::Machine::connectionChanged,
                         &app::Machine::settingsChanged}) {
         connect(&machine_, signal, this, &StatusModel::changed);
     }
-}
-
-bool StatusModel::connected() const {
-    return machine_.isConnected();
 }
 
 bool StatusModel::alarm() const {

@@ -9,7 +9,7 @@
 namespace gs::ui {
 
 JogModel::JogModel(QObject* parent)
-    : QObject(parent), machine_(UiBackend::instance()->machine()), jogger_(UiBackend::instance()->jogger()) {
+    : UiModelBase(parent), jogger_(UiBackend::instance()->jogger()) {
     connect(&jogger_, &app::Jogger::changed, this, &JogModel::changed);
     for (auto signal : {&app::Machine::appSettingsChanged, &app::Machine::stateChanged,
                         &app::Machine::connectionChanged, &app::Machine::workflowChanged}) {
@@ -42,17 +42,9 @@ double JogModel::feedrate() const {
     return jogger_.speeds().feedrate;
 }
 
-QString JogModel::units() const {
-    return jogger_.metric() ? QStringLiteral("mm") : QStringLiteral("in");
-}
-
 bool JogModel::canJog() const {
     controller::Controller* c = machine_.controller();
     return c && machine_.isConnected() && !c->workflow().isRunning() && c->state().status.activeState != "Alarm";
-}
-
-bool JogModel::connected() const {
-    return machine_.isConnected();
 }
 
 bool JogModel::rotaryMode() const {

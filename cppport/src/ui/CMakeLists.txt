@@ -172,6 +172,8 @@ qt_add_qml_module(gs_ui
         ui_shortcuts.cpp
         ui_shortcuts.hpp
         ui_app.hpp
+        ui_model_base.cpp
+        ui_model_base.hpp
 )
 
 # Upstream's pictures (the probe routines' GIFs, the rotary tracks).

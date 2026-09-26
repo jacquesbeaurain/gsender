@@ -6,7 +6,7 @@
 // (firmware, CNC modals, pins, tool, the stepper lock). The rules are the
 // core's (controller/actions).
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -17,11 +17,10 @@ class Machine;
 
 namespace gs::ui {
 
-class StatusModel : public QObject {
+class StatusModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     Q_PROPERTY(bool alarm READ alarm NOTIFY changed)
     // The button under the status in an alarm: "Click to Unlock Machine" or
     // "Click to Run Homing".
@@ -38,7 +37,6 @@ class StatusModel : public QObject {
 public:
     explicit StatusModel(QObject* parent = nullptr);
 
-    bool connected() const;
     bool alarm() const;
     bool alarmButtonHomes() const;
     bool lockActive() const;
@@ -60,13 +58,10 @@ public:
     Q_INVOKABLE void showAlarmHelp();
     Q_INVOKABLE void setStepperLock(bool lock);
 
-Q_SIGNALS:
-    void changed();
 
 private:
     bool act(int action, bool repopulate);
 
-    app::Machine& machine_;
     bool pendingRepopulate_ = false;
 };
 

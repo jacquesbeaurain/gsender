@@ -4,7 +4,7 @@
 // (the backend's Jogger, shared with the shortcuts), tap-to-step and
 // hold-to-jog, the stop button, and when A is offered.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QtQml/qqmlregistration.h>
 
@@ -15,7 +15,7 @@ class Machine;
 
 namespace gs::ui {
 
-class JogModel : public QObject {
+class JogModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -25,10 +25,8 @@ class JogModel : public QObject {
     Q_PROPERTY(double zStep READ zStep NOTIFY changed)
     Q_PROPERTY(double aStep READ aStep NOTIFY changed)
     Q_PROPERTY(double feedrate READ feedrate NOTIFY changed)
-    Q_PROPERTY(QString units READ units NOTIFY changed)
     // Jogging allowed: connected, no job running, not in an alarm.
     Q_PROPERTY(bool canJog READ canJog NOTIFY changed)
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     // Y is the rotary in rotary mode: the XY wheel's Y sectors are off.
     Q_PROPERTY(bool rotaryMode READ rotaryMode NOTIFY changed)
     // AJog: the rotary controls on a grblHAL board or in rotary mode, or
@@ -43,9 +41,7 @@ public:
     double zStep() const;
     double aStep() const;
     double feedrate() const;
-    QString units() const;
     bool canJog() const;
-    bool connected() const;
     bool rotaryMode() const;
     bool showA() const;
 
@@ -64,11 +60,8 @@ public:
     // (grblHAL's soft reset).
     Q_INVOKABLE void stop();
 
-Q_SIGNALS:
-    void changed();
 
 private:
-    app::Machine& machine_;
     app::Jogger& jogger_;
 };
 
