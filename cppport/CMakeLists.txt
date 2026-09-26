@@ -27,6 +27,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(GS_BUILD_TESTS "Build the unit test suites" ON)
 option(GS_BUILD_APP "Build the Qt desktop application" ON)
 option(GS_BUILD_QML "Build the QML touch UI (needs Qt Quick)" ON)
+option(GS_DEPLOY_QT "Deploy Qt dependencies with windeployqt (Windows)" ON)
 option(GS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(GS_USE_PCH "Precompile common standard and third-party headers" ON)
 
