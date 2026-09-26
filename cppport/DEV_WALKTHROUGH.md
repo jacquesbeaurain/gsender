@@ -1993,3 +1993,30 @@ promoted to the main application and the legacy QtWidgets UI is retired:
   Redundant widget interaction tests (now comprehensively verified in
   `gs_ui_tests`) were pruned, leaving 26 pure service tests executing
   headless in seconds.
+
+## Step 66 - Dropping QtWidgets dependency and visualizer relocation (Milestone A)
+
+To establish complete independence from legacy Qt Widgets and reduce binary footprint:
+- **Relocated 3D viewport services** (`src/ui/toolpath_scene.*`, `src/ui/visualizer_theme.*`):
+  Relocated `ToolpathScene` and `VisualizerTheme` from `gs_app` directly to `gs_ui`, which owns the QQuickFramebufferObject visualizer item.
+- **Removed Qt6::Widgets and Qt6::OpenGL from `gs_app`**:
+  `gs_app` is now completely free of GUI widget dependencies, linking only `Qt6::Core`, `Qt6::Gui`, and `gs_core`.
+- **Switched application shell to `QGuiApplication`**:
+  `gs_app` test fixtures, diagnostics entry points, and `gsender` main entry now construct lightweight `QGuiApplication` (or `QCoreApplication`) instances without pulling in desktop widget styles.
+- **Purged obsolete widget code from shortcuts**:
+  Removed dead `QWidget*` event filter bindings and widget focus management from `src/app/shortcuts.*`.
+
+## Step 67 - Introducing UiModelBase and unifying QML view models (Milestone B)
+
+To eliminate pervasive code duplication across the 20+ QML view models:
+- **Introduced `UiModelBase`** (`src/ui/ui_model_base.hpp`, `src/ui/ui_model_base.cpp`):
+  Centralized common QML properties (`connected`, `metric`, `units`, `canClick`), coordinate formatting (`positionText(double, char)`), and machine signal subscriptions (`connectMachineSignals()`).
+- **Migrated Core Models (Batch 1)**:
+  `DroModel`, `JogModel`, `StatusModel`, and `JobModel` refactored to inherit `UiModelBase`, stripping duplicated unit and state declarations while maintaining full QML type registration.
+- **Migrated Tool & Calibration Models (Batch 2)**:
+  `ProbeModel`, `SpindleModel`, `CoolantModel`, `SurfacingModel`, `RotarySurfacingModel`, `MovementTuningModel`, `SquaringModel`, and `AccessoryModel` migrated to `UiModelBase`.
+- **Migrated Configuration & Page Models (Batch 3)**:
+  `StatsModel`, `RotaryModel`, `ToolChangeModel`, `FileModel`, `ShortcutsModel`, `ConnectionModel`, `SdCardModel`, and `MacrosModel` migrated to `UiModelBase`.
+- **Zero Regression Verification**:
+  All 593 tests across `gs_app_tests`, `gs_core_tests`, `gs_transport_tests`, and `gs_ui_tests` pass cleanly in parallel under 20 seconds.
+
