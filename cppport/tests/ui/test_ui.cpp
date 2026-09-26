@@ -55,6 +55,9 @@ QApplication& application() {
     static char name[] = "gs_ui_tests";
     static char* argv[] = {name, nullptr};
     static QApplication* app = [] {
+#ifdef _WIN32
+        _setmaxstdio(2048);
+#endif
         qputenv("QT_QPA_PLATFORM", "offscreen");
         if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR") && !qEnvironmentVariableIsEmpty("WINDIR")) {
             qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
@@ -1163,7 +1166,10 @@ TEST_F(UiTest, TheCalibrationToolsTuneAndSquareTheMachine) {
 
     // Movement Tuning: X told to move 100 mm, measured 102: $100 = 200 x 100/102.
     tap("navTools");
-    ASSERT_TRUE(waitFor([&] { return item("toolCard_movementTuning") && item("toolCard_movementTuning")->isVisible(); }));
+    ASSERT_TRUE(waitFor([&] {
+        auto* card = item("toolCard_movementTuning");
+        return card && card->isVisible() && card->width() > 0 && card->height() > 0;
+    }));
     tap("toolCard_movementTuning");
     ASSERT_TRUE(waitFor([&] { return item("movementTuningTool") && item("movementTuningTool")->isVisible(); }));
     QObject* tuning = item("movementTuningTool")->property("model").value<QObject*>();
