@@ -32,7 +32,7 @@ std::vector<config::MacroRecord> inColumn(std::vector<config::MacroRecord> macro
 
 }  // namespace
 
-MacrosModel::MacrosModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+MacrosModel::MacrosModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::macrosChanged, this, &MacrosModel::macrosChanged);
     for (auto signal : {&app::Machine::stateChanged, &app::Machine::workflowChanged, &app::Machine::connectionChanged}) {
         connect(&machine_, signal, this, &MacrosModel::stateChanged);

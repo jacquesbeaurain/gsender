@@ -33,8 +33,7 @@ QStringList localPaths(const QVariantList& files) {
 }  // namespace
 
 SdCardModel::SdCardModel(QObject* parent)
-    : QObject(parent),
-      machine_(UiBackend::instance()->machine()),
+    : UiModelBase(parent),
       notifications_(UiBackend::instance()->notificationCenter()) {
     connect(&machine_, &app::Machine::connectionChanged, this, [this] {
         if (!machine_.isConnected()) {

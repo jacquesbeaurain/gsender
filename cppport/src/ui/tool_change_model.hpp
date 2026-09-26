@@ -9,7 +9,7 @@
 
 #include "gs/toolchange/wizards.hpp"
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -26,7 +26,7 @@ class Machine;
 
 namespace gs::ui {
 
-class ToolChangeModel : public QObject {
+class ToolChangeModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -83,7 +83,6 @@ public:
     Q_INVOKABLE void continueCodeChange();
 
 Q_SIGNALS:
-    void changed();
     // Fixed Tool Sensor, first tool, "Ask": run the whole wizard?
     void firstToolQuestion(const QString& comment);
     // "Code": the pre-hook ran; change the tool, then continueCodeChange().
@@ -95,7 +94,6 @@ private:
     void actionDone(int step, int substep);
     void advance();
 
-    app::Machine& machine_;
     std::optional<toolchange::Wizard> wizard_;
     int step_ = 0;
     int substep_ = 0;

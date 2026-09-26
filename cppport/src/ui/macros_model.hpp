@@ -4,7 +4,7 @@
 // (with the loaded file's box, as macro:run), adding, editing, deleting and
 // moving them, and importing and exporting gSender's macro files.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
@@ -16,7 +16,7 @@ class Machine;
 
 namespace gs::ui {
 
-class MacrosModel : public QObject {
+class MacrosModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -66,7 +66,6 @@ Q_SIGNALS:
 private:
     QVariantList column(const QString& name) const;
 
-    app::Machine& machine_;
 };
 
 }  // namespace gs::ui

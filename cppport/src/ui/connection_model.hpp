@@ -4,7 +4,7 @@
 // gSender recognizes, the Ethernet board at "Connect to IP", unrecognized
 // ports, and the built-in simulators - and the connection's state.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -15,7 +15,7 @@ class Machine;
 
 namespace gs::ui {
 
-class ConnectionModel : public QObject {
+class ConnectionModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -49,11 +49,9 @@ public:
     Q_INVOKABLE void disconnectMachine();
 
 Q_SIGNALS:
-    void changed();
     void portsChanged();
 
 private:
-    app::Machine& machine_;
     QVariantList ports_;
     QVariantList unrecognized_;
     QString error_;

@@ -8,7 +8,7 @@
 #include "app_settings.hpp"
 #include "shortcuts.hpp"
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QStringList>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -23,7 +23,7 @@ class Machine;
 
 namespace gs::ui {
 
-class ShortcutsModel : public QObject {
+class ShortcutsModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -58,13 +58,10 @@ public:
     Q_INVOKABLE void setActive(const QString& id, bool active);
     Q_INVOKABLE void resetAll();
 
-Q_SIGNALS:
-    void changed();
 
 private:
     void save();
 
-    app::Machine& machine_;
     std::vector<app::ShortcutAction> actions_;  // the table and the macros
     std::map<std::string, app::ShortcutBinding> edits_;
     QString category_;

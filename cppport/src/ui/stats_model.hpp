@@ -8,7 +8,7 @@
 // Alarms (the log, the diagnostic file, clearing) and About (the version,
 // the team, the release notes). What asks first is asked by the QML.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -23,12 +23,11 @@ class Machine;
 
 namespace gs::ui {
 
-class StatsModel : public QObject {
+class StatsModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
     // Overview.
-    Q_PROPERTY(bool connected READ connected NOTIFY changed)
     Q_PROPERTY(int completeJobs READ completeJobs NOTIFY changed)
     Q_PROPERTY(int incompleteJobs READ incompleteJobs NOTIFY changed)
     Q_PROPERTY(QVariantList statRows READ statRows NOTIFY changed)          // {label, value}
@@ -56,7 +55,6 @@ class StatsModel : public QObject {
 public:
     explicit StatsModel(QObject* parent = nullptr);
 
-    bool connected() const;
     int completeJobs() const { return completeJobs_; }
     int incompleteJobs() const { return incompleteJobs_; }
     QVariantList statRows() const { return statRows_; }
@@ -91,11 +89,8 @@ public:
     Q_INVOKABLE QString writeDiagnostics(const QString& file);
     Q_INVOKABLE QString diagnosticsName() const;
 
-Q_SIGNALS:
-    void changed();
 
 private:
-    app::Machine& machine_;
     QTimer* refresh_;
     int completeJobs_ = 0;
     int incompleteJobs_ = 0;

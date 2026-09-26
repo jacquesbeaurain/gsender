@@ -7,7 +7,7 @@
 
 namespace gs::ui {
 
-ToolChangeModel::ToolChangeModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+ToolChangeModel::ToolChangeModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::toolChangeWizardRequested, this,
             [this](const QString& option, int count, const QString& comment) {
                 option_ = option;
@@ -24,10 +24,8 @@ ToolChangeModel::ToolChangeModel(QObject* parent) : QObject(parent), machine_(Ui
             });
     connect(&machine_, &app::Machine::wizardNext, this, &ToolChangeModel::actionDone);
     connect(&machine_, &app::Machine::toolChangeWaiting, this, &ToolChangeModel::codeChangeWaiting);
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::toolChangeWizardReady,
-                        &app::Machine::connectionChanged}) {
-        connect(&machine_, signal, this, &ToolChangeModel::changed);
-    }
+    connectMachineSignals(false, false);
+    connect(&machine_, &app::Machine::toolChangeWizardReady, this, &ToolChangeModel::changed);
 }
 
 void ToolChangeModel::answerFirstTool(bool fullWizard) {

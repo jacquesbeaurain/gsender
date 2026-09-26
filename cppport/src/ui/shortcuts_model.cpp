@@ -16,8 +16,7 @@ QKeySequence parse(const QString& portable) {
 }  // namespace
 
 ShortcutsModel::ShortcutsModel(QObject* parent)
-    : QObject(parent),
-      machine_(UiBackend::instance()->machine()),
+    : UiModelBase(parent),
       actions_(app::shortcutActions(machine_)),
       edits_(machine_.settings().shortcuts) {
     connect(&machine_, &app::Machine::appSettingsChanged, this, &ShortcutsModel::changed);

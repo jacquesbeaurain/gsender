@@ -18,7 +18,7 @@ QString portName(const QString& path) {
 
 }  // namespace
 
-ConnectionModel::ConnectionModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
+ConnectionModel::ConnectionModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::connectionChanged, this, [this] {
         if (machine_.isConnected() || machine_.isConnecting()) {
             error_.clear();

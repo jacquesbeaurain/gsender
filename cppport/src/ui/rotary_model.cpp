@@ -11,11 +11,8 @@ namespace gs::ui {
 
 using namespace app::rotary_actions;
 
-RotaryModel::RotaryModel(QObject* parent) : QObject(parent), machine_(UiBackend::instance()->machine()) {
-    for (auto signal : {&app::Machine::stateChanged, &app::Machine::connectionChanged, &app::Machine::workflowChanged,
-                        &app::Machine::appSettingsChanged}) {
-        connect(&machine_, signal, this, &RotaryModel::changed);
-    }
+RotaryModel::RotaryModel(QObject* parent) : UiModelBase(parent) {
+    connectMachineSignals(false, true);
 }
 
 bool RotaryModel::rotaryMode() const {

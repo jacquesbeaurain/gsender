@@ -6,7 +6,7 @@
 // files and the last job when nothing is loaded, and loading, reloading and
 // closing.
 
-#include <QObject>
+#include "ui_model_base.hpp"
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
@@ -18,7 +18,7 @@ class Machine;
 
 namespace gs::ui {
 
-class FileModel : public QObject {
+class FileModel : public UiModelBase {
     Q_OBJECT
     QML_ELEMENT
 
@@ -70,12 +70,10 @@ public:
     Q_INVOKABLE void close();
 
 Q_SIGNALS:
-    void changed();
     // "G-code File Closed" and the like, for the notifications.
     void notice(const QString& text);
 
 private:
-    app::Machine& machine_;
 };
 
 }  // namespace gs::ui
