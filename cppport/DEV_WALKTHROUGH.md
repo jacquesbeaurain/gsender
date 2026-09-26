@@ -2020,3 +2020,24 @@ To eliminate pervasive code duplication across the 20+ QML view models:
 - **Zero Regression Verification**:
   All 593 tests across `gs_app_tests`, `gs_core_tests`, `gs_transport_tests`, and `gs_ui_tests` pass cleanly in parallel under 20 seconds.
 
+## Step 68 — Architectural De-duplication & Modernization (The 5 Pillars)
+
+Carrying architectural refactoring and code de-duplication to its ultimate standard across the C++ port:
+
+- **Pillar 1: Declarative Settings Schema & Member-Pointer Deserialization** (`src/ui/config_model.cpp`, `src/app/app_settings.cpp`):
+  - Replaced repetitive switch/if cascades across 65+ settings with declarative member-pointer bindings (`Binding<T>{&AppSettings::member, ...}`) in `ConfigModel`.
+  - Replaced hundreds of lines of repetitive JSON deserialization in `AppSettings::load` with type-safe `readProp` and `readPropOrText` template helpers.
+- **Pillar 2: Generic Wizard State Machine & Container** (`src/ui/wizard_model_base.*`, `src/ui/qml/WizardContainer.qml`):
+  - Extracted common multi-step wizard state machine logic (`step`, `totalSteps`, `nextStep`, `previousStep`, `resetWizard`, `stepPercent`, `isFirstStep`, `isLastStep`) into `WizardModelBase : public UiModelBase`.
+  - Unified `MovementTuningModel`, `SquaringModel`, `ToolChangeModel`, and `AccessoryModel` onto `WizardModelBase`.
+  - Created reusable `WizardContainer.qml` encapsulating standard wizard headers, progress steps, navigation footers, and error notification toasts.
+- **Pillar 3: Composable Domain Services** (`src/app/job_service.*`, `src/app/jog_service.*`, `src/app/probe_service.*`, `src/app/tool_change_service.*`, `src/app/firmware_service.*`):
+  - Decomposed the 1,500-line `Machine` monolith into 5 focused, testable domain services.
+  - Reduced `Machine` to an asynchronous coordinator and facade with non-breaking delegation, preserving 100% public API compatibility for all QML models and existing test fixtures.
+- **Pillar 4: Zero-Allocation Role-Based Models** (`src/ui/struct_list_model.*`):
+  - Created `StructListModelBase : public QAbstractListModel` and templated `StructListModel<T>` providing custom role mappings (`Qt::UserRole + N`) and lazily cached `QVariantList` conversions (`toVariantList()`).
+  - Refactored `FileModel::recentFiles` (`StructListModel<app::RecentFile>`), `SdCardModel::files` & `pending` (`FileItem`, `PendingItem`), `ShortcutsModel::rows` (`ShortcutRow`), and `StatsModel` lists (`jobs`, `tasks`, `alarms`, `recentJobs`, `statRows`, `configuration`, `alarmPreview`, `upcoming`).
+  - Completely eliminated on-the-fly heap-allocated `QVariantMap` churn on every property change or binding evaluation.
+- **Pillar 5: Legacy Adaptation Purge & Dead Code Pruning**:
+  - Pruned orphaned `src/ui/qml/PlaceholderPage.qml` and cleaned module resource declarations.
+  - Verified full test suite across all 4 test targets with zero regressions.
