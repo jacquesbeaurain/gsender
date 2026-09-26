@@ -14,8 +14,10 @@ if(MSVC)
         /Zc:inline
         /EHsc
         /bigobj
+        /wd4702  # unreachable code in Qt headers and templates
         # Third-party headers are consumed through imported targets and
         # treated as external; keep their warnings out of our builds.
+        /external:anglebrackets
         /external:W0)
     target_compile_definitions(gs_compile_options INTERFACE
         NOMINMAX
