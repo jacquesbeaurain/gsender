@@ -5,14 +5,8 @@
 #include "gs/config/records.hpp"
 #include "gs/controller/controller.hpp"
 
-#include <QAbstractSpinBox>
-#include <QApplication>
-#include <QComboBox>
+#include <QCoreApplication>
 #include <QKeyEvent>
-#include <QKeySequenceEdit>
-#include <QLineEdit>
-#include <QPlainTextEdit>
-#include <QTextEdit>
 
 namespace gs::app {
 namespace {
@@ -154,42 +148,7 @@ QKeyCombination shortcutKey(const QKeyEvent& event) {
     return QKeyCombination(modifiers, static_cast<Qt::Key>(key));
 }
 
-namespace {
 
-// Mousetrap's rule: keys typed into inputs, text areas and selects are
-// theirs.
-bool typingIntoWidget() {
-    QWidget* focus = QApplication::focusWidget();
-    if (!focus) {
-        return false;
-    }
-    if (const auto* line = qobject_cast<QLineEdit*>(focus)) {
-        return !line->isReadOnly();
-    }
-    if (const auto* text = qobject_cast<QPlainTextEdit*>(focus)) {
-        return !text->isReadOnly();
-    }
-    if (const auto* text = qobject_cast<QTextEdit*>(focus)) {
-        return !text->isReadOnly();
-    }
-    if (const auto* combo = qobject_cast<QComboBox*>(focus)) {
-        return combo->isEditable();
-    }
-    return qobject_cast<QAbstractSpinBox*>(focus) || qobject_cast<QKeySequenceEdit*>(focus);
-}
-
-ShortcutScope widgetScope(QWidget& window) {
-    return {&window,
-            [&window](QObject* watched) {
-                return watched->isWidgetType() && static_cast<QWidget*>(watched)->window() == &window;
-            },
-            [&window] { return QApplication::activeWindow() == &window; }, typingIntoWidget};
-}
-
-}  // namespace
-
-ShortcutManager::ShortcutManager(Machine& machine, QWidget& window, QObject* parent)
-    : ShortcutManager(machine, widgetScope(window), parent) {}
 
 ShortcutManager::ShortcutManager(Machine& machine, ShortcutScope scope, QObject* parent)
     : QObject(parent), machine_(machine), scope_(std::move(scope)) {

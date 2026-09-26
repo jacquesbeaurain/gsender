@@ -21,7 +21,7 @@
 
 #include <boost/json.hpp>
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QDeadlineTimer>
 #include <QDir>
 #include <QFile>
@@ -45,16 +45,16 @@ using namespace gs::app;
 
 namespace {
 
-QApplication& application() {
+QGuiApplication& application() {
     static int argc = 1;
     static char name[] = "gs_app_tests";
     static char* argv[] = {name, nullptr};
-    static QApplication* app = [] {
+    static QGuiApplication* app = [] {
         qputenv("QT_QPA_PLATFORM", "offscreen");
         if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR") && !qEnvironmentVariableIsEmpty("WINDIR")) {
             qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
         }
-        return new QApplication(argc, argv);
+        return new QGuiApplication(argc, argv);
     }();
     return *app;
 }

@@ -11,7 +11,7 @@
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/zip.hpp"
 
-#include <QApplication>
+#include <QCoreApplication>
 #include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
@@ -92,7 +92,7 @@ QString diagnosticsReport(Machine& machine, const QStringList& consoleHistory, c
     html += "<h1>" + QObject::tr("Diagnostics Report") + "</h1>";
     html += "<p style='color:#6b7280'>" +
             QObject::tr("gSender (C++) v%1 &bull; Generated on %2")
-                .arg(QApplication::applicationVersion().toHtmlEscaped(),
+                .arg(QCoreApplication::applicationVersion().toHtmlEscaped(),
                      QLocale().toString(when.date(), QLocale::ShortFormat)) +
             "</p>";
     html += "<p><b>" + QObject::tr("Quick Navigation") + "</b><br>";
@@ -313,7 +313,7 @@ QByteArray diagnosticsPdf(const QString& html) {
         writer.setPageSize(QPageSize(QPageSize::A4));
         writer.setResolution(96);
         writer.setTitle(QObject::tr("Diagnostics Report"));
-        writer.setCreator(QApplication::applicationName());
+        writer.setCreator(QCoreApplication::applicationName());
         QTextDocument document;
         document.setHtml(html);
         document.print(&writer);
