@@ -1955,3 +1955,41 @@ signal so status reports do not rebuild them.
 category (`Backend.activeShortcuts`), over the bottom while Accessibility's
 setting is on. **The top bar's icons** open the Keyboard Shortcuts and
 Gamepad tools (the keyboard green while shortcuts are on).
+
+## Step 65 — QML Phase 4: parity promotion and legacy widget retirement
+
+With full feature parity achieved across all screens (Carve, Tools, Stats,
+Config, Wizards, Dialogs, Shortcuts, and Overlays), the QML touch UI is
+promoted to the main application and the legacy QtWidgets UI is retired:
+
+- **Application promotion** (`src/ui/main.cpp`, `src/ui/CMakeLists.txt`):
+  `gsender` executable target is now produced directly from `src/ui`, with
+  all CLI parameters supported (`--simulator`, `--platform offscreen`,
+  `--load`, `--screenshot`, `--wait`, `--size`, `--dark`, `--config`,
+  `--start`). An automatic copy rule maintains `gsender-qml.exe` as a
+  drop-in alias for existing developer scripts.
+- **Qt runtime deployment** (`GS_DEPLOY_QT`):
+  Added `gs_deploy_qml()` invoking `windeployqt.exe --qmldir <ui/qml>` into
+  the shared runtime directory, packaging QML imports, Quick styles, and
+  platform plugins with zero manual intervention.
+- **Service decoupling** (`src/app`):
+  Extracted non-GUI utilities (`sd_card_utils.hpp/.cpp`, accessory firmware
+  command generators) from former widget dialogs. Retired ~19,000 lines of
+  obsolete QtWidgets panels (`dro_panel`, `probe_panel`, `rotary_panel`,
+  `console_panel`, `status_area`, `panels`, `controls`), dialogs
+  (`settings_dialog`, `stats_dialog`, `shortcuts_dialog`, `surfacing_dialog`,
+  `calibration_dialogs`, `step_through_dialog`, `gcode_editor_dialog`,
+  `start_from_line_dialog`, `toolchange_dialog`, `accessory_installer`,
+  `sd_card_dialog`), custom widgets (`toolpath_view`, `pie_chart`,
+  `notifications`, `helper_info`, `accessibility`, `appearance`), and the
+  original widget `main_window` and `main.cpp`.
+- **Clean services library** (`gs_app`):
+  `gs_app` now contains purely headless application services: `Machine`,
+  `AppSettings`, `NotificationCenter`, `Jogger`, `ShortcutManager`,
+  `ConsoleLog`, `Diagnostics`, `GcodeHighlighter`, `ToolpathScene` (shared
+  OpenGL scene), `VisualizerTheme`, `RotaryActions`, `Power`, `QtEventLoop`,
+  and `SdCardUtils`.
+- **Streamlined test suites** (`tests/app/test_app.cpp`):
+  Redundant widget interaction tests (now comprehensively verified in
+  `gs_ui_tests`) were pruned, leaving 26 pure service tests executing
+  headless in seconds.

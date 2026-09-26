@@ -102,9 +102,13 @@ way:
 - **Compiler multi-processing (`/MP`).** MSVC options enable `/MP` for concurrent
   translation-unit compiles.
 - **Smart target and test inference.** When `-Filter` is passed without an
-  explicit `-Target` (e.g. `-Filter 'UiTest*'`), `tools/build.ps1` infers the
-  specific test target and only invokes the matching test executable, avoiding
-  unneeded target rebuilds and process-spawn overhead.
+  explicit `-Target`, `tools/build.ps1` infers the specific target and test
+  executable (`UiTest*` -> `gs_ui_tests`, `AppTest*`/`Console*`/`SdCard*` ->
+  `gs_app_tests`, `*Transport*` -> `gs_transport_tests`, and all other filters
+  -> `gs_core_tests`). This avoids unneeded target compilation and process-spawn
+  overhead, executing focused test checks in ~0.2 s.
+- **Headless service tests.** The retired widget tests leave `gs_app_tests` as
+  a fast, pure service test suite running without GUI spinloops or event delays.
 - **Sharded UI test runs.** Both `gs_app_tests` and `gs_ui_tests` run across
   shards (`-AppShards`, default 4) to run touch/simulator flows concurrently.
 - **Loop.** While iterating: `-Filter` for the tests at hand (routine turns build
@@ -255,9 +259,9 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 
 ## QML touch UI (`src/ui`)
 
-The UI is moving from Qt Widgets to QML (walkthrough Step 61; its plan has
-the phases). New UI work goes into the QML UI; the widget UI only gets
-fixes until it is retired.
+The primary UI is the native Qt QML touch application (`src/ui`, walkthrough
+Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
+`src/app` serves as the headless application services library.
 
 - Screens follow upstream's React components: layout, Tailwind classes
   mapped to `Theme` tokens (never raw colours in QML; add a token), touch
@@ -302,11 +306,9 @@ fixes until it is retired.
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
-- **The QML touch UI** (Steps 61-64): Phases 0 (shell, theme, visualizer,
-  tests), 1 (the Carve page's essentials), 2 (the tool area, tool changes,
-  Step Through, the editor, shortcuts) and 3 (the Stats, Tools and Config
-  pages, the keyboard map) are done; Phase 4 makes it the application and
-  retires the widget UI.
+- **The QML touch UI** (Steps 61-65): Complete. Phases 0-4 are implemented,
+  promoted to the primary `gsender` application, and the legacy widget UI
+  retired.
 
 - **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
   has no Qt Gamepad - and hardware to verify.

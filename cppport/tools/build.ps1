@@ -145,8 +145,9 @@ try {
         $effectiveTargets = @($Target)
     } elseif ($Filter) {
         if ($Filter -like 'UiTest*') { $effectiveTargets = @('gs_ui_tests') }
-        elseif ($Filter -like 'AppTest*') { $effectiveTargets = @('gs_app_tests') }
+        elseif ($Filter -like 'AppTest*' -or $Filter -like 'GSenderSettings*' -or $Filter -like 'AccessoryWizards*' -or $Filter -like 'Console*' -or $Filter -like 'SdCard*') { $effectiveTargets = @('gs_app_tests') }
         elseif ($Filter -like '*Transport*') { $effectiveTargets = @('gs_transport_tests') }
+        else { $effectiveTargets = @('gs_core_tests') }
     }
     if ($effectiveTargets.Count -gt 0) {
         $buildArgs += '--target'
@@ -164,8 +165,9 @@ try {
         $candidateExes = @(Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe')
         if ($Filter) {
             if ($Filter -like 'UiTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_ui_tests' }) }
-            elseif ($Filter -like 'AppTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_app_tests' }) }
+            elseif ($Filter -like 'AppTest*' -or $Filter -like 'GSenderSettings*' -or $Filter -like 'AccessoryWizards*' -or $Filter -like 'Console*' -or $Filter -like 'SdCard*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_app_tests' }) }
             elseif ($Filter -like '*Transport*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_transport_tests' }) }
+            else { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_core_tests' }) }
         }
         foreach ($exe in $candidateExes) {
             $shards = if ($exe.BaseName -eq 'gs_app_tests' -or $exe.BaseName -eq 'gs_ui_tests') { [Math]::Max(1, $AppShards) } else { 1 }
