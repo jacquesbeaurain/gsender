@@ -20,6 +20,25 @@ endfunction()
 # Qt loads its platform plugin (and styles) from <exe dir>/platforms and
 # <exe dir>/styles when run from the build tree. Debug builds use the Debug
 # LibPack's "d"-suffixed plugins.
+# Deploys Qt dependencies for QML applications using windeployqt.
+function(gs_deploy_qml target qmldir)
+    if(NOT WIN32 OR NOT GS_DEPLOY_QT)
+        return()
+    endif()
+    find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt
+        HINTS "${GS_LIBPACK_BIN_DIR}" "${GS_LIBPACK_DIR}/bin")
+    if(NOT WINDEPLOYQT_EXECUTABLE)
+        message(WARNING "windeployqt not found; Qt dependencies will not be deployed for ${target}")
+        return()
+    endif()
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+            --qmldir "${qmldir}"
+            "$<TARGET_FILE:${target}>"
+        COMMENT "Deploying Qt dependencies with windeployqt for ${target}"
+        VERBATIM)
+endfunction()
+
 function(gs_deploy_qt_plugins target)
     if(NOT WIN32 OR NOT GS_LIBPACK_DIR)
         return()
