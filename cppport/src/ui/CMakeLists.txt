@@ -197,8 +197,15 @@ if(DEFINED QT6_INSTALL_PREFIX AND DEFINED QT6_INSTALL_QML)
     target_compile_definitions(gs_ui PRIVATE GS_QT_QML_DIR="${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}")
 endif()
 
-qt_add_executable(gsender-qml WIN32 main.cpp)
-target_link_libraries(gsender-qml PRIVATE gs_ui gs_uiplugin)
-gs_copy_runtime_dlls(gsender-qml)
-gs_deploy_qt_plugins(gsender-qml)
-gs_deploy_qml(gsender-qml "${CMAKE_CURRENT_SOURCE_DIR}/qml")
+qt_add_executable(gsender WIN32 main.cpp)
+target_link_libraries(gsender PRIVATE gs_ui gs_uiplugin)
+gs_copy_runtime_dlls(gsender)
+gs_deploy_qt_plugins(gsender)
+gs_deploy_qml(gsender "${CMAKE_CURRENT_SOURCE_DIR}/qml")
+
+# Backward-compatibility copy so gsender-qml remains directly runnable
+add_custom_target(gsender-qml ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:gsender>"
+        "$<TARGET_FILE_DIR:gsender>/gsender-qml$<TARGET_FILE_SUFFIX:gsender>"
+    DEPENDS gsender)
