@@ -1,7 +1,9 @@
 #include "plugins_model.hpp"
+#include "plugin_qml_context.hpp"
 
 #include "machine.hpp"
 #include <QDir>
+#include <QUrl>
 #include <algorithm>
 
 namespace gs::ui {
@@ -129,12 +131,18 @@ QVariantList PluginsModel::contributions(const QString& slot) const {
         map[QStringLiteral("icon")] = contrib.icon;
         map[QStringLiteral("route")] = contrib.route;
         map[QStringLiteral("requiresIdle")] = contrib.requiresIdle;
-        map[QStringLiteral("uiEntry")] = plugin.manifest.uiEntry.isEmpty()
+        const QString uiEntry = plugin.manifest.uiEntry.isEmpty()
             ? QString()
             : QDir(plugin.directory).filePath(plugin.manifest.uiEntry);
+        map[QStringLiteral("uiEntry")] = uiEntry;
+        map[QStringLiteral("uiUrl")] = uiEntry.isEmpty() ? QString() : QUrl::fromLocalFile(uiEntry).toString();
         list.append(map);
     }
     return list;
+}
+
+QObject* PluginsModel::createContext(const QString& pluginId) {
+    return new PluginQmlContext(machine_.pluginService(), pluginId, this);
 }
 
 QVariantList PluginsModel::plugins() const {

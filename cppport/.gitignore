@@ -11,3 +11,4 @@ compile_commands.json
 
 # Scratch output from UI screenshot runs
 /screenshots/
+/plugins-data/

@@ -69,6 +69,9 @@ public:
     Q_INVOKABLE QVariantMap getPlugin(const QString& id) const;
     Q_INVOKABLE QVariantList contributions(const QString& slot) const;
 
+    /** Creates an isolated QML bridge context for a specific plugin. */
+    Q_INVOKABLE QObject* createContext(const QString& pluginId);
+
 Q_SIGNALS:
     void pluginsChanged();
     void filterChanged();
