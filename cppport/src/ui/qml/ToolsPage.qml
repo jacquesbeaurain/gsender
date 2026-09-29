@@ -34,7 +34,8 @@ Item {
         squaring: squaringTool,
         shortcuts: keyboardShortcutsTool,
         sd: sdCardTool,
-        accessoryInstall: accessoryInstallerTool
+        accessoryInstall: accessoryInstallerTool,
+        plugins: pluginsTool
     })
 
     function open(key) {
@@ -164,5 +165,9 @@ Item {
     Component {
         id: accessoryInstallerTool
         AccessoryInstallerTool {}
+    }
+    Component {
+        id: pluginsTool
+        PluginsTool {}
     }
 }
