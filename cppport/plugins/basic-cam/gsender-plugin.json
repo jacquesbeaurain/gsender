@@ -1,0 +1,31 @@
+{
+  "id": "com.sienci.basic-cam",
+  "name": "Basic CAM",
+  "version": "1.0.0",
+  "description": "Generates 2D surfacing and pocketing toolpaths directly to the visualizer",
+  "author": "Sienci Labs",
+  "engine": ">=1.5.0",
+  "wasm": {
+    "entry": "bin/plugin.wasm"
+  },
+  "ui": {
+    "entry": "ui/Main.qml",
+    "contributions": [
+      {
+        "slot": "tools-page",
+        "route": "basic-cam",
+        "label": "Basic CAM",
+        "icon": "tool"
+      }
+    ]
+  },
+  "capabilities": {
+    "requestTypes": [
+      "gcode:load:to:visualizer",
+      "workspace:get:state"
+    ],
+    "topics": [
+      "workspace"
+    ]
+  }
+}

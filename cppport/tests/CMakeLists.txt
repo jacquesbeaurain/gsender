@@ -68,6 +68,7 @@ if(TARGET gs_app)
         app/test_plugins.cpp
     )
     target_link_libraries(gs_app_tests PRIVATE gs_app GTest::gtest GTest::gtest_main)
+    target_compile_definitions(gs_app_tests PRIVATE GS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     gs_precompile_headers(gs_app_tests <gtest/gtest.h> <QtCore> <functional> <string>)
     gs_copy_runtime_dlls(gs_app_tests)
     gs_deploy_qt_plugins(gs_app_tests)

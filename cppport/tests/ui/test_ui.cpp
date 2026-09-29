@@ -1841,6 +1841,15 @@ Rectangle {
     ASSERT_TRUE(waitFor([&] { return item("toolCard_plugin:com.sienci.host-test:host-tool"); }));
     QTest::qWait(100);
 
+    // Scroll flickable so bottom card is in view
+    auto* flickable = item("toolsFlickable");
+    auto* card = item("toolCard_plugin:com.sienci.host-test:host-tool");
+    if (flickable && card) {
+        flickable->setProperty("contentY", card->y());
+        QCoreApplication::processEvents();
+        QTest::qWait(50);
+    }
+
     tap("toolCard_plugin:com.sienci.host-test:host-tool");
     QTest::qWait(100);
 

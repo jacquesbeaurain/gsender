@@ -83,6 +83,8 @@ Item {
 
     // The cards.
     Flickable {
+        id: flickable
+        objectName: "toolsFlickable"
         visible: tools.current === ""
         anchors.fill: parent
         contentHeight: grid.implicitHeight + header.implicitHeight + 64

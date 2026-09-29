@@ -1,0 +1,40 @@
+{
+  "id": "com.sienci.corner-finder",
+  "name": "Corner Finder",
+  "version": "1.0.0",
+  "description": "Interactive visualizer overlay for stock corner location and camera positioning",
+  "author": "Sienci Labs",
+  "engine": ">=1.5.0",
+  "wasm": {
+    "entry": "bin/plugin.wasm"
+  },
+  "ui": {
+    "entry": "ui/Main.qml",
+    "contributions": [
+      {
+        "slot": "visualizer-overlay",
+        "label": "Corner Finder",
+        "icon": "target",
+        "route": "corner-finder-overlay",
+        "requiresIdle": true
+      },
+      {
+        "slot": "tools-tab",
+        "label": "Corner Finder",
+        "icon": "target",
+        "route": "corner-finder-tab"
+      }
+    ]
+  },
+  "capabilities": {
+    "requestTypes": [
+      "viewer:camera:set",
+      "viewer:overlay:set",
+      "workspace:get:state"
+    ],
+    "topics": [
+      "workspace",
+      "viewer"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "com.sienci.controller-events-demo",
+  "name": "Controller Events Demo",
+  "version": "1.0.0",
+  "description": "Listens for real-time controller events, telemetry, and workspace state",
+  "author": "Sienci Labs",
+  "engine": ">=1.5.0",
+  "wasm": {
+    "entry": "bin/plugin.wasm"
+  },
+  "ui": {
+    "entry": "ui/Main.qml",
+    "contributions": [
+      {
+        "slot": "tools-page",
+        "route": "controller-events-demo",
+        "label": "Controller Events Demo",
+        "icon": "activity"
+      },
+      {
+        "slot": "tools-tab",
+        "route": "controller-events-tab",
+        "label": "Events",
+        "icon": "activity"
+      }
+    ]
+  },
+  "capabilities": {
+    "requestTypes": [
+      "machine:command",
+      "machine:get:context",
+      "workspace:get:state"
+    ],
+    "topics": [
+      "controller",
+      "workspace"
+    ]
+  }
+}
