@@ -26,6 +26,7 @@ class PluginService : public QObject {
 
 public:
     explicit PluginService(Machine& machine, const QString& storageDir, QObject* parent = nullptr);
+    ~PluginService() override;
 
     /** Adds a directory path to search for installed plugins. */
     void addSearchPath(const QString& path);
@@ -48,6 +49,12 @@ public:
     /** Returns all enabled contributions matching a specific slot (e.g. "tools-page"). */
     std::vector<std::pair<LoadedPlugin, PluginContribution>> contributionsForSlot(const QString& slot) const;
 
+    /** Access the active Wasm execution host for a plugin, if running. */
+    class PluginWasmHost* wasmHost(const QString& id) const;
+
+    /** Dispatches an RPC request string into a plugin's Wasm runtime. */
+    QString executeWasmRequest(const QString& id, const QString& requestJson);
+
 Q_SIGNALS:
     void pluginsChanged();
 
@@ -58,6 +65,7 @@ private:
     QStringList searchPaths_;
     std::vector<LoadedPlugin> plugins_;
     QSet<QString> disabledPluginIds_;
+    std::map<QString, std::unique_ptr<class PluginWasmHost>> wasmHosts_;
 
     void setupTopicBroadcasters();
 };

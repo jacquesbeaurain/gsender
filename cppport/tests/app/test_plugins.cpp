@@ -1,3 +1,5 @@
+#include "wasm_engine.hpp"
+#include "plugin_wasm_host.hpp"
 #include "plugin_bridge.hpp"
 #include "plugin_manifest.hpp"
 #include "plugin_service.hpp"
@@ -274,4 +276,198 @@ TEST(PluginServiceTest, MirroredReferencePluginsSuiteValidation) {
 
     const auto overlayContribs = service.contributionsForSlot("visualizer-overlay");
     EXPECT_GE(overlayContribs.size(), 1u);
+}
+
+namespace {
+
+static const uint8_t kTestWasmBytes[] = {
+    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x01, 0x19, 0x05, 0x60, 0x00, 0x01, 0x7F, 0x60,
+    0x00, 0x00, 0x60, 0x03, 0x7F, 0x7F, 0x7F, 0x01, 0x7F, 0x60, 0x02, 0x7F, 0x7F, 0x00, 0x60, 0x01,
+    0x7F, 0x01, 0x7F, 0x02, 0x2C, 0x02, 0x03, 0x65, 0x6E, 0x76, 0x12, 0x67, 0x73, 0x5F, 0x68, 0x6F,
+    0x73, 0x74, 0x5F, 0x65, 0x6D, 0x69, 0x74, 0x5F, 0x67, 0x63, 0x6F, 0x64, 0x65, 0x00, 0x04, 0x03,
+    0x65, 0x6E, 0x76, 0x0B, 0x67, 0x73, 0x5F, 0x68, 0x6F, 0x73, 0x74, 0x5F, 0x6C, 0x6F, 0x67, 0x00,
+    0x03, 0x03, 0x09, 0x08, 0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x04, 0x05, 0x04, 0x01, 0x01,
+    0x01, 0x10, 0x07, 0xBA, 0x01, 0x09, 0x13, 0x67, 0x73, 0x65, 0x6E, 0x64, 0x65, 0x72, 0x5F, 0x70,
+    0x6C, 0x75, 0x67, 0x69, 0x6E, 0x5F, 0x69, 0x6E, 0x69, 0x74, 0x00, 0x02, 0x17, 0x67, 0x73, 0x65,
+    0x6E, 0x64, 0x65, 0x72, 0x5F, 0x70, 0x6C, 0x75, 0x67, 0x69, 0x6E, 0x5F, 0x73, 0x68, 0x75, 0x74,
+    0x64, 0x6F, 0x77, 0x6E, 0x00, 0x03, 0x1D, 0x67, 0x73, 0x65, 0x6E, 0x64, 0x65, 0x72, 0x5F, 0x70,
+    0x6C, 0x75, 0x67, 0x69, 0x6E, 0x5F, 0x68, 0x61, 0x6E, 0x64, 0x6C, 0x65, 0x5F, 0x72, 0x65, 0x71,
+    0x75, 0x65, 0x73, 0x74, 0x00, 0x04, 0x1D, 0x67, 0x73, 0x65, 0x6E, 0x64, 0x65, 0x72, 0x5F, 0x70,
+    0x6C, 0x75, 0x67, 0x69, 0x6E, 0x5F, 0x6F, 0x6E, 0x5F, 0x74, 0x6F, 0x70, 0x69, 0x63, 0x5F, 0x65,
+    0x76, 0x65, 0x6E, 0x74, 0x00, 0x05, 0x10, 0x74, 0x72, 0x61, 0x70, 0x5F, 0x75, 0x6E, 0x72, 0x65,
+    0x61, 0x63, 0x68, 0x61, 0x62, 0x6C, 0x65, 0x00, 0x06, 0x0D, 0x74, 0x72, 0x61, 0x70, 0x5F, 0x64,
+    0x69, 0x76, 0x5F, 0x7A, 0x65, 0x72, 0x6F, 0x00, 0x07, 0x0F, 0x74, 0x72, 0x61, 0x70, 0x5F, 0x6D,
+    0x65, 0x6D, 0x6F, 0x72, 0x79, 0x5F, 0x6F, 0x6F, 0x62, 0x00, 0x08, 0x08, 0x61, 0x64, 0x64, 0x5F,
+    0x66, 0x69, 0x76, 0x65, 0x00, 0x09, 0x06, 0x6D, 0x65, 0x6D, 0x6F, 0x72, 0x79, 0x02, 0x00, 0x0A,
+    0x5B, 0x08, 0x04, 0x00, 0x41, 0x00, 0x0B, 0x02, 0x00, 0x0B, 0x26, 0x00, 0x20, 0x00, 0x10, 0x00,
+    0x1A, 0x20, 0x01, 0x41, 0xFB, 0x00, 0x3A, 0x00, 0x00, 0x20, 0x01, 0x41, 0x01, 0x6A, 0x41, 0xFD,
+    0x00, 0x3A, 0x00, 0x00, 0x20, 0x01, 0x41, 0x02, 0x6A, 0x41, 0x00, 0x3A, 0x00, 0x00, 0x41, 0x02,
+    0x0B, 0x08, 0x00, 0x41, 0x01, 0x20, 0x00, 0x10, 0x01, 0x0B, 0x05, 0x00, 0x00, 0x41, 0x00, 0x0B,
+    0x07, 0x00, 0x41, 0x2A, 0x41, 0x00, 0x6D, 0x0B, 0x0B, 0x00, 0x41, 0xFF, 0xFF, 0xFF, 0xFF, 0x07,
+    0x28, 0x00, 0x00, 0x0B, 0x07, 0x00, 0x20, 0x00, 0x41, 0x05, 0x6A, 0x0B
+};
+static const size_t kTestWasmBytesLen = sizeof(kTestWasmBytes);
+
+} // namespace
+
+TEST(WasmEngineTest, InstantiatesAndExecutesArithmetic) {
+    std::string err;
+    auto module = WasmModule::loadFromBytes(kTestWasmBytes, kTestWasmBytesLen, &err);
+    ASSERT_NE(module, nullptr) << err;
+
+    WasmInstance inst(module);
+    inst.linkHostFunction("env", "gs_host_emit_gcode", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> {
+        return int32_t(0);
+    });
+    inst.linkHostFunction("env", "gs_host_log", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> {
+        return std::nullopt;
+    });
+
+    ASSERT_TRUE(inst.instantiate(&err)) << err;
+
+    // Test add_five(37) -> 42
+    auto res = inst.invoke("add_five", {int32_t(37)});
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(std::get<int32_t>(*res), 42);
+
+    // Test add_five(-10) -> -5
+    res = inst.invoke("add_five", {int32_t(-10)});
+    ASSERT_TRUE(res.has_value());
+    EXPECT_EQ(std::get<int32_t>(*res), -5);
+}
+
+TEST(WasmEngineTest, EnforcesLinearMemoryBoundsAndTraps) {
+    std::string err;
+    auto module = WasmModule::loadFromBytes(kTestWasmBytes, kTestWasmBytesLen, &err);
+    ASSERT_NE(module, nullptr) << err;
+
+    WasmInstance inst(module);
+    inst.linkHostFunction("env", "gs_host_emit_gcode", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> { return int32_t(0); });
+    inst.linkHostFunction("env", "gs_host_log", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> { return std::nullopt; });
+    ASSERT_TRUE(inst.instantiate(&err)) << err;
+
+    // Linear memory bounds checks on WasmMemory API
+    EXPECT_GT(inst.memory().sizeBytes(), 0u);
+    uint8_t buf[16];
+    EXPECT_FALSE(inst.memory().read(0xFFFFFFFF, buf, sizeof(buf)));
+    EXPECT_FALSE(inst.memory().write(0xFFFFFFFF, buf, sizeof(buf)));
+
+    // Executing out of bounds memory load traps without crashing host process
+    auto res = inst.invoke("trap_memory_oob");
+    EXPECT_FALSE(res.has_value());
+    EXPECT_EQ(inst.lastTrap(), WasmTrap::OutOfBoundsMemoryAccess);
+}
+
+TEST(WasmEngineTest, TrapsUnreachableAndDivideByZero) {
+    std::string err;
+    auto module = WasmModule::loadFromBytes(kTestWasmBytes, kTestWasmBytesLen, &err);
+    ASSERT_NE(module, nullptr) << err;
+
+    WasmInstance inst(module);
+    inst.linkHostFunction("env", "gs_host_emit_gcode", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> { return int32_t(0); });
+    inst.linkHostFunction("env", "gs_host_log", [](WasmInstance&, const std::vector<WasmVal>&) -> std::optional<WasmVal> { return std::nullopt; });
+    ASSERT_TRUE(inst.instantiate(&err)) << err;
+
+    // Test unreachable opcode trap
+    auto resUnreach = inst.invoke("trap_unreachable");
+    EXPECT_FALSE(resUnreach.has_value());
+    EXPECT_EQ(inst.lastTrap(), WasmTrap::Unreachable);
+
+    // Test division by zero trap
+    auto resDivZero = inst.invoke("trap_div_zero");
+    EXPECT_FALSE(resDivZero.has_value());
+    EXPECT_EQ(inst.lastTrap(), WasmTrap::DivisionByZero);
+}
+
+TEST(WasmEngineTest, PluginWasmHostLifecycleAndRpc) {
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginStorage storage(tempDir.path());
+    PluginBridge bridge(machine, storage);
+
+    PluginManifest manifest;
+    manifest.id = "com.sienci.wasm-test";
+    manifest.name = "Wasm Test Plugin";
+    manifest.version = "1.0.0";
+    manifest.capabilities.requestTypes.insert("machine:command");
+    manifest.capabilities.topics.insert("workspace");
+
+    PluginWasmHost host(machine, bridge, storage, manifest);
+    QString err;
+    ASSERT_TRUE(host.loadBinary(kTestWasmBytes, kTestWasmBytesLen, &err)) << err.toStdString();
+    EXPECT_TRUE(host.isLoaded());
+
+    // Test initialization lifecycle
+    EXPECT_TRUE(host.init());
+
+    // Test RPC request handling
+    const QString resp = host.handleRequest("{\"cmd\":\"test\"}");
+    EXPECT_FALSE(resp.isEmpty());
+    EXPECT_TRUE(resp.startsWith("{"));
+
+    // Test topic event dispatch
+    QJsonObject eventData;
+    eventData.insert("x", 123.456);
+    host.onTopicEvent("workspace", eventData);
+
+    // Test shutdown lifecycle
+    host.shutdown();
+}
+
+TEST(PluginServiceTest, WasmModuleAutoDiscoveryAndRpc) {
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginService service(machine, tempDir.path());
+
+    // Create a temporary plugin folder with manifest and wasm binary
+    const QString pdir = tempDir.filePath("test-wasm-plugin");
+    ASSERT_TRUE(QDir().mkpath(pdir + "/bin"));
+
+    const QString manifestJson = QStringLiteral(R"json({
+        "id": "com.sienci.test-wasm-auto",
+        "name": "Auto Wasm Test",
+        "version": "1.0.0",
+        "wasm": { "entry": "bin/plugin.wasm" },
+        "capabilities": {
+            "requestTypes": ["machine:command"],
+            "topics": ["workspace"]
+        }
+    })json");
+
+    QFile manifestFile(pdir + "/gsender-plugin.json");
+    ASSERT_TRUE(manifestFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    manifestFile.write(manifestJson.toUtf8());
+    manifestFile.close();
+
+    QFile wasmFile(pdir + "/bin/plugin.wasm");
+    ASSERT_TRUE(wasmFile.open(QIODevice::WriteOnly));
+    wasmFile.write(reinterpret_cast<const char*>(kTestWasmBytes), kTestWasmBytesLen);
+    wasmFile.close();
+
+    service.addSearchPath(tempDir.path());
+    service.scanPlugins();
+
+    // Verify Wasm host was instantiated and active
+    PluginWasmHost* host = service.wasmHost("com.sienci.test-wasm-auto");
+    ASSERT_NE(host, nullptr);
+    EXPECT_TRUE(host->isLoaded());
+
+    // Execute RPC request via service
+    const QString reply = service.executeWasmRequest("com.sienci.test-wasm-auto", "{\"ping\":true}");
+    EXPECT_FALSE(reply.isEmpty());
+    EXPECT_TRUE(reply.startsWith("{"));
+
+    // Disable plugin: Wasm host should be unloaded
+    service.setPluginEnabled("com.sienci.test-wasm-auto", false);
+    EXPECT_EQ(service.wasmHost("com.sienci.test-wasm-auto"), nullptr);
+
+    // Re-enable plugin: Wasm host should be reloaded
+    service.setPluginEnabled("com.sienci.test-wasm-auto", true);
+    EXPECT_NE(service.wasmHost("com.sienci.test-wasm-auto"), nullptr);
 }
