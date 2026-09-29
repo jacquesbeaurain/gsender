@@ -1,5 +1,6 @@
 #include "machine.hpp"
 #include "firmware_service.hpp"
+#include "plugin_service.hpp"
 #include "job_service.hpp"
 #include "jog_service.hpp"
 #include "probe_service.hpp"
@@ -28,6 +29,7 @@
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QThreadPool>
+#include <QCoreApplication>
 
 #include <boost/json.hpp>
 
@@ -192,6 +194,13 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     probeService_ = std::make_unique<ProbeService>(*this);
     toolChangeService_ = std::make_unique<ToolChangeService>(*this);
     firmwareService_ = std::make_unique<FirmwareService>(*this);
+    const auto configDir = configFile.empty() ? std::filesystem::current_path() : std::filesystem::absolute(configFile).parent_path();
+    const QString storageDir = QString::fromStdString((configDir / "plugins-data").string());
+    pluginService_ = std::make_unique<PluginService>(*this, storageDir);
+    pluginService_->addSearchPath(QString::fromStdString((configDir / "plugins").string()));
+    pluginService_->addSearchPath(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"));
+    pluginService_->addSearchPath(QDir::current().filePath(QStringLiteral("plugins")));
+    pluginService_->scanPlugins();
 }
 
 Machine::~Machine() {
