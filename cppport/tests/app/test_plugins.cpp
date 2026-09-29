@@ -217,3 +217,61 @@ TEST(PluginServiceTest, DiscoversAndManagesPlugins) {
     EXPECT_TRUE(service.isPluginEnabled("com.sienci.mock-tool"));
     EXPECT_EQ(service.contributionsForSlot("tools-page").size(), 1);
 }
+
+TEST(PluginServiceTest, MirroredReferencePluginsSuiteValidation) {
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginService service(machine, tempDir.path());
+
+    // Point to repo plugins/
+    const QString repoPluginsPath = QStringLiteral(GS_SOURCE_DIR "/plugins");
+    service.addSearchPath(repoPluginsPath);
+    service.scanPlugins();
+
+    // Verify all 6 mirrored plugins exist
+    const QStringList expectedPluginIds = {
+        "com.sienci.example-hello",
+        "com.sienci.storage-test",
+        "com.sienci.controller-events-demo",
+        "com.sienci.basic-cam",
+        "com.sienci.corner-finder",
+        "com.sienci.parser-demo"
+    };
+
+    for (const QString& id : expectedPluginIds) {
+        const auto* p = service.findPlugin(id);
+        ASSERT_NE(p, nullptr) << "Missing plugin: " << id.toStdString();
+        EXPECT_TRUE(p->enabled);
+        EXPECT_FALSE(p->manifest.name.isEmpty());
+        EXPECT_FALSE(p->manifest.uiEntry.isEmpty());
+        // Verify UI entry file exists on disk
+        const QString uiFile = QDir(p->directory).filePath(p->manifest.uiEntry);
+        EXPECT_TRUE(QFile::exists(uiFile)) << "Missing UI entry: " << uiFile.toStdString();
+    }
+
+    // Check specific capabilities & slot contributions
+    const auto* cam = service.findPlugin("com.sienci.basic-cam");
+    ASSERT_NE(cam, nullptr);
+    EXPECT_TRUE(cam->manifest.capabilities.requestTypes.contains("gcode:load:to:visualizer"));
+
+    const auto* corner = service.findPlugin("com.sienci.corner-finder");
+    ASSERT_NE(corner, nullptr);
+    EXPECT_TRUE(corner->manifest.capabilities.requestTypes.contains("viewer:camera:set"));
+
+    const auto* parser = service.findPlugin("com.sienci.parser-demo");
+    ASSERT_NE(parser, nullptr);
+    EXPECT_GE(parser->manifest.parsers.size(), 2u);
+
+    // Verify slot contributions across suite
+    const auto toolsPageContribs = service.contributionsForSlot("tools-page");
+    EXPECT_GE(toolsPageContribs.size(), 4u);
+
+    const auto toolsTabContribs = service.contributionsForSlot("tools-tab");
+    EXPECT_GE(toolsTabContribs.size(), 2u);
+
+    const auto overlayContribs = service.contributionsForSlot("visualizer-overlay");
+    EXPECT_GE(overlayContribs.size(), 1u);
+}

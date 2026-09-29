@@ -1,0 +1,41 @@
+{
+  "id": "com.sienci.parser-demo",
+  "name": "Parser Demo",
+  "version": "1.0.0",
+  "description": "Demonstrates regex parser definitions and telemetry event interception",
+  "author": "Sienci Labs",
+  "engine": ">=1.5.0",
+  "wasm": {
+    "entry": "bin/plugin.wasm"
+  },
+  "ui": {
+    "entry": "ui/Main.qml",
+    "contributions": [
+      {
+        "slot": "tools-page",
+        "route": "parser-demo",
+        "label": "Parser Demo",
+        "icon": "file-text"
+      }
+    ]
+  },
+  "parsers": [
+    {
+      "pattern": "^\\[PRB:([-\\d.]+),([-\\d.]+),([-\\d.]+):([01])\\]",
+      "type": "line"
+    },
+    {
+      "pattern": "^;TOOL:(\\d+)",
+      "type": "line"
+    }
+  ],
+  "capabilities": {
+    "requestTypes": [
+      "machine:command",
+      "machine:get:context"
+    ],
+    "topics": [
+      "controller"
+    ]
+  }
+}
