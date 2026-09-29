@@ -46,6 +46,7 @@ class JogService;
 class ProbeService;
 class ToolChangeService;
 class FirmwareService;
+class PluginService;
 
 
 // Toolpath segments for the visualizer: x0,y0,z0, x1,y1,z1 per segment, and
@@ -74,6 +75,7 @@ class Machine final : public QObject {
     friend class ProbeService;
     friend class ToolChangeService;
     friend class FirmwareService;
+    friend class PluginService;
 
 public:
     // The port names that connect to the built-in simulated boards: Grbl,
@@ -93,6 +95,8 @@ public:
     const ToolChangeService& toolChangeService() const noexcept { return *toolChangeService_; }
     FirmwareService& firmwareService() noexcept { return *firmwareService_; }
     const FirmwareService& firmwareService() const noexcept { return *firmwareService_; }
+    PluginService& pluginService() noexcept { return *pluginService_; }
+    const PluginService& pluginService() const noexcept { return *pluginService_; }
 
     void completeToolChangeWizard();
     void cancelToolChangeWizard();
@@ -397,6 +401,7 @@ private:
     std::unique_ptr<ProbeService> probeService_;
     std::unique_ptr<ToolChangeService> toolChangeService_;
     std::unique_ptr<FirmwareService> firmwareService_;
+    std::unique_ptr<PluginService> pluginService_;
 };
 
 }  // namespace gs::app
