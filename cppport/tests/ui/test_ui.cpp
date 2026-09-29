@@ -9,6 +9,9 @@
 #include "qt_event_loop.hpp"
 #include "ui_app.hpp"
 #include "ui_shortcuts.hpp"
+#include "icon_provider.hpp"
+#include "plugins_model.hpp"
+#include "plugin_service.hpp"
 #include "shortcuts.hpp"
 
 #include "gs/config/history.hpp"
@@ -1613,6 +1616,117 @@ TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     connectSimulator();
     ASSERT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
     screenshot("ui_shell_dark");
+}
+
+TEST_F(UiTest, IconProviderRendersPiPuzzlePiece) {
+    ui::IconProvider provider;
+    QSize size;
+    QImage img = provider.requestImage("PiPuzzlePiece/111827", &size, QSize(56, 56));
+    EXPECT_FALSE(img.isNull());
+    EXPECT_EQ(img.width(), 56);
+    EXPECT_EQ(img.height(), 56);
+    int nonTransparent = 0;
+    for (int y = 0; y < img.height(); ++y) {
+        for (int x = 0; x < img.width(); ++x) {
+            if (qAlpha(img.pixel(x, y)) > 0) {
+                ++nonTransparent;
+            }
+        }
+    }
+    EXPECT_GT(nonTransparent, 0) << "Image is completely transparent!";
+
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_plugins") && item("toolCard_plugins")->isVisible(); }));
+}
+
+TEST_F(UiTest, ThePluginsToolDiscoversAndTogglesPlugins) {
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_plugins") && item("toolCard_plugins")->isVisible(); }));
+    tap("toolCard_plugins");
+    ASSERT_TRUE(waitFor([&] { return item("pluginsTool") && item("pluginsTool")->isVisible(); }));
+    screenshot("ui_plugins_manager");
+
+    // Test PluginsModel API directly with real Machine instance
+    ui::PluginsModel model(*machine_);
+    EXPECT_GE(model.count(), 0);
+    EXPECT_EQ(model.filter(), "all");
+    model.setFilter("official");
+    EXPECT_EQ(model.filter(), "official");
+    model.setFilter("all");
+
+    const int initialCount = model.count();
+    const int initialEnabled = model.enabledCount();
+
+    // Create a temporary plugin to test live discovery and toggling
+    QTemporaryDir pluginDir;
+    const QString subDir = pluginDir.filePath("dro-enhancer");
+    ASSERT_TRUE(QDir().mkpath(subDir));
+    const QString manifestJson = QStringLiteral(R"json({
+        "id": "com.sienci.dro-enhancer",
+        "name": "DRO Enhancer",
+        "version": "1.2.0",
+        "description": "Custom DRO readouts and styling",
+        "author": "Sienci Labs",
+        "capabilities": {
+            "requests": ["machine:command", "storage:get"],
+            "topics": ["workspace"]
+        },
+        "ui": {
+            "entry": "ui/Main.qml",
+            "contributions": [
+                {
+                    "slot": "tools-page",
+                    "label": "DRO Tools",
+                    "icon": "PiPuzzlePiece",
+                    "route": "dro-tools"
+                }
+            ]
+        }
+    })json");
+
+    QFile manifestFile(subDir + "/gsender-plugin.json");
+    ASSERT_TRUE(manifestFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    manifestFile.write(manifestJson.toUtf8());
+    manifestFile.close();
+
+    machine_->pluginService().addSearchPath(pluginDir.path());
+    model.scan();
+
+    ASSERT_EQ(model.count(), initialCount + 1);
+    EXPECT_EQ(model.enabledCount(), initialEnabled + 1);
+    EXPECT_TRUE(model.isEnabled("com.sienci.dro-enhancer"));
+
+    const QVariantMap info = model.getPlugin("com.sienci.dro-enhancer");
+    EXPECT_EQ(info["name"].toString(), "DRO Enhancer");
+    EXPECT_TRUE(info["official"].toBool());
+
+    const QVariantList contribs = model.contributions("tools-page");
+    bool foundDroTools = false;
+    for (const auto& item : contribs) {
+        if (item.toMap()["label"].toString() == "DRO Tools") {
+            foundDroTools = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundDroTools);
+
+    // Disable plugin
+    model.setEnabled("com.sienci.dro-enhancer", false);
+    EXPECT_FALSE(model.isEnabled("com.sienci.dro-enhancer"));
+    EXPECT_EQ(model.enabledCount(), initialEnabled);
+
+    // Filter testing by searching for the temporary plugin
+    model.setSearch("DRO Enhancer");
+    EXPECT_EQ(model.count(), 1);
+    model.setFilter("enabled");
+    EXPECT_EQ(model.count(), 0);
+    model.setFilter("all");
+    EXPECT_EQ(model.count(), 1);
+    model.setSearch("");
+
+    // Go back from Plugins tool to Tools page
+    tap("toolGoBack");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_plugins") && item("toolCard_plugins")->isVisible(); }));
 }
 
 int main(int argc, char** argv) {

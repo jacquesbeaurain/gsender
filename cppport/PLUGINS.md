@@ -203,5 +203,6 @@ Plugins cannot access global machine settings, network profiles, or other plugin
 | **Per-Plugin Isolated Storage** |  Complete | [`src/app/plugin_storage.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_storage.hpp) |
 | **Capability-Enforced Bridge** |  Complete | [`src/app/plugin_bridge.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_bridge.hpp) |
 | **Plugin Discovery & Lifecycle Service** |  Complete | [`src/app/plugin_service.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_service.hpp) |
-| **Wasm Runtime Integration** |  In Progress | Embedded Wasm execution engine |
-| **QML Plugins UI & Tools Integration** |  In Progress | UI Model & Tools Page View |
+| **Machine Integration** |  Complete | [`src/app/machine.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/machine.hpp), [`src/app/machine.cpp`](file:///d:/repos/gh/gsender/cppport/src/app/machine.cpp) |
+| **QML Plugins UI & Tools Integration** |  Complete | [`src/ui/plugins_model.hpp`](file:///d:/repos/gh/gsender/cppport/src/ui/plugins_model.hpp), [`src/ui/qml/PluginsTool.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/PluginsTool.qml) |
+| **Wasm Runtime Integration** |  Next Milestone | Embedded Wasm execution engine (WAMR / wasmtime) |
