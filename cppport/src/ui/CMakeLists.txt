@@ -89,6 +89,7 @@ qt_add_qml_module(gs_ui
         qml/SdCardTool.qml
         qml/AccessoryInstallerTool.qml
         qml/PluginsTool.qml
+        qml/PluginHost.qml
         qml/ConfigPage.qml
         qml/ConfigRow.qml
         qml/KeyboardMap.qml
@@ -161,6 +162,8 @@ qt_add_qml_module(gs_ui
         accessory_model.hpp
         plugins_model.cpp
         plugins_model.hpp
+        plugin_qml_context.cpp
+        plugin_qml_context.hpp
         config_model.cpp
         config_model.hpp
         icon_provider.cpp

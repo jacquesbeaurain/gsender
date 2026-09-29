@@ -84,4 +84,16 @@ Rectangle {
             }
         }
     }
+
+    // Third-party plugin visualizer overlays (slot: visualizer-overlay).
+    PluginsModel { id: visualizerPluginsModel }
+    Repeater {
+        id: visualizerOverlays
+        model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
+        PluginHost {
+            anchors.fill: parent
+            pluginId: modelData.pluginId
+            uiEntryUrl: modelData.uiUrl
+        }
+    }
 }

@@ -13,6 +13,27 @@ Item {
     property string current: ""
     // The SD card's, kept so an upload is followed after Go Back.
     readonly property SdCardModel sdCardModel: SdCardModel { objectName: "sdCard" }
+    readonly property PluginsModel pluginsModel: PluginsModel { objectName: "toolsPluginsModel" }
+    property var activePluginTool: null
+
+    readonly property var allCards: {
+        const _trigger = pluginsModel.count
+        const list = cards.slice()
+        const pluginContribs = pluginsModel.contributions("tools-page")
+        for (let i = 0; i < pluginContribs.length; ++i) {
+            const c = pluginContribs[i]
+            list.push({
+                key: "plugin:" + c.pluginId + ":" + c.route,
+                title: c.label || c.pluginName,
+                description: qsTr("Plugin tool by %1").arg(c.pluginName),
+                icon: c.icon || "PiPuzzlePiece",
+                isPlugin: true,
+                pluginId: c.pluginId,
+                uiUrl: c.uiUrl
+            })
+        }
+        return list
+    }
 
     // The tools there are: {key, title, description, icon, component}.
     readonly property var cards: [
@@ -39,10 +60,18 @@ Item {
     })
 
     function open(key) {
+        if (key.startsWith("plugin:")) {
+            const card = allCards.find(c => c.key === key)
+            if (card) {
+                activePluginTool = card
+                current = key
+                return
+            }
+        }
         if (available[key])
             current = key
         else
-            Backend.notify(qsTr("%1 is not available in this version yet").arg(cards.find(c => c.key === key).title), "info")
+            Backend.notify(qsTr("%1 is not available in this version yet").arg(allCards.find(c => c.key === key).title), "info")
     }
 
     Connections {
@@ -81,7 +110,7 @@ Item {
                 rowSpacing: 16
                 columnSpacing: 16
                 Repeater {
-                    model: tools.cards
+                    model: tools.allCards
                     Rectangle {
                         required property var modelData
                         objectName: "toolCard_" + modelData.key
@@ -130,7 +159,7 @@ Item {
         objectName: "toolLoader"
         anchors.fill: parent
         active: tools.current !== ""
-        sourceComponent: tools.available[tools.current] || null
+        sourceComponent: tools.current.startsWith("plugin:") ? pluginHostComponent : (tools.available[tools.current] || null)
     }
     Connections {
         target: toolLoader.item
@@ -169,5 +198,17 @@ Item {
     Component {
         id: pluginsTool
         PluginsTool {}
+    }
+    Component {
+        id: pluginHostComponent
+        ToolPage {
+            title: tools.activePluginTool ? tools.activePluginTool.title : qsTr("Plugin Tool")
+            description: tools.activePluginTool ? tools.activePluginTool.description : ""
+            PluginHost {
+                anchors.fill: parent
+                pluginId: tools.activePluginTool ? tools.activePluginTool.pluginId : ""
+                uiEntryUrl: tools.activePluginTool ? tools.activePluginTool.uiUrl : ""
+            }
+        }
     }
 }

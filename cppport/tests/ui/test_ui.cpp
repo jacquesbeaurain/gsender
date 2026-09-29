@@ -11,6 +11,7 @@
 #include "ui_shortcuts.hpp"
 #include "icon_provider.hpp"
 #include "plugins_model.hpp"
+#include "plugin_qml_context.hpp"
 #include "plugin_service.hpp"
 #include "shortcuts.hpp"
 
@@ -1727,6 +1728,131 @@ TEST_F(UiTest, ThePluginsToolDiscoversAndTogglesPlugins) {
     // Go back from Plugins tool to Tools page
     tap("toolGoBack");
     ASSERT_TRUE(waitFor([&] { return item("toolCard_plugins") && item("toolCard_plugins")->isVisible(); }));
+}
+
+TEST_F(UiTest, PluginQmlContextAndDynamicSlotHosting) {
+    window_->resize(1400, 1100);
+    ASSERT_TRUE(waitFor([&] { return window_->height() == 1100; }));
+
+    QTemporaryDir pluginDir;
+    const QString subDir = pluginDir.filePath("host-test");
+    ASSERT_TRUE(QDir().mkpath(subDir + "/ui"));
+
+    const QString manifestJson = QStringLiteral(R"json({
+        "id": "com.sienci.host-test",
+        "name": "Host Test Plugin",
+        "version": "1.0.0",
+        "description": "Tests QML context and slot hosting",
+        "author": "Sienci Labs",
+        "capabilities": {
+            "requestTypes": ["machine:command", "storage:get", "storage:set"],
+            "topics": ["workspace"]
+        },
+        "ui": {
+            "entry": "ui/Main.qml",
+            "contributions": [
+                {
+                    "slot": "tools-page",
+                    "label": "Host Tool",
+                    "icon": "PiPuzzlePiece",
+                    "route": "host-tool"
+                },
+                {
+                    "slot": "tools-tab",
+                    "label": "Host Tab",
+                    "icon": "PiPuzzlePiece",
+                    "route": "host-tab"
+                },
+                {
+                    "slot": "visualizer-overlay",
+                    "label": "Host Overlay",
+                    "icon": "PiPuzzlePiece",
+                    "route": "host-overlay"
+                }
+            ]
+        }
+    })json");
+
+    QFile manifestFile(subDir + "/gsender-plugin.json");
+    ASSERT_TRUE(manifestFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    manifestFile.write(manifestJson.toUtf8());
+    manifestFile.close();
+
+    const QString qmlContent = QStringLiteral(R"qml(
+import QtQuick
+import QtQuick.Controls.Basic
+
+Rectangle {
+    id: pluginRoot
+    objectName: "hostTestPluginRoot"
+    property var gsender: null
+    width: 200; height: 100
+    color: "lightblue"
+    Text {
+        id: label
+        objectName: "hostTestPluginText"
+        text: pluginRoot.gsender ? pluginRoot.gsender.pluginName : "no-context"
+    }
+}
+)qml");
+
+    QFile qmlFile(subDir + "/ui/Main.qml");
+    ASSERT_TRUE(qmlFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    qmlFile.write(qmlContent.toUtf8());
+    qmlFile.close();
+
+    machine_->pluginService().addSearchPath(pluginDir.path());
+    ui::PluginsModel model(*machine_);
+    model.scan();
+
+    // Verify context creation and properties
+    QObject* ctxObj = model.createContext("com.sienci.host-test");
+    ASSERT_NE(ctxObj, nullptr);
+    auto* ctx = qobject_cast<ui::PluginQmlContext*>(ctxObj);
+    ASSERT_NE(ctx, nullptr);
+    EXPECT_EQ(ctx->pluginId(), "com.sienci.host-test");
+    EXPECT_EQ(ctx->pluginName(), "Host Test Plugin");
+    EXPECT_EQ(ctx->version(), "1.0.0");
+    EXPECT_TRUE(ctx->official());
+
+    // Test storage capability through context
+    ctx->storageSet("testSetting", "42");
+    EXPECT_EQ(ctx->storageGet("testSetting").toString(), "42");
+
+    // Test unauthorized request rejection
+    QVariantMap unauth = ctx->send("gcode:load:to:visualizer", {});
+    EXPECT_FALSE(unauth["ok"].toBool());
+
+    // Test authorized request
+    connectSimulator();
+    QVariantMap auth = ctx->send("machine:command", {{"command", "$$"}});
+    EXPECT_TRUE(auth["ok"].toBool());
+
+    // Test slot contribution queries
+    const QVariantList pageContribs = model.contributions("tools-page");
+    EXPECT_FALSE(pageContribs.isEmpty());
+    const QVariantList tabContribs = model.contributions("tools-tab");
+    EXPECT_FALSE(tabContribs.isEmpty());
+    const QVariantList overlayContribs = model.contributions("visualizer-overlay");
+    EXPECT_FALSE(overlayContribs.isEmpty());
+
+    // Navigate to Tools and verify dynamic card
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_plugin:com.sienci.host-test:host-tool"); }));
+    QTest::qWait(100);
+
+    tap("toolCard_plugin:com.sienci.host-test:host-tool");
+    QTest::qWait(100);
+
+    // Inside loaded tool page
+    ASSERT_TRUE(waitFor([&] { return item("toolGoBack"); }));
+    EXPECT_EQ(text("hostTestPluginText"), "Host Test Plugin");
+
+    // Return to Tools hub
+    tap("toolGoBack");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_plugin:com.sienci.host-test:host-tool"); }));
+
+    window_->resize(1400, 900);
 }
 
 int main(int argc, char** argv) {

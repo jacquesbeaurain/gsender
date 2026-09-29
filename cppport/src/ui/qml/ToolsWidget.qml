@@ -14,12 +14,33 @@ Item {
     // {key, label, component, shown}; the first shown one to start with.
     property list<QtObject> tabs
     property string current: ""
+    readonly property PluginsModel pluginsModel: PluginsModel { objectName: "widgetPluginsModel" }
+
+    readonly property var pluginTabs: {
+        const _trigger = pluginsModel.count
+        const list = []
+        const contribs = pluginsModel.contributions("tools-tab")
+        for (let i = 0; i < contribs.length; ++i) {
+            const c = contribs[i]
+            list.push({
+                key: "plugin:" + c.pluginId + ":" + c.route,
+                label: c.label || c.pluginName,
+                shown: true,
+                isPlugin: true,
+                pluginId: c.pluginId,
+                uiUrl: c.uiUrl
+            })
+        }
+        return list
+    }
 
     readonly property var shownTabs: {
         const list = []
         for (let i = 0; i < tabs.length; ++i)
             if (tabs[i].shown)
                 list.push(tabs[i])
+        for (let i = 0; i < pluginTabs.length; ++i)
+            list.push(pluginTabs[i])
         return list
     }
     // A tab that goes (Spindle/Laser off, say) gives way to the first.
@@ -137,16 +158,26 @@ Item {
 
         Repeater {
             id: loaders
-            model: tools.tabs.length
+            model: tools.shownTabs
             Loader {
-                required property int index
-                readonly property var tab: tools.tabs[index]
+                id: tabLoader
+                required property var modelData
+                readonly property var tab: modelData
                 property bool wanted: false
                 anchors.fill: parent
-                visible: tab.shown && tools.current === tab.key
+                visible: tools.current === tab.key
                 // Loaded when first shown (or asked for), then kept.
                 active: visible || wanted || status === Loader.Ready
-                sourceComponent: tab.component
+                sourceComponent: tab.isPlugin ? pluginTabComponent : tab.component
+
+                Component {
+                    id: pluginTabComponent
+                    PluginHost {
+                        anchors.fill: parent
+                        pluginId: tab.pluginId
+                        uiEntryUrl: tab.uiUrl
+                    }
+                }
             }
         }
     }

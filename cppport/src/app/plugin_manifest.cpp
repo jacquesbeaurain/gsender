@@ -92,10 +92,11 @@ bool parsePluginManifest(const QString& jsonString, PluginManifest* outManifest,
     // Capabilities
     if (obj.contains(QStringLiteral("capabilities")) && obj[QStringLiteral("capabilities")].isObject()) {
         const QJsonObject capObj = obj[QStringLiteral("capabilities")].toObject();
-        if (capObj.contains(QStringLiteral("requestTypes")) && capObj[QStringLiteral("requestTypes")].isArray()) {
-            for (const auto& item : capObj[QStringLiteral("requestTypes")].toArray()) {
-                outManifest->capabilities.requestTypes.insert(item.toString());
-            }
+        const QJsonArray reqArray = capObj.contains(QStringLiteral("requestTypes"))
+            ? capObj[QStringLiteral("requestTypes")].toArray()
+            : capObj[QStringLiteral("requests")].toArray();
+        for (const auto& item : reqArray) {
+            outManifest->capabilities.requestTypes.insert(item.toString());
         }
         if (capObj.contains(QStringLiteral("topics")) && capObj[QStringLiteral("topics")].isArray()) {
             for (const auto& item : capObj[QStringLiteral("topics")].toArray()) {
