@@ -65,6 +65,7 @@ gtest_discover_tests(gs_transport_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES
 if(TARGET gs_app)
     add_executable(gs_app_tests
         app/test_app.cpp
+        app/test_plugins.cpp
     )
     target_link_libraries(gs_app_tests PRIVATE gs_app GTest::gtest GTest::gtest_main)
     gs_precompile_headers(gs_app_tests <gtest/gtest.h> <QtCore> <functional> <string>)
