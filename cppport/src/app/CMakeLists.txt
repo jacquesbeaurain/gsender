@@ -36,6 +36,14 @@ add_library(gs_app STATIC
     rotary_actions.hpp
     sd_card_utils.cpp
     sd_card_utils.hpp
+    plugin_manifest.cpp
+    plugin_manifest.hpp
+    plugin_storage.cpp
+    plugin_storage.hpp
+    plugin_bridge.cpp
+    plugin_bridge.hpp
+    plugin_service.cpp
+    plugin_service.hpp
     shortcuts.cpp
     shortcuts.hpp
 )
