@@ -194,15 +194,41 @@ Plugins cannot access global machine settings, network profiles, or other plugin
 
 ## 6. Implementation Progress & Roadmap
 
-| Feature Component | Status | Location / Tracking |
+| Feature Milestone | Status | Description & Location |
 | :--- | :---: | :--- |
-| **Plugin Architecture Specification** |  Complete | [`PLUGINS.md`](file:///d:/repos/gh/gsender/cppport/PLUGINS.md) |
-| **Plugin SDK & C/Wasm Headers** |  Complete | [`packages/plugin-sdk/`](file:///d:/repos/gh/gsender/cppport/packages/plugin-sdk) |
-| **Example Plugins Layout** |  Complete | [`plugins/`](file:///d:/repos/gh/gsender/cppport/plugins) |
-| **Manifest Parsing & Validation** |  Complete | [`src/app/plugin_manifest.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_manifest.hpp) |
-| **Per-Plugin Isolated Storage** |  Complete | [`src/app/plugin_storage.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_storage.hpp) |
-| **Capability-Enforced Bridge** |  Complete | [`src/app/plugin_bridge.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_bridge.hpp) |
-| **Plugin Discovery & Lifecycle Service** |  Complete | [`src/app/plugin_service.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_service.hpp) |
-| **Machine Integration** |  Complete | [`src/app/machine.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/machine.hpp), [`src/app/machine.cpp`](file:///d:/repos/gh/gsender/cppport/src/app/machine.cpp) |
-| **QML Plugins UI & Tools Integration** |  Complete | [`src/ui/plugins_model.hpp`](file:///d:/repos/gh/gsender/cppport/src/ui/plugins_model.hpp), [`src/ui/qml/PluginsTool.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/PluginsTool.qml) |
-| **Wasm Runtime Integration** |  Next Milestone | Embedded Wasm execution engine (WAMR / wasmtime) |
+| **Plugin Architecture Spec & SDK Headers** |  Complete | [`PLUGINS.md`](file:///d:/repos/gh/gsender/cppport/PLUGINS.md), [`packages/plugin-sdk/include/gsender/`](file:///d:/repos/gh/gsender/cppport/packages/plugin-sdk/include/gsender/) |
+| **Core Architecture & Manifest Parsing** |  Complete | [`plugin_manifest.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_manifest.hpp), [`plugin_storage.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_storage.hpp), [`plugin_bridge.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_bridge.hpp), [`plugin_service.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_service.hpp) |
+| **QML Management Tool & Card Grid** |  Complete | [`PluginsModel`](file:///d:/repos/gh/gsender/cppport/src/ui/plugins_model.hpp), [`PluginsTool.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/PluginsTool.qml), [`ToolsPage.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/ToolsPage.qml) |
+| **Milestone 1: Dynamic Slot Hosting & Context** |  Complete | [`PluginQmlContext`](file:///d:/repos/gh/gsender/cppport/src/ui/plugin_qml_context.hpp), [`PluginHost.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/PluginHost.qml), dynamic slot injection in Tools Hub, Carve Tab, and 3D Visualizer |
+| **Milestone 2: Mirrored Upstream Plugin Suite** |  Complete | 6 reference plugins in [`plugins/`](file:///d:/repos/gh/gsender/cppport/plugins/): `example-hello`, `storage-test`, `controller-events-demo`, `basic-cam`, `corner-finder`, `parser-demo` |
+| **Milestone 3: Embedded Wasm Sandbox Runtime** |  Complete | [`WasmEngine`](file:///d:/repos/gh/gsender/cppport/src/app/wasm_engine.hpp), [`PluginWasmHost`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_wasm_host.hpp), linear memory isolation, C SDK import bindings, trap isolation |
+
+---
+
+## 7. Embedded WebAssembly Sandbox Engine
+
+The execution runtime ([`src/app/wasm_engine.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/wasm_engine.hpp), [`src/app/wasm_engine.cpp`](file:///d:/repos/gh/gsender/cppport/src/app/wasm_engine.cpp)) provides an in-process, sandbox-isolated bytecode execution engine:
+
+* **W3C Wasm Binary MVP Decoder**: Parses standard WebAssembly binary headers, type signatures, imports, exports, linear memory declarations, and function bodies.
+* **Linear Memory Bounds Checking**: Plugins are restricted to their own linear memory allocation (64 KB pages). Every read and write (`i32.load`, `i32.store`, `f64.load`, etc.) verifies offsets against buffer limits; out-of-bounds attempts trigger `WasmTrap::OutOfBoundsMemoryAccess`.
+* **Trap Isolation**: Faults such as `unreachable` opcodes, division by zero, stack underflows, or invalid opcodes trigger clean internal traps that halt module execution without crashing the main application.
+* **Host Import Bindings**: The host bridge ([`src/app/plugin_wasm_host.hpp`](file:///d:/repos/gh/gsender/cppport/src/app/plugin_wasm_host.hpp)) binds standard C SDK functions:
+  * `env.gs_host_emit_gcode(const char* gcode)`: Dispatches G-code via `machine:command`.
+  * `env.gs_host_get_wpos(gs_dro_coords_t* out_wpos)`: Writes current workspace coordinates to plugin memory.
+  * `env.gs_host_storage_get`, `gs_host_storage_set`, `gs_host_storage_delete`: Isolated storage operations.
+  * `env.gs_host_load_gcode(const char* gcode_text, const char* name)`: Streams toolpaths into the visualizer.
+  * `env.gs_host_log(int32_t level, const char* message)`: Structured diagnostics logging.
+
+---
+
+## 8. Dynamic Slot Hosting & QML Context Injection
+
+Third-party QML user interfaces are mounted dynamically via [`PluginHost.qml`](file:///d:/repos/gh/gsender/cppport/src/ui/qml/PluginHost.qml) and receive an isolated `gsender` bridge object ([`PluginQmlContext`](file:///d:/repos/gh/gsender/cppport/src/ui/plugin_qml_context.hpp)):
+
+* **`gsender.send(type, payload, callback)`**: Dispatches permission-checked RPC commands to the host.
+* **`gsender.subscribe(topic, callback)`**: Subscribes to real-time events (`workspace`, `controller`, `viewer`).
+* **`gsender.storageGet(key)`, `storageSet(key, value)`**: Accesses per-plugin persistent storage.
+* **Dynamic Slot Injection**:
+  * **`tools-page`**: Appears automatically as an interactive card on the Tools Hub and opens into a dedicated tool page with full navigation.
+  * **`tools-tab`**: Added dynamically to the tab bar in the Carve screen.
+  * **`visualizer-overlay`**: Rendered directly over the 3D viewport without interfering with toolpath rendering.

@@ -44,6 +44,10 @@ add_library(gs_app STATIC
     plugin_bridge.hpp
     plugin_service.cpp
     plugin_service.hpp
+    wasm_engine.cpp
+    wasm_engine.hpp
+    plugin_wasm_host.cpp
+    plugin_wasm_host.hpp
     shortcuts.cpp
     shortcuts.hpp
 )

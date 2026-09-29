@@ -1,3 +1,4 @@
+#include "plugin_wasm_host.hpp"
 #include "plugin_service.hpp"
 #include "machine.hpp"
 
@@ -13,6 +14,8 @@ PluginService::PluginService(Machine& machine, const QString& storageDir, QObjec
     : QObject(parent), machine_(machine), storage_(storageDir), bridge_(machine, storage_, this) {
     setupTopicBroadcasters();
 }
+
+PluginService::~PluginService() = default;
 
 void PluginService::addSearchPath(const QString& path) {
     if (!path.isEmpty() && !searchPaths_.contains(path)) {
@@ -52,6 +55,21 @@ void PluginService::scanPlugins() {
         }
     }
 
+    // Instantiate active Wasm runtimes for plugins with Wasm entries
+    wasmHosts_.clear();
+    for (const auto& p : plugins_) {
+        if (p.enabled && !p.manifest.wasmEntry.isEmpty()) {
+            const QString wasmPath = QDir(p.directory).filePath(p.manifest.wasmEntry);
+            if (QFile::exists(wasmPath)) {
+                auto host = std::make_unique<PluginWasmHost>(machine_, bridge_, storage_, p.manifest);
+                if (host->loadFile(wasmPath)) {
+                    host->init();
+                    wasmHosts_[p.manifest.id] = std::move(host);
+                }
+            }
+        }
+    }
+
     Q_EMIT pluginsChanged();
 }
 
@@ -76,8 +94,19 @@ void PluginService::setPluginEnabled(const QString& id, bool enabled) {
                 plugin.enabled = enabled;
                 if (enabled) {
                     disabledPluginIds_.remove(id);
+                    if (!plugin.manifest.wasmEntry.isEmpty()) {
+                        const QString wasmPath = QDir(plugin.directory).filePath(plugin.manifest.wasmEntry);
+                        if (QFile::exists(wasmPath)) {
+                            auto host = std::make_unique<PluginWasmHost>(machine_, bridge_, storage_, plugin.manifest);
+                            if (host->loadFile(wasmPath)) {
+                                host->init();
+                                wasmHosts_[plugin.manifest.id] = std::move(host);
+                            }
+                        }
+                    }
                 } else {
                     disabledPluginIds_.insert(id);
+                    wasmHosts_.erase(id);
                 }
                 Q_EMIT pluginsChanged();
             }
@@ -118,7 +147,27 @@ void PluginService::setupTopicBroadcasters() {
         QJsonObject controllerData;
         controllerData.insert(QStringLiteral("activeState"), QString::fromStdString(status.activeState));
         bridge_.broadcastTopic(QStringLiteral("controller"), controllerData);
+
+        for (auto& [pid, host] : wasmHosts_) {
+            if (host) {
+                host->onTopicEvent(QStringLiteral("workspace"), workspaceData);
+                host->onTopicEvent(QStringLiteral("controller"), controllerData);
+            }
+        }
     });
+}
+
+PluginWasmHost* PluginService::wasmHost(const QString& id) const {
+    const auto it = wasmHosts_.find(id);
+    return it != wasmHosts_.end() ? it->second.get() : nullptr;
+}
+
+QString PluginService::executeWasmRequest(const QString& id, const QString& requestJson) {
+    PluginWasmHost* host = wasmHost(id);
+    if (!host) {
+        return QStringLiteral("{\"ok\":false,\"error\":\"Wasm host not active for plugin\"}");
+    }
+    return host->handleRequest(requestJson);
 }
 
 }  // namespace gs::app
