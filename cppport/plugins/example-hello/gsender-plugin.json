@@ -1,0 +1,34 @@
+{
+  "id": "com.sienci.example-hello",
+  "name": "Example Hello",
+  "version": "1.0.0",
+  "description": "Minimal reference plugin demonstrating Wasm host bridge and QML UI",
+  "author": "Sienci Labs",
+  "engine": ">=1.5.0",
+  "wasm": {
+    "entry": "bin/plugin.wasm"
+  },
+  "ui": {
+    "entry": "ui/Main.qml",
+    "contributions": [
+      {
+        "slot": "tools-page",
+        "label": "Hello World",
+        "icon": "hand"
+      }
+    ]
+  },
+  "capabilities": {
+    "requestTypes": [
+      "machine:get:context",
+      "machine:command",
+      "workspace:get:state",
+      "storage:get",
+      "storage:set"
+    ],
+    "topics": [
+      "workspace",
+      "controller"
+    ]
+  }
+}
