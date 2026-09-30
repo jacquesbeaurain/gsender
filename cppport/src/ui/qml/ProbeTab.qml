@@ -6,7 +6,8 @@ import GSender
 // Probe (features/Probe): the plate (when the touch plate switcher is on),
 // the routines as a segmented row, the tool diameter for routines that need
 // one, and Probe; beside them the routine's picture, with the plate's corner
-// (tap to move it round). Probe opens the run step.
+// (tap to move it round). Probe opens the run step; with the 3D probe, the
+// grid button beside it opens the rectangular grid capture.
 Item {
     id: tab
     objectName: "probeTab"
@@ -23,6 +24,16 @@ Item {
     RunProbeDialog {
         id: run
         model: tab.model
+    }
+
+    function openGrid() {
+        if (model.canClick)
+            grid.openCapture()
+    }
+
+    RectangularGridDialog {
+        id: grid
+        probe: tab.model
     }
 
     RowLayout {
@@ -186,12 +197,34 @@ Item {
                     }
                 }
             }
-            GButton {
-                objectName: "probeButton"
+            Row {
                 Layout.alignment: Qt.AlignHCenter
-                text: qsTr("Probe")
-                enabled: tab.model.canClick
-                onClicked: tab.openRun()
+                spacing: 8
+                GButton {
+                    objectName: "probeButton"
+                    text: qsTr("Probe")
+                    enabled: tab.model.canClick
+                    onClicked: tab.openRun()
+                }
+                // "Capture Rectangular Grid with 3D Probe": a 4x4 grid of points.
+                GButton {
+                    id: gridButton
+                    objectName: "gridCaptureButton"
+                    visible: tab.model.probe3D
+                    implicitWidth: Theme.touchTarget
+                    enabled: tab.model.canClick
+                    onClicked: tab.openGrid()
+                    Accessible.name: qsTr("Capture Rectangular Grid with 3D Probe")
+                    Grid {
+                        anchors.centerIn: parent
+                        columns: 4
+                        spacing: 3
+                        Repeater {
+                            model: 16
+                            Rectangle { width: 4; height: 4; radius: 2; color: gridButton.foreground }
+                        }
+                    }
+                }
             }
             Item { Layout.fillHeight: true }
         }

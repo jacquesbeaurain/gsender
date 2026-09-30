@@ -2157,3 +2157,43 @@ Qt side is a thin poller.
 | Rotary mode stick stream | streams A (the board may have no A) | streams Y, as the step and handwheel do | matches what rotary mode drives |
 | Held stick that never moved past 600 ms | its update interval leaked | cleared | a timer bug |
 | Profile matching | exact id | exact id, then the same vendor and product | SDL names a pad differently from the browser |
+
+## Step 71 — Rectangular grid capture with the 3D probe (`gs/probe/grid_capture`, `src/ui/grid_capture_model`)
+
+Ported from the `feature/probe-mesh-capture` branch (f1ca394, ac76b8a:
+features/Probe/useMeshCapture.ts, MeshProbe.tsx, MeshGridIcon.tsx), which
+calls it a mesh; the port says "rectangular grid" everywhere a person reads
+it. The branch's simulator changes were not needed: the port's simulator
+already probes for real (Step 21).
+
+- **The run** (`gs/probe/grid_capture`, Qt-free): `GridCapture` is a state
+  machine over the board's lines. The grid starts where the probe is parked
+  (the first point, the safe height between points and the top of the probe
+  travel) and runs +X/+Y by the spacing, visited in a serpentine. Each
+  point's batch is `G0 Z<start>`, `G0 X Y`, `G38.2 Z<start - probe distance>
+  F<fast feed>` and ends at the probe: anything queued behind a G38.x would
+  reach an alarm-locked machine after a miss and come back as error:9, so
+  the retract opens the next point's batch, and the last is sent as the run
+  ends. Stop is graceful (the probe in flight finishes and is kept, then the
+  retract). A miss, an `ALARM:`/`error:` line, a timeout or a lost
+  connection fails the run without sending more.
+- **Results** come from the `[PRB:...]` line itself (`Machine::rawLine`), as
+  the branch reads `serialport:read`: upstream's GrblRunner reported a
+  parameter only when it changed, so two points at the same height gave one
+  update. PRB is in machine coordinates and `$13`'s units; one work offset
+  taken at the start converts every point.
+- **CSV** (`pointsToCsv`): `X,Y,Z`, work coordinates in the workspace units
+  (3 decimals, 4 in inches), grid points in grid order whatever order they
+  were probed in; the branch's Jest tests are ported.
+- **The dialog** (`RectangularGridDialog.qml`, `GridCaptureModel`): opened
+  by the 4x4-dots button beside Probe, shown with the 3D Probe plate only;
+  the same probe circuit check as the run step (`ProbeModel::beginCheck`).
+  It cannot be closed while a run is on. On the simulator a sloping surface
+  of 20 mm tiles goes under the probe. UI tests run a 3 x 2 grid against
+  it, and a graceful Stop.
+
+| Behaviour | Branch | Port | Why |
+|---|---|---|---|
+| Name | "Capture Mesh" | "Capture Rectangular Grid" | the owner's wording |
+| Output | downloaded as `<name>.csv` when the grid finishes | Save CSV... (a file dialog) | a desktop app |
+| `[PRB:]` with more axes (grblHAL's A) | not matched: the run waits and times out | matched, X/Y/Z read | a 4-axis grblHAL board reports four coordinates |
