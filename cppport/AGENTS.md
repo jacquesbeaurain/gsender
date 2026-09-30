@@ -300,7 +300,7 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
 - Headless: tests and `--screenshot` use the software renderer, which has
   no shader effects (no MultiEffect, no layer effects); keep to items,
   Shapes and QPainter-drawn items.
-- Check screens with `gsender-qml -platform offscreen --config <scratch>
+- Check screens with `gsender -platform offscreen --config <scratch>
   --simulator --screenshot out.png` (`--dark`, `--size 800x1280` for
   portrait).
 
@@ -318,10 +318,12 @@ walkthrough says how each ported piece maps to upstream):
 
 - **ATC** (features/ATC): the Sienci ATC's wizard (Accessory Installation),
   its controls and the SD card's ATC macro templates.
-- **Plugins** (features/Plugins): upstream's plugin system.
+- **Plugins** (features/Plugins): upstream's JavaScript plugins do not run
+  on the port (decided 2026-09-30); the port has its own QML/Wasm plugin
+  system (PLUGINS.md), unsandboxed for now.
 - **macOS serial port listing** (Windows: SetupAPI, Linux: sysfs).
-- **Configuration file decision**: share gSender's `~/.sender_rc` or keep
-  the port's own file (walkthrough Step 13) - a decision for the owner.
+- **Importing `~/.sender_rc`**: the port keeps its own file (decided
+  2026-09-30); a one-time import of gSender's settings is planned, not done.
 - Hardware checks only a person can do: serial connections to real Grbl
   and grblHAL boards (Windows and Linux), FTP and YMODEM uploads to a real
   card, gamepads (Step 70: real pads' ids and layouts through SDL3, stick
