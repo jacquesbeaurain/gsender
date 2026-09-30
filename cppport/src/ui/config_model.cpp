@@ -16,6 +16,7 @@
 #include <QDateTime>
 #include <QFile>
 
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <set>
@@ -1245,11 +1246,64 @@ QString ConfigModel::profileName() const {
 
 // ---- edits -------------------------------------------------------------------------------------
 
+QVariant ConfigModel::valueOf(const QString& key) const {
+    const Pref* p = pref(key);
+    return p ? p->get(*this, staged_) : QVariant();
+}
+
 void ConfigModel::setValue(const QString& key, const QVariant& value) {
     if (const Pref* p = pref(key)) {
         p->set(*this, staged_, value);
         Q_EMIT changed();
     }
+}
+
+namespace {
+
+// A field's text as a number (JavaScript's Number()), none when blank or not one.
+std::optional<double> fieldNumber(const QString& text) {
+    const std::string trimmed = text.trimmed().toStdString();
+    const double value = js::stringToNumber(trimmed);
+    return trimmed.empty() || std::isnan(value) ? std::nullopt : std::optional<double>(value);
+}
+
+}  // namespace
+
+void ConfigModel::setNumber(const QString& key, const QString& text) {
+    const Pref* p = pref(key);
+    const std::optional<double> n = fieldNumber(text);
+    if (p && n) {
+        setValue(key, std::min(p->max, std::max(p->min, *n)));
+    }
+}
+
+void ConfigModel::setPart(const QString& key, const QVariant& part, const QString& text) {
+    const Pref* p = pref(key);
+    const std::optional<double> n = fieldNumber(text);
+    if (!p || !n) {
+        return;
+    }
+    QVariant value = p->get(*this, staged_);
+    if (p->type == "location" || p->type == "ip") {
+        QVariantList list = value.toList();
+        const int index = part.toInt();
+        if (index < 0 || index >= list.size()) {
+            return;
+        }
+        list[index] = p->type == "ip" ? std::clamp(js::mathRound(*n), 0.0, 255.0) : *n;
+        value = list;
+    } else if (p->type == "jog" && *n >= 0) {
+        QVariantMap speeds = value.toMap();
+        speeds[part.toString()] = *n;
+        value = speeds;
+    } else {
+        return;
+    }
+    setValue(key, value);
+}
+
+void ConfigModel::setFolder(const QString& key, const QUrl& folder) {
+    setValue(key, localPath(folder.toString()));
 }
 
 void ConfigModel::resetValue(const QString& key) {
@@ -1270,6 +1324,15 @@ void ConfigModel::setEeprom(const QString& setting, const QString& value) {
         eepromEdits_[name] = text;
     }
     Q_EMIT changed();
+}
+
+void ConfigModel::toggleEepromBit(const QString& setting, int bit) {
+    if (bit < 0 || bit > 30) {
+        return;
+    }
+    const double current = js::stringToNumber(eepromValue(setting.toStdString()));
+    const int value = std::isfinite(current) ? static_cast<int>(current) : 0;
+    setEeprom(setting, QString::number(value ^ (1 << bit)));
 }
 
 void ConfigModel::resetEeprom(const QString& setting) {
