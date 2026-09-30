@@ -10,6 +10,9 @@
 // be reset. The machine profile, the board's defaults, EEPROM files and the
 // application settings' files are here too. The board's settings no
 // section places are listed at the end, so none is out of reach.
+// The menu of settings (each row's editor and how it reads and writes the
+// staged settings) is built in config_menu.cpp; this file's .cpp reads,
+// edits and applies them.
 
 #include "app_settings.hpp"
 
@@ -160,7 +163,8 @@ public:
     };
 
 private:
-    void buildMenu();
+    void buildMenu();  // config_menu.cpp
+    static std::vector<const char*> hookEvents();  // the event hooks' keys, in order
     void reloadStaged();
     const Pref* pref(const QString& key) const;
     QVariantMap eepromRow(const std::string& name, const QString& section, const QString& label) const;
