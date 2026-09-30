@@ -13,7 +13,8 @@ namespace {
 using View = app::ToolpathCamera::View;
 
 constexpr std::pair<const char*, View> kViews[] = {
-    {"3d", View::Iso}, {"top", View::Top}, {"front", View::Front}, {"right", View::Right}, {"left", View::Left}};
+    {"3d", View::Iso}, {"iso", View::Iso}, {"top", View::Top}, {"front", View::Front},
+    {"right", View::Right}, {"left", View::Left}, {"back", View::Back}, {"bottom", View::Bottom}};
 
 }  // namespace
 

@@ -38,7 +38,7 @@ struct Point3 {
 class ToolpathCamera {
 public:
     // The visualizer's presets; each also fits the content.
-    enum class View { Iso, Top, Front, Right, Left };
+    enum class View { Iso, Top, Front, Right, Left, Back, Bottom };
 
     ToolpathCamera();
 

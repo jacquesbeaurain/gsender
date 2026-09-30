@@ -1864,6 +1864,75 @@ Rectangle {
     window_->resize(1400, 900);
 }
 
+
+TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
+    machine_->loadProgram("square.nc", "G21 G90\nG0 X0 Y0\nG1 Z-1 F300\nG1 X50\nG1 Y50\nG1 X0\nG1 Y0\n");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isAnalyzing(); }));
+
+    QQuickItem* toolpath = item("toolpath");
+    ASSERT_NE(toolpath, nullptr);
+
+    QQuickItem* btnLightweight = item("btnLightweight");
+    ASSERT_NE(btnLightweight, nullptr);
+
+    QQuickItem* btnOrtho = item("viewOrtho");
+    ASSERT_NE(btnOrtho, nullptr);
+
+    QQuickItem* btnIso = item("view3D");
+    ASSERT_NE(btnIso, nullptr);
+
+    QQuickItem* navCube = item("navCube");
+    ASSERT_NE(navCube, nullptr);
+
+    // 1. Test Lightweight Mode Toggle
+    EXPECT_FALSE(machine_->settings().liteMode);
+    EXPECT_FALSE(btnLightweight->property("isLite").toBool());
+
+    tap("btnLightweight");
+    EXPECT_TRUE(machine_->settings().liteMode);
+    EXPECT_TRUE(btnLightweight->property("isLite").toBool());
+    EXPECT_TRUE(toolpath->property("flat").toBool());
+
+    tap("btnLightweight");
+    EXPECT_FALSE(machine_->settings().liteMode);
+    EXPECT_FALSE(btnLightweight->property("isLite").toBool());
+    EXPECT_FALSE(toolpath->property("flat").toBool());
+
+    // 2. Test Ortho / Perspective Toggle
+    EXPECT_TRUE(machine_->settings().perspective);
+    EXPECT_FALSE(btnOrtho->property("isOrtho").toBool());
+
+    tap("viewOrtho");
+    EXPECT_FALSE(machine_->settings().perspective);
+    EXPECT_TRUE(btnOrtho->property("isOrtho").toBool());
+
+    tap("viewOrtho");
+    EXPECT_TRUE(machine_->settings().perspective);
+    EXPECT_FALSE(btnOrtho->property("isOrtho").toBool());
+
+    // 3. Test Iso View Button
+    tap("view3D");
+    EXPECT_EQ(toolpath->property("view").toString(), "3d");
+    EXPECT_NEAR(toolpath->property("yaw").toDouble(), -35.0, 1.0);
+    EXPECT_NEAR(toolpath->property("pitch").toDouble(), 55.0, 1.0);
+
+    // 4. Test Navigation Cube Properties and View Snapping
+    EXPECT_NE(navCube->property("view").value<QObject*>(), nullptr);
+    EXPECT_NEAR(navCube->property("yaw").toDouble(), -35.0, 1.0);
+    EXPECT_NEAR(navCube->property("pitch").toDouble(), 55.0, 1.0);
+
+    // Test dragging the NavCube to orbit
+    const QPoint cubeCentre = centreOf(navCube);
+    QTest::mousePress(window_, Qt::LeftButton, {}, cubeCentre);
+    for (int step = 1; step <= 8; ++step) {
+        QTest::mouseMove(window_, cubeCentre + QPoint(step * 5, 0));
+    }
+    QTest::mouseRelease(window_, Qt::LeftButton, {}, cubeCentre + QPoint(40, 0));
+    QCoreApplication::processEvents();
+
+    EXPECT_GT(toolpath->property("yaw").toDouble(), -35.0 + 5.0);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

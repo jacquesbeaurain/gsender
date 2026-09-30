@@ -73,6 +73,8 @@ void ToolpathCamera::setView(View view, const std::optional<gcode::BoundingBox>&
         case View::Front: yaw_ = 0; pitch_ = 90 * kDegree; break;
         case View::Right: yaw_ = -90 * kDegree; pitch_ = 90 * kDegree; break;
         case View::Left: yaw_ = 90 * kDegree; pitch_ = 90 * kDegree; break;
+        case View::Back: yaw_ = 180 * kDegree; pitch_ = 90 * kDegree; break;
+        case View::Bottom: yaw_ = 0; pitch_ = 0; break;
     }
     view_ = view;
     updateRotation();
