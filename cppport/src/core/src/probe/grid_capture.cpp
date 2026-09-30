@@ -42,16 +42,22 @@ std::vector<std::pair<int, int>> serpentine(int nx, int ny) {
 }
 
 std::string pointsToCsv(const std::vector<CapturedPoint>& points, bool metric) {
-    std::vector<CapturedPoint> rows = points;
-    std::stable_sort(rows.begin(), rows.end(), [](const CapturedPoint& a, const CapturedPoint& b) {
+    std::vector<CapturedPoint> grid;
+    std::vector<CapturedPoint> manual;
+    for (const CapturedPoint& p : points) {
+        (p.manual() ? manual : grid).push_back(p);
+    }
+    std::stable_sort(grid.begin(), grid.end(), [](const CapturedPoint& a, const CapturedPoint& b) {
         return a.iy != b.iy ? a.iy < b.iy : a.ix < b.ix;
     });
     const int digits = metric ? 3 : 4;
     const auto value = [&](double mm) { return js::toFixed(metric ? mm : units::mm2in(mm), digits); };
     std::string csv = "X,Y,Z";
-    for (const CapturedPoint& p : rows) {
-        csv += '\n';
-        csv += value(p.x) + ',' + value(p.y) + ',' + value(p.z);
+    for (const auto* list : {&grid, &manual}) {
+        for (const CapturedPoint& p : *list) {
+            csv += '\n';
+            csv += value(p.x) + ',' + value(p.y) + ',' + value(p.z);
+        }
     }
     return csv;
 }
@@ -62,17 +68,12 @@ std::string GridCapture::num(double mm) const {
     return setup_.inches ? js::toFixed(units::mm2in(mm), 4) : js::toFixed(mm, 3);
 }
 
-bool GridCapture::startGrid(const CaptureSetup& setup, const GridSpec& grid) {
-    if (running() || !std::isfinite(grid.dx) || !std::isfinite(grid.dy)) {
+bool GridCapture::begin(const CaptureSetup& setup, Kind kind, std::vector<std::pair<int, int>> order) {
+    if (running() || order.empty()) {
         return false;
     }
-    std::vector<std::pair<int, int>> order = serpentine(grid.nx, grid.ny);
-    if (order.empty()) {
-        return false;
-    }
-    points_.clear();
     setup_ = setup;
-    grid_ = grid;
+    kind_ = kind;
     order_ = std::move(order);
     // [PRB:] is in machine coordinates. Offsets do not move during a run,
     // so one conversion taken up front holds for every point.
@@ -87,8 +88,25 @@ bool GridCapture::startGrid(const CaptureSetup& setup, const GridSpec& grid) {
     return true;
 }
 
+bool GridCapture::startGrid(const CaptureSetup& setup, const GridSpec& grid) {
+    if (running() || !std::isfinite(grid.dx) || !std::isfinite(grid.dy)) {
+        return false;
+    }
+    grid_ = grid;
+    std::vector<std::pair<int, int>> order = serpentine(grid.nx, grid.ny);
+    if (order.empty()) {
+        return false;
+    }
+    std::erase_if(points_, [](const CapturedPoint& p) { return !p.manual(); });
+    return begin(setup, Kind::Grid, std::move(order));
+}
+
+bool GridCapture::capturePoint(const CaptureSetup& setup) {
+    return begin(setup, Kind::Point, {{-1, -1}});
+}
+
 std::array<double, 2> GridCapture::target() const {
-    if (order_.empty()) {
+    if (kind_ == Kind::Point || order_.empty()) {
         return {setup_.work[0], setup_.work[1]};
     }
     const auto& [ix, iy] = order_[static_cast<std::size_t>(std::min<int>(next_, total() - 1))];
@@ -102,9 +120,14 @@ void GridCapture::sendNext() {
     // alarm-locked machine if the probe missed, and come back as error:9.
     // The retract is the first line of the next point instead, and the last
     // point's is sent as the run ends.
-    const auto [x, y] = target();
-    send_({units + " G90 G0 Z" + num(setup_.work[2]), units + " G90 G0 X" + num(x) + " Y" + num(y),
-           units + " G90 G38.2 Z" + num(floor) + " F" + num(setup_.feedrate)});
+    std::vector<std::string> lines;
+    if (kind_ == Kind::Grid) {
+        const auto [x, y] = target();
+        lines.push_back(units + " G90 G0 Z" + num(setup_.work[2]));
+        lines.push_back(units + " G90 G0 X" + num(x) + " Y" + num(y));
+    }
+    lines.push_back(units + " G90 G38.2 Z" + num(floor) + " F" + num(setup_.feedrate));
+    send_(std::move(lines));
 }
 
 void GridCapture::stop() {
@@ -125,7 +148,9 @@ bool GridCapture::onLine(std::string_view line) {
             return true;
         }
         CapturedPoint point;
-        std::tie(point.ix, point.iy) = order_[static_cast<std::size_t>(next_)];
+        if (kind_ == Kind::Grid) {
+            std::tie(point.ix, point.iy) = order_[static_cast<std::size_t>(next_)];
+        }
         const double scale = setup_.reportInches ? 25.4 : 1;
         point.x = report->position[0] * scale - offset_[0];
         point.y = report->position[1] * scale - offset_[1];

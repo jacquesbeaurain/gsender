@@ -2185,15 +2185,24 @@ already probes for real (Step 21).
 - **CSV** (`pointsToCsv`): `X,Y,Z`, work coordinates in the workspace units
   (3 decimals, 4 in inches), grid points in grid order whatever order they
   were probed in; the branch's Jest tests are ported.
+- **Manual points** (the port's addition): in the same dialog, "Manual
+  points" shows the jog controls; Capture Point probes straight down from
+  where the probe is, returns to that height, and adds the point to the
+  same list; a gamepad jogs there too (its actions and sticks run while
+  the dialog is open, through the same Jogger). They follow the grid in the
+  CSV, in the order captured. A new
+  grid replaces the previous grid's points and keeps the manual ones; Clear
+  forgets all.
 - **The dialog** (`RectangularGridDialog.qml`, `GridCaptureModel`): opened
   by the 4x4-dots button beside Probe, shown with the 3D Probe plate only;
   the same probe circuit check as the run step (`ProbeModel::beginCheck`).
   It cannot be closed while a run is on. On the simulator a sloping surface
-  of 20 mm tiles goes under the probe. UI tests run a 3 x 2 grid against
-  it, and a graceful Stop.
+  of 20 mm tiles goes under the probe. UI tests run a 3 x 2 grid and a
+  manual point against it, and a graceful Stop.
 
 | Behaviour | Branch | Port | Why |
 |---|---|---|---|
 | Name | "Capture Mesh" | "Capture Rectangular Grid" | the owner's wording |
-| Output | downloaded as `<name>.csv` when the grid finishes | Save CSV... (a file dialog) | a desktop app |
+| Output | downloaded as `<name>.csv` when the grid finishes | Save CSV... (a file dialog) whenever points are held | a desktop app; manual points may follow the grid |
 | `[PRB:]` with more axes (grblHAL's A) | not matched: the run waits and times out | matched, X/Y/Z read | a 4-axis grblHAL board reports four coordinates |
+| Manual points | none | jog, Capture Point, same CSV | the owner's request |
