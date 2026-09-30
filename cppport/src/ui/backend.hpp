@@ -81,6 +81,8 @@ class UiBackend final : public QObject {
     Q_PROPERTY(bool perspective READ perspective WRITE setPerspective NOTIFY appSettingsChanged)
     // Basics' "Prompt on exit": closing the window asks first.
     Q_PROPERTY(bool promptExit READ promptExit NOTIFY appSettingsChanged)
+    // Accessibility: a ring around the control with the keyboard focus.
+    Q_PROPERTY(bool focusRings READ focusRings NOTIFY appSettingsChanged)
     // The loaded file in words ("Show summary visually"): empty when not shown.
     Q_PROPERTY(QString jobSummary READ jobSummary NOTIFY jobSummaryChanged)
 
@@ -137,6 +139,7 @@ public:
     bool perspective() const;
     void setPerspective(bool persp);
     bool promptExit() const;
+    bool focusRings() const;
     QString jobSummary() const;
 
     Q_INVOKABLE void toggleLiteMode();
