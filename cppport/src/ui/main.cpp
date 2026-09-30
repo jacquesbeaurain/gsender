@@ -1,8 +1,7 @@
-// gSender (C++): the QML touch UI (being ported - see DEV_WALKTHROUGH.md,
-// Step 61; the widget application, gsender, has everything meanwhile).
+// gSender (C++): the QML touch UI.
 //
-//   gsender-qml [--simulator | --simulator-hal] [--load <file>] [--config <file>]
-//               [--dark] [--size WxH] [--screenshot <png> [--wait <ms>]]
+//   gsender [--simulator | --simulator-hal] [--load <file> [--start]] [--config <file>]
+//           [--dark] [--size WxH] [--view <view>] [--screenshot <png> [--wait <ms>]]
 //
 // --screenshot renders the window after --wait milliseconds, saves it and
 // exits; with -platform offscreen it needs no display.
@@ -101,7 +100,7 @@ int main(int argc, char** argv) {
     QQmlApplicationEngine engine;
     QQuickWindow* window = gs::ui::loadMainWindow(engine);
     if (!window) {
-        std::fputs("gsender-qml: the QML UI did not load\n", stderr);
+        std::fputs("gsender: the QML UI did not load\n", stderr);
         return 1;
     }
     const QStringList dimensions = parser.value(size).split('x');
