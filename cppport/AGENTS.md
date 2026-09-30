@@ -285,7 +285,9 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
 - Give items a test needs an `objectName`; `gs_ui_tests` finds them
   (`findItem`), taps them and runs touch gestures. Wait on the UI's own
   text or properties, not just on the machine, before asserting what it
-  shows - the UI updates on the Machine's signals.
+  shows - the UI updates on the Machine's signals. The `UiTest` fixture is
+  in `tests/ui/ui_test.hpp`; the tests are in one `test_*.cpp` per area
+  (shell, control, job, probe, tools, settings, plugins, visualizer).
 - Icons: add the react-icons component to `tools/extract_icons.mjs`, re-run
   it, use `Icon { name: ... }`.
 - An item placed outside its parent's bounds (a negative y, say) is drawn
