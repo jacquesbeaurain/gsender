@@ -24,10 +24,7 @@ using units::convertToImperial;
 using units::convertToMetric;
 using units::mm2in;
 
-// JS truthiness of a number.
-bool truthy(double value) {
-    return value != 0 && !std::isnan(value);
-}
+using js::truthy;
 
 // Math.min: NaN wins.
 double jsMin(double a, double b) {

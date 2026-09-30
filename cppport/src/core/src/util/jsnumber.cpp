@@ -372,4 +372,8 @@ bool isFinite(double value) {
     return std::isfinite(value);
 }
 
+double toFixedNumber(double value, int digits) {
+    return stringToNumber(toFixed(value, digits));
+}
+
 }  // namespace gs::js
