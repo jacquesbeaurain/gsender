@@ -168,6 +168,8 @@ qt_add_qml_module(gs_ui
         config_model.hpp
         icon_provider.cpp
         icon_provider.hpp
+        nav_cube_item.cpp
+        nav_cube_item.hpp
         toolpath_item.cpp
         toolpath_item.hpp
         toolpath_scene.cpp

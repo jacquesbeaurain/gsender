@@ -67,6 +67,9 @@ class UiBackend final : public QObject {
     // shortcuts that work now; whether shortcuts are on at all.
     Q_PROPERTY(bool keyboardMap READ keyboardMap WRITE setKeyboardMap NOTIFY appSettingsChanged)
     Q_PROPERTY(bool shortcutsEnabled READ shortcutsEnabled NOTIFY appSettingsChanged)
+    // Lightweight mode (widgets.visualizer.liteMode) and perspective projection.
+    Q_PROPERTY(bool liteMode READ liteMode WRITE setLiteMode NOTIFY appSettingsChanged)
+    Q_PROPERTY(bool perspective READ perspective WRITE setPerspective NOTIFY appSettingsChanged)
 
 public:
     explicit UiBackend(app::Machine& machine, QObject* parent = nullptr);
@@ -106,6 +109,14 @@ public:
     bool keyboardMap() const;
     void setKeyboardMap(bool shown);
     bool shortcutsEnabled() const;
+    bool liteMode() const;
+    void setLiteMode(bool enabled);
+    bool perspective() const;
+    void setPerspective(bool persp);
+
+    Q_INVOKABLE void toggleLiteMode();
+    Q_INVOKABLE void togglePerspective();
+
     // The window's shortcuts (UiShortcuts registers them).
     void setShortcutManager(app::ShortcutManager* manager);
     // The shortcuts that work now, by upstream's categories:

@@ -154,6 +154,12 @@ const icons = [
     ['lu', 'LuDrill'],
     ['pi', 'PiPuzzlePiece'],
     ['lu', 'LuArrowLeft'],
+    // The Visualizer controls.
+    ['fa', 'FaFeatherAlt'],
+    ['fa', 'FaCube'],
+    ['lu', 'LuBox'],
+    ['lu', 'LuSquare'],
+    ['lu', 'LuCrosshair'],
 ];
 
 for (const [set, name] of icons) {

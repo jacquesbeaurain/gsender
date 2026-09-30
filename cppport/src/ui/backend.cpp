@@ -218,6 +218,38 @@ bool UiBackend::shortcutsEnabled() const {
     return machine_.settings().shortcutsEnabled;
 }
 
+bool UiBackend::liteMode() const {
+    return machine_.settings().liteMode;
+}
+
+void UiBackend::setLiteMode(bool enabled) {
+    if (enabled != liteMode()) {
+        app::AppSettings settings = machine_.settings();
+        settings.liteMode = enabled;
+        machine_.setSettings(settings);
+    }
+}
+
+bool UiBackend::perspective() const {
+    return machine_.settings().perspective;
+}
+
+void UiBackend::setPerspective(bool persp) {
+    if (persp != perspective()) {
+        app::AppSettings settings = machine_.settings();
+        settings.perspective = persp;
+        machine_.setSettings(settings);
+    }
+}
+
+void UiBackend::toggleLiteMode() {
+    setLiteMode(!liteMode());
+}
+
+void UiBackend::togglePerspective() {
+    setPerspective(!perspective());
+}
+
 void UiBackend::setShortcutManager(app::ShortcutManager* manager) {
     shortcuts_ = manager;
 }
