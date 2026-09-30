@@ -17,7 +17,14 @@ QImage IconProvider::requestImage(const QString& id, QSize* size, const QSize& r
     }
     QByteArray svg = file.readAll();
     if (!color.isEmpty()) {
-        svg.replace("currentColor", "#" + color.toLatin1());
+        QString hex = color;
+        if (hex.startsWith('#')) {
+            hex.remove(0, 1);
+        }
+        if (hex.length() == 8) {
+            hex = hex.mid(2); // Strip alpha prefix from QML ARGB hex string
+        }
+        svg.replace("currentColor", "#" + hex.toLatin1());
     }
     QSvgRenderer renderer(svg);
     const QSize natural = renderer.defaultSize().isValid() ? renderer.defaultSize() : QSize(24, 24);

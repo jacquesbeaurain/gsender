@@ -68,7 +68,7 @@ void ToolpathCamera::setView(View view, const std::optional<gcode::BoundingBox>&
     // cos(yaw) y) + sin(pitch) z. Side views look along the machine axes
     // with Z up: front along +Y, right along -X, left along +X.
     switch (view) {
-        case View::Iso: yaw_ = -35 * kDegree; pitch_ = 55 * kDegree; break;
+        case View::Iso: yaw_ = 35 * kDegree; pitch_ = 55 * kDegree; break;
         case View::Top: yaw_ = 0; pitch_ = 0; break;
         case View::Front: yaw_ = 0; pitch_ = 90 * kDegree; break;
         case View::Right: yaw_ = -90 * kDegree; pitch_ = 90 * kDegree; break;
@@ -133,8 +133,8 @@ void ToolpathCamera::fit(const std::optional<gcode::BoundingBox>& content) {
     pan_ = {};
     const gcode::BoundingBox box = content.value_or(gcode::BoundingBox{{0, 0, 0, 0}, {100, 100, 0, 0}});
     target_ = {(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2};
-    // The perspective camera stands back four times the content's size.
-    cameraDistance_ = 4 * std::max({100.0, box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z});
+    // The perspective camera stands back ~1.35x content size (matching upstream 50 deg FOV).
+    cameraDistance_ = 1.35 * std::max({100.0, box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z});
     // Fit the projected corners of the box, with a margin.
     double extentX = 1, extentY = 1;
     for (int i = 0; i < 8; ++i) {
@@ -400,12 +400,16 @@ void paintMainView(QPainter& painter, ToolpathCamera& camera, const Machine& mac
                                   std::ceil((bed->bottom() - 1e-6) / step) * step));
     }
     const std::optional<gcode::BoundingBox> bounds = mainViewBounds(machine);
-    scene::paintBackground(painter, camera, colors, hasPath ? bounds : std::nullopt, gridArea);
-    if (bed) {
-        scene::paintRect(painter, camera, *bed, colors.machineBed);
-    }
-    if (keepout) {
-        scene::paintRect(painter, camera, *keepout, colors.keepout);
+    if (!lite) {
+        scene::paintBackground(painter, camera, colors, hasPath ? bounds : std::nullopt, gridArea);
+        if (bed) {
+            scene::paintRect(painter, camera, *bed, colors.machineBed);
+        }
+        if (keepout) {
+            scene::paintRect(painter, camera, *keepout, colors.keepout);
+        }
+    } else {
+        painter.fillRect(area, colors.background);
     }
 
     if (hasPath && !off) {
@@ -423,6 +427,15 @@ void paintMainView(QPainter& painter, ToolpathCamera& camera, const Machine& mac
                     return line >= doneLines ? &rapid : settings.hideProcessedLines ? nullptr : &rapidDone;
                 },
                 rotaryAngle);
+        } else if (!path.rapids.empty()) {
+            // Draw rapid lead-in from origin in green
+            const QPen rapidLead(QColor("#34d399"), 1.5);
+            scene::paintSegments(
+                painter, camera, path.rapids, path.rapidLines,
+                [&](std::size_t index, std::uint32_t) -> const QPen* {
+                    return index == 0 ? &rapidLead : nullptr;
+                },
+                rotaryAngle);
         }
         scene::paintSegments(
             painter, camera, path.feeds, path.feedLines,
@@ -430,9 +443,37 @@ void paintMainView(QPainter& painter, ToolpathCamera& camera, const Machine& mac
                 return line >= doneLines ? &cut : settings.hideProcessedLines ? nullptr : &cutDone;
             },
             rotaryAngle);
+
+        if (lite && bounds) {
+            // In lightweight mode, draw 2D bounding box and dimensions
+            scene::paintRect(painter, camera, QRectF(QPointF(bounds->min.x, bounds->min.y), QPointF(bounds->max.x, bounds->max.y)), colors.boundingBox);
+            const gcode::BoundingBox& b = *bounds;
+            const double dx = settings.metric ? (b.max.x - b.min.x) : (b.max.x - b.min.x) / 25.4;
+            const double dy = settings.metric ? (b.max.y - b.min.y) : (b.max.y - b.min.y) / 25.4;
+            const double dz = settings.metric ? (b.max.z - b.min.z) : (b.max.z - b.min.z) / 25.4;
+
+            QFont font = painter.font();
+            font.setPixelSize(18);
+            font.setBold(true);
+            painter.setFont(font);
+            painter.setPen(QColor("#60a5fa"));
+
+            const QPointF pBottom = camera.project({(b.min.x + b.max.x) / 2.0, b.min.y, 0});
+            painter.drawText(QRectF(pBottom.x() - 100, pBottom.y() + 10, 200, 30), Qt::AlignCenter,
+                             QStringLiteral("X: %1").arg(QString::fromStdString(js::toFixed(dx, 2))));
+
+            const QPointF pRight = camera.project({b.max.x, (b.min.y + b.max.y) / 2.0, 0});
+            painter.drawText(QRectF(pRight.x() + 10, pRight.y() - 15, 200, 30), Qt::AlignLeft | Qt::AlignVCenter,
+                             QStringLiteral("Y: %1").arg(QString::fromStdString(js::toFixed(dy, 2))));
+
+            const QPointF pTop = camera.project({(b.min.x + b.max.x) / 2.0, b.max.y, 0});
+            painter.drawText(QRectF(pTop.x() - 100, pTop.y() - 40, 200, 30), Qt::AlignCenter,
+                             QStringLiteral("Z: %1").arg(QString::fromStdString(js::toFixed(dz, 2))));
+        }
+
         // The job's extent, and its six coordinates when labelled
         // (gviewer's bounding box labels).
-        if (settings.showBoundingBox && bounds) {
+        if (!lite && settings.showBoundingBox && bounds) {
             scene::paintBox(painter, camera, *bounds, colors.boundingBox);
             if (settings.boundingBoxLabels) {
                 const gcode::BoundingBox& b = *bounds;

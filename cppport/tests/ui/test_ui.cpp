@@ -1913,12 +1913,12 @@ TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
     // 3. Test Iso View Button
     tap("view3D");
     EXPECT_EQ(toolpath->property("view").toString(), "3d");
-    EXPECT_NEAR(toolpath->property("yaw").toDouble(), -35.0, 1.0);
+    EXPECT_NEAR(toolpath->property("yaw").toDouble(), 35.0, 1.0);
     EXPECT_NEAR(toolpath->property("pitch").toDouble(), 55.0, 1.0);
 
     // 4. Test Navigation Cube Properties and View Snapping
     EXPECT_NE(navCube->property("view").value<QObject*>(), nullptr);
-    EXPECT_NEAR(navCube->property("yaw").toDouble(), -35.0, 1.0);
+    EXPECT_NEAR(navCube->property("yaw").toDouble(), 35.0, 1.0);
     EXPECT_NEAR(navCube->property("pitch").toDouble(), 55.0, 1.0);
 
     // Test dragging the NavCube to orbit
@@ -1930,7 +1930,7 @@ TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
     QTest::mouseRelease(window_, Qt::LeftButton, {}, cubeCentre + QPoint(40, 0));
     QCoreApplication::processEvents();
 
-    EXPECT_GT(toolpath->property("yaw").toDouble(), -35.0 + 5.0);
+    EXPECT_GT(toolpath->property("yaw").toDouble(), 35.0 + 5.0);
 }
 
 int main(int argc, char** argv) {
