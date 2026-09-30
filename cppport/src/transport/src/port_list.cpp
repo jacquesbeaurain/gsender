@@ -96,6 +96,15 @@ bool isSerialName(std::string_view name) {
 
 }  // namespace
 
+std::string shortPortName(std::string_view path) {
+    const std::size_t slash = path.rfind('/');
+    std::string_view last = slash == std::string_view::npos ? path : path.substr(slash + 1);
+    if (last.size() > 10) {
+        last.remove_prefix(last.size() - 10);
+    }
+    return std::string(last);
+}
+
 std::string usbId(std::string_view pnpId, std::string_view key) {
     const std::string upper = str::toUpper(pnpId);
     const std::string needle = str::toUpper(key) + "_";

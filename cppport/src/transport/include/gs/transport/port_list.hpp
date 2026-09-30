@@ -31,6 +31,10 @@ std::vector<SerialPortInfo> listSerialPortsFromSysfs(const std::string& ttyClass
 // (case-insensitive; a port without ids is never recognized).
 bool isRecognizedPort(std::string_view vendorId, std::string_view productId);
 
+// A port's name as the connection list shows it: the last part of its path,
+// at most its last 10 characters ("/dev/ttyACM0" is "ttyACM0").
+std::string shortPortName(std::string_view path);
+
 // "VID_2341" / "PID_0043" in a PnP or hardware id; empty when absent.
 std::string usbId(std::string_view pnpId, std::string_view key);
 

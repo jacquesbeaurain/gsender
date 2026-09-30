@@ -68,6 +68,9 @@ private:
     Clock clock_;
 };
 
+// The macros in one panel column ("column1"), by row (computeColumn).
+std::vector<MacroRecord> macrosInColumn(std::vector<MacroRecord> macros, std::string_view column);
+
 // Macros as gSender's Macros widget exports them: [{name, content,
 // description (trimmed), id}].
 boost::json::array exportMacros(MacroStore& store);
