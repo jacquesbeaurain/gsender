@@ -43,6 +43,7 @@ add_executable(gs_core_tests
     core/test_gamepad.cpp
     core/test_wizard_walk.cpp
     core/test_line_matches.cpp
+    core/test_file_info.cpp
 )
 target_link_libraries(gs_core_tests PRIVATE gs::core GTest::gtest GTest::gtest_main)
 # Golden files generated from the upstream JavaScript (see tools/).

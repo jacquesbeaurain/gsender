@@ -45,6 +45,7 @@ add_library(gs_core STATIC
     src/job/outline.cpp
     src/job/step_through.cpp
     src/job/accessibility.cpp
+    src/job/file_info.cpp
     src/probe/probing.cpp
     src/probe/grid_capture.cpp
     src/rotary/rotary.cpp

@@ -2,6 +2,7 @@
 
 #include "gs/util/jsnumber.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -91,6 +92,35 @@ std::string timeAgo(std::int64_t thenMs, std::int64_t nowMs) {
         }
     }
     return future ? "in " + text : text + " ago";
+}
+
+std::string durationText(std::int64_t milliseconds) {
+    const std::int64_t seconds = milliseconds / 1000;
+    const std::int64_t h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
+    if (h > 0) {
+        return std::to_string(h) + "h " + std::to_string(m) + "m " + std::to_string(s) + "s";
+    }
+    if (m > 0) {
+        return std::to_string(m) + "m " + std::to_string(s) + "s";
+    }
+    return std::to_string(s) + "s";
+}
+
+std::string estimatedTimeText(double seconds) {
+    if (seconds < 60) {
+        return js::numberToString(std::ceil(seconds)) + "s";
+    }
+    if (seconds < 3600) {
+        return js::numberToString(std::floor(seconds / 60)) + "m " + js::numberToString(std::ceil(std::fmod(seconds, 60))) +
+               "s";
+    }
+    return js::numberToString(std::floor(seconds / 3600)) + "h " +
+           js::numberToString(std::floor(std::fmod(seconds, 3600) / 60)) + "m";
+}
+
+std::string clockText(double seconds) {
+    const auto total = static_cast<long long>(std::max(0.0, std::round(seconds)));
+    return std::to_string(total / 3600) + ":" + twoDigits(total / 60 % 60) + ":" + twoDigits(total % 60);
 }
 
 }  // namespace gs::util
