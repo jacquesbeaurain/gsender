@@ -276,6 +276,157 @@ bool AccessoryModel::skipStep(const QString& step) const {
     return step == "manual-position" && !machine_.settings().moveToManualPosition;
 }
 
+// ---- walking the wizards ------------------------------------------------------------------------
+
+QVariantList AccessoryModel::steps() const {
+    return sub_.value("steps").toList();
+}
+
+QStringList AccessoryModel::failed() const {
+    return wizard_.isEmpty() ? QStringList() : failedChecks(wizard_.value("id").toString());
+}
+
+QString AccessoryModel::stepId(int index) const {
+    return steps().value(index).toMap().value("id").toString();
+}
+
+bool AccessoryModel::canNext() const {
+    const int count = totalSteps();
+    return !sub_.isEmpty() && !atCompletion_ && completed_.contains(stepIndex_) &&
+           (stepIndex_ + 1 < count || !sub_.value("completion").toMap().isEmpty());
+}
+
+bool AccessoryModel::canBack() const {
+    return !sub_.isEmpty() && !atCompletion_ && stepIndex_ > 0;
+}
+
+void AccessoryModel::navigated() {
+    Q_EMIT navigationChanged();
+    Q_EMIT stepChanged();
+    Q_EMIT stepsConfigurationChanged();
+    Q_EMIT canNextChanged();
+    Q_EMIT canBackChanged();
+    Q_EMIT changed();  // failed: the open wizard's checks
+}
+
+bool AccessoryModel::openWizard(const QString& id) {
+    const QVariantList all = wizards();
+    const auto found = std::find_if(all.begin(), all.end(),
+                                    [&](const QVariant& w) { return w.toMap().value("id").toString() == id; });
+    if (found == all.end()) {
+        return false;
+    }
+    wizard_ = found->toMap();
+    sub_.clear();
+    completed_.clear();
+    atCompletion_ = false;
+    const QVariantList subs = wizard_.value("subWizards").toList();
+    if (subs.size() == 1 && failedChecks(id).isEmpty()) {
+        return startSubWizard(subs.front().toMap().value("id").toString());
+    }
+    screen_ = QStringLiteral("landing");
+    navigated();
+    Q_EMIT pageChanged();
+    return true;
+}
+
+bool AccessoryModel::startSubWizard(const QString& id) {
+    if (wizard_.isEmpty() || !failed().isEmpty()) {
+        return false;
+    }
+    const QVariantList subs = wizard_.value("subWizards").toList();
+    const auto found = std::find_if(subs.begin(), subs.end(),
+                                    [&](const QVariant& s) { return s.toMap().value("id").toString() == id; });
+    if (found == subs.end()) {
+        return false;
+    }
+    sub_ = found->toMap();
+    completed_.clear();
+    screen_ = QStringLiteral("run");
+    enterStep(0);
+    return true;
+}
+
+// autoComplete: a step with nothing to do counts as done and is passed; past
+// the last one, the closing page.
+void AccessoryModel::enterStep(int index) {
+    const int last = totalSteps() - 1;
+    atCompletion_ = false;
+    while (index <= last && skipStep(stepId(index))) {
+        completed_.insert(index);
+        if (index == last) {
+            atCompletion_ = !sub_.value("completion").toMap().isEmpty();
+            break;
+        }
+        ++index;
+    }
+    stepIndex_ = std::max(0, std::min(index, last));
+    substepIndex_ = 0;
+    navigated();
+    Q_EMIT pageChanged();
+}
+
+void AccessoryModel::setStepComplete(bool complete) {
+    if (sub_.isEmpty() || complete == completed_.contains(stepIndex_)) {
+        return;
+    }
+    if (complete) {
+        completed_.insert(stepIndex_);
+    } else {
+        completed_.erase(stepIndex_);
+    }
+    navigated();
+}
+
+void AccessoryModel::next() {
+    if (!canNext()) {
+        return;
+    }
+    if (stepIndex_ + 1 < totalSteps()) {
+        enterStep(stepIndex_ + 1);
+    } else {
+        atCompletion_ = true;
+        navigated();
+        Q_EMIT pageChanged();
+    }
+}
+
+void AccessoryModel::back() {
+    if (!canBack()) {
+        return;
+    }
+    int index = stepIndex_ - 1;
+    while (index > 0 && skipStep(stepId(index))) {
+        --index;
+    }
+    stepIndex_ = index;
+    navigated();
+    Q_EMIT pageChanged();
+}
+
+void AccessoryModel::restart() {
+    if (sub_.isEmpty()) {
+        return;
+    }
+    completed_.clear();
+    enterStep(0);
+}
+
+void AccessoryModel::exitSubWizard() {
+    sub_.clear();
+    completed_.clear();
+    atCompletion_ = false;
+    stepIndex_ = 0;
+    screen_ = wizard_.isEmpty() ? QStringLiteral("hub") : QStringLiteral("landing");
+    navigated();
+    Q_EMIT pageChanged();
+}
+
+void AccessoryModel::backToHub() {
+    wizard_.clear();
+    exitSubWizard();
+}
+
 // ---- Vacuum Table ------------------------------------------------------------------------------
 
 QVariantList AccessoryModel::vacuumSizes() const {
