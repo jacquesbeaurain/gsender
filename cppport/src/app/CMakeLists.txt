@@ -32,6 +32,8 @@ add_library(gs_app STATIC
     power.hpp
     qt_event_loop.cpp
     qt_event_loop.hpp
+    remote_service.cpp
+    remote_service.hpp
     rotary_actions.cpp
     rotary_actions.hpp
     sd_card_utils.cpp
