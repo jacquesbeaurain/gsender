@@ -4,40 +4,14 @@ import QtQuick.Layouts
 import GSender
 
 // ContinuityIndicator: press the TLS to prove its wiring. A pin already on
-// when checking is a short; a press is success, done a moment later.
+// when checking is a short; a press is success, done a moment later
+// (AccessoryModel follows the pin).
 WizardStepPage {
     id: page
 
-    property string phase: "checking"  // waiting, success, stuckOn
-
-    function setPhase(next) {
-        phase = next
-        if (next === "success") {
-            succeeded.restart()
-        } else {
-            succeeded.stop()
-            complete = false
-        }
-        if (next === "checking")
-            update()
-    }
-    function update() {
-        if (phase === "checking")
-            setPhase(page.model.probeActive ? "stuckOn" : "waiting")
-        else if (phase === "waiting" && page.model.probeActive)
-            setPhase("success")
-    }
-
-    Component.onCompleted: setPhase("checking")
-    Connections {
-        target: page.model
-        function onChanged() { page.update() }
-    }
-    Timer {
-        id: succeeded
-        interval: 1500  // CONTINUITY_CHECK_SUCCESS_DELAY_MS
-        onTriggered: page.complete = true
-    }
+    readonly property string phase: page.model.continuity  // checking, waiting, success, stuckOn
+    complete: page.model.continuityDone
+    Component.onCompleted: page.model.checkContinuity()
 
     WizardText { text: qsTr("Let's confirm your Tool Length Sensor is wired correctly. Press the TLS down when prompted below.") }
     ColumnLayout {
@@ -89,6 +63,6 @@ WizardStepPage {
         visible: page.phase === "stuckOn"
         objectName: "retryContinuity"
         text: qsTr("Try Again")
-        onClicked: page.setPhase("checking")
+        onClicked: page.model.checkContinuity()
     }
 }

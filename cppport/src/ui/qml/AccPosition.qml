@@ -7,42 +7,17 @@ import GSender
 // edited; Set Position keeps them, undone when the machine moves away. The
 // TLS's location starts at the machine's position; the manual tool change
 // location at the recommended one, with Go To, until the first real jog.
+// AccessoryModel does the following (gs::toolchange::PositionFollower).
 WizardStepPage {
     id: page
 
     property bool manual: false
-    property var atStart: []
-    property var setAt: null
-    property bool editing: false
+    complete: page.model.positionSet
 
-    function same(a, b) { return JSON.stringify(a) === JSON.stringify(b) }
-    function show(mm) {
-        for (let axis = 0; axis < 3; ++axis)
-            fields.itemAt(axis).text = page.model.positionText(mm.length === 3 ? mm[axis] : 0)
-    }
-    function position() {
-        return [0, 1, 2].map(axis => page.model.positionMm(fields.itemAt(axis).text))
-    }
-    function follow() {
-        const mpos = page.model.machinePosition
-        if (editing || mpos.length !== 3)
-            return
-        if (manual && (atStart.length !== 3 || same(atStart, mpos)))
-            return  // no real jog since the step opened: keep the recommendation
-        if (complete && setAt && !same(setAt, mpos)) {
-            action.reset()
-            complete = false
-        }
-        show(mpos)
-    }
-
-    Component.onCompleted: {
-        atStart = page.model.machinePosition
-        show(manual ? page.model.recommendedManualPosition() : page.model.machinePosition)
-    }
+    Component.onCompleted: page.model.startPositionStep(manual)
     Connections {
         target: page.model
-        function onChanged() { page.follow() }
+        function onPositionUnset() { action.reset() }
     }
 
     WizardText {
@@ -65,19 +40,16 @@ WizardStepPage {
             model: ["X", "Y", "Z"]
             TextField {
                 required property string modelData
+                required property int index
                 objectName: "position" + modelData
                 Layout.fillWidth: true
                 implicitHeight: 40
                 leftPadding: 28
                 horizontalAlignment: TextInput.AlignRight
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
-                onTextEdited: {
-                    page.editing = true
-                    if (page.complete) {
-                        action.reset()
-                        page.complete = false
-                    }
-                }
+                // Following the machine until typed into.
+                text: page.model.positionFields[index] ?? ""
+                onTextEdited: page.model.positionEdited()
                 Label {
                     anchors.left: parent.left
                     anchors.leftMargin: 10
@@ -98,14 +70,8 @@ WizardStepPage {
             text: qsTr("Set Position")
             runningText: qsTr("Setting...")
             onTriggered: {
-                const at = page.position()
-                if (page.manual)
-                    page.model.setManualPosition(at[0], at[1], at[2])
-                else
-                    page.model.setTlsLocation(at[0], at[1], at[2])
-                page.setAt = page.model.machinePosition
+                page.model.setPosition(fields.itemAt(0).text, fields.itemAt(1).text, fields.itemAt(2).text)
                 finish(page.manual ? qsTr("Tool change location set.") : qsTr("TLS location set."))
-                page.complete = true
             }
         }
         GButton {
@@ -113,10 +79,9 @@ WizardStepPage {
             objectName: "goToPosition"
             Layout.alignment: Qt.AlignTop
             text: qsTr("Go To")
-            onClicked: {
-                const at = page.position()
-                page.model.goToPosition(at[0], at[1], at[2])
-            }
+            onClicked: page.model.goToPosition(page.model.positionMm(fields.itemAt(0).text),
+                                               page.model.positionMm(fields.itemAt(1).text),
+                                               page.model.positionMm(fields.itemAt(2).text))
         }
     }
 }
