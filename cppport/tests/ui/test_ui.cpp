@@ -1703,8 +1703,15 @@ TEST_F(UiTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
         tap("wizardNext");
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     };
+    // Shown, enabled and laid out: a page that just opened can place its
+    // buttons before its layout has the final width (off the window on a
+    // slower machine).
     const auto waitForTap = [&](const QString& name) {
-        ASSERT_TRUE(waitFor([&] { return item(name) && item(name)->isVisible() && item(name)->isEnabled(); })) << name.toStdString();
+        ASSERT_TRUE(waitFor([&] {
+            QQuickItem* target = item(name);
+            return target && target->isVisible() && target->isEnabled() &&
+                   QRect(QPoint(0, 0), window_->size()).contains(centreOf(target));
+        })) << name.toStdString();
         tap(name);
     };
 
