@@ -91,7 +91,15 @@ endif()
 if(TARGET gs_ui)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     add_executable(gs_ui_tests
-        ui/test_ui.cpp
+        ui/ui_test.cpp
+        ui/test_control.cpp
+        ui/test_job.cpp
+        ui/test_plugins.cpp
+        ui/test_probe.cpp
+        ui/test_settings.cpp
+        ui/test_shell.cpp
+        ui/test_tools.cpp
+        ui/test_visualizer.cpp
     )
     target_link_libraries(gs_ui_tests PRIVATE gs_ui gs_uiplugin Qt6::Test GTest::gtest)
     if(TARGET gsender)
