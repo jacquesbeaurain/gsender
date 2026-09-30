@@ -174,6 +174,7 @@ qt_add_qml_module(gs_ui
         plugins_model.hpp
         plugin_qml_context.cpp
         plugin_qml_context.hpp
+        config_menu.cpp
         config_model.cpp
         config_model.hpp
         icon_provider.cpp
