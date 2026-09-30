@@ -157,7 +157,7 @@ ToolPage {
                                     Label {
                                         text: model.name
                                         font.bold: true
-                                        font.pixelSize: Theme.fontMd
+                                        font.pixelSize: Theme.fontBase
                                         color: Theme.contentPrimary
                                     }
                                     Rectangle {
