@@ -141,6 +141,49 @@ QVariantList PluginsModel::contributions(const QString& slot) const {
     return list;
 }
 
+namespace {
+
+QString contributionKey(const QVariantMap& c) {
+    return QStringLiteral("plugin:%1:%2").arg(c.value("pluginId").toString(), c.value("route").toString());
+}
+
+QString contributionLabel(const QVariantMap& c) {
+    const QString label = c.value("label").toString();
+    return label.isEmpty() ? c.value("pluginName").toString() : label;
+}
+
+}  // namespace
+
+QVariantList PluginsModel::toolCards() const {
+    QVariantList cards;
+    for (const QVariant& entry : contributions(QStringLiteral("tools-page"))) {
+        const QVariantMap c = entry.toMap();
+        const QString icon = c.value("icon").toString();
+        cards.append(QVariantMap{{"key", contributionKey(c)},
+                                 {"title", contributionLabel(c)},
+                                 {"description", tr("Plugin tool by %1").arg(c.value("pluginName").toString())},
+                                 {"icon", icon.isEmpty() ? QStringLiteral("PiPuzzlePiece") : icon},
+                                 {"isPlugin", true},
+                                 {"pluginId", c.value("pluginId")},
+                                 {"uiUrl", c.value("uiUrl")}});
+    }
+    return cards;
+}
+
+QVariantList PluginsModel::toolTabs() const {
+    QVariantList tabs;
+    for (const QVariant& entry : contributions(QStringLiteral("tools-tab"))) {
+        const QVariantMap c = entry.toMap();
+        tabs.append(QVariantMap{{"key", contributionKey(c)},
+                                {"label", contributionLabel(c)},
+                                {"shown", true},
+                                {"isPlugin", true},
+                                {"pluginId", c.value("pluginId")},
+                                {"uiUrl", c.value("uiUrl")}});
+    }
+    return tabs;
+}
+
 QObject* PluginsModel::createContext(const QString& pluginId) {
     return new PluginQmlContext(machine_.pluginService(), pluginId, this);
 }

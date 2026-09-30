@@ -46,6 +46,12 @@ class PluginsModel : public UiModelBase {
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
     Q_PROPERTY(QVariantList plugins READ plugins NOTIFY pluginsChanged)
     Q_PROPERTY(StructListModelBase* pluginsModel READ pluginsModel CONSTANT)
+    // The plugins' Tools page cards ("tools-page") {key, title, description,
+    // icon, isPlugin, pluginId, uiUrl} and tool area tabs ("tools-tab")
+    // {key, label, shown, isPlugin, pluginId, uiUrl}; a key is
+    // "plugin:<id>:<route>".
+    Q_PROPERTY(QVariantList toolCards READ toolCards NOTIFY pluginsChanged)
+    Q_PROPERTY(QVariantList toolTabs READ toolTabs NOTIFY pluginsChanged)
 
 public:
     explicit PluginsModel(QObject* parent = nullptr);
@@ -62,6 +68,8 @@ public:
 
     QVariantList plugins() const;
     StructListModelBase* pluginsModel() { return &listModel_; }
+    QVariantList toolCards() const;
+    QVariantList toolTabs() const;
 
     Q_INVOKABLE void scan();
     Q_INVOKABLE void setEnabled(const QString& id, bool enabled);
