@@ -5,6 +5,7 @@
 #include "machine.hpp"
 #include "notification_center.hpp"
 #include "plugin_service.hpp"
+#include "power.hpp"
 #include "remote_service.hpp"
 #include "shortcuts.hpp"
 
@@ -121,6 +122,10 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
     connect(&machine_.pluginService().bridge(), &app::PluginBridge::busyChanged, this, &UiBackend::stateChanged);
     connect(&machine_, &app::Machine::programChanged, this, &UiBackend::programChanged);
     connect(&machine_, &app::Machine::appSettingsChanged, this, &UiBackend::appSettingsChanged);
+    // Power saving: the display kept awake unless sleeping is allowed.
+    const auto applyPower = [this] { app::setDisplaySleepAllowed(machine_.settings().powerSaving); };
+    connect(&machine_, &app::Machine::appSettingsChanged, this, applyPower);
+    applyPower();
 }
 
 void UiBackend::setInstance(UiBackend* backend) {
