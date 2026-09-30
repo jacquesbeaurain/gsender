@@ -8,6 +8,7 @@
 // exits; with -platform offscreen it needs no display.
 
 #include "backend.hpp"
+#include "gamepad_service.hpp"
 #include "remote_service.hpp"
 #include "app_settings.hpp"
 #include "machine.hpp"
@@ -110,6 +111,14 @@ int main(int argc, char** argv) {
         QMetaObject::invokeMethod(toolpath, "setView", Q_ARG(QString, parser.value(view)));
     }
 
+    // Gamepads (SDL3), not for a screenshot.
+    if (!parser.isSet(screenshot)) {
+        QString error;
+        backend.gamepad().setBackend(gs::app::createSdlGamepadBackend(&error));
+        if (!backend.gamepad().available()) {
+            std::fprintf(stderr, "gsender: no gamepads: %s\n", qPrintable(error));
+        }
+    }
     // Remote mode, as saved (server/index.js binds it at start-up).
     if (!parser.isSet(screenshot)) {
         const QString error = backend.remote().startFromSettings();

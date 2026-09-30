@@ -159,6 +159,57 @@ void Jogger::startContinuous(const controller::JogAxes& distances, double feedra
     c->jogStart(direction, feedrate, metric_ ? controller::JogUnits::Millimetres : controller::JogUnits::Inches);
 }
 
+std::optional<controller::Axes4> Jogger::allowedAxes(const controller::JogAxes& axes) const {
+    controller::Controller* c = machine_.controller();
+    if (!c) {
+        return std::nullopt;
+    }
+    const auto allowed =
+        controller::filterAxesForLimits(axes, c->state().status.pinState, machine_.settings().jog.preventJoggingPastLimits);
+    if (!allowed) {
+        return std::nullopt;
+    }
+    controller::Axes4 out;
+    for (const auto& [axis, value] : *allowed) {
+        const char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(axis)));
+        for (std::size_t i = 0; i < controller::kJogAxes.size(); ++i) {
+            if (controller::kJogAxes[i] == upper) {
+                out[i] = value;
+            }
+        }
+    }
+    return out;
+}
+
+void Jogger::stepBy(const controller::JogAxes& distances, double feedrate) {
+    rotaryJog_ = false;
+    stepJog(distances, feedrate);
+}
+
+void Jogger::startStream(const controller::JogAxes& directions, double feedrate) {
+    if (const auto direction = allowedAxes(directions)) {
+        machine_.controller()->jogStart(*direction, feedrate,
+                                        metric_ ? controller::JogUnits::Millimetres : controller::JogUnits::Inches);
+    }
+}
+
+void Jogger::updateStream(const controller::JogAxes& directions, double feedrate) {
+    if (const auto direction = allowedAxes(directions)) {
+        machine_.controller()->jogUpdate(*direction, feedrate);
+    }
+}
+
+void Jogger::feedStream(const controller::JogAxes& distances, double feedrate) {
+    if (const auto amounts = allowedAxes(distances)) {
+        machine_.controller()->jogFeed(*amounts, feedrate,
+                                       metric_ ? controller::JogUnits::Millimetres : controller::JogUnits::Inches);
+    }
+}
+
+void Jogger::stopStream() {
+    stopContinuous();
+}
+
 void Jogger::stopContinuous() {
     if (controller::Controller* c = machine_.controller()) {
         c->jogStop();

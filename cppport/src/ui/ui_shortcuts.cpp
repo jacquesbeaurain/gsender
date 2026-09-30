@@ -1,6 +1,7 @@
 #include "ui_shortcuts.hpp"
 
 #include "backend.hpp"
+#include "gamepad_service.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "shortcuts.hpp"
@@ -39,6 +40,15 @@ UiShortcuts::UiShortcuts(UiBackend& backend, QQuickWindow& window) : QObject(&wi
     spindle_ = new SpindleModel(this);
     install();
     backend_.setShortcutManager(manager_);  // the keyboard map
+    // The gamepad's buttons run the same actions, while the window is active.
+    backend_.gamepad().setShortcutManager(manager_);
+    backend_.gamepad().setActiveCheck([&window] { return window.isActive(); });
+}
+
+UiShortcuts::~UiShortcuts() {
+    // The backend outlives the window: its gamepads must not reach either.
+    backend_.gamepad().setShortcutManager(nullptr);
+    backend_.gamepad().setActiveCheck({});
 }
 
 void UiShortcuts::install() {

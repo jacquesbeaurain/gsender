@@ -12,6 +12,10 @@ add_library(gs_app STATIC
     diagnostics.hpp
     firmware_service.cpp
     firmware_service.hpp
+    gamepad_backend.cpp
+    gamepad_backend.hpp
+    gamepad_service.cpp
+    gamepad_service.hpp
     job_service.cpp
     job_service.hpp
     jog_service.cpp
@@ -63,6 +67,10 @@ target_link_libraries(gs_app
         gs::transport
         Qt6::Core
         Qt6::Gui)
+if(SDL3_FOUND)
+    target_link_libraries(gs_app PRIVATE SDL3::SDL3)
+    target_compile_definitions(gs_app PRIVATE GS_HAVE_SDL3)
+endif()
 if(WIN32)
     target_link_libraries(gs_app PRIVATE winmm)  # PlaySound: the audio cues
 endif()
