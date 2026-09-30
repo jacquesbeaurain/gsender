@@ -41,7 +41,7 @@ Item {
                 PathLine { x: 0; y: 0 }
             }
             RotationAnimation on rotation {
-                running: root.active && root.visible
+                running: root.active && root.visible && !Theme.reducedMotion
                 from: 0; to: 360
                 duration: 4000
                 loops: Animation.Infinite

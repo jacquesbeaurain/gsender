@@ -31,7 +31,7 @@ AbstractButton {
                 radius: 10
                 color: "white"
                 border.color: toggle.checked ? "white" : Theme.gray[300]
-                Behavior on x { NumberAnimation { duration: 150 } }
+                Behavior on x { enabled: !Theme.reducedMotion; NumberAnimation { duration: 150 } }
             }
         }
     }
