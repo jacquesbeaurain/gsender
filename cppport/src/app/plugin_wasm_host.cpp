@@ -5,10 +5,27 @@
 
 #include "gs/controller/controller.hpp"
 
-#include <QJsonDocument>
 #include <QDebug>
+#include <QJsonDocument>
 
 namespace gs::app {
+
+namespace {
+
+// Strings the host reads out of a plugin: keys and names are short, G-code
+// and JSON payloads can be long.
+constexpr size_t kMaxKeyLength = 4096;
+constexpr size_t kMaxTextLength = 16 * 1024 * 1024;
+
+uint32_t pointerArg(const std::vector<WasmVal>& args, size_t i) {
+    return static_cast<uint32_t>(std::get<int32_t>(args.at(i)));
+}
+
+QString readText(WasmInstance& inst, uint32_t ptr, size_t maxLen) {
+    return QString::fromUtf8(inst.memory().readString(ptr, maxLen));
+}
+
+}  // namespace
 
 PluginWasmHost::PluginWasmHost(Machine& machine, PluginBridge& bridge, PluginStorage& storage, const PluginManifest& manifest)
     : machine_(machine), bridge_(bridge), storage_(storage), manifest_(manifest) {}
@@ -18,243 +35,260 @@ PluginWasmHost::~PluginWasmHost() {
 }
 
 QString PluginWasmHost::lastError() const {
+    if (!lastError_.isEmpty()) return lastError_;
     if (!instance_) return QStringLiteral("No instance");
     return QString::fromStdString(instance_->lastErrorMessage());
 }
 
 bool PluginWasmHost::loadBinary(const uint8_t* wasmBytes, size_t size, QString* outError) {
     std::string err;
-    module_ = WasmModule::loadFromBytes(wasmBytes, size, &err);
-    if (!module_) {
+    auto module = WasmModule::loadFromBytes(wasmBytes, size, &err);
+    if (!module) {
         if (outError) *outError = QString::fromStdString(err);
         return false;
     }
-
-    instance_ = std::make_unique<WasmInstance>(module_);
-    registerHostImports();
-
-    if (!instance_->instantiate(&err)) {
-        if (outError) *outError = QString::fromStdString(err);
-        instance_.reset();
-        module_.reset();
-        return false;
-    }
-
-    // Ensure memory is large enough for scratch buffers
-    const size_t neededBytes = ScratchRespOffset + ScratchBufSize;
-    if (instance_->memory().sizeBytes() < neededBytes) {
-        const uint32_t currentPages = instance_->memory().sizePages();
-        const uint32_t targetPages = static_cast<uint32_t>((neededBytes + WasmMemory::PageSize - 1) / WasmMemory::PageSize);
-        if (targetPages > currentPages) {
-            instance_->memory().grow(targetPages - currentPages);
-        }
-    }
-
-    return true;
+    return instantiate(std::move(module), outError);
 }
 
 bool PluginWasmHost::loadFile(const QString& filePath, QString* outError) {
     std::string err;
-    module_ = WasmModule::loadFromFile(filePath, &err);
-    if (!module_) {
+    auto module = WasmModule::loadFromFile(filePath, &err);
+    if (!module) {
         if (outError) *outError = QString::fromStdString(err);
         return false;
     }
+    return instantiate(std::move(module), outError);
+}
 
-    instance_ = std::make_unique<WasmInstance>(module_);
-    registerHostImports();
-
-    if (!instance_->instantiate(&err)) {
-        if (outError) *outError = QString::fromStdString(err);
+bool PluginWasmHost::instantiate(std::shared_ptr<WasmModule> module, QString* outError) {
+    auto fail = [&](const QString& message) {
         instance_.reset();
         module_.reset();
+        lastError_ = message;
+        if (outError) *outError = message;
         return false;
-    }
+    };
 
-    const size_t neededBytes = ScratchRespOffset + ScratchBufSize;
-    if (instance_->memory().sizeBytes() < neededBytes) {
-        const uint32_t currentPages = instance_->memory().sizePages();
-        const uint32_t targetPages = static_cast<uint32_t>((neededBytes + WasmMemory::PageSize - 1) / WasmMemory::PageSize);
-        if (targetPages > currentPages) {
-            instance_->memory().grow(targetPages - currentPages);
+    for (const char* required : {"gsender_plugin_alloc", "gsender_plugin_free"}) {
+        const WasmExport* exp = module->findExport(required);
+        if (!exp || exp->kind != 0) {
+            return fail(QStringLiteral("Plugin does not export %1 (link the SDK's runtime.c, or export an allocator)")
+                            .arg(QString::fromLatin1(required)));
         }
     }
+    if (!module->hasMemory()) {
+        return fail(QStringLiteral("Plugin has no linear memory"));
+    }
 
+    module_ = std::move(module);
+    instance_ = std::make_unique<WasmInstance>(module_);
+    // The plugin runs on the UI thread: keep a single call well under a second.
+    instance_->setFuelPerCall(100'000'000);
+    registerHostImports();
+
+    std::string err;
+    if (!instance_->instantiate(&err)) {
+        return fail(QString::fromStdString(err));
+    }
+    lastError_.clear();
     return true;
+}
+
+std::optional<uint32_t> PluginWasmHost::copyIn(const std::string& text) {
+    const auto ptr = instance_->invoke("gsender_plugin_alloc", {static_cast<int32_t>(text.size() + 1)});
+    if (!ptr) return std::nullopt;
+    const uint32_t addr = static_cast<uint32_t>(std::get<int32_t>(*ptr));
+    if (addr == 0 || !instance_->memory().writeString(addr, text, text.size() + 1)) {
+        return std::nullopt;
+    }
+    return addr;
+}
+
+void PluginWasmHost::release(uint32_t ptr) {
+    if (ptr != 0) {
+        instance_->invoke("gsender_plugin_free", {static_cast<int32_t>(ptr)});
+    }
 }
 
 void PluginWasmHost::registerHostImports() {
     if (!instance_) return;
 
-    // 1. gs_host_emit_gcode(const char* gcode) -> i32
     instance_->linkHostFunction("env", "gs_host_emit_gcode", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.empty()) return int32_t(-1);
-        const uint32_t ptr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
-        const std::string gcode = inst.memory().readString(ptr);
         QJsonObject payload;
-        payload[QStringLiteral("command")] = QString::fromStdString(gcode);
-        const auto res = bridge_.execute(manifest_, QStringLiteral("machine:command"), payload);
-        return int32_t(res.ok ? 0 : -1);
+        payload[QStringLiteral("command")] = readText(inst, pointerArg(args, 0), kMaxTextLength);
+        return int32_t(bridge_.execute(manifest_, QStringLiteral("machine:command"), payload).ok ? 0 : -1);
     });
 
-    // 2. gs_host_get_wpos(gs_dro_coords_t* out_wpos) -> i32
     instance_->linkHostFunction("env", "gs_host_get_wpos", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.empty()) return int32_t(-1);
-        const uint32_t ptr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
         if (!bridge_.hasCapability(manifest_, QStringLiteral("workspace:get:state"))) {
             return int32_t(-1);
         }
-
-        controller::Controller* c = machine_.controller();
         double coords[4] = {0.0, 0.0, 0.0, 0.0};
-        if (c) {
+        if (controller::Controller* c = machine_.controller()) {
             const auto& status = c->state().status;
             coords[0] = status.wpos.x();
             coords[1] = status.wpos.y();
             coords[2] = status.wpos.z();
             coords[3] = status.wpos.a();
         }
-
-        if (!inst.memory().write(ptr, coords, sizeof(coords))) {
-            return int32_t(-1);
-        }
-        return int32_t(0);
+        return int32_t(inst.memory().write(pointerArg(args, 0), coords, sizeof(coords)) ? 0 : -1);
     });
 
-    // 3. gs_host_storage_get(const char* key, char* out_buf, int32_t buf_len) -> i32
     instance_->linkHostFunction("env", "gs_host_storage_get", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.size() < 3) return int32_t(-1);
-        const uint32_t keyPtr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
-        const uint32_t bufPtr = static_cast<uint32_t>(std::get<int32_t>(args[1]));
-        const int32_t bufLen = std::get<int32_t>(args[2]);
-
-        if (!bridge_.hasCapability(manifest_, QStringLiteral("storage:get"))) {
+        const int32_t bufLen = std::get<int32_t>(args.at(2));
+        if (!bridge_.hasCapability(manifest_, QStringLiteral("storage:get")) || bufLen <= 0) {
             return int32_t(-1);
         }
-
-        const std::string key = inst.memory().readString(keyPtr);
-        const auto val = storage_.get(manifest_.id, QString::fromStdString(key));
-        if (!val.has_value()) return int32_t(-1);
-
-        const std::string valStr = val->toStdString();
-        if (valStr.size() + 1 > static_cast<size_t>(bufLen)) return int32_t(-1);
-
-        if (!inst.memory().writeString(bufPtr, valStr, bufLen)) return int32_t(-1);
-        return int32_t(valStr.size());
+        const auto val = storage_.get(manifest_.id, readText(inst, pointerArg(args, 0), kMaxKeyLength));
+        if (!val) return int32_t(-1);
+        const std::string text = val->toStdString();
+        if (text.size() + 1 > static_cast<size_t>(bufLen)) return int32_t(-1);
+        if (!inst.memory().writeString(pointerArg(args, 1), text, static_cast<size_t>(bufLen))) return int32_t(-1);
+        return static_cast<int32_t>(text.size());
     });
 
-    // 4. gs_host_storage_set(const char* key, const char* value) -> i32
     instance_->linkHostFunction("env", "gs_host_storage_set", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.size() < 2) return int32_t(-1);
-        const uint32_t keyPtr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
-        const uint32_t valPtr = static_cast<uint32_t>(std::get<int32_t>(args[1]));
-
-        if (!bridge_.hasCapability(manifest_, QStringLiteral("storage:set"))) {
-            return int32_t(-1);
-        }
-
-        const std::string key = inst.memory().readString(keyPtr);
-        const std::string val = inst.memory().readString(valPtr);
-        const bool ok = storage_.set(manifest_.id, QString::fromStdString(key), QString::fromStdString(val));
-        return int32_t(ok ? 0 : -1);
-    });
-
-    // 5. gs_host_storage_delete(const char* key) -> i32
-    instance_->linkHostFunction("env", "gs_host_storage_delete", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.empty()) return int32_t(-1);
-        const uint32_t keyPtr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
-
-        if (!bridge_.hasCapability(manifest_, QStringLiteral("storage:delete"))) {
-            return int32_t(-1);
-        }
-
-        const std::string key = inst.memory().readString(keyPtr);
-        const bool ok = storage_.deleteKey(manifest_.id, QString::fromStdString(key));
-        return int32_t(ok ? 0 : -1);
-    });
-
-    // 6. gs_host_load_gcode(const char* gcode_text, const char* name) -> i32
-    instance_->linkHostFunction("env", "gs_host_load_gcode", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.size() < 2) return int32_t(-1);
-        const uint32_t gcodePtr = static_cast<uint32_t>(std::get<int32_t>(args[0]));
-        const uint32_t namePtr = static_cast<uint32_t>(std::get<int32_t>(args[1]));
-
-        if (!bridge_.hasCapability(manifest_, QStringLiteral("gcode:load:to:visualizer"))) {
-            return int32_t(-1);
-        }
-
-        const std::string gcode = inst.memory().readString(gcodePtr, 1024 * 1024);
-        const std::string name = inst.memory().readString(namePtr);
         QJsonObject payload;
-        payload[QStringLiteral("gcode")] = QString::fromStdString(gcode);
-        payload[QStringLiteral("name")] = QString::fromStdString(name);
-        const auto res = bridge_.execute(manifest_, QStringLiteral("gcode:load:to:visualizer"), payload);
-        return int32_t(res.ok ? 0 : -1);
+        payload[QStringLiteral("key")] = readText(inst, pointerArg(args, 0), kMaxKeyLength);
+        payload[QStringLiteral("value")] = readText(inst, pointerArg(args, 1), kMaxTextLength);
+        return int32_t(bridge_.execute(manifest_, QStringLiteral("storage:set"), payload).ok ? 0 : -1);
     });
 
-    // 7. gs_host_log(int32_t level, const char* message) -> void
+    instance_->linkHostFunction("env", "gs_host_storage_delete", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
+        QJsonObject payload;
+        payload[QStringLiteral("key")] = readText(inst, pointerArg(args, 0), kMaxKeyLength);
+        return int32_t(bridge_.execute(manifest_, QStringLiteral("storage:delete"), payload).ok ? 0 : -1);
+    });
+
+    instance_->linkHostFunction("env", "gs_host_load_gcode", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
+        QJsonObject payload;
+        payload[QStringLiteral("gcode")] = readText(inst, pointerArg(args, 0), kMaxTextLength);
+        payload[QStringLiteral("name")] = readText(inst, pointerArg(args, 1), kMaxKeyLength);
+        return int32_t(bridge_.execute(manifest_, QStringLiteral("gcode:load:to:visualizer"), payload).ok ? 0 : -1);
+    });
+
     instance_->linkHostFunction("env", "gs_host_log", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
-        if (args.size() < 2) return std::nullopt;
-        const int32_t level = std::get<int32_t>(args[0]);
-        const uint32_t msgPtr = static_cast<uint32_t>(std::get<int32_t>(args[1]));
-        const std::string msg = inst.memory().readString(msgPtr);
-        qDebug() << "[WasmPlugin:" << manifest_.id << "lvl=" << level << "]" << QString::fromStdString(msg);
+        const int32_t level = std::get<int32_t>(args.at(0));
+        const QString msg = readText(inst, pointerArg(args, 1), kMaxKeyLength);
+        const QString line = QStringLiteral("[plugin %1] %2").arg(manifest_.id, msg);
+        if (level >= 3) {
+            qWarning().noquote() << line;
+        } else if (level >= 1) {
+            qInfo().noquote() << line;
+        } else {
+            qDebug().noquote() << line;
+        }
         return std::nullopt;
+    });
+
+    instance_->linkHostFunction("env", "gs_host_request", [this](WasmInstance& inst, const std::vector<WasmVal>& args) -> std::optional<WasmVal> {
+        const QString type = readText(inst, pointerArg(args, 0), kMaxKeyLength);
+        const QByteArray payloadText = inst.memory().readString(pointerArg(args, 1), kMaxTextLength).c_str();
+        const int32_t bufLen = std::get<int32_t>(args.at(3));
+
+        QJsonObject reply;
+        const QJsonDocument payloadDoc = QJsonDocument::fromJson(payloadText.isEmpty() ? QByteArray("{}") : payloadText);
+        if (!payloadDoc.isObject()) {
+            reply[QStringLiteral("ok")] = false;
+            reply[QStringLiteral("error")] = QStringLiteral("Payload is not a JSON object");
+        } else {
+            const BridgeResponse res = bridge_.execute(manifest_, type, payloadDoc.object());
+            reply[QStringLiteral("ok")] = res.ok;
+            reply[QStringLiteral("result")] = res.result;
+            if (!res.ok) reply[QStringLiteral("error")] = res.error;
+        }
+        const QByteArray text = QJsonDocument(reply).toJson(QJsonDocument::Compact);
+        if (bufLen <= 0 || text.size() + 1 > bufLen) {
+            return static_cast<int32_t>(-(text.size() + 1));
+        }
+        if (!inst.memory().writeString(pointerArg(args, 2), text.toStdString(), static_cast<size_t>(bufLen))) {
+            inst.raiseHostTrap("gs_host_request: output buffer outside plugin memory");
+            return int32_t(-1);
+        }
+        return static_cast<int32_t>(text.size());
     });
 }
 
 bool PluginWasmHost::init() {
     if (!instance_) return false;
-    auto res = instance_->invoke("gsender_plugin_init");
-    if (!res.has_value()) return false;
-    return std::get<int32_t>(*res) == 0;
+    running_ = true;
+    const auto res = instance_->invoke("gsender_plugin_init");
+    running_ = false;
+    initialized_ = res.has_value() && std::get<int32_t>(*res) == 0;
+    if (!initialized_ && instance_->lastTrap() != WasmTrap::None) {
+        qWarning().noquote() << QStringLiteral("[plugin %1] init trapped: %2").arg(manifest_.id, lastError());
+    }
+    flushTopicEvents();
+    return initialized_;
 }
 
 void PluginWasmHost::shutdown() {
-    if (instance_) {
+    if (instance_ && initialized_ && instance_->hasExport("gsender_plugin_shutdown")) {
         instance_->invoke("gsender_plugin_shutdown");
     }
+    initialized_ = false;
+    pendingTopics_.clear();
 }
 
 QString PluginWasmHost::handleRequest(const QString& requestJson) {
-    if (!instance_) return QStringLiteral("{\"ok\":false,\"error\":\"No Wasm instance\"}");
+    auto error = [](const QString& message) {
+        QJsonObject obj;
+        obj[QStringLiteral("ok")] = false;
+        obj[QStringLiteral("error")] = message;
+        return QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+    };
+    if (!instance_ || !initialized_) return error(QStringLiteral("Wasm plugin is not running"));
+    if (running_) return error(QStringLiteral("Wasm plugin is busy"));
+    if (!instance_->hasExport("gsender_plugin_handle_request")) return error(QStringLiteral("Plugin handles no requests"));
 
-    const std::string reqStr = requestJson.toStdString();
-    if (!instance_->memory().writeString(ScratchReqOffset, reqStr, ScratchBufSize)) {
-        return QStringLiteral("{\"ok\":false,\"error\":\"Scratch memory write failed\"}");
+    running_ = true;
+    QString result;
+    const auto request = copyIn(requestJson.toStdString());
+    const auto response = instance_->invoke("gsender_plugin_alloc", {ResponseBufferSize});
+    const uint32_t responsePtr = response ? static_cast<uint32_t>(std::get<int32_t>(*response)) : 0;
+    if (!request || responsePtr == 0) {
+        result = error(QStringLiteral("Plugin could not allocate request buffers"));
+    } else {
+        const auto written = instance_->invoke("gsender_plugin_handle_request", {
+            static_cast<int32_t>(*request), static_cast<int32_t>(responsePtr), ResponseBufferSize});
+        if (!written) {
+            result = error(QStringLiteral("Wasm handle_request trap: %1").arg(QString::fromStdString(instance_->lastErrorMessage())));
+        } else if (std::get<int32_t>(*written) < 0) {
+            result = error(QStringLiteral("Plugin failed to handle the request"));
+        } else {
+            const size_t len = std::min<size_t>(static_cast<size_t>(std::get<int32_t>(*written)), ResponseBufferSize);
+            result = QString::fromStdString(instance_->memory().readString(responsePtr, len));
+        }
     }
-
-    auto res = instance_->invoke("gsender_plugin_handle_request", {
-        int32_t(ScratchReqOffset),
-        int32_t(ScratchRespOffset),
-        int32_t(ScratchBufSize)
-    });
-
-    if (!res.has_value() || std::get<int32_t>(*res) < 0) {
-        return QStringLiteral("{\"ok\":false,\"error\":\"Wasm handle_request trap: %1\"}")
-            .arg(QString::fromStdString(instance_->lastErrorMessage()));
-    }
-
-    const std::string resp = instance_->memory().readString(ScratchRespOffset, ScratchBufSize);
-    return QString::fromStdString(resp);
+    if (request) release(*request);
+    release(responsePtr);
+    running_ = false;
+    flushTopicEvents();
+    return result;
 }
 
 void PluginWasmHost::onTopicEvent(const QString& topic, const QJsonObject& data) {
-    if (!instance_) return;
-    if (!bridge_.hasTopic(manifest_, topic)) return;
+    if (!instance_ || !initialized_ || !bridge_.hasTopic(manifest_, topic)) return;
+    if (!instance_->hasExport("gsender_plugin_on_topic_event")) return;
+    pendingTopics_.emplace_back(topic, data);
+    if (pendingTopics_.size() > 1000) pendingTopics_.pop_front();
+    if (!running_) flushTopicEvents();
+}
 
-    const std::string topicStr = topic.toStdString();
-    const std::string dataStr = QJsonDocument(data).toJson(QJsonDocument::Compact).toStdString();
-
-    const uint32_t topicOffset = ScratchReqOffset;
-    const uint32_t dataOffset = ScratchReqOffset + 256;
-
-    if (instance_->memory().writeString(topicOffset, topicStr, 256) &&
-        instance_->memory().writeString(dataOffset, dataStr, ScratchBufSize - 256)) {
-        instance_->invoke("gsender_plugin_on_topic_event", {
-            int32_t(topicOffset),
-            int32_t(dataOffset)
-        });
+void PluginWasmHost::flushTopicEvents() {
+    // Events the plugin's own calls caused arrive here, after its call returned.
+    for (int i = 0; i < 1000 && !pendingTopics_.empty() && initialized_; ++i) {
+        const auto [topic, data] = pendingTopics_.front();
+        pendingTopics_.pop_front();
+        running_ = true;
+        const auto topicPtr = copyIn(topic.toStdString());
+        const auto dataPtr = copyIn(QJsonDocument(data).toJson(QJsonDocument::Compact).toStdString());
+        if (topicPtr && dataPtr) {
+            instance_->invoke("gsender_plugin_on_topic_event", {static_cast<int32_t>(*topicPtr), static_cast<int32_t>(*dataPtr)});
+        }
+        if (topicPtr) release(*topicPtr);
+        if (dataPtr) release(*dataPtr);
+        running_ = false;
     }
 }
 

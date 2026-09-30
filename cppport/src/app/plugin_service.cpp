@@ -4,6 +4,7 @@
 
 #include "gs/controller/controller.hpp"
 
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonObject>
@@ -58,19 +59,30 @@ void PluginService::scanPlugins() {
     // Instantiate active Wasm runtimes for plugins with Wasm entries
     wasmHosts_.clear();
     for (const auto& p : plugins_) {
-        if (p.enabled && !p.manifest.wasmEntry.isEmpty()) {
-            const QString wasmPath = QDir(p.directory).filePath(p.manifest.wasmEntry);
-            if (QFile::exists(wasmPath)) {
-                auto host = std::make_unique<PluginWasmHost>(machine_, bridge_, storage_, p.manifest);
-                if (host->loadFile(wasmPath)) {
-                    host->init();
-                    wasmHosts_[p.manifest.id] = std::move(host);
-                }
-            }
+        if (p.enabled) {
+            startWasmHost(p);
         }
     }
 
     Q_EMIT pluginsChanged();
+}
+
+void PluginService::startWasmHost(const LoadedPlugin& plugin) {
+    if (plugin.manifest.wasmEntry.isEmpty()) {
+        return;
+    }
+    const QString wasmPath = QDir(plugin.directory).filePath(plugin.manifest.wasmEntry);
+    auto host = std::make_unique<PluginWasmHost>(machine_, bridge_, storage_, plugin.manifest);
+    QString error;
+    if (!host->loadFile(wasmPath, &error)) {
+        qWarning().noquote() << QStringLiteral("Plugin %1: cannot load %2: %3").arg(plugin.manifest.id, wasmPath, error);
+        return;
+    }
+    if (!host->init()) {
+        qWarning().noquote() << QStringLiteral("Plugin %1: initialization failed: %2").arg(plugin.manifest.id, host->lastError());
+        return;
+    }
+    wasmHosts_[plugin.manifest.id] = std::move(host);
 }
 
 const LoadedPlugin* PluginService::findPlugin(const QString& id) const {
@@ -94,16 +106,7 @@ void PluginService::setPluginEnabled(const QString& id, bool enabled) {
                 plugin.enabled = enabled;
                 if (enabled) {
                     disabledPluginIds_.remove(id);
-                    if (!plugin.manifest.wasmEntry.isEmpty()) {
-                        const QString wasmPath = QDir(plugin.directory).filePath(plugin.manifest.wasmEntry);
-                        if (QFile::exists(wasmPath)) {
-                            auto host = std::make_unique<PluginWasmHost>(machine_, bridge_, storage_, plugin.manifest);
-                            if (host->loadFile(wasmPath)) {
-                                host->init();
-                                wasmHosts_[plugin.manifest.id] = std::move(host);
-                            }
-                        }
-                    }
+                    startWasmHost(plugin);
                 } else {
                     disabledPluginIds_.insert(id);
                     wasmHosts_.erase(id);
