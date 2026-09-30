@@ -2,28 +2,17 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/controller/actions.hpp"
 #include "gs/controller/controller.hpp"
+#include "gs/util/datetime.hpp"
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/units.hpp"
 
 #include <algorithm>
-#include <cmath>
 
 namespace gs::ui {
-namespace {
-
-// H:MM:SS, as the job's progress shows its times.
-QString clock(double seconds) {
-    const auto total = static_cast<long long>(std::max(0.0, std::round(seconds)));
-    return QString("%1:%2:%3")
-        .arg(total / 3600)
-        .arg(total / 60 % 60, 2, 10, QChar('0'))
-        .arg(total % 60, 2, 10, QChar('0'));
-}
-
-}  // namespace
 
 JobModel::JobModel(QObject* parent) : UiModelBase(parent) {
     for (auto signal : {&app::Machine::workflowChanged, &app::Machine::connectionChanged,
@@ -109,13 +98,14 @@ double JobModel::percent() const {
 
 QString JobModel::elapsed() const {
     controller::Controller* c = machine_.controller();
-    return c && c->sender().hasProgram() ? clock(static_cast<double>(c->sender().status().elapsedTime) / 1000.0)
-                                         : clock(0);
+    const double seconds =
+        c && c->sender().hasProgram() ? static_cast<double>(c->sender().status().elapsedTime) / 1000.0 : 0.0;
+    return qstr(util::clockText(seconds));
 }
 
 QString JobModel::remaining() const {
     controller::Controller* c = machine_.controller();
-    return c && c->sender().hasProgram() ? clock(c->sender().status().remainingTime) : clock(0);
+    return qstr(util::clockText(c && c->sender().hasProgram() ? c->sender().status().remainingTime : 0.0));
 }
 
 QString JobModel::sdFile() const {

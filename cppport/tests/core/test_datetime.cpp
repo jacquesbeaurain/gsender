@@ -38,3 +38,21 @@ TEST(DateTime, TimesAgoAreRoundedAsDateFnsWordsThem) {
     EXPECT_EQ(ago(1.9 * 365 * 86400), "almost 2 years ago");
     EXPECT_EQ(timeAgo(now + 5 * 60 * 1000, now), "in 5 minutes");
 }
+
+TEST(DateTime, JobDurationsDropTheEmptyUnitsAtTheTop) {
+    EXPECT_EQ(gs::util::durationText(3000), "3s");
+    EXPECT_EQ(gs::util::durationText(123999), "2m 3s");
+    EXPECT_EQ(gs::util::durationText(3723000), "1h 2m 3s");
+}
+
+TEST(DateTime, EstimatesRoundAsTheFilePanelShowsThem) {
+    EXPECT_EQ(gs::util::estimatedTimeText(41.2), "42s");
+    EXPECT_EQ(gs::util::estimatedTimeText(312.4), "5m 13s");
+    EXPECT_EQ(gs::util::estimatedTimeText(7500), "2h 5m");
+}
+
+TEST(DateTime, ClockTimesPadMinutesAndSeconds) {
+    EXPECT_EQ(gs::util::clockText(0), "0:00:00");
+    EXPECT_EQ(gs::util::clockText(-4), "0:00:00");
+    EXPECT_EQ(gs::util::clockText(3725.6), "1:02:06");
+}
