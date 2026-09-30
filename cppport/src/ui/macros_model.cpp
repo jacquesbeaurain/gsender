@@ -16,17 +16,6 @@
 #include <algorithm>
 
 namespace gs::ui {
-namespace {
-
-// The stored macros in a column, by row (computeColumn).
-std::vector<config::MacroRecord> inColumn(std::vector<config::MacroRecord> macros, const std::string& column) {
-    std::erase_if(macros, [&](const config::MacroRecord& m) { return m.column != column; });
-    std::stable_sort(macros.begin(), macros.end(),
-                     [](const config::MacroRecord& a, const config::MacroRecord& b) { return a.rowIndex < b.rowIndex; });
-    return macros;
-}
-
-}  // namespace
 
 MacrosModel::MacrosModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::macrosChanged, this, &MacrosModel::macrosChanged);
@@ -37,7 +26,7 @@ MacrosModel::MacrosModel(QObject* parent) : UiModelBase(parent) {
 
 QVariantList MacrosModel::column(const QString& name) const {
     QVariantList list;
-    for (const config::MacroRecord& m : inColumn(machine_.macros().list(), name.toStdString())) {
+    for (const config::MacroRecord& m : config::macrosInColumn(machine_.macros().list(), name.toStdString())) {
         list.append(QVariantMap{{"id", QString::fromStdString(m.id)},
                                 {"name", QString::fromStdString(m.name)},
                                 {"description", QString::fromStdString(m.description).trimmed()}});
@@ -160,7 +149,7 @@ void MacrosModel::move(const QString& id, const QString& column, int index) {
     // Both columns renumbered (setRowIndices), the moved one at its place.
     std::vector<config::MacroRecord> changed;
     for (const std::string& name : {std::string("column1"), std::string("column2")}) {
-        std::vector<config::MacroRecord> items = inColumn(all, name);
+        std::vector<config::MacroRecord> items = config::macrosInColumn(all, name);
         std::erase_if(items, [&](const auto& m) { return m.id == moved.id; });
         if (name == moved.column) {
             const auto at = static_cast<std::ptrdiff_t>(std::clamp<int>(index, 0, static_cast<int>(items.size())));

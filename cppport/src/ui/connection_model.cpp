@@ -8,16 +8,6 @@
 #include <QVariantMap>
 
 namespace gs::ui {
-namespace {
-
-// PortListings' truncatePortName: the last path element's last ten characters.
-QString portName(const QString& path) {
-    const QString last = path.section('/', -1);
-    return last.size() > 10 ? last.right(10) : last;
-}
-
-}  // namespace
-
 ConnectionModel::ConnectionModel(QObject* parent) : UiModelBase(parent) {
     connect(&machine_, &app::Machine::connectionChanged, this, [this] {
         if (machine_.isConnected() || machine_.isConnecting()) {
@@ -62,7 +52,7 @@ void ConnectionModel::refresh() {
         QVariantMap entry;
         const QString path = QString::fromStdString(port.path);
         entry["path"] = path;
-        entry["name"] = portName(path);
+        entry["name"] = QString::fromStdString(transport::shortPortName(port.path));
         entry["detail"] = QString::fromStdString(port.manufacturer.empty() ? port.friendlyName : port.manufacturer);
         (transport::isRecognizedPort(port.vendorId, port.productId) ? ports_ : unrecognized_).append(entry);
     }

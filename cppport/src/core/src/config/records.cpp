@@ -8,6 +8,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 
@@ -254,6 +255,13 @@ bool MacroStore::remove(std::string_view id) {
     }
     store_.set("macros", std::move(kept));
     return true;
+}
+
+std::vector<MacroRecord> macrosInColumn(std::vector<MacroRecord> macros, std::string_view column) {
+    std::erase_if(macros, [&](const MacroRecord& m) { return m.column != column; });
+    std::stable_sort(macros.begin(), macros.end(),
+                     [](const MacroRecord& a, const MacroRecord& b) { return a.rowIndex < b.rowIndex; });
+    return macros;
 }
 
 json::array exportMacros(MacroStore& store) {
