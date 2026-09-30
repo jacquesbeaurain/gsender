@@ -28,8 +28,10 @@
 #include <QFile>
 #include <QPointingDevice>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
@@ -58,6 +60,38 @@ using namespace gs;
 
 namespace {
 
+// QML's own warnings (a TypeError, a binding loop, an unknown property),
+// kept so the test that caused them fails: they are otherwise only printed.
+QStringList& qmlWarnings() {
+    static QStringList warnings;
+    return warnings;
+}
+
+QtMessageHandler previousHandler = nullptr;
+
+bool isQmlWarning(QtMsgType type, const QMessageLogContext& context, const QString& message) {
+    if (type == QtDebugMsg || type == QtInfoMsg) {
+        return false;
+    }
+    const QLatin1StringView category(context.category ? context.category : "");
+    if (category == QLatin1StringView("qml") || category == QLatin1StringView("js") ||
+        category.startsWith(QLatin1StringView("qt.qml"))) {
+        return true;
+    }
+    static const QRegularExpression qmlLocation(QStringLiteral("\\.qml:\\d+"));
+    return qmlLocation.match(message).hasMatch() ||
+           (context.file && QLatin1StringView(context.file).endsWith(QLatin1StringView(".qml")));
+}
+
+void recordQmlWarnings(QtMsgType type, const QMessageLogContext& context, const QString& message) {
+    if (isQmlWarning(type, context, message)) {
+        qmlWarnings() << message;
+    }
+    if (previousHandler) {
+        previousHandler(type, context, message);
+    }
+}
+
 QGuiApplication& application() {
     static int argc = 1;
     static char name[] = "gs_ui_tests";
@@ -71,6 +105,7 @@ QGuiApplication& application() {
             qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
         }
         ui::configureQuick(true);
+        previousHandler = qInstallMessageHandler(recordQmlWarnings);
         return new QGuiApplication(argc, argv);
     }();
     return *app;
@@ -109,6 +144,7 @@ class UiTest : public ::testing::Test {
 protected:
     void SetUp() override {
         application();
+        qmlWarnings().clear();
         loop_ = std::make_unique<app::QtEventLoop>();
         machine_ = std::make_unique<app::Machine>(*loop_, (dir_.path() + "/rc").toStdWString());
         backend_ = std::make_unique<ui::UiBackend>(*machine_);
@@ -128,6 +164,10 @@ protected:
         backend_.reset();
         machine_.reset();
         loop_.reset();
+        // A QML warning fails the test, as an exception in C++ would.
+        for (const QString& warning : qmlWarnings()) {
+            ADD_FAILURE() << "QML: " << warning.toStdString();
+        }
     }
 
     QQuickItem* item(const QString& name) { return findItem(window_->contentItem(), name); }
@@ -2430,6 +2470,17 @@ TEST_F(UiTest, HelpLinksOfferTheirQrCode) {
 
     backend_->showHelper("No link", "<p>text</p>");
     EXPECT_TRUE(waitFor([&] { return !item("helperQr")->isVisible(); }));
+}
+
+TEST_F(UiTest, QmlWarningsFailTheTest) {
+    // A binding that throws is reported; the fixture fails the test on it.
+    QQmlComponent component(engine_.get());
+    component.setData("import QtQuick\nItem { width: nothing.x }", QUrl("qrc:/qml_warning_check.qml"));
+    std::unique_ptr<QObject> object(component.create());
+    ASSERT_NE(object, nullptr);
+    ASSERT_TRUE(waitFor([] { return !qmlWarnings().isEmpty(); }));
+    EXPECT_TRUE(qmlWarnings().front().contains("ReferenceError")) << qmlWarnings().front().toStdString();
+    qmlWarnings().clear();  // expected here
 }
 
 int main(int argc, char** argv) {
