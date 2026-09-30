@@ -21,12 +21,15 @@
   },
   "parsers": [
     {
-      "pattern": "^\\[PRB:([-\\d.]+),([-\\d.]+),([-\\d.]+):([01])\\]",
-      "type": "line"
+      "id": "probe",
+      "mode": "line",
+      "match": "^\\[PRB:(?<x>[-\\d.]+),(?<y>[-\\d.]+),(?<z>[-\\d.]+):(?<success>[01])\\]"
     },
     {
-      "pattern": "^;TOOL:(\\d+)",
-      "type": "line"
+      "id": "modal-state",
+      "mode": "line",
+      "match": "^\\[GC:(?<modes>[^\\]]+)\\]",
+      "whenWorkflow": "idle"
     }
   ],
   "capabilities": {

@@ -53,6 +53,36 @@ QPointF ToolpathCamera::project(const Point3& p) const {
             viewport_.height() / 2.0 + pan_.y() - ry * scale_ * f};
 }
 
+std::optional<Point3> ToolpathCamera::unproject(QPointF screen, double planeZ) const {
+    // project() inverted on the plane: with the target at the origin, the
+    // screen offset (a, b) is (rx, ry) scaled - by f = D / (D - rz) in
+    // perspective, which stays linear in x and y once multiplied out.
+    if (scale_ <= 0) {
+        return std::nullopt;
+    }
+    const double a = (screen.x() - viewport_.width() / 2.0 - pan_.x()) / scale_;
+    const double b = -(screen.y() - viewport_.height() / 2.0 - pan_.y()) / scale_;
+    const double z = planeZ - target_.z;
+    const auto& r = rotation_;
+    // a (D - rz) / D = rx and b (D - rz) / D = ry, or a = rx and b = ry.
+    const double ka = perspective_ ? a / cameraDistance_ : 0;
+    const double kb = perspective_ ? b / cameraDistance_ : 0;
+    const double m00 = r[0] + ka * r[6], m01 = r[1] + ka * r[7];
+    const double m10 = r[3] + kb * r[6], m11 = r[4] + kb * r[7];
+    const double c0 = a - ka * r[8] * z - r[2] * z;
+    const double c1 = b - kb * r[8] * z - r[5] * z;
+    const double det = m00 * m11 - m01 * m10;
+    if (std::abs(det) < 1e-9) {
+        return std::nullopt;
+    }
+    const double x = (c0 * m11 - m01 * c1) / det;
+    const double y = (m00 * c1 - c0 * m10) / det;
+    if (perspective_ && r[6] * x + r[7] * y + r[8] * z >= cameraDistance_ * 0.95) {
+        return std::nullopt;
+    }
+    return Point3{x + target_.x, y + target_.y, planeZ};
+}
+
 void ToolpathCamera::setFlat(bool flat, const std::optional<gcode::BoundingBox>& content) {
     flat_ = flat;
     if (flat) {
@@ -308,13 +338,9 @@ void paintCaption(QPainter& painter, const QRectF& area, const VisualizerTheme& 
 
 // ---- the main view ---------------------------------------------------------------------
 
-namespace {
-
-bool rotaryJob(const Machine& machine) {
+bool isRotaryJob(const Machine& machine) {
     return machine.hasProgram() && !machine.isAnalyzing() && machine.analysis().fileType != gcode::FileType::Default;
 }
-
-}  // namespace
 
 std::optional<gcode::BoundingBox> mainViewBounds(const Machine& machine) {
     const bool empty = !machine.hasProgram() || machine.analysis().totalLines == 0 ||
@@ -323,7 +349,7 @@ std::optional<gcode::BoundingBox> mainViewBounds(const Machine& machine) {
         return std::nullopt;
     }
     // A rotary job is framed as drawn: wrapped around X.
-    return rotaryJob(machine) && machine.toolpath().bounded ? machine.toolpath().bounds : machine.analysis().bounds;
+    return isRotaryJob(machine) && machine.toolpath().bounded ? machine.toolpath().bounds : machine.analysis().bounds;
 }
 
 const VisualizerTheme& mainViewTheme(const Machine& machine) {
@@ -355,7 +381,7 @@ void paintMainView(QPainter& painter, ToolpathCamera& camera, const Machine& mac
         const double unit = firmware.get("$13") == "1" ? 25.4 : 1.0;
         const bool onY = machine.rotaryMode();
         tool = Point3{status.wpos.x() * unit, onY ? 0.0 : status.wpos.y() * unit, status.wpos.z() * unit};
-        if (rotaryJob(machine)) {
+        if (isRotaryJob(machine)) {
             rotaryAngle = onY ? status.wpos.y() * unit : status.wpos.a();
         }
         // The camera follows the tool while a job runs.

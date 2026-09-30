@@ -45,6 +45,10 @@ class UiBackend final : public QObject {
     Q_PROPERTY(QString activeState READ activeState NOTIFY stateChanged)
     Q_PROPERTY(QString stateText READ stateText NOTIFY stateChanged)
     Q_PROPERTY(QString alarmCode READ alarmCode NOTIFY stateChanged)
+    // A plugin holds the status at "running" through a line-by-line operation
+    // (machine:busy:set), with its own label when it gave one.
+    Q_PROPERTY(bool pluginBusy READ pluginBusy NOTIFY stateChanged)
+    Q_PROPERTY(QString pluginBusyLabel READ pluginBusyLabel NOTIFY stateChanged)
     // The loaded job.
     Q_PROPERTY(bool hasProgram READ hasProgram NOTIFY programChanged)
     Q_PROPERTY(QString programName READ programName NOTIFY programChanged)
@@ -96,6 +100,8 @@ public:
     QString activeState() const;
     QString stateText() const;
     QString alarmCode() const;
+    bool pluginBusy() const;
+    QString pluginBusyLabel() const;
     bool hasProgram() const;
     QString programName() const;
     bool darkMode() const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QJsonArray>
 #include <QString>
 #include <QStringList>
 #include <QSet>
@@ -13,11 +14,6 @@ struct PluginContribution {
     QString icon;
     QString route;
     bool requiresIdle = false;
-};
-
-struct PluginParserSpec {
-    QString pattern;
-    QString type;       /**< "line" or "block" */
 };
 
 struct PluginCapabilities {
@@ -36,7 +32,8 @@ struct PluginManifest {
     QString uiEntry;
     std::vector<PluginContribution> contributions;
     PluginCapabilities capabilities;
-    std::vector<PluginParserSpec> parsers;
+    /** Parser specs as declared (see plugin_parsers.hpp); the chain validates them when the plugin starts. */
+    QJsonArray parsers;
 
     bool isValid() const { return !id.isEmpty() && !name.isEmpty() && !version.isEmpty(); }
     bool isOfficial() const { return id.startsWith(QStringLiteral("com.sienci.")); }

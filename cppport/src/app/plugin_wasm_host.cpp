@@ -268,7 +268,7 @@ QString PluginWasmHost::handleRequest(const QString& requestJson) {
 }
 
 void PluginWasmHost::onTopicEvent(const QString& topic, const QJsonObject& data) {
-    if (!instance_ || !initialized_ || !bridge_.hasTopic(manifest_, topic)) return;
+    if (!instance_ || !initialized_ || !bridge_.mayReceive(manifest_, topic)) return;
     if (!instance_->hasExport("gsender_plugin_on_topic_event")) return;
     pendingTopics_.emplace_back(topic, data);
     if (pendingTopics_.size() > 1000) pendingTopics_.pop_front();

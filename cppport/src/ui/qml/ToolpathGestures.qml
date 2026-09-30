@@ -74,5 +74,25 @@ Item {
     }
     TapHandler {
         onDoubleTapped: gestures.view.fit()
+        // A plugin's click pick: a clean tap (a drag orbits or pans instead).
+        onSingleTapped: (eventPoint) => {
+            if (gestures.view.pickMode === "click")
+                gestures.view.pickAt(eventPoint.position.x, eventPoint.position.y)
+        }
+    }
+    // A plugin's hold pick: press still for half a second; moving cancels it.
+    TapHandler {
+        enabled: gestures.view.pickMode === "hold"
+        acceptedButtons: Qt.LeftButton
+        longPressThreshold: 0.5
+        onTimeHeldChanged: {
+            if (pressed)
+                gestures.view.pickHoldProgress(Math.min(1, timeHeld / longPressThreshold))
+        }
+        onPressedChanged: {
+            if (!pressed)
+                gestures.view.pickHoldProgress(0)
+        }
+        onLongPressed: gestures.view.pickAt(point.position.x, point.position.y)
     }
 }

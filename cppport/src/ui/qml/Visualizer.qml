@@ -22,6 +22,7 @@ Rectangle {
         id: toolpath
         objectName: "toolpath"
         anchors.fill: parent
+        pluginHost: true
     }
 
     // The visualizer's keyboard shortcuts.

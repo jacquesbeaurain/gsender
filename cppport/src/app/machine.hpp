@@ -310,6 +310,8 @@ Q_SIGNALS:
     void workflowChanged();
     void senderStatusChanged();
     void consoleLine(const QString& text, bool fromHost);
+    // Every complete line from the board, before any interpretation (plugin parsers).
+    void rawLine(const QString& line);
     void programChanged();   // loaded, unloaded or analysed
     void errorReported(const QString& title, const QString& detail);
     void notice(const QString& text);  // tool changes, pauses and other prompts

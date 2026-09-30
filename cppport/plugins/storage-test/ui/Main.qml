@@ -5,6 +5,8 @@ import GSender
 
 Item {
     id: root
+    // The bridge PluginHost hands the plugin: capability-checked requests, topics, storage.
+    property var gsender: null
     implicitWidth: 600
     implicitHeight: 400
 
@@ -48,16 +50,16 @@ Item {
                 GButton {
                     text: qsTr("Save Key")
                     onClicked: {
-                        if (typeof PluginBridge !== "undefined" && keyInput.text.length > 0) {
-                            PluginBridge.send("storage:set", { key: keyInput.text, value: valInput.text })
+                        if (root.gsender && keyInput.text.length > 0) {
+                            root.gsender.send("storage:set", { key: keyInput.text, value: valInput.text })
                         }
                     }
                 }
                 GButton {
                     text: qsTr("Clear All")
                     onClicked: {
-                        if (typeof PluginBridge !== "undefined") {
-                            PluginBridge.send("storage:clear", {})
+                        if (root.gsender) {
+                            root.gsender.send("storage:clear", {})
                         }
                     }
                 }

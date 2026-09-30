@@ -40,6 +40,8 @@ add_library(gs_app STATIC
     sd_card_utils.hpp
     plugin_manifest.cpp
     plugin_manifest.hpp
+    plugin_parsers.cpp
+    plugin_parsers.hpp
     plugin_storage.cpp
     plugin_storage.hpp
     plugin_bridge.cpp

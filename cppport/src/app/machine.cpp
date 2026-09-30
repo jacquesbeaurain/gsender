@@ -254,6 +254,12 @@ void Machine::startSession(controller::DeviceLink& link) {
     session_ = std::make_unique<controller::Session>(
         loop_, link, controller::SessionOptions{settings_.defaultFirmware}, std::move(hooks),
         [this](const controller::ControllerEvent& event) { handle(event); });
+    session_->onLine = [this](std::string_view line) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+            line.remove_suffix(1);
+        }
+        Q_EMIT rawLine(QString::fromUtf8(line.data(), static_cast<qsizetype>(line.size())));
+    };
     session_->onController = [this](controller::Controller& c, bool) {
         connecting_ = false;
         // The console's banner for the connection.

@@ -105,17 +105,9 @@ bool parsePluginManifest(const QString& jsonString, PluginManifest* outManifest,
         }
     }
 
-    // Parsers
-    if (obj.contains(QStringLiteral("parsers")) && obj[QStringLiteral("parsers")].isArray()) {
-        for (const auto& item : obj[QStringLiteral("parsers")].toArray()) {
-            if (item.isObject()) {
-                const QJsonObject p = item.toObject();
-                PluginParserSpec spec;
-                spec.pattern = p.value(QStringLiteral("pattern")).toString();
-                spec.type = p.value(QStringLiteral("type")).toString(QStringLiteral("line"));
-                outManifest->parsers.push_back(spec);
-            }
-        }
+    // Parsers: kept as declared, and checked by the parser chain.
+    if (obj.value(QStringLiteral("parsers")).isArray()) {
+        outManifest->parsers = obj.value(QStringLiteral("parsers")).toArray();
     }
 
     if (!outManifest->isValid()) {

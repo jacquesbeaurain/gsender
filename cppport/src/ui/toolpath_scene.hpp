@@ -71,6 +71,9 @@ public:
     double scale() const noexcept { return scale_; }
 
     QPointF project(const Point3& p) const;
+    // The point of the plane Z = `planeZ` that projects to `screen`; nothing
+    // when the plane is edge-on (or behind a perspective camera).
+    std::optional<Point3> unproject(QPointF screen, double planeZ = 0) const;
 
 private:
     void updateRotation();
@@ -122,6 +125,8 @@ void paintMainView(QPainter& painter, ToolpathCamera& camera, const Machine& mac
 // What the main view frames: the analysed program (a rotary job as drawn),
 // or nothing.
 std::optional<gcode::BoundingBox> mainViewBounds(const Machine& machine);
+// A rotary job (drawn wrapped around X) is loaded.
+bool isRotaryJob(const Machine& machine);
 // The theme the settings choose.
 const VisualizerTheme& mainViewTheme(const Machine& machine);
 

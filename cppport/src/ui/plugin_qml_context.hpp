@@ -56,7 +56,7 @@ private:
     QMap<QString, QList<QJSValue>> topicCallbacks_;
 
     const app::LoadedPlugin* plugin() const;
-    void onTopicEvent(const QString& topic, const QJsonObject& data);
+    void onPluginEvent(const QString& targetId, const QString& topic, const QJsonObject& data);
 };
 
 }  // namespace gs::ui

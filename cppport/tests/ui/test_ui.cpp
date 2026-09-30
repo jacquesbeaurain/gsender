@@ -15,6 +15,7 @@
 #include "plugin_service.hpp"
 #include "remote_service.hpp"
 #include "shortcuts.hpp"
+#include "toolpath_scene.hpp"
 
 #include "gs/config/history.hpp"
 #include "gs/controller/controller.hpp"
@@ -306,6 +307,82 @@ TEST_F(UiTest, TheVisualizerOrbitsPansAndZoomsByTouch) {
     EXPECT_EQ(view->property("view").toString(), "top");
     EXPECT_DOUBLE_EQ(view->property("pitch").toDouble(), 0);
     screenshot("ui_visualizer_top");
+}
+
+TEST(ToolpathCameraTest, UnprojectInvertsProjectOnThePlane) {
+    for (const bool perspective : {false, true}) {
+        app::ToolpathCamera camera;
+        camera.setViewport(QSizeF(800, 600));
+        camera.setPerspective(perspective);
+        camera.setView(app::ToolpathCamera::View::Iso, std::nullopt);
+        camera.pan(37, -12);
+        for (const app::Point3 p : {app::Point3{0, 0, 0}, app::Point3{42.5, -17, 0}, app::Point3{-80, 60, 5}}) {
+            const QPointF screen = camera.project(p);
+            const auto back = camera.unproject(screen, p.z);
+            ASSERT_TRUE(back.has_value());
+            EXPECT_NEAR(back->x, p.x, 1e-6) << perspective;
+            EXPECT_NEAR(back->y, p.y, 1e-6) << perspective;
+            EXPECT_DOUBLE_EQ(back->z, p.z);
+        }
+        // Edge-on, the work plane has no point under a pixel.
+        camera.setView(app::ToolpathCamera::View::Front, std::nullopt);
+        EXPECT_FALSE(camera.unproject(QPointF(400, 300)).has_value());
+    }
+}
+
+TEST_F(UiTest, TheVisualizerServesPluginViewerRequests) {
+    app::PluginBridge& bridge = machine_->pluginService().bridge();
+    QQuickItem* view = item("toolpath");
+    ASSERT_NE(view, nullptr);
+    ASSERT_NE(bridge.viewer(), nullptr);
+    app::PluginManifest manifest;
+    manifest.id = "com.example.viewer";
+    manifest.capabilities.requestTypes = {"viewer:screen-to-world", "viewer:world-to-screen", "viewer:camera:set",
+                                          "viewer:camera:lock-rotate", "viewer:pick:arm", "viewer:overlay:set",
+                                          "machine:busy:set"};
+
+    ASSERT_TRUE(bridge.execute(manifest, "viewer:camera:set", {{"view", "3d"}}).ok);
+    EXPECT_EQ(view->property("view").toString(), "3d");
+    const auto screen = bridge.execute(manifest, "viewer:world-to-screen", {{"x", 10}, {"y", 20}});
+    ASSERT_TRUE(screen.ok);
+    const auto world = bridge.execute(manifest, "viewer:screen-to-world",
+                                      {{"px", screen.result.value("x")}, {"py", screen.result.value("y")}});
+    ASSERT_TRUE(world.ok);
+    EXPECT_NEAR(world.result.value("x").toDouble(), 10, 1e-6);
+    EXPECT_NEAR(world.result.value("y").toDouble(), 20, 1e-6);
+
+    // Rotation locked: a one-finger drag no longer orbits.
+    ASSERT_TRUE(bridge.execute(manifest, "viewer:camera:lock-rotate", {{"locked", true}}).ok);
+    EXPECT_FALSE(view->property("rotateEnabled").toBool());
+    const double yaw = view->property("yaw").toDouble();
+    QMetaObject::invokeMethod(view, "orbit", Q_ARG(double, 30.0), Q_ARG(double, 0.0));
+    EXPECT_DOUBLE_EQ(view->property("yaw").toDouble(), yaw);
+
+    // A click pick, once armed, comes back on the viewer topic.
+    connectSimulator();
+    QJsonObject picked;
+    QObject::connect(&bridge, &app::PluginBridge::pluginEvent,
+                     [&](const QString&, const QString& topic, const QJsonObject& data) {
+                         if (topic == "viewer" && data.value("kind") == "pick") picked = data;
+                     });
+    ASSERT_TRUE(bridge.execute(manifest, "viewer:pick:arm", {{"mode", "click"}}).ok);
+    EXPECT_EQ(view->property("pickMode").toString(), "click");
+    QTest::mouseClick(window_, Qt::LeftButton, Qt::NoModifier, centreOf(view));
+    ASSERT_TRUE(waitFor([&] { return !picked.isEmpty(); }));
+    EXPECT_TRUE(picked.value("world").isObject());
+
+    // A plugin's busy latch holds the status pill, with its label.
+    ASSERT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
+    ASSERT_TRUE(bridge.execute(manifest, "machine:busy:set", {{"busy", true}, {"label", "Drilling"}}).ok);
+    EXPECT_TRUE(waitFor([&] { return text("statusText") == "Drilling"; }));
+    ASSERT_TRUE(bridge.execute(manifest, "machine:busy:set", {{"busy", false}}).ok);
+    EXPECT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
+
+    ASSERT_TRUE(bridge.execute(manifest, "viewer:overlay:set",
+                               {{"markers", QJsonArray{QJsonObject{{"id", "a"}, {"x", 10}, {"y", 20}, {"label", "A"}},
+                                                       QJsonObject{{"id", "b"}, {"x", 30}, {"y", 20}, {"shape", "ring"}}}}})
+                    .ok);
+    screenshot("ui_visualizer_plugin_overlay");
 }
 
 TEST_F(UiTest, TheDroZeroesTypesAndGoesTo) {
