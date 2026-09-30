@@ -128,6 +128,8 @@ int main(int argc, char** argv) {
     }
     if (parser.isSet(simulator) || parser.isSet(simulatorHal)) {
         backend.connectSimulator(parser.isSet(simulatorHal));
+    } else if (!parser.isSet(screenshot)) {
+        machine.reconnectAutomatically();
     }
     if (parser.isSet(load)) {
         machine.loadFile(parser.value(load));

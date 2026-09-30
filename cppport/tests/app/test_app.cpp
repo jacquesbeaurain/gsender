@@ -653,6 +653,26 @@ TEST(GSenderSettings, AccessibilityComesAlong) {
     EXPECT_EQ(displayScaleFactor(path.toStdWString()), 1.25);
 }
 
+TEST_F(AppTest, ReconnectAutomaticallyGoesBackToTheLastPort) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AppSettings settings = machine.settings();
+    settings.port = Machine::kSimulatorPort.toStdString();
+    machine.setSettings(settings);
+    EXPECT_FALSE(machine.reconnectAutomatically());  // off by default
+    settings.autoReconnect = true;
+    settings.port = "/dev/gs-no-such-port";
+    machine.setSettings(settings);
+    EXPECT_FALSE(machine.reconnectAutomatically());  // not there
+    settings.port = Machine::kSimulatorPort.toStdString();
+    machine.setSettings(settings);
+    EXPECT_TRUE(machine.reconnectAutomatically());
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    EXPECT_EQ(machine.port(), Machine::kSimulatorPort);
+    EXPECT_FALSE(machine.reconnectAutomatically());  // already connected
+}
+
 TEST(AccessoryWizards, TheirCommandsFollowTheFirmware) {
     const auto has = [](const std::vector<std::string>& code, const std::string& line) {
         return std::find(code.begin(), code.end(), line) != code.end();

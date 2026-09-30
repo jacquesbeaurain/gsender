@@ -19,6 +19,7 @@
 #include "gs/sim/grbl_simulator.hpp"
 #include "gs/transport/asio_link.hpp"
 #include "gs/transport/ftp_upload.hpp"
+#include "gs/transport/port_list.hpp"
 
 #include <QDateTime>
 #include <QTimeZone>
@@ -364,6 +365,23 @@ void Machine::teardown() {
 
 runtime::EventLoop& Machine::eventLoop() noexcept {
     return loop_;
+}
+
+bool Machine::reconnectAutomatically() {
+    const AppSettings& s = settings();
+    if (!s.autoReconnect || s.port.empty() || isConnected() || isConnecting()) {
+        return false;
+    }
+    const QString port = QString::fromStdString(s.port);
+    bool known = isSimulatorPort(port) || transport::looksLikeIpAddress(s.port);
+    for (const transport::SerialPortInfo& info : transport::listSerialPorts()) {
+        known = known || info.path == s.port;
+    }
+    if (!known) {
+        return false;
+    }
+    connectTo(port, s.baudRate, s.networkPort);
+    return true;
 }
 
 void Machine::disconnectFromMachine() {

@@ -109,6 +109,9 @@ public:
     // A COM port, an IPv4 address (TCP, `networkPort`) or a simulator.
     void connectTo(const QString& port, int baudRate = 115200, int networkPort = 23);
     void disconnectFromMachine();
+    // Basics' "Reconnect automatically": to the last port used, when it is
+    // there (listed, an address or a simulator); false when nothing started.
+    bool reconnectAutomatically();
     bool isConnecting() const noexcept { return connecting_; }
     bool isConnected() const;  // the firmware is known and a controller runs
     // grblHAL runs a file from its SD card (its status names the file); no
