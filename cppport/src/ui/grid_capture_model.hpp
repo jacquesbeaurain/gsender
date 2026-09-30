@@ -65,6 +65,8 @@ public:
     // Spacing in the workspace units, the point counts (1 to 200 each).
     // False when it cannot run (not idle, a run on, bad numbers).
     Q_INVOKABLE bool startGrid(const QString& dx, const QString& nx, const QString& dy, const QString& ny);
+    // The points a grid of those counts probes (each count 1-200).
+    Q_INVOKABLE int gridPoints(const QString& nx, const QString& ny) const;
     // One point, probed straight down from where the probe is.
     Q_INVOKABLE bool capturePoint();
     Q_INVOKABLE void stop();

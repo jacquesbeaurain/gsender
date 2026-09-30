@@ -141,24 +141,33 @@ std::optional<probe::CaptureSetup> GridCaptureModel::setup() const {
     return s;
 }
 
+namespace {
+
+// parseInt, clamped to 1-200 (the branch's clampInt); a count that is not a
+// number is 1.
+int axisPoints(const QString& text) {
+    const double value = js::parseInt(text.toStdString());
+    return std::isnan(value) ? 1 : static_cast<int>(std::clamp(value, 1.0, 200.0));
+}
+
+}  // namespace
+
+int GridCaptureModel::gridPoints(const QString& nx, const QString& ny) const {
+    return axisPoints(nx) * axisPoints(ny);
+}
+
 bool GridCaptureModel::startGrid(const QString& dx, const QString& nx, const QString& dy, const QString& ny) {
     const std::optional<probe::CaptureSetup> s = setup();
     if (!s) {
         return false;
     }
-    // parseInt, clamped to 1-200 (the branch's clampInt); a count that is
-    // not a number is 1.
-    const auto count = [](const QString& text) {
-        const double value = js::parseInt(text.toStdString());
-        return std::isnan(value) ? 1 : static_cast<int>(std::clamp(value, 1.0, 200.0));
-    };
     const double spacingX = js::stringToNumber(dx.toStdString());
     const double spacingY = js::stringToNumber(dy.toStdString());
     if (!std::isfinite(spacingX) || !std::isfinite(spacingY)) {
         return false;
     }
     const auto mm = [this](double value) { return metric() ? value : units::in2mm(value); };
-    if (!capture_.startGrid(*s, {mm(spacingX), count(nx), mm(spacingY), count(ny)})) {
+    if (!capture_.startGrid(*s, {mm(spacingX), axisPoints(nx), mm(spacingY), axisPoints(ny)})) {
         return false;
     }
     timer_.start();

@@ -297,9 +297,8 @@ Rectangle {
                 color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
                 border.color: Theme.dark ? Theme.outline : Theme.gray[300]
                 function jump() {
-                    const line = Number(jumpField.text)
-                    if (line >= 1) {
-                        const row = Math.min(line, editor.model.count) - 1
+                    const row = editor.model.jumpRow(jumpField.text)
+                    if (row >= 0) {
                         list.positionViewAtIndex(row, ListView.Center)
                         editor.model.clearSelection()
                         editor.model.toggleSelected(row, false)

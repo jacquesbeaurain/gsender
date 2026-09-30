@@ -190,8 +190,7 @@ Popup {
                     enabled: dialog.model.running ? dialog.model.kind === "grid" : dialog.canStart
                     text: dialog.model.running ? qsTr("Stop")
                         : dialog.probe && dialog.probe.circuitChecked
-                          ? qsTr("Start Grid (%1 points)").arg(Math.max(1, Math.min(200, parseInt(nx.text) || 1))
-                                                               * Math.max(1, Math.min(200, parseInt(ny.text) || 1)))
+                          ? qsTr("Start Grid (%1 points)").arg(dialog.model.gridPoints(nx.text, ny.text))
                           : qsTr("Waiting for probe circuit check...")
                     onClicked: {
                         if (dialog.model.running) {
