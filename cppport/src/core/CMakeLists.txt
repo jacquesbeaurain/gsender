@@ -9,6 +9,7 @@ add_library(gs_core STATIC
     src/util/datetime.cpp
     src/util/zip.cpp
     src/util/qrcode.cpp
+    src/util/wizard_walk.cpp
     src/remote/network.cpp
     src/remote/pendant.cpp
     src/gcode/parser.cpp
