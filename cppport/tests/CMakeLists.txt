@@ -69,6 +69,7 @@ if(TARGET gs_app)
     add_executable(gs_app_tests
         app/test_app.cpp
         app/test_plugins.cpp
+        app/test_remote.cpp
     )
     target_link_libraries(gs_app_tests PRIVATE gs_app GTest::gtest GTest::gtest_main)
     target_compile_definitions(gs_app_tests PRIVATE GS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

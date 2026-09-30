@@ -50,6 +50,10 @@ QGuiApplication& application() {
     static char name[] = "gs_app_tests";
     static char* argv[] = {name, nullptr};
     static QGuiApplication* app = [] {
+        // Another suite in this executable may have made it first.
+        if (auto* existing = qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
+            return existing;
+        }
         qputenv("QT_QPA_PLATFORM", "offscreen");
         if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR") && !qEnvironmentVariableIsEmpty("WINDIR")) {
             qputenv("QT_QPA_FONTDIR", qgetenv("WINDIR") + "\\Fonts");
