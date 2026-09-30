@@ -32,7 +32,7 @@ ToolPage {
                 background: Rectangle {
                     radius: Theme.radius
                     color: Theme.dark ? Theme.surfaceRaised : "white"
-                    border.color: searchInput.activeFocus ? Theme.brand[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                    border.color: searchInput.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
                 }
                 onTextChanged: tool.model.search = text
             }
@@ -127,6 +127,8 @@ ToolPage {
 
                 delegate: Rectangle {
                     id: pluginCard
+                    // The Repeater below shadows `model`, so it reads this instead.
+                    readonly property var capabilities: model.capabilities
                     width: pluginsList.width
                     implicitHeight: cardContent.implicitHeight + 24
                     radius: Theme.radius
@@ -146,7 +148,7 @@ ToolPage {
 
                             Icon {
                                 name: "PiPuzzlePiece"
-                                color: model.official ? Theme.brand[500] : Theme.contentPrimary
+                                color: model.official ? Theme.blue[500] : Theme.contentPrimary
                                 width: 24; height: 24
                             }
 
@@ -227,7 +229,7 @@ ToolPage {
                             }
 
                             Repeater {
-                                model: model.capabilities
+                                model: pluginCard.capabilities
                                 Rectangle {
                                     implicitHeight: 18
                                     implicitWidth: capText.implicitWidth + 8
