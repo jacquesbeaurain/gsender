@@ -1,0 +1,48 @@
+name: cppport
+
+# Builds the C++ port and runs its test suites on Linux, as
+# cppport/tools/build.sh -Test does locally (warnings are errors).
+on:
+  push:
+    branches: ["devcpp*"]
+    paths: ["cppport/**", ".github/workflows/cppport.yml"]
+  pull_request:
+    paths: ["cppport/**", ".github/workflows/cppport.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: cppport-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux build and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GS_DEPS_DIR: ${{ github.workspace }}/gs-deps
+    defaults:
+      run:
+        working-directory: cppport
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja and fonts
+        run: sudo apt-get update -q && sudo apt-get install -y -q ninja-build fontconfig fonts-dejavu-core
+
+      # Qt, Boost, GoogleTest and SDL3 from conda-forge (tools/setup_linux.sh),
+      # kept between runs until the script changes.
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: gs-deps
+          key: gs-deps-${{ runner.os }}-${{ hashFiles('cppport/tools/setup_linux.sh') }}
+
+      - name: Install dependencies
+        run: tools/setup_linux.sh
+
+      - name: Build and test
+        run: tools/build.sh -Test
