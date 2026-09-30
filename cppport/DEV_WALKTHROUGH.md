@@ -2206,3 +2206,28 @@ already probes for real (Step 21).
 | Output | downloaded as `<name>.csv` when the grid finishes | Save CSV... (a file dialog) whenever points are held | a desktop app; manual points may follow the grid |
 | `[PRB:]` with more axes (grblHAL's A) | not matched: the run waits and times out | matched, X/Y/Z read | a 4-axis grblHAL board reports four coordinates |
 | Manual points | none | jog, Capture Point, same CSV | the owner's request |
+
+## Step 72 — Cleanup pass: settings back in effect, the installer's walk in C++, shared Qt glue
+
+- **Settings that did nothing.** Retiring the widget UI (Phase 4) removed
+  the code that applied several settings, which the Config page kept
+  offering: Power saving, Reconnect automatically, Prompt on exit, and
+  Accessibility's announcements, audio cues, G-code summary, focus rings,
+  reduced motion and visualizer keyboard control. They work again:
+  `AccessibilityAnnouncer` (`src/app`, no widgets) is owned by `UiBackend`
+  and announces through the QML window; `Machine::reconnectAutomatically()`
+  runs at start-up; `UiBackend` applies power saving and exposes the rest;
+  `ToolpathItem::keyboardControl` takes the focus and the arrow/+/-/Home
+  keys; `Main.qml` asks before closing; `Theme.focusRings` and
+  `Theme.reducedMotion` gate the focus ring and the animations. Focus
+  trapping stays a stored setting only: QML's modal popups already keep the
+  focus. Deviation: off Windows the audio cues ring the terminal bell (Qt
+  Gui has no beep).
+- **The accessory installer's walk** (screen, wizard, configuration, step,
+  steps done, skipped steps, Next/Previous/Restart/Exit) moved from
+  `AccessoryInstallerTool.qml` into `AccessoryModel`, which already derived
+  from `WizardModelBase` without using it. The QML binds and remounts the
+  step's page on `pageChanged`.
+- **Shared Qt glue.** `src/ui/qt_text.hpp` (`qstr`, `jsNumber`,
+  `localPath`) replaces copies in eight view models; the top bar's
+  connection kind uses `transport::looksLikeIpAddress`, as connecting does.
