@@ -204,10 +204,36 @@ void NavCubeItem::paint(QPainter* painter) {
             textColor = QColor(225, 235, 245, 215);
         }
 
-        // Draw quad face
+        // Draw quad face with smoothly rounded corners
+        QPainterPath roundPath;
+        const int n = 4;
+        const double cornerR = 5.0;
+        for (int vi = 0; vi < n; ++vi) {
+            const QPointF prev = pf.poly[(vi + n - 1) % n];
+            const QPointF curr = pf.poly[vi];
+            const QPointF next = pf.poly[(vi + 1) % n];
+
+            const QPointF d1 = prev - curr;
+            const QPointF d2 = next - curr;
+            const double l1 = std::hypot(d1.x(), d1.y());
+            const double l2 = std::hypot(d2.x(), d2.y());
+            const double r = std::min({cornerR, l1 * 0.35, l2 * 0.35});
+
+            const QPointF p1 = curr + (d1 / l1) * r;
+            const QPointF p2 = curr + (d2 / l2) * r;
+
+            if (vi == 0) {
+                roundPath.moveTo(p1);
+            } else {
+                roundPath.lineTo(p1);
+            }
+            roundPath.quadTo(curr, p2);
+        }
+        roundPath.closeSubpath();
+
         painter->setPen(QPen(borderColor, active ? 1.6 : 1.0));
         painter->setBrush(fillColor);
-        painter->drawPolygon(pf.poly);
+        painter->drawPath(roundPath);
 
         // Center of polygon
         QPointF c(0, 0);
@@ -218,8 +244,8 @@ void NavCubeItem::paint(QPainter* painter) {
 
         QFont font = painter->font();
         font.setBold(true);
-        font.setPixelSize(10);
-        font.setLetterSpacing(QFont::AbsoluteSpacing, 0.6);
+        font.setPixelSize(11);
+        font.setLetterSpacing(QFont::AbsoluteSpacing, 0.8);
         painter->setFont(font);
 
         painter->setPen(textColor);

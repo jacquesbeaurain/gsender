@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Layouts
 import GSender
 
 // The main visualizer: the toolpath drawn by ToolpathItem, driven by touch
@@ -11,6 +12,7 @@ Rectangle {
     objectName: "visualizer"
 
     property alias view: toolpath
+    property string activeOverlayPluginId: ""
 
     color: "transparent"
     radius: Theme.radius
@@ -53,10 +55,11 @@ Rectangle {
     }
 
     // Navigation & Viewport Controls (bottom-left overlay)
-    // 3D Navigation Cube
+    // 3D Navigation Cube (hidden in lightweight mode matching upstream)
     NavCubeItem {
         id: navCube
         objectName: "navCube"
+        visible: !Backend.liteMode
         anchors.left: parent.left
         anchors.leftMargin: 60
         anchors.bottom: parent.bottom
@@ -69,9 +72,10 @@ Rectangle {
     // Utility Row (Iso view + Ortho/Perspective toggle) stacked above ViewCube
     Row {
         id: cubeUtilityRow
-        anchors.bottom: navCube.top
-        anchors.bottomMargin: 28
-        anchors.horizontalCenter: navCube.horizontalCenter
+        anchors.bottom: Backend.liteMode ? parent.bottom : navCube.top
+        anchors.bottomMargin: Backend.liteMode ? 60 : 28
+        anchors.left: parent.left
+        anchors.leftMargin: 60 + (84 - width) / 2
         spacing: 8
 
         // Iso View
@@ -108,14 +112,14 @@ Rectangle {
             radius: 18
             readonly property bool isOrtho: !Backend.perspective
             color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
-            border.color: isOrtho ? Qt.rgba(96/255, 165/255, 250/255, 0.95)
+            border.color: isOrtho ? "#60a5fa"
                                   : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
             border.width: isOrtho ? 1.5 : 1.0
 
             Icon {
                 anchors.centerIn: parent
                 name: btnProjection.isOrtho ? "LuSquare" : "LuBox"
-                color: btnProjection.isOrtho ? Qt.rgba(96/255, 165/255, 250/255, 0.95)
+                color: btnProjection.isOrtho ? "#60a5fa"
                                              : (orthoHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
                 width: 16
                 height: 16
@@ -134,20 +138,20 @@ Rectangle {
         objectName: "btnLightweight"
         anchors.bottom: cubeUtilityRow.top
         anchors.bottomMargin: 6
-        anchors.horizontalCenter: navCube.horizontalCenter
+        anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
         width: 44
         height: 44
         radius: 22
         readonly property bool isLite: Backend.liteMode
         color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
-        border.color: isLite ? Qt.rgba(96/255, 165/255, 250/255, 0.95)
+        border.color: isLite ? "#60a5fa"
                              : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
         border.width: isLite ? 2.0 : 1.0
 
         Icon {
             anchors.centerIn: parent
             name: "FaFeatherAlt"
-            color: btnLightweight.isLite ? Qt.rgba(96/255, 165/255, 250/255, 0.95)
+            color: btnLightweight.isLite ? "#60a5fa"
                                          : (liteHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
             width: 20
             height: 20
@@ -157,6 +161,108 @@ Rectangle {
         ToolTip.visible: liteHover.hovered
         ToolTip.text: isLite ? qsTr("Disable lightweight mode") : qsTr("Enable lightweight mode")
         TapHandler { onTapped: Backend.toggleLiteMode() }
+    }
+
+    // Plugin Visualizer Overlay floating toggle buttons (stacked above lightweight toggle)
+    PluginsModel { id: visualizerPluginsModel }
+    Repeater {
+        id: overlayToggleButtons
+        model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
+        Rectangle {
+            required property var modelData
+            required property int index
+            objectName: "btnOverlay_" + modelData.pluginId
+            anchors.bottom: btnLightweight.top
+            anchors.bottomMargin: 10 + index * 52
+            anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
+            width: 44
+            height: 44
+            radius: 22
+            readonly property bool isOpen: frame.activeOverlayPluginId === modelData.pluginId
+            color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
+            border.color: isOpen ? "#0ef6ae"
+                                 : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
+            border.width: isOpen ? 2.0 : 1.0
+
+            Icon {
+                anchors.centerIn: parent
+                name: "LuCrosshair"
+                color: parent.isOpen ? "#0ef6ae"
+                                     : (overlayBtnHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
+                width: 20
+                height: 20
+            }
+
+            HoverHandler { id: overlayBtnHover }
+            ToolTip.visible: overlayBtnHover.hovered
+            ToolTip.text: modelData.label || modelData.pluginName
+            TapHandler {
+                onTapped: {
+                    frame.activeOverlayPluginId = (frame.activeOverlayPluginId === parent.modelData.pluginId) ? "" : parent.modelData.pluginId
+                }
+            }
+        }
+    }
+
+    // Floating Overlay Panels on the right (matching upstream OverlayPanel, shown ONLY when opened)
+    Repeater {
+        id: visualizerOverlays
+        model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
+        Rectangle {
+            required property var modelData
+            visible: frame.activeOverlayPluginId === modelData.pluginId
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.margins: 16
+            width: 320
+            radius: Theme.radius
+            color: Theme.dark ? Theme.surfaceRaised : "white"
+            border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+            clip: true
+            z: 20
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 8
+
+                // Header with title and Close (X) button
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true
+                        text: modelData.label || modelData.pluginName
+                        font.bold: true
+                        font.pixelSize: Theme.fontMd
+                        color: Theme.contentPrimary
+                    }
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: closeHover.hovered ? (Theme.dark ? Theme.gray[700] : Theme.gray[200]) : "transparent"
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "LuX"
+                            width: 16
+                            height: 16
+                            color: Theme.contentPrimary
+                        }
+                        HoverHandler { id: closeHover }
+                        TapHandler { onTapped: frame.activeOverlayPluginId = "" }
+                    }
+                }
+
+                // Mounted Plugin View
+                PluginHost {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    pluginId: modelData.pluginId
+                    uiEntryUrl: modelData.uiUrl
+                }
+            }
+        }
     }
 
     // Test automation proxy for legacy view actions
@@ -182,17 +288,5 @@ Rectangle {
         opacity: 0.001
         z: 10
         TapHandler { onTapped: toolpath.fit() }
-    }
-
-    // Third-party plugin visualizer overlays (slot: visualizer-overlay).
-    PluginsModel { id: visualizerPluginsModel }
-    Repeater {
-        id: visualizerOverlays
-        model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
-        PluginHost {
-            anchors.fill: parent
-            pluginId: modelData.pluginId
-            uiEntryUrl: modelData.uiUrl
-        }
     }
 }
