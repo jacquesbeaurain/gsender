@@ -858,7 +858,7 @@ TEST_F(UiTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
 }
 
-TEST_F(UiTest, TheProbeTabCapturesARectangularGrid) {
+TEST_F(UiTest, TheProbeTabCapturesARectangularGridAndManualPoints) {
     app::AppSettings settings = machine_->settings();
     settings.probe.plateType = probe::PlateType::Probe3D;
     machine_->setSettings(settings);
@@ -887,8 +887,8 @@ TEST_F(UiTest, TheProbeTabCapturesARectangularGrid) {
     tap("gridStart");
     ASSERT_TRUE(waitFor([&] { return model->property("status").toString() == "done"; }, 20000))
         << model->property("statusText").toString().toStdString();
-    EXPECT_EQ(model->property("statusText").toString(), "Captured 6 points");
-    EXPECT_EQ(model->property("pointCount").toInt(), 6);
+    EXPECT_EQ(model->property("statusText").toString(), "Captured 6 grid points");
+    EXPECT_EQ(model->property("gridCount").toInt(), 6);
     ASSERT_TRUE(waitFor([&] {
         return machine_->simulator()->activeState() == "Idle" && std::abs(machine_->workPositionMm()[2] - z0) < 1e-3;
     }, 10000));  // back at the safe height
@@ -900,7 +900,7 @@ TEST_F(UiTest, TheProbeTabCapturesARectangularGrid) {
     };
     QString csv;
     QMetaObject::invokeMethod(model, "csv", Q_RETURN_ARG(QString, csv));
-    const QStringList rows = csv.split('\n');
+    QStringList rows = csv.split('\n');
     ASSERT_EQ(rows.size(), 7);
     EXPECT_EQ(rows[0], "X,Y,Z");
     for (int i = 0; i < 6; ++i) {
@@ -912,6 +912,29 @@ TEST_F(UiTest, TheProbeTabCapturesARectangularGrid) {
         EXPECT_NEAR(cells[1].toDouble(), w[1] + dy, 1e-3) << i;
         EXPECT_NEAR(cells[2].toDouble(), surface(dx, dy), 1e-3) << i;
     }
+
+    // A manual point where the probe is jogged to: from the grid's last
+    // point (0, 10), 3 along and 17 up.
+    tap("gridModeManual");
+    ASSERT_TRUE(waitFor([&] { return item("gridCapturePoint") && item("gridCapturePoint")->isVisible(); }));
+    machine_->controller()->gcode(std::vector<std::string>{"G91 G0 X3 Y17", "G90"});
+    ASSERT_TRUE(waitFor([&] {
+        const auto at = machine_->workPositionMm();
+        return std::abs(at[0] - (w[0] + 3)) < 1e-3 && std::abs(at[1] - (w[1] + 27)) < 1e-3 &&
+               machine_->controller()->state().status.activeState == "Idle";
+    }, 10000));
+    ASSERT_TRUE(waitFor([&] { return item("gridCapturePoint")->isEnabled(); }));
+    EXPECT_TRUE(waitFor([&] { return text("gridPosition") == "X3.00 Y27.00 Z0.00"; })) << text("gridPosition").toStdString();
+    screenshot("ui_probe_grid_manual");
+    tap("gridCapturePoint");
+    ASSERT_TRUE(waitFor([&] { return model->property("manualCount").toInt() == 1 && !model->property("running").toBool(); }, 10000));
+    QMetaObject::invokeMethod(model, "csv", Q_RETURN_ARG(QString, csv));
+    rows = csv.split('\n');
+    ASSERT_EQ(rows.size(), 8);
+    const QStringList manual = rows[7].split(',');
+    EXPECT_NEAR(manual[0].toDouble(), w[0] + 3, 1e-3);
+    EXPECT_NEAR(manual[1].toDouble(), w[1] + 27, 1e-3);
+    EXPECT_NEAR(manual[2].toDouble(), surface(3, 27), 1e-3);
 
     // Saved as a CSV.
     QVariantMap result;
@@ -951,6 +974,52 @@ TEST_F(UiTest, TheRectangularGridStopsGracefully) {
     EXPECT_EQ(model->property("pointCount").toInt(), captured);
     EXPECT_TRUE(waitFor([&] { return machine_->simulator()->activeState() == "Idle"; }, 10000));
     EXPECT_TRUE(item("gridSave")->isEnabled());
+}
+
+TEST_F(UiTest, TheRectangularGridsManualPointsJogWithAGamepad) {
+    auto fake = std::make_unique<app::FakeGamepadBackend>();
+    app::FakeGamepadBackend* pads = fake.get();
+    backend_->gamepad().setBackend(std::move(fake));
+    app::AppSettings settings = machine_->settings();
+    settings.probe.plateType = probe::PlateType::Probe3D;
+    gamepad::Profile profile;
+    profile.ids = {"Test Pad (STANDARD GAMEPAD Vendor: 1234 Product: 5678)"};
+    profile.name = "Test Pad";
+    profile.buttons.push_back({"A", 0, "JOG_X_P", ""});
+    settings.gamepadProfiles.push_back(profile);
+    machine_->setSettings(settings);
+    connectSimulator();
+    machine_->simulator()->setSpeed(50);
+
+    ASSERT_TRUE(waitFor([&] { return item("gridCaptureButton") && item("gridCaptureButton")->isEnabled(); }));
+    tap("gridCaptureButton");
+    QObject* dialog = item("probeTab")->findChild<QObject*>("rectangularGrid");
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    ASSERT_TRUE(waitFor([&] { return item("gridModeManual") && centreOf(item("gridModeManual")).y() > 0; }));
+    tap("gridModeManual");
+    ASSERT_TRUE(waitFor([&] { return item("gridCapturePoint") && item("gridCapturePoint")->isVisible(); }));
+
+    // With the dialog open, a tap of the pad's A steps X+ by the jog step.
+    gamepad::PadState pad;
+    pad.id = profile.ids[0];
+    pad.standard = true;
+    pad.buttons.assign(17, false);
+    pad.axes.assign(4, 0.0);
+    pads->pads[0] = pad;
+    backend_->gamepad().poll();
+    const double x0 = machine_->workPositionMm()[0];
+    pads->pads[0]->buttons[0] = true;
+    backend_->gamepad().poll();
+    pads->pads[0]->buttons[0] = false;
+    backend_->gamepad().poll();
+    const double step = machine_->settings().jog.normal.xyStep;
+    ASSERT_GT(step, 0);
+    EXPECT_TRUE(waitFor([&] {
+        return std::abs(machine_->workPositionMm()[0] - (x0 + step)) < 1e-3 &&
+               machine_->controller()->state().status.activeState == "Idle";
+    }, 10000)) << machine_->workPositionMm()[0];
+    EXPECT_TRUE(waitFor([&] { return text("gridPosition").startsWith("X" + QString::number(x0 + step, 'f', 2)); }))
+        << text("gridPosition").toStdString();
 }
 
 TEST_F(UiTest, TheRotaryTabSwitchesModeAndLoadsTheMountingSetup) {

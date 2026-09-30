@@ -6,14 +6,17 @@ import GSender
 
 // Rectangular grid capture with the 3D probe (the feature/probe-mesh-capture
 // branch's MeshProbe.tsx): the grid's spacing and point counts from where
-// the probe is parked, the run with its progress and Stop; the probe
-// circuit's light as the run step has it; and the points saved as a CSV.
+// the probe is parked, the run with its progress and Stop; the port's
+// Manual points, probed where the operator jogs to; the probe circuit's
+// light as the run step has it; and the points saved as one CSV.
 Popup {
     id: dialog
     objectName: "rectangularGrid"
 
     property ProbeModel probe
     property GridCaptureModel model: GridCaptureModel {}
+    // "grid" or "manual".
+    property string mode: "grid"
 
     function openCapture() {
         probe.beginCheck()
@@ -58,8 +61,30 @@ Popup {
             last = status
             if (status === "failed")
                 Backend.notify(dialog.model.statusText, "error")
-            else if (status === "done")
+            else if (status === "done" && dialog.model.kind === "grid")
                 Backend.notify(dialog.model.statusText, "success")
+        }
+    }
+
+    component ModeButton: Rectangle {
+        id: modeButton
+        property string key
+        property alias text: modeLabel.text
+        implicitWidth: Math.max(Theme.touchTarget, modeLabel.implicitWidth + 24)
+        implicitHeight: Theme.touchTarget
+        radius: Theme.radiusSmall
+        color: dialog.mode === key ? Qt.rgba(0x52 / 255, 0x91 / 255, 0xcd / 255, 0.3) : "transparent"
+        opacity: dialog.model.running ? 0.6 : 1
+        Label {
+            id: modeLabel
+            anchors.centerIn: parent
+            font.pixelSize: Theme.fontSm
+            font.weight: Font.Medium
+            color: Theme.contentPrimary
+        }
+        TapHandler {
+            enabled: !dialog.model.running
+            onTapped: dialog.mode = modeButton.key
         }
     }
 
@@ -97,18 +122,35 @@ Popup {
 
     contentItem: ColumnLayout {
         spacing: 12
-        Label {
+        RowLayout {
             Layout.fillWidth: true
-            text: qsTr("Capture Rectangular Grid with 3D Probe")
-            font.pixelSize: Theme.fontLg
-            font.bold: true
-            color: Theme.dark ? Theme.contentPrimary : Theme.robin[700]
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Capture Rectangular Grid with 3D Probe")
+                font.pixelSize: Theme.fontLg
+                font.bold: true
+                color: Theme.dark ? Theme.contentPrimary : Theme.robin[700]
+            }
+            Rectangle {
+                implicitWidth: modes.implicitWidth + 4
+                implicitHeight: modes.implicitHeight + 4
+                radius: Theme.radiusSmall
+                color: Theme.dark ? Theme.surfaceRaised : "white"
+                border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                Row {
+                    id: modes
+                    anchors.centerIn: parent
+                    ModeButton { objectName: "gridModeGrid"; key: "grid"; text: qsTr("Grid") }
+                    ModeButton { objectName: "gridModeManual"; key: "manual"; text: qsTr("Manual points") }
+                }
+            }
         }
 
         RowLayout {
             spacing: 16
             // The grid.
             ColumnLayout {
+                visible: dialog.mode === "grid"
                 Layout.fillWidth: true
                 Layout.preferredWidth: 3
                 Layout.alignment: Qt.AlignTop
@@ -145,7 +187,7 @@ Popup {
                     objectName: "gridStart"
                     Layout.fillWidth: true
                     variant: dialog.model.running ? "error" : "primary"
-                    enabled: dialog.model.running || dialog.canStart
+                    enabled: dialog.model.running ? dialog.model.kind === "grid" : dialog.canStart
                     text: dialog.model.running ? qsTr("Stop")
                         : dialog.probe && dialog.probe.circuitChecked
                           ? qsTr("Start Grid (%1 points)").arg(Math.max(1, Math.min(200, parseInt(nx.text) || 1))
@@ -159,6 +201,40 @@ Popup {
                         if (!dialog.model.startGrid(dx.text, nx.text, dy.text, ny.text))
                             Backend.notify(qsTr("Spacing must be a number"), "error")
                     }
+                }
+            }
+            // Manual points.
+            ColumnLayout {
+                visible: dialog.mode === "manual"
+                Layout.fillWidth: true
+                Layout.preferredWidth: 3
+                Layout.alignment: Qt.AlignTop
+                spacing: 8
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    color: Theme.contentPrimary
+                    text: qsTr("Jog the probe over a point, at a height it can safely travel at, then Capture Point: it probes straight down, returns to that height and adds the point to the CSV.")
+                }
+                JogPanel {
+                    objectName: "gridJog"
+                    Layout.alignment: Qt.AlignHCenter
+                }
+                Label {
+                    objectName: "gridPosition"
+                    Layout.alignment: Qt.AlignHCenter
+                    text: dialog.model.position
+                    font.family: "monospace"
+                    color: Theme.contentSecondary
+                }
+                GButton {
+                    objectName: "gridCapturePoint"
+                    Layout.fillWidth: true
+                    variant: "primary"
+                    enabled: dialog.canStart
+                    text: dialog.probe && dialog.probe.circuitChecked ? qsTr("Capture Point")
+                                                                      : qsTr("Waiting for probe circuit check...")
+                    onClicked: dialog.model.capturePoint()
                 }
             }
             // ProbeCircuitStatus, as the run step shows it.
@@ -242,7 +318,9 @@ Popup {
                 objectName: "gridPoints"
                 Layout.fillWidth: true
                 text: dialog.model.pointCount === 0 ? qsTr("No points captured")
-                    : qsTr("%1 points - last %2").arg(dialog.model.pointCount).arg(dialog.model.lastPoint)
+                    : qsTr("%1 points: %2 grid, %3 manual").arg(dialog.model.pointCount)
+                          .arg(dialog.model.gridCount).arg(dialog.model.manualCount)
+                      + (dialog.model.lastPoint ? qsTr(" - last %1").arg(dialog.model.lastPoint) : "")
                 font.pixelSize: Theme.fontSm
                 color: Theme.contentSecondary
             }

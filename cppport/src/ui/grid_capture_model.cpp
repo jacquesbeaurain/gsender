@@ -65,12 +65,17 @@ QString GridCaptureModel::status() const {
     return "idle";
 }
 
+QString GridCaptureModel::kind() const {
+    return capture_.kind() == probe::GridCapture::Kind::Grid ? "grid" : "point";
+}
+
 QString GridCaptureModel::statusText() const {
+    const bool grid = capture_.kind() == probe::GridCapture::Kind::Grid;
     switch (capture_.status()) {
         case probe::GridCapture::Status::Running:
-            return tr("Probing point %1 of %2").arg(captured() + 1).arg(total());
+            return grid ? tr("Probing point %1 of %2").arg(captured() + 1).arg(total()) : tr("Probing...");
         case probe::GridCapture::Status::Done:
-            return tr("Captured %1 points").arg(captured());
+            return grid ? tr("Captured %1 grid points").arg(captured()) : tr("Point captured");
         case probe::GridCapture::Status::Stopped:
             return tr("Stopped after %1 of %2 points").arg(captured()).arg(total());
         case probe::GridCapture::Status::Failed:
@@ -80,6 +85,11 @@ QString GridCaptureModel::statusText() const {
     return {};
 }
 
+int GridCaptureModel::gridCount() const {
+    const auto& points = capture_.points();
+    return static_cast<int>(std::count_if(points.begin(), points.end(), [](const auto& p) { return !p.manual(); }));
+}
+
 QString GridCaptureModel::lastPoint() const {
     const auto& points = capture_.points();
     if (points.empty()) {
@@ -87,6 +97,11 @@ QString GridCaptureModel::lastPoint() const {
     }
     const probe::CapturedPoint& p = points.back();
     return QString("X%1 Y%2 Z%3").arg(positionText(p.x), positionText(p.y), positionText(p.z));
+}
+
+QString GridCaptureModel::position() const {
+    const auto work = machine_.workPositionMm();
+    return QString("X%1 Y%2 Z%3").arg(positionText(work[0]), positionText(work[1]), positionText(work[2]));
 }
 
 bool GridCaptureModel::simulated() const {
@@ -152,6 +167,16 @@ bool GridCaptureModel::startGrid(const QString& dx, const QString& nx, const QSt
     }
     const auto mm = [this](double value) { return metric() ? value : units::in2mm(value); };
     if (!capture_.startGrid(*s, {mm(spacingX), count(nx), mm(spacingY), count(ny)})) {
+        return false;
+    }
+    timer_.start();
+    Q_EMIT changed();
+    return true;
+}
+
+bool GridCaptureModel::capturePoint() {
+    const std::optional<probe::CaptureSetup> s = setup();
+    if (!s || !capture_.capturePoint(*s)) {
         return false;
     }
     timer_.start();

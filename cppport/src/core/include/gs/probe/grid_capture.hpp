@@ -3,7 +3,8 @@
 // Rectangular grid capture with the 3D probe (the feature/probe-mesh-capture
 // branch's features/Probe/useMeshCapture.ts, called a "mesh" there): walks a
 // grid of points, probing down at each one and collecting where the probe
-// touched, for a CSV of X,Y,Z rows.
+// touched, for a CSV of X,Y,Z rows. The port adds single points captured
+// where the operator has jogged the probe to, into the same list.
 //
 // The capture is a state machine over the board's lines: start a run, send
 // what it asks for, feed it every line the board says; it is Qt-free and
@@ -32,18 +33,20 @@ std::optional<ProbeReport> parseProbeReport(std::string_view line);
 // of each row. Pairs of (ix, iy).
 std::vector<std::pair<int, int>> serpentine(int nx, int ny);
 
-// A captured point, in work coordinates (mm), with its grid indices.
+// A captured point, in work coordinates (mm). Grid points carry their grid
+// indices; a point captured by hand has none (-1).
 struct CapturedPoint {
-    int ix = 0;
-    int iy = 0;
+    int ix = -1;
+    int iy = -1;
     double x = 0;
     double y = 0;
     double z = 0;
+    bool manual() const noexcept { return ix < 0; }
 };
 
 // "X,Y,Z" and a row per point in the workspace units (3 decimals in mm, 4
-// in inches), in grid order (rows along X, then up Y) whatever the order
-// they were probed in.
+// in inches): the grid in grid order (rows along X, then up Y) whatever the
+// order it was probed in, then the manual points in the order captured.
 std::string pointsToCsv(const std::vector<CapturedPoint>& points, bool metric);
 
 struct GridSpec {
@@ -66,14 +69,17 @@ struct CaptureSetup {
 class GridCapture {
 public:
     enum class Status { Idle, Running, Done, Stopped, Failed };
+    enum class Kind { Grid, Point };
     using Send = std::function<void(std::vector<std::string>)>;
 
     explicit GridCapture(Send send);
 
     // Probes a grid from the setup's position in +X/+Y (the spacing's
-    // signs), replacing the points from before. False while a run is on, or
-    // for an empty grid.
+    // signs), replacing the grid points from before; manual points stay.
+    // False while a run is on, or for an empty grid.
     bool startGrid(const CaptureSetup& setup, const GridSpec& grid);
+    // Probes once, straight down from where the probe is, and adds the point.
+    bool capturePoint(const CaptureSetup& setup);
     // Graceful: the probe in flight finishes and is kept, then the tool
     // retracts and the run ends.
     void stop();
@@ -86,6 +92,7 @@ public:
     void clear();
 
     Status status() const noexcept { return status_; }
+    Kind kind() const noexcept { return kind_; }
     bool running() const noexcept { return status_ == Status::Running; }
     const std::vector<CapturedPoint>& points() const noexcept { return points_; }
     int total() const noexcept { return static_cast<int>(order_.size()); }  // the run's points
@@ -95,12 +102,14 @@ public:
     std::array<double, 2> target() const;
 
 private:
+    bool begin(const CaptureSetup& setup, Kind kind, std::vector<std::pair<int, int>> order);
     void sendNext();
     void finish(Status status);
     std::string num(double mm) const;
 
     Send send_;
     Status status_ = Status::Idle;
+    Kind kind_ = Kind::Grid;
     CaptureSetup setup_;
     GridSpec grid_;
     std::array<double, 3> offset_{};  // machine - work (mm)

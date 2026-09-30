@@ -68,6 +68,12 @@ TEST(GridCaptureCsv, HandlesAnEmptyCapture) {
     EXPECT_EQ(pointsToCsv({}, true), "X,Y,Z");
 }
 
+TEST(GridCaptureCsv, PutsManualPointsAfterTheGridInTheOrderCaptured) {
+    std::vector<CapturedPoint> points = {{-1, -1, 7, 7, -3}, {1, 0, 10, 0, -1}, {-1, -1, 2, 2, -4}, {0, 0, 0, 0, -2}};
+    EXPECT_EQ(pointsToCsv(points, true),
+              "X,Y,Z\n0.000,0.000,-2.000\n10.000,0.000,-1.000\n7.000,7.000,-3.000\n2.000,2.000,-4.000");
+}
+
 TEST(GridCapture, ParsesProbeReports) {
     auto r = parseProbeReport("[PRB:1.000,-2.500,-10.125:1]");
     ASSERT_TRUE(r);
@@ -160,14 +166,23 @@ TEST(GridCapture, FailsOnAMissOrAnAlarmWithoutSendingMore) {
     EXPECT_TRUE(h.capture.points().empty());
 }
 
-TEST(GridCapture, ANewGridReplacesTheLastAndClearForgetsIt) {
+TEST(GridCapture, AddsManualPointsBesideTheGrid) {
     Harness h;
+    ASSERT_TRUE(h.capture.capturePoint(Harness::setup()));
+    // Straight down from where the probe is.
+    EXPECT_EQ(h.sent[0], std::vector<std::string>{"G21 G90 G38.2 Z-10.000 F150.000"});
+    EXPECT_FALSE(h.capture.startGrid(Harness::setup(), {10, 2, 10, 2}));  // one run at a time
+    h.capture.onLine("[PRB:105.000,205.000,-34.000:1]");
+    EXPECT_EQ(h.capture.status(), GridCapture::Status::Done);
+    EXPECT_EQ(h.sent.back(), std::vector<std::string>{"G21 G90 G0 Z20.000"});
+
+    // A grid replaces the grid before it; the manual point stays.
     for (int run = 0; run < 2; ++run) {
         ASSERT_TRUE(h.capture.startGrid(Harness::setup(), {10, 1, 10, 1}));
-        EXPECT_FALSE(h.capture.startGrid(Harness::setup(), {10, 2, 10, 2}));  // one run at a time
         h.capture.onLine("[PRB:105.000,205.000,-35.000:1]");
     }
-    EXPECT_EQ(h.capture.points().size(), 1u);
+    ASSERT_EQ(h.capture.points().size(), 2u);
+    EXPECT_EQ(pointsToCsv(h.capture.points(), true), "X,Y,Z\n5.000,5.000,-5.000\n5.000,5.000,-4.000");
     h.capture.clear();
     EXPECT_TRUE(h.capture.points().empty());
 }
