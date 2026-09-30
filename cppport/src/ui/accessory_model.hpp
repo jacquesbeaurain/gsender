@@ -6,9 +6,9 @@
 // pages), the checks a wizard needs to pass, and what each step's page does
 // to the machine (accessory_wizards). It also walks them (components/
 // Wizard): the hub, a wizard's landing page, a configuration's steps one at
-// a time - Next opening once a step's page is done, steps with nothing to do
-// passed - and the closing page. AccessoryInstallerTool.qml draws the screen
-// the model is on and each step's page.
+// a time (gs::util::WizardWalk) and the closing page.
+// AccessoryInstallerTool.qml draws the screen the model is on and each
+// step's page.
 
 #include "wizard_model_base.hpp"
 #include <QString>
@@ -17,7 +17,8 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
-#include <set>
+#include "gs/util/wizard_walk.hpp"
+
 #include <string>
 #include <vector>
 
@@ -99,8 +100,8 @@ public:
     QVariantMap subWizard() const { return sub_; }
     QVariantList steps() const;
     QStringList failed() const;
-    bool atCompletion() const noexcept { return atCompletion_; }
-    int totalSteps() const override { return static_cast<int>(steps().size()); }
+    bool atCompletion() const noexcept { return walk_.atCompletion(); }
+    int totalSteps() const override { return walk_.stepCount(); }
     bool canNext() const override;
     bool canBack() const override;
 
@@ -157,15 +158,14 @@ private:
     void send(const std::vector<std::string>& code);
     bool load(const QString& resource, const QString& name);
     controller::LocationSettings locationSettings() const;
-    QString stepId(int index) const;
-    void enterStep(int index);
-    void navigated();
+    // After a move: the properties notified, and the page remade with a
+    // new one.
+    void navigated(bool newPage);
 
     QString screen_ = QStringLiteral("hub");
     QVariantMap wizard_;
     QVariantMap sub_;
-    std::set<int> completed_;
-    bool atCompletion_ = false;
+    util::WizardWalk walk_;
 };
 
 }  // namespace gs::ui
