@@ -75,6 +75,9 @@ public:
     Q_INVOKABLE void nextMatch();
     Q_INVOKABLE void previousMatch();
     Q_INVOKABLE QString text() const { return lines_.join('\n'); }
+    // Go to line: the row of a line number as typed (past the end, the last
+    // row); -1 when it is not a line.
+    Q_INVOKABLE int jumpRow(const QString& text) const;
 
 Q_SIGNALS:
     void linesChanged();

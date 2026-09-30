@@ -6,12 +6,14 @@
 
 #include "gs/controller/controller.hpp"
 #include "gs/job/program_analysis.hpp"
+#include "gs/util/jsnumber.hpp"
 #include "gs/util/strings.hpp"
 
 #include <QClipboard>
 #include <QGuiApplication>
 
 #include <algorithm>
+#include <cmath>
 
 namespace gs::ui {
 
@@ -78,6 +80,14 @@ QString GcodeEditorModel::jobState() const {
 
 bool GcodeEditorModel::jobRunning() const {
     return !jobState().isEmpty();
+}
+
+int GcodeEditorModel::jumpRow(const QString& text) const {
+    const double line = js::stringToNumber(text.trimmed().toStdString());
+    if (!(line >= 1) || lines_.isEmpty()) {
+        return -1;
+    }
+    return static_cast<int>(std::min(std::floor(line), static_cast<double>(lines_.size()))) - 1;
 }
 
 void GcodeEditorModel::load() {

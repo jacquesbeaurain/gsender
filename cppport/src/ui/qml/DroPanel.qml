@@ -25,7 +25,7 @@ Item {
         onAccepted: axis ? dro.model.axisButton(axis) : dro.model.zeroAll()
     }
     function zero(axis) {
-        if (dro.model.warnZero && !dro.model.homingMode) {
+        if (dro.model.confirmZero) {
             confirmZero.axis = axis
             confirmZero.open()
         } else if (axis) {

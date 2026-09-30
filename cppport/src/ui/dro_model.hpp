@@ -30,6 +30,8 @@ class DroModel : public UiModelBase {
     Q_PROPERTY(bool homingMode READ homingMode WRITE setHomingMode NOTIFY changed)
     // "Warn when setting zero": the zero buttons ask first.
     Q_PROPERTY(bool warnZero READ warnZero NOTIFY changed)
+    // A zero button asks first: warnZero, unless the buttons home.
+    Q_PROPERTY(bool confirmZero READ confirmZero NOTIFY changed)
     // The work coordinate system ("G54"...) and whether it may change.
     Q_PROPERTY(QString workspace READ workspace NOTIFY changed)
     Q_PROPERTY(bool workspaceEnabled READ workspaceEnabled NOTIFY changed)
@@ -51,6 +53,7 @@ public:
     bool homingMode() const noexcept { return homingMode_; }
     void setHomingMode(bool on);
     bool warnZero() const;
+    bool confirmZero() const { return warnZero() && !homingMode_; }
     QString workspace() const;
     bool workspaceEnabled() const;
     QVariantList rows() const;
