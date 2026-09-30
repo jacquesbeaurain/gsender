@@ -2243,6 +2243,15 @@ Rectangle {
     EXPECT_FALSE(tabContribs.isEmpty());
     const QVariantList overlayContribs = model.contributions("visualizer-overlay");
     EXPECT_FALSE(overlayContribs.isEmpty());
+    // The model makes the cards and tabs of them.
+    const QVariantList cards = model.toolCards();
+    ASSERT_FALSE(cards.isEmpty());
+    EXPECT_EQ(cards.back().toMap()["key"].toString(), "plugin:com.sienci.host-test:host-tool");
+    EXPECT_EQ(cards.back().toMap()["title"].toString(), "Host Tool");
+    const QVariantList tabs = model.toolTabs();
+    ASSERT_FALSE(tabs.isEmpty());
+    EXPECT_EQ(tabs.back().toMap()["key"].toString(), "plugin:com.sienci.host-test:host-tab");
+    ASSERT_TRUE(waitFor([&] { return item("toolsTab_plugin:com.sienci.host-test:host-tab") != nullptr; }));
 
     // Navigate to Tools and verify dynamic card
     tap("navTools");

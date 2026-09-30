@@ -16,32 +16,12 @@ Item {
     property string current: ""
     readonly property PluginsModel pluginsModel: PluginsModel { objectName: "widgetPluginsModel" }
 
-    readonly property var pluginTabs: {
-        const _trigger = pluginsModel.count
-        const list = []
-        const contribs = pluginsModel.contributions("tools-tab")
-        for (let i = 0; i < contribs.length; ++i) {
-            const c = contribs[i]
-            list.push({
-                key: "plugin:" + c.pluginId + ":" + c.route,
-                label: c.label || c.pluginName,
-                shown: true,
-                isPlugin: true,
-                pluginId: c.pluginId,
-                uiUrl: c.uiUrl
-            })
-        }
-        return list
-    }
-
     readonly property var shownTabs: {
         const list = []
         for (let i = 0; i < tabs.length; ++i)
             if (tabs[i].shown)
                 list.push(tabs[i])
-        for (let i = 0; i < pluginTabs.length; ++i)
-            list.push(pluginTabs[i])
-        return list
+        return [...list, ...pluginsModel.toolTabs]
     }
     // A tab that goes (Spindle/Laser off, say) gives way to the first.
     onShownTabsChanged: {
