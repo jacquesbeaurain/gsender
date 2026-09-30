@@ -176,6 +176,12 @@ TEST(Transport, RecognizedPortsNeedAKnownVendorAndProduct) {
     EXPECT_FALSE(isRecognizedPort("", ""));
 }
 
+TEST(Transport, PortNamesAreTheirPathsLastTenCharacters) {
+    EXPECT_EQ(gs::transport::shortPortName("/dev/ttyACM0"), "ttyACM0");
+    EXPECT_EQ(gs::transport::shortPortName("COM3"), "COM3");
+    EXPECT_EQ(gs::transport::shortPortName("/dev/cu.usbmodem14101"), "modem14101");
+}
+
 TEST(Transport, ListingPortsReportsSerialDevices) {
     for (const SerialPortInfo& port : listSerialPorts()) {
 #ifdef _WIN32

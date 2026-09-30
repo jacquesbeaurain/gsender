@@ -288,6 +288,19 @@ TEST_F(RecordsTest, NewMacrosFillTheShorterColumn) {
     EXPECT_EQ(readJson(file).at("macros").as_array().size(), 3u);
 }
 
+TEST(Records, AColumnListsItsMacrosByRow) {
+    const std::vector<MacroRecord> all{{.id = "a", .column = "column2", .rowIndex = 1},
+                                       {.id = "b", .column = "column1", .rowIndex = 3},
+                                       {.id = "c", .column = "column1", .rowIndex = 0},
+                                       {.id = "d", .column = "column1", .rowIndex = 3}};
+    std::vector<std::string> ids;
+    for (const MacroRecord& m : macrosInColumn(all, "column1")) {
+        ids.push_back(m.id);
+    }
+    EXPECT_EQ(ids, (std::vector<std::string>{"c", "b", "d"}));
+    EXPECT_EQ(macrosInColumn(all, "column2").size(), 1u);
+}
+
 TEST_F(RecordsTest, MacroUpdatesChangeOnlyTheGivenFields) {
     MacroStore macros(store, ids(), clock());
     const auto created = macros.create("A", "G0 X0", "first");
