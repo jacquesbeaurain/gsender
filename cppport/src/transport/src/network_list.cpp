@@ -14,26 +14,11 @@
 #include <netinet/in.h>
 #endif
 
+#include "wide_text.hpp"
+
 namespace gs::transport {
 
 #ifdef _WIN32
-namespace {
-
-std::string narrow(const wchar_t* text) {
-    if (!text) {
-        return {};
-    }
-    const int size = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
-    if (size <= 1) {
-        return {};
-    }
-    std::string out(static_cast<std::size_t>(size - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), size, nullptr, nullptr);
-    return out;
-}
-
-}  // namespace
-
 std::vector<remote::InterfaceAddress> listInterfaceAddresses() {
     std::vector<remote::InterfaceAddress> out;
     ULONG size = 16 * 1024;

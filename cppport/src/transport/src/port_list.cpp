@@ -13,6 +13,8 @@
 #include <setupapi.h>
 #endif
 
+#include "wide_text.hpp"
+
 namespace gs::transport {
 namespace {
 
@@ -31,19 +33,6 @@ bool containsIgnoringCase(const std::array<std::string_view, N>& list, std::stri
 #ifdef _WIN32
 // GUID_DEVCLASS_PORTS (devguid.h): the "Ports (COM & LPT)" device class.
 constexpr GUID kPortsClass = {0x4D36E978, 0xE325, 0x11CE, {0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18}};
-
-std::string narrow(const wchar_t* text) {
-    if (!text || !*text) {
-        return {};
-    }
-    const int size = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
-    if (size <= 1) {
-        return {};
-    }
-    std::string out(static_cast<std::size_t>(size - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), size, nullptr, nullptr);
-    return out;
-}
 
 // A string registry property of a device (the first entry of a multi-string).
 std::string deviceProperty(HDEVINFO devices, SP_DEVINFO_DATA& device, DWORD property) {
