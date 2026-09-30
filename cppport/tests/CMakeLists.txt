@@ -31,6 +31,8 @@ add_executable(gs_core_tests
     core/test_accessibility.cpp
     core/test_datetime.cpp
     core/test_zip.cpp
+    core/test_qrcode.cpp
+    core/test_remote.cpp
     core/test_machine_profiles.cpp
     core/test_simulator.cpp
     core/test_spindle.cpp
@@ -54,6 +56,7 @@ gtest_discover_tests(gs_core_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES)
 
 add_executable(gs_transport_tests
     transport/test_transport.cpp
+    transport/test_remote_server.cpp
 )
 target_link_libraries(gs_transport_tests PRIVATE gs::transport GTest::gtest GTest::gtest_main)
 gs_precompile_headers(gs_transport_tests

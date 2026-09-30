@@ -87,7 +87,9 @@ void ToolpathCamera::cycleView(const std::optional<gcode::BoundingBox>& content)
         case View::Top: setView(View::Front, content); break;
         case View::Front: setView(View::Right, content); break;
         case View::Right: setView(View::Left, content); break;
-        case View::Left: setView(View::Iso, content); break;
+        case View::Left:
+        case View::Back:
+        case View::Bottom: setView(View::Iso, content); break;
     }
 }
 

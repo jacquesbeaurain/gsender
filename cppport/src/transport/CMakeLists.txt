@@ -7,6 +7,8 @@ add_library(gs_transport STATIC
     src/asio_link.cpp
     src/ftp_upload.cpp
     src/port_list.cpp
+    src/remote_server.cpp
+    src/network_list.cpp
 )
 add_library(gs::transport ALIAS gs_transport)
 
@@ -20,7 +22,7 @@ target_link_libraries(gs_transport
         Boost::headers
         Threads::Threads)
 if(WIN32)
-    target_link_libraries(gs_transport PUBLIC ws2_32 mswsock PRIVATE setupapi)
+    target_link_libraries(gs_transport PUBLIC ws2_32 mswsock PRIVATE setupapi iphlpapi)
 endif()
 
 gs_precompile_headers(gs_transport
