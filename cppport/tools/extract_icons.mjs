@@ -160,6 +160,8 @@ const icons = [
     ['lu', 'LuBox'],
     ['lu', 'LuSquare'],
     ['lu', 'LuCrosshair'],
+    // QR codes beside help links (Wizard/SecondaryContentPanel).
+    ['lu', 'LuQrCode'],
 ];
 
 for (const [set, name] of icons) {
@@ -188,6 +190,10 @@ const patterns = [
     ['SurfacingZigZag.svg', '14.27 6.1 57.6 76.83',
      '<path transform="rotate(90.227 43.07 44.514)" d="M81.37 61.864l-11.3 11.3-11.3-11.3 2.8-2.8 6.5 6.5v-39.7c0-3.3-2.7-6-6-6h-11c-3.3 0-6 2.7-6 6v37c0 5.5-4.5 10-10 10h-11c-5.5 0-10-4.5-10-10v-39.2l-6.5 6.5-2.8-2.8 11.3-11.3 11.3 11.3-2.8 2.8-6.5-6.5v39.2c0 3.3 2.7 6 6 6h11c3.3 0 6-2.7 6-6v-37c0-5.5 4.5-10 10-10h11c5.5 0 10 4.5 10 10v39.6l6.5-6.5 2.8 2.9z"/>'],
 ];
+// Remote mode's indicator (RemoteMode/components/RemoteIndicator.tsx): a
+// phone with a finger, filled grey when off and green when on.
+patterns.push(['RemoteIndicator.svg', '0 0 23 33',
+    '<path d="M22.141 19.817a6.127 6.127 0 0 0-5.222-6.06V4.148A3.514 3.514 0 0 0 13.404.634h-9.14A3.514 3.514 0 0 0 .75 4.148V25.04a3.514 3.514 0 0 0 3.514 3.514h5.253l3.213 3.614a.903.903 0 0 0 1.35-1.2l-4.538-5.104c-.206-.231-.28-.56-.16-.916.06-.18.229-.311.464-.311.357 0 .705.111.995.32.921.659 2.003.985 3.216.985a2.861 2.861 0 0 0 2.862-2.861v-7.49a4.322 4.322 0 0 1 3.417 4.226v11.751a.903.903 0 1 0 1.805 0V19.817Zm-14.49 4.61a2.688 2.688 0 0 0 .3 2.321H4.264a1.709 1.709 0 0 1-1.708-1.708V4.148c0-.944.765-1.708 1.708-1.708h9.14c.944 0 1.709.764 1.709 1.708v18.933c0 .583-.473 1.056-1.056 1.056-.854 0-1.565-.22-2.164-.649a3.54 3.54 0 0 0-2.079-.657c-.978 0-1.84.627-2.163 1.597ZM5.973 4.149c0 .499.404.903.903.903h3.917a.903.903 0 0 0 0-1.806H6.876a.903.903 0 0 0-.903.903Z"/>']);
 for (const [name, viewBox, body] of patterns) {
     writeFileSync(join(out, name),
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="currentColor">${body}</svg>\n`, 'utf8');
@@ -206,8 +212,8 @@ Material Design icons (md; Apache 2.0), Feather (fi; MIT), Line Awesome (lia;
 MIT/CC BY 4.0), Tabler (tb; MIT), Game Icons (gi; CC BY 3.0), BoxIcons (bi;
 MIT), Github Octicons (go; MIT), IcoMoon Free (im; CC BY 4.0), Ionicons 4
 (io; MIT).
-Carve.svg, the Jog*Labels.svg files and the Surfacing*.svg patterns are
-gSender's own.
+Carve.svg, the Jog*Labels.svg files, the Surfacing*.svg patterns and
+RemoteIndicator.svg are gSender's own.
 `,
     'utf8',
 );

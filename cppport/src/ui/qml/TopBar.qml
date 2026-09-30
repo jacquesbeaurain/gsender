@@ -30,9 +30,27 @@ Rectangle {
         anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         spacing: 16
-        // The notifications' bell and StatusIcons: Keyboard Shortcuts (green
-        // while shortcuts are on) and Gamepad Shortcuts, each opening its tool.
+        // The notifications' bell and StatusIcons: Wireless Control (green
+        // while the pendant is served), Keyboard Shortcuts (green while
+        // shortcuts are on) and Gamepad Shortcuts, each opening its tool.
         NotificationBell {}
+        Item {
+            objectName: "statusRemote"
+            implicitWidth: 36
+            implicitHeight: 36
+            RemoteModel { id: remoteState }
+            Icon {
+                anchors.centerIn: parent
+                name: "RemoteIndicator"
+                color: remoteState.running ? Theme.green[500] : Theme.contentDisabled
+                width: 24; height: 28
+            }
+            HoverHandler { id: remoteHover }
+            ToolTip.visible: remoteHover.hovered
+            ToolTip.text: qsTr("Wireless Control")
+            TapHandler { onTapped: remoteDialog.open() }
+            RemoteDialog { id: remoteDialog; model: remoteState }
+        }
         Repeater {
             model: [
                 { name: "statusKeyboard", icon: "FaRegKeyboard", tool: "shortcuts", tip: qsTr("Keyboard Shortcuts") },

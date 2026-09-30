@@ -270,11 +270,21 @@ ToolPage {
                     onClicked: tool.startSubWizard(modelData.id)
                 }
             }
-            WizardText {
+            // The help link, with its QR code (SecondaryContentPanel).
+            RowLayout {
+                id: helpRow
                 readonly property string url: tool.wizard && tool.wizard.helpUrl ? tool.wizard.helpUrl : "https://resources.sienci.com/"
-                text: "<b>" + qsTr("Need Help?") + "</b><br>" + qsTr("Follow along in our") + " <a href=\"" + url + "\">" + qsTr("online resources") + "</a>"
-                linkColor: Theme.blue[500]
-                onLinkActivated: (link) => Qt.openUrlExternally(link)
+                Layout.fillWidth: true
+                WizardText {
+                    Layout.fillWidth: true
+                    text: "<b>" + qsTr("Need Help?") + "</b><br>" + qsTr("Follow along in our") + " <a href=\"" + helpRow.url + "\">" + qsTr("online resources") + "</a>"
+                    linkColor: Theme.blue[500]
+                    onLinkActivated: (link) => Qt.openUrlExternally(link)
+                }
+                QrLinkButton {
+                    objectName: "wizardHelpQr"
+                    url: helpRow.url
+                }
             }
         }
         Image {

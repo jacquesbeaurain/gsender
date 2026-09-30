@@ -3,6 +3,7 @@
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
+#include "remote_service.hpp"
 #include "shortcuts.hpp"
 
 #include "gs/controller/actions.hpp"
@@ -42,7 +43,8 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
     : QObject(parent),
       machine_(machine),
       jogger_(new app::Jogger(machine, this)),
-      notifications_(new app::NotificationCenter(this)) {
+      notifications_(new app::NotificationCenter(this)),
+      remote_(new app::RemoteService(machine, *jogger_, this)) {
     // Every notification pops up for workspace.toastDuration and is kept.
     connect(notifications_, &app::NotificationCenter::added, this, [this](const app::Notification& n) {
         Q_EMIT toast(n.message, typeName(n.type), machine_.settings().toastDuration);
