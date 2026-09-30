@@ -69,6 +69,7 @@ gtest_discover_tests(gs_transport_tests DISCOVERY_MODE PRE_TEST NO_PRETTY_VALUES
 if(TARGET gs_app)
     add_executable(gs_app_tests
         app/test_app.cpp
+        app/test_gamepad.cpp
         app/test_plugins.cpp
         app/test_plugin_parsers.cpp
         app/test_remote.cpp

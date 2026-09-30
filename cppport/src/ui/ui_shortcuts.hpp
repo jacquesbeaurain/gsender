@@ -24,6 +24,7 @@ class UiShortcuts final : public QObject {
     Q_OBJECT
 public:
     UiShortcuts(UiBackend& backend, QQuickWindow& window);
+    ~UiShortcuts() override;
 
     app::ShortcutManager& manager() noexcept { return *manager_; }
 

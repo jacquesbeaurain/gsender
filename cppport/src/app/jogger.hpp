@@ -3,12 +3,14 @@
 // The jog speed presets and tap/hold jogging shared by the jog buttons and
 // the keyboard shortcuts (gSender's Jogging widget state).
 
+#include "gs/controller/jog_limits.hpp"
 #include "gs/controller/jogging.hpp"
 
 #include <QObject>
 
 #include <array>
 #include <memory>
+#include <optional>
 
 namespace gs::app {
 
@@ -45,6 +47,15 @@ public:
     // canClickShortcut(): connected, no job running, idle or jogging.
     bool canJog() const;
 
+    // The gamepad's sticks (gamepad::StickJogger), in the workspace units: a
+    // step by the distances given, a continuous jog retargeted as the stick
+    // moves (directions +1/-1), a handwheel's distance added to the jog.
+    void stepBy(const controller::JogAxes& distances, double feedrate);
+    void startStream(const controller::JogAxes& directions, double feedrate);
+    void updateStream(const controller::JogAxes& directions, double feedrate);
+    void feedStream(const controller::JogAxes& distances, double feedrate);
+    void stopStream();
+
 Q_SIGNALS:
     void changed();
 
@@ -54,6 +65,7 @@ private:
     void stepJog(const controller::JogAxes& distances, double feedrate);
     void startContinuous(const controller::JogAxes& distances, double feedrate);
     void stopContinuous();
+    std::optional<controller::Axes4> allowedAxes(const controller::JogAxes& axes) const;
 
     Machine& machine_;
     controller::JogPreset preset_ = controller::JogPreset::Normal;

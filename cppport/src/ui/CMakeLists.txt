@@ -89,6 +89,8 @@ qt_add_qml_module(gs_ui
         qml/SquaringDiagram.qml
         qml/StepMark.qml
         qml/KeyboardShortcutsTool.qml
+        qml/GamepadTool.qml
+        qml/GamepadActionCell.qml
         qml/SdCardTool.qml
         qml/AccessoryInstallerTool.qml
         qml/PluginsTool.qml
@@ -158,6 +160,8 @@ qt_add_qml_module(gs_ui
         squaring_model.cpp
         squaring_model.hpp
         shortcuts_model.cpp
+        gamepad_model.cpp
+        gamepad_model.hpp
         shortcuts_model.hpp
         sd_card_model.cpp
         sd_card_model.hpp

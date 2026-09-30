@@ -19,6 +19,7 @@ class QJSEngine;
 class QQmlEngine;
 
 namespace gs::app {
+class GamepadService;
 class Jogger;
 class Machine;
 class NotificationCenter;
@@ -72,6 +73,8 @@ class UiBackend final : public QObject {
     // shortcuts that work now; whether shortcuts are on at all.
     Q_PROPERTY(bool keyboardMap READ keyboardMap WRITE setKeyboardMap NOTIFY appSettingsChanged)
     Q_PROPERTY(bool shortcutsEnabled READ shortcutsEnabled NOTIFY appSettingsChanged)
+    // A gamepad is connected (the top bar's gamepad icon).
+    Q_PROPERTY(bool gamepadConnected READ gamepadConnected NOTIFY gamepadsChanged)
     // Lightweight mode (widgets.visualizer.liteMode) and perspective projection.
     Q_PROPERTY(bool liteMode READ liteMode WRITE setLiteMode NOTIFY appSettingsChanged)
     Q_PROPERTY(bool perspective READ perspective WRITE setPerspective NOTIFY appSettingsChanged)
@@ -91,6 +94,9 @@ public:
     // Remote mode: the wireless pendant's server (started as the saved
     // settings say).
     app::RemoteService& remote() noexcept { return *remote_; }
+    // The gamepads (polled once main() gives them a backend).
+    app::GamepadService& gamepad() noexcept { return *gamepad_; }
+    bool gamepadConnected() const;
 
     bool connected() const;
     bool connecting() const;
@@ -173,12 +179,14 @@ Q_SIGNALS:
     void stateChanged();
     void programChanged();
     void appSettingsChanged();
+    void gamepadsChanged();
 
 private:
     app::Machine& machine_;
     app::Jogger* jogger_;                      // a child
     app::NotificationCenter* notifications_;   // a child
     app::RemoteService* remote_;               // a child
+    app::GamepadService* gamepad_;             // a child
     QPointer<app::ShortcutManager> shortcuts_;  // the window's
     bool helperVisible_ = false;
     QString helperTitle_;

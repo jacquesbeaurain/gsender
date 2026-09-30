@@ -64,7 +64,7 @@ Rectangle {
                 Icon {
                     anchors.centerIn: parent
                     name: parent.modelData.icon
-                    color: parent.modelData.tool === "shortcuts" && Backend.shortcutsEnabled ? Theme.green[500] : Theme.contentMuted
+                    color: (parent.modelData.tool === "shortcuts" ? Backend.shortcutsEnabled : Backend.gamepadConnected) ? Theme.green[500] : Theme.contentMuted
                     width: 28; height: 28
                 }
                 HoverHandler { id: hover }

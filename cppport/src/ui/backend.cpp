@@ -1,5 +1,6 @@
 #include "backend.hpp"
 
+#include "gamepad_service.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
@@ -45,7 +46,10 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
       machine_(machine),
       jogger_(new app::Jogger(machine, this)),
       notifications_(new app::NotificationCenter(this)),
-      remote_(new app::RemoteService(machine, *jogger_, this)) {
+      remote_(new app::RemoteService(machine, *jogger_, this)),
+      gamepad_(new app::GamepadService(machine, *jogger_, this)) {
+    connect(gamepad_, &app::GamepadService::notice, this, [this](const QString& text) { notify(text); });
+    connect(gamepad_, &app::GamepadService::padsChanged, this, &UiBackend::gamepadsChanged);
     // Every notification pops up for workspace.toastDuration and is kept.
     connect(notifications_, &app::NotificationCenter::added, this, [this](const app::Notification& n) {
         Q_EMIT toast(n.message, typeName(n.type), machine_.settings().toastDuration);
@@ -228,6 +232,10 @@ void UiBackend::setKeyboardMap(bool shown) {
 
 bool UiBackend::shortcutsEnabled() const {
     return machine_.settings().shortcutsEnabled;
+}
+
+bool UiBackend::gamepadConnected() const {
+    return gamepad_->anyConnected();
 }
 
 bool UiBackend::liteMode() const {

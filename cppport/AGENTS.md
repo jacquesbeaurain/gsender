@@ -70,6 +70,9 @@ tools/build.sh -Config release-nopch -Test
 - GCC warns where MSVC does not, and warnings are errors: e.g. `-Wshadow`
   catches a lambda parameter named `info` inside GoogleTest's
   `INSTANTIATE_TEST_SUITE_P`. Build on both platforms when you can.
+- Gamepads use SDL3: `setup_linux.sh` installs it with the rest;
+  `build.ps1` fetches the official VC package (see Step 70). Without it the
+  build has no gamepads (the Gamepad tool still edits profiles).
 - Serial ports are listed from sysfs on Linux; power saving is a no-op
   and audio cues beep there.
 - Screenshots: `build/linux-release/bin/gsender -platform offscreen ...`
@@ -313,8 +316,6 @@ walkthrough says how each ported piece maps to upstream):
   promoted to the primary `gsender` application, and the legacy widget UI
   retired.
 
-- **Gamepads** (features/Gamepad): needs a gamepad library - the LibPack
-  has no Qt Gamepad - and hardware to verify.
 - **ATC** (features/ATC): the Sienci ATC's wizard (Accessory Installation),
   its controls and the SD card's ATC macro templates.
 - **Plugins** (features/Plugins): upstream's plugin system.
@@ -323,4 +324,5 @@ walkthrough says how each ported piece maps to upstream):
   the port's own file (walkthrough Step 13) - a decision for the owner.
 - Hardware checks only a person can do: serial connections to real Grbl
   and grblHAL boards (Windows and Linux), FTP and YMODEM uploads to a real
-  card.
+  card, gamepads (Step 70: real pads' ids and layouts through SDL3, stick
+  jogging on a machine; the Windows SDL3 fetch).

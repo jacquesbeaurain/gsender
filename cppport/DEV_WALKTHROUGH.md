@@ -2098,3 +2098,62 @@ JSON over a WebSocket; everything else keeps upstream's rules.
 | The phone's page | the full React app (all tools, config) | a pendant page: DRO, jogging, zeroing, job control, info | the port has no web UI; the pendant's jobs |
 | Held jog on a phone | stops on release (or socket loss) | also stops after 1 s without word from the page (it pings while held) | a phone that sleeps mid-hold must not leave the machine jogging |
 | Save confirmation | "This will restart the application" | none needed | nothing restarts |
+
+## Step 70 — Gamepads with SDL3 (`gs/gamepad`, `src/app/gamepad_*`, `GamepadTool.qml`)
+
+Upstream (features/Gamepad, lib/gamepad, JoystickLoop, MPGJogManager) polled
+the browser's `navigator.getGamepads()` every animation frame. The LibPack
+has no Qt Gamepad, so the port reads pads with SDL3 (3.4.16; conda-forge's
+`sdl3` on Linux, the official `SDL3-devel-*-VC` package on Windows, which
+`tools/build.ps1` fetches into `%LOCALAPPDATA%\gs-deps` and checks by
+SHA-256; `GS_SDL3_DIR` points elsewhere, `-DGS_WITH_SDL3=OFF` builds
+without). The logic lives in the core and is tested with fake input; the
+Qt side is a thin poller.
+
+- **Profiles** (`gs/gamepad/profile`): upstream's JSON shape
+  (`workspace.gamepad.profiles`: ids, name, mapping, buttons with their
+  primary and 2nd actions, joystick options, lockout, modifier), its two
+  default profiles (Logitech F710, Xbox), the standard layout's labels,
+  export/import (`{version, exportDate, profile}`; an import merges buttons,
+  joystick options, lockout and modifier into the open profile). A button's
+  action follows upstream: the lockout button blocks everything while held,
+  the modifier picks the 2nd action, a JOG action's release is
+  `STOP_CONT_JOG`. Kept in the app settings (`gamepad.profiles`) and read
+  from a gSender export.
+- **Input** (`gs/gamepad/input`): four slots of `PadState`; the listener
+  diffs polls into connected/disconnected/button/axis events, axes rounded
+  as upstream's listener rounds them.
+- **Sticks** (`gs/gamepad/stick_jog`): JoystickLoop's rules - a tap steps,
+  held past 600 ms it streams (`jog:start`/`jog:update` every 50 ms, EMA
+  smoothing, the dominant axis with hysteresis, fixed speed mode's
+  direction lock), and MPG mode's pulses (90° a pulse, `jog:feed`, stopped
+  after 400 ms idle), all timed on the core's event loop.
+- **Backend** (`src/app/gamepad_backend`): SDL3's gamepad API polled
+  (`SDL_UpdateGamepads`, events off) and mapped to the W3C standard layout
+  (triggers as buttons 6 and 7, pressed above 30/255 as Chromium does); ids
+  in Chrome's form (`<name> (STANDARD GAMEPAD Vendor: vvvv Product: pppp)`)
+  so upstream's profiles match. SDL's signal handlers stay off (the app
+  must still stop on SIGINT/SIGTERM) and background input is allowed (the
+  service decides when input counts). `FakeGamepadBackend` for tests.
+- **Service** (`src/app/gamepad_service`): polls every 16 ms, runs button
+  actions through the `ShortcutManager` (throttled to one per action per
+  100 ms, macros debounced 500 ms) and streams stick jogs through the shared
+  `Jogger`. Toasts as upstream's ("<name> Connected", "New gamepad
+  connected, ...", "Gamepad disconnected"); the top bar's gamepad icon is
+  green while a pad is connected.
+- **The tool** (`GamepadTool.qml`, `GamepadModel`): the profile list (add
+  one by pressing a button on the pad, delete, Help), a profile (name,
+  Connected/Disconnected, Import/Export, the button table with the pressed
+  button's row lit, the action picker with the lockout and 2nd-action
+  switches, the joystick options with the moving stick's axis lit). While
+  the page is open the pads run nothing (upstream's `holdListener`).
+
+| Behaviour | gSender | Port | Why |
+|---|---|---|---|
+| Pad disconnected mid-jog | a toast; no stop is sent | stopped at once | nothing may keep jogging without its input |
+| Window loses focus mid-jog | the browser stops reporting the pad; no stop is sent | stopped at once, and pads do nothing until the window is active again | as above; also no input into a window the user is not looking at |
+| Machine disconnects mid-jog | stick loop keeps its timers | stick state cleared | nothing left to jog |
+| `STOP_CONT_JOG` | throttled with the other actions (a quick release could lose the stop) | never throttled | a stop must not be dropped |
+| Rotary mode stick stream | streams A (the board may have no A) | streams Y, as the step and handwheel do | matches what rotary mode drives |
+| Held stick that never moved past 600 ms | its update interval leaked | cleared | a timer bug |
+| Profile matching | exact id | exact id, then the same vendor and product | SDL names a pad differently from the browser |

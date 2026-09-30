@@ -4,6 +4,8 @@
 // GS_TEST_SCREENSHOTS=<dir> saves what the tests show.
 
 #include "backend.hpp"
+#include "gamepad_backend.hpp"
+#include "gamepad_service.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
 #include "qt_event_loop.hpp"
@@ -1677,12 +1679,101 @@ TEST_F(UiTest, TheKeyboardMapAndTheStatusIconsShowTheShortcuts) {
     EXPECT_FALSE(machine_->settings().accessibility.showKeyboardMap);
     EXPECT_FALSE(item("keyboardMap")->isVisible());
 
-    // The status icons open their tools; the gamepad's is not here yet.
+    // The status icons open their tools.
     tap("statusKeyboard");
     ASSERT_TRUE(waitFor([&] { return item("keyboardShortcutsTool") && item("keyboardShortcutsTool")->isVisible(); }));
     tap("statusGamepad");
-    ASSERT_FALSE(backend_->notificationCenter().list().empty());
-    EXPECT_EQ(backend_->notificationCenter().list().front().message, "Gamepad is not available in this version yet");
+    ASSERT_TRUE(waitFor([&] { return item("gamepadTool") && item("gamepadTool")->isVisible(); }));
+}
+
+TEST_F(UiTest, TheGamepadToolAddsAProfileAndSetsItsButtons) {
+    auto fake = std::make_unique<app::FakeGamepadBackend>();
+    app::FakeGamepadBackend* pads = fake.get();
+    backend_->gamepad().setBackend(std::move(fake));
+    const auto profileCount = [&] { return machine_->settings().gamepadProfiles.size(); };
+    const std::size_t defaults = profileCount();
+    ASSERT_EQ(defaults, 2U);  // Logitech F710 and Xbox
+
+    backend_->openTool("gamepad");
+    ASSERT_TRUE(waitFor([&] { return item("gamepadTool") && item("gamepadProfile_1"); }));
+    EXPECT_TRUE(backend_->gamepad().capturing());
+    screenshot("ui_gamepad_profiles");
+    const auto popup = [&](const char* name) { return item("gamepadTool")->findChild<QObject*>(name); };
+    const auto isOpen = [&](const char* name) { return popup(name)->property("visible").toBool(); };
+
+    // Adding: the pad whose button is pressed.
+    tap("gamepadAdd");
+    ASSERT_TRUE(waitFor([&] { return isOpen("gamepadAddPopup"); }));
+    EXPECT_EQ(text("gamepadAvailabilityText"), "Connect your device and press any button on it");
+    const std::string id = "Test Pad (STANDARD GAMEPAD Vendor: 1234 Product: 5678)";
+    gamepad::PadState pad;
+    pad.id = id;
+    pad.standard = true;
+    pad.buttons.assign(17, false);
+    pad.axes.assign(4, 0.0);
+    pads->pads[0] = pad;
+    backend_->gamepad().poll();
+    pads->pads[0]->buttons[0] = true;
+    backend_->gamepad().poll();
+    ASSERT_TRUE(waitFor([&] { return text("gamepadAvailabilityText") == "Profile Is Available"; }));
+    EXPECT_EQ(text("gamepadAddName"), QString::fromStdString(id));
+    tap("gamepadAddConfirm");
+    ASSERT_EQ(profileCount(), defaults + 1);
+    EXPECT_EQ(machine_->settings().gamepadProfiles.back().buttons.size(), 17U);
+    EXPECT_TRUE(waitFor([&] { return !isOpen("gamepadAddPopup"); }));
+
+    // The profile: connected, button 0 lit while it is down.
+    ASSERT_TRUE(waitFor([&] { return item("gamepadProfile_2") != nullptr; }));
+    tap("gamepadProfile_2");
+    ASSERT_TRUE(waitFor([&] { return item("gamepadStatus") && item("gamepadStatus")->isVisible(); }));
+    QObject* model = item("gamepadTool")->property("model").value<QObject*>();
+    ASSERT_NE(model, nullptr);
+    EXPECT_TRUE(model->property("padConnected").toBool());
+    EXPECT_TRUE(model->property("pressed").toList().value(0).toBool());
+    pads->pads[0]->buttons[0] = false;
+    backend_->gamepad().poll();
+    EXPECT_FALSE(model->property("pressed").toList().value(0).toBool());
+
+    // Button A jogs X+.
+    ASSERT_TRUE(waitFor([&] { return item("gamepadPrimary_0") != nullptr; }));
+    tap("gamepadPrimary_0");
+    ASSERT_TRUE(waitFor([&] { return isOpen("gamepadActionPopup"); }));
+    ASSERT_TRUE(waitFor([&] {
+        QQuickItem* action = item("gamepadAction_JOG_X_P");
+        return action && QRect(QPoint(0, 0), window_->size()).contains(centreOf(action));
+    }));
+    tap("gamepadAction_JOG_X_P");
+    EXPECT_EQ(text("gamepadSelectedAction"), "Jog X+ (right)");
+    screenshot("ui_gamepad_set_action");
+    tap("gamepadSetShortcut");
+    EXPECT_EQ(machine_->settings().gamepadProfiles.back().buttons[0].primaryAction, "JOG_X_P");
+
+    // Button B as the 2nd-action one: its row says so.
+    tap("gamepadSecondary_1");
+    ASSERT_TRUE(waitFor([&] { return isOpen("gamepadActionPopup"); }));
+    tap("gamepadModifierSwitch");
+    EXPECT_EQ(machine_->settings().gamepadProfiles.back().modifier, std::optional<int>(1));
+    tap("gamepadCancelShortcut");
+    ASSERT_TRUE(waitFor([&] { return text("gamepadRole_1") == "Activate 2nd Actions"; }));
+
+    // Joystick options.
+    tap("gamepadFixedSpeed");
+    EXPECT_TRUE(machine_->settings().gamepadProfiles.back().joystickOptions.fixedSpeedMode);
+    screenshot("ui_gamepad_profile");
+
+    // Back, and delete it (asked first).
+    tap("gamepadBack");
+    ASSERT_TRUE(waitFor([&] { return item("gamepadDelete_2") && item("gamepadDelete_2")->isVisible(); }));
+    tap("gamepadDelete_2");
+    ASSERT_TRUE(waitFor([&] { return isOpen("gamepadDeleteConfirm"); }));
+    QMetaObject::invokeMethod(popup("gamepadDeleteConfirm"), "close");
+    QMetaObject::invokeMethod(popup("gamepadDeleteConfirm"), "accepted");
+    EXPECT_EQ(profileCount(), defaults);
+
+    // Leaving the tool lets the pads act again.
+    tap("toolGoBack");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_TRUE(waitFor([&] { return !backend_->gamepad().capturing(); }));
 }
 
 TEST_F(UiTest, DarkModeSwitchesTheTokens) {
