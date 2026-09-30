@@ -23,6 +23,7 @@ Rectangle {
         objectName: "toolpath"
         anchors.fill: parent
         pluginHost: true
+        keyboardControl: Backend.visualizerKeyboardControl
     }
 
     // The visualizer's keyboard shortcuts.

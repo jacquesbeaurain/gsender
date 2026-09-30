@@ -392,6 +392,10 @@ bool UiBackend::reducedMotion() const {
     return machine_.settings().accessibility.reducedMotion;
 }
 
+bool UiBackend::visualizerKeyboardControl() const {
+    return machine_.settings().accessibility.visualizerKeyboardControl;
+}
+
 QString UiBackend::jobSummary() const {
     return machine_.settings().accessibility.gcodeSummaryVisible ? announcer_->summary() : QString();
 }
