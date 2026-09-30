@@ -17,10 +17,13 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
+#include "gs/toolchange/sensor_setup.hpp"
 #include "gs/util/wizard_walk.hpp"
 
 #include <string>
 #include <vector>
+
+class QTimer;
 
 namespace gs::controller {
 struct LocationSettings;
@@ -76,6 +79,16 @@ class AccessoryModel : public WizardModelBase {
     // Past the last step: the closing page.
     Q_PROPERTY(bool atCompletion READ atCompletion NOTIFY navigationChanged)
 
+    // ---- the TLS pages (gs::toolchange::ContinuityCheck, PositionFollower) ----
+    // ContinuityIndicator: "checking", "waiting", "success" or "stuckOn";
+    // done a moment after success.
+    Q_PROPERTY(QString continuity READ continuity NOTIFY sensorPageChanged)
+    Q_PROPERTY(bool continuityDone READ continuityDone NOTIFY sensorPageChanged)
+    // PositionSetter: the X/Y/Z fields' texts (workspace units) while they
+    // follow the machine, and whether Set Position holds.
+    Q_PROPERTY(QStringList positionFields READ positionFields NOTIFY positionFieldsChanged)
+    Q_PROPERTY(bool positionSet READ positionSet NOTIFY sensorPageChanged)
+
 public:
     explicit AccessoryModel(QObject* parent = nullptr);
 
@@ -101,6 +114,10 @@ public:
     QVariantList steps() const;
     QStringList failed() const;
     bool atCompletion() const noexcept { return walk_.atCompletion(); }
+    QString continuity() const;
+    bool continuityDone() const noexcept { return continuityDone_; }
+    QStringList positionFields() const { return positionFields_; }
+    bool positionSet() const noexcept { return follower_.isSet(); }
     int totalSteps() const override { return walk_.stepCount(); }
     bool canNext() const override;
     bool canBack() const override;
@@ -137,6 +154,15 @@ public:
     Q_INVOKABLE void setManualPosition(double x, double y, double z);
     Q_INVOKABLE QVariantList recommendedManualPosition() const;  // mm, or empty
     Q_INVOKABLE void goToPosition(double x, double y, double z);
+    // The continuity page opened, or Check Again.
+    Q_INVOKABLE void checkContinuity();
+    // A position page opened: the TLS location, or the manual tool change
+    // location (`manual`).
+    Q_INVOKABLE void startPositionStep(bool manual);
+    // The fields typed into: they stop following, and a set position is undone.
+    Q_INVOKABLE void positionEdited();
+    // Set Position: the fields' texts kept as the page's location.
+    Q_INVOKABLE void setPosition(const QString& x, const QString& y, const QString& z);
     Q_INVOKABLE void enableTlsInput();
     Q_INVOKABLE void applyAutoSpin();
     Q_INVOKABLE void startSpindle(int rpm);
@@ -150,6 +176,10 @@ Q_SIGNALS:
     // The page to show changed (another step, the same step again, or none):
     // the page is made afresh each time.
     void pageChanged();
+    void sensorPageChanged();
+    void positionFieldsChanged();
+    // A set position undone (the machine moved off it, or the fields were edited).
+    void positionUnset();
 
 private:
     long long firmwareBuild() const;
@@ -161,11 +191,23 @@ private:
     // After a move: the properties notified, and the page remade with a
     // new one.
     void navigated(bool newPage);
+    // The machine changed: the TLS pages follow it.
+    void followMachine();
+    void showPosition(const QVariantList& mm);
 
     QString screen_ = QStringLiteral("hub");
     QVariantMap wizard_;
     QVariantMap sub_;
     util::WizardWalk walk_;
+
+    enum class SensorPage { None, Continuity, Position };
+    SensorPage sensorPage_ = SensorPage::None;
+    toolchange::ContinuityCheck continuity_;
+    bool continuityDone_ = false;
+    QTimer* continuityDelay_;
+    toolchange::PositionFollower follower_;
+    bool manualPosition_ = false;
+    QStringList positionFields_;
 };
 
 }  // namespace gs::ui

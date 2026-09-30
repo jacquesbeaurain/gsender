@@ -11,6 +11,7 @@
 #include "gs/util/units.hpp"
 
 #include <QFile>
+#include <QTimer>
 
 #include <algorithm>
 #include <cmath>
@@ -71,6 +72,14 @@ QVariantMap settingRow(const QString& label, const std::string& value, bool ok, 
 
 AccessoryModel::AccessoryModel(QObject* parent) : WizardModelBase(parent) {
     connectMachineSignals(true, false);
+    continuityDelay_ = new QTimer(this);
+    continuityDelay_->setSingleShot(true);
+    continuityDelay_->setInterval(1500);  // CONTINUITY_CHECK_SUCCESS_DELAY_MS
+    connect(continuityDelay_, &QTimer::timeout, this, [this] {
+        continuityDone_ = true;
+        Q_EMIT sensorPageChanged();
+    });
+    connect(this, &AccessoryModel::changed, this, &AccessoryModel::followMachine);
 }
 
 // ---- the board ---------------------------------------------------------------------------------
@@ -295,6 +304,13 @@ bool AccessoryModel::canBack() const {
 }
 
 void AccessoryModel::navigated(bool newPage) {
+    if (newPage) {
+        // A page's state is its own: the next page starts without it (and
+        // may start its own while the signals below remake it).
+        sensorPage_ = SensorPage::None;
+        continuityDelay_->stop();
+        continuityDone_ = false;
+    }
     stepIndex_ = walk_.step();
     Q_EMIT navigationChanged();
     Q_EMIT stepChanged();
@@ -492,6 +508,96 @@ QVariantList AccessoryModel::recommendedManualPosition() const {
 
 void AccessoryModel::goToPosition(double x, double y, double z) {
     send(controller::parkCommands({x, y, z}, locationSettings()));
+}
+
+// ---- the TLS pages ----------------------------------------------------------------------------
+
+namespace {
+
+std::optional<toolchange::PositionFollower::Position> position(const QVariantList& mm) {
+    if (mm.size() != 3) {
+        return std::nullopt;
+    }
+    return toolchange::PositionFollower::Position{mm[0].toDouble(), mm[1].toDouble(), mm[2].toDouble()};
+}
+
+}  // namespace
+
+QString AccessoryModel::continuity() const {
+    switch (continuity_.phase()) {
+        case toolchange::ContinuityCheck::Phase::Checking: return QStringLiteral("checking");
+        case toolchange::ContinuityCheck::Phase::Waiting: return QStringLiteral("waiting");
+        case toolchange::ContinuityCheck::Phase::Success: return QStringLiteral("success");
+        case toolchange::ContinuityCheck::Phase::StuckOn: return QStringLiteral("stuckOn");
+    }
+    return {};
+}
+
+void AccessoryModel::checkContinuity() {
+    sensorPage_ = SensorPage::Continuity;
+    continuityDelay_->stop();
+    continuityDone_ = false;
+    continuity_.restart(probeActive());
+    Q_EMIT sensorPageChanged();
+}
+
+void AccessoryModel::startPositionStep(bool manual) {
+    sensorPage_ = SensorPage::Position;
+    manualPosition_ = manual;
+    const QVariantList mpos = machinePosition();
+    follower_.start(position(mpos), manual);
+    showPosition(manual ? recommendedManualPosition() : mpos);
+    Q_EMIT sensorPageChanged();
+}
+
+void AccessoryModel::positionEdited() {
+    if (follower_.edit()) {
+        Q_EMIT positionUnset();
+        Q_EMIT sensorPageChanged();
+    }
+}
+
+void AccessoryModel::setPosition(const QString& x, const QString& y, const QString& z) {
+    const double mm[] = {positionMm(x), positionMm(y), positionMm(z)};
+    if (manualPosition_) {
+        setManualPosition(mm[0], mm[1], mm[2]);
+    } else {
+        setTlsLocation(mm[0], mm[1], mm[2]);
+    }
+    follower_.set(position(machinePosition()));
+    Q_EMIT sensorPageChanged();
+}
+
+void AccessoryModel::showPosition(const QVariantList& mm) {
+    QStringList fields;
+    for (int axis = 0; axis < 3; ++axis) {
+        fields << positionText(mm.size() == 3 ? mm[axis].toDouble() : 0.0);
+    }
+    if (fields != positionFields_) {
+        positionFields_ = fields;
+        Q_EMIT positionFieldsChanged();
+    }
+}
+
+void AccessoryModel::followMachine() {
+    if (sensorPage_ == SensorPage::Continuity) {
+        if (continuity_.update(probeActive())) {
+            if (continuity_.phase() == toolchange::ContinuityCheck::Phase::Success) {
+                continuityDelay_->start();
+            }
+            Q_EMIT sensorPageChanged();
+        }
+    } else if (sensorPage_ == SensorPage::Position) {
+        const QVariantList mpos = machinePosition();
+        const toolchange::PositionFollower::Follow follow = follower_.machineAt(position(mpos));
+        if (follow.unset) {
+            Q_EMIT positionUnset();
+            Q_EMIT sensorPageChanged();
+        }
+        if (follow.show) {
+            showPosition(mpos);
+        }
+    }
 }
 
 namespace {

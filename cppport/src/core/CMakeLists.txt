@@ -51,6 +51,7 @@ add_library(gs_core STATIC
     src/rotary/rotary.cpp
     src/surfacing/surfacing.cpp
     src/toolchange/wizards.cpp
+    src/toolchange/sensor_setup.cpp
     src/gamepad/profile.cpp
     src/gamepad/input.cpp
     src/gamepad/stick_jog.cpp
