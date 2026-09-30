@@ -46,7 +46,6 @@ class StatsModel : public UiModelBase {
     Q_PROPERTY(QString jobSearch READ jobSearch WRITE setJobSearch NOTIFY changed)
     Q_PROPERTY(QString jobSort READ jobSort NOTIFY changed)
     Q_PROPERTY(bool jobsAscending READ jobsAscending NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* jobsListModel READ jobsListModel CONSTANT)
     // Per CNC: {labels, values}.
     Q_PROPERTY(QVariantMap jobsPerCnc READ jobsPerCnc NOTIFY changed)
     Q_PROPERTY(QVariantMap runTimePerCnc READ runTimePerCnc NOTIFY changed)
@@ -55,12 +54,10 @@ class StatsModel : public UiModelBase {
     // {name, hours, word, color}.
     Q_PROPERTY(QVariantList tasks READ tasks NOTIFY changed)
     Q_PROPERTY(QString taskSearch READ taskSearch WRITE setTaskSearch NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* tasksListModel READ tasksListModel CONSTANT)
     Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)  // three
     Q_PROPERTY(QVariantList upcomingMore READ upcomingMore NOTIFY changed)  // six
     // Alarms: newest first {alarm, title, time, message, line}.
     Q_PROPERTY(QVariantList alarms READ alarms NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* alarmsListModel READ alarmsListModel CONSTANT)
     // About.
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QVariantList releases READ releases CONSTANT)  // {heading, notes: []}
@@ -104,7 +101,6 @@ public:
     QVariantList configuration() const;
     QVariantList alarmPreview() const;
     QVariantList jobs() const;
-    StructListModelBase* jobsListModel() { return &jobsModel_; }
     QString jobSearch() const { return jobSearch_; }
     void setJobSearch(const QString& search);
     QString jobSort() const { return jobSort_; }
@@ -112,13 +108,11 @@ public:
     QVariantMap jobsPerCnc() const { return jobsPerCnc_; }
     QVariantMap runTimePerCnc() const { return runTimePerCnc_; }
     QVariantList tasks() const;
-    StructListModelBase* tasksListModel() { return &tasksModel_; }
     QString taskSearch() const { return taskSearch_; }
     void setTaskSearch(const QString& search);
     QVariantList upcoming() const;
     QVariantList upcomingMore() const;
     QVariantList alarms() const;
-    StructListModelBase* alarmsListModel() { return &alarmsModel_; }
     QString version() const;
     QVariantList releases() const;
 
