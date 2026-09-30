@@ -103,6 +103,21 @@ TEST(JsParseInt, ParsesPrefixInRadix) {
     EXPECT_TRUE(std::isnan(parseInt("abc")));
 }
 
+TEST(JsToFixedNumber, RoundsThroughToFixed) {
+    EXPECT_EQ(toFixedNumber(1.005, 2), 1);  // 1.005 is 1.00499999...
+    EXPECT_EQ(fixed3(2.0005), 2.001);
+    EXPECT_EQ(fixed3(-0.0004), 0);
+    EXPECT_TRUE(std::isnan(fixed3(std::numeric_limits<double>::quiet_NaN())));
+}
+
+TEST(JsTruthy, ZeroAndNaNAreFalse) {
+    EXPECT_TRUE(truthy(0.5));
+    EXPECT_TRUE(truthy(-1));
+    EXPECT_FALSE(truthy(0));
+    EXPECT_FALSE(truthy(-0.0));
+    EXPECT_FALSE(truthy(std::numeric_limits<double>::quiet_NaN()));
+}
+
 TEST(JsMathRound, HalvesRoundUp) {
     EXPECT_EQ(mathRound(2.5), 3);
     EXPECT_EQ(mathRound(-2.5), -2);

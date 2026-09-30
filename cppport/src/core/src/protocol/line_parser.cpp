@@ -657,7 +657,7 @@ std::optional<ToolLine> parseTool(std::string_view line) {
     tool.offsets = axisValues(group(m, 2));
     for (std::size_t i = 0; i < tool.offsets.count; ++i) {
         // Number(Number(cur).toFixed(3))
-        tool.offsets.values[i] = js::stringToNumber(js::toFixed(tool.offsets.values[i], 3));
+        tool.offsets.values[i] = js::fixed3(tool.offsets.values[i]);
     }
     tool.radius = js::stringToNumber(group(m, 3));
     return ToolLine{tool};

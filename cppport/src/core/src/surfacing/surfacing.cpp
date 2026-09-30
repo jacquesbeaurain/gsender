@@ -15,15 +15,8 @@ std::string num(double value) {
     return js::numberToString(value);
 }
 
-// toFixedValue(): Number(value.toFixed(3)).
-double fixed3(double value) {
-    return js::stringToNumber(js::toFixed(value, 3));
-}
-
-// JS truthiness of a number.
-bool truthy(double value) {
-    return value != 0 && !std::isnan(value);
-}
+using js::fixed3;  // toFixedValue()
+using js::truthy;
 
 // Guards against inputs that never terminate upstream (a zero stepover or
 // cut depth recurses until the stack overflows).

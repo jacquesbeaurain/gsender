@@ -12,7 +12,7 @@ std::string num(double value) {
 
 // rounding.ts: roundMetric (2 decimals) / roundImperial (3).
 double roundTo(double value, bool metric) {
-    return js::stringToNumber(js::toFixed(value, metric ? 2 : 3));
+    return js::toFixedNumber(value, metric ? 2 : 3);
 }
 
 }  // namespace

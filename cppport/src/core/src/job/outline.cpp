@@ -302,9 +302,7 @@ std::string num(double value) {
     return js::numberToString(value);
 }
 
-double fixed3(double value) {
-    return js::stringToNumber(js::toFixed(value, 3));
-}
+using js::fixed3;
 
 using OutlinePoint = std::pair<std::string, std::string>;
 

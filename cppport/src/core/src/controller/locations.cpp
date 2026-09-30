@@ -27,10 +27,7 @@ double reported(const std::string& value) {
     return value.empty() ? std::numeric_limits<double>::quiet_NaN() : js::stringToNumber(value);
 }
 
-// Number((value).toFixed(3)).
-double fixed3(double value) {
-    return std::isnan(value) ? value : js::stringToNumber(js::toFixed(value, 3));
-}
+using js::fixed3;
 
 // JavaScript's `!value` for a number.
 bool falsy(double value) {
