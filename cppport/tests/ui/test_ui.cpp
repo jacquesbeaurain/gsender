@@ -1952,6 +1952,21 @@ TEST_F(UiTest, DarkModeSwitchesTheTokens) {
     screenshot("ui_shell_dark");
 }
 
+TEST_F(UiTest, TheJobSummaryShowsOverTheVisualizer) {
+    app::AppSettings settings = machine_->settings();
+    settings.accessibility.gcodeSummary = settings.accessibility.gcodeSummaryVisible = true;
+    machine_->setSettings(settings);
+    machine_->loadProgram("square.nc", "G21 G90\nG1 X5 F1200\nG1 Y5\nG1 X0\nG1 Y0\n");
+    ASSERT_TRUE(waitFor([&] { return item("jobSummary") && item("jobSummary")->isVisible(); }));
+    EXPECT_TRUE(backend_->property("jobSummary").toString().startsWith("File loaded: square.nc."))
+        << backend_->property("jobSummary").toString().toStdString();
+    screenshot("ui_job_summary");
+
+    settings.accessibility.gcodeSummaryVisible = false;
+    machine_->setSettings(settings);
+    EXPECT_TRUE(waitFor([&] { return !item("jobSummary")->isVisible(); }));
+}
+
 TEST_F(UiTest, IconProviderRendersPiPuzzlePiece) {
     ui::IconProvider provider;
     QSize size;
