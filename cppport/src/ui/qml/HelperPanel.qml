@@ -49,12 +49,23 @@ Rectangle {
                 color: Theme.contentSecondary
             }
         }
-        Label {
+        // The resource link, and its QR code for a phone (HelperInfo's
+        // "Need Help?").
+        RowLayout {
             visible: Backend.helperLink !== ""
-            textFormat: Text.StyledText
-            text: qsTr("More in the <a href=\"%1\">resources</a>.").arg(Backend.helperLink)
-            color: Theme.contentMuted
-            onLinkActivated: (link) => Qt.openUrlExternally(link)
+            Layout.fillWidth: true
+            Label {
+                Layout.fillWidth: true
+                textFormat: Text.StyledText
+                text: qsTr("More in the <a href=\"%1\">resources</a>.").arg(Backend.helperLink)
+                color: Theme.contentMuted
+                onLinkActivated: (link) => Qt.openUrlExternally(link)
+            }
+            QrLinkButton {
+                objectName: "helperQr"
+                url: Backend.helperLink
+                level: "L"
+            }
         }
     }
 }

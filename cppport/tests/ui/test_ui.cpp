@@ -13,6 +13,7 @@
 #include "plugins_model.hpp"
 #include "plugin_qml_context.hpp"
 #include "plugin_service.hpp"
+#include "remote_service.hpp"
 #include "shortcuts.hpp"
 
 #include "gs/config/history.hpp"
@@ -1931,6 +1932,60 @@ TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
     QCoreApplication::processEvents();
 
     EXPECT_GT(toolpath->property("yaw").toDouble(), 35.0 + 5.0);
+}
+
+TEST_F(UiTest, WirelessControlServesThePendantFromTheTopBar) {
+    app::RemoteService& remote = backend_->remote();
+    // A port nothing else uses.
+    ASSERT_EQ(remote.startServer("127.0.0.1", 0), "");
+    const int port = remote.port();
+    remote.stopServer();
+
+    tap("statusRemote");
+    QObject* dialog = window_->findChild<QObject*>("remoteDialog");
+    ASSERT_NE(dialog, nullptr);
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    EXPECT_EQ(dialog->property("port").toInt(), 8000);  // the default
+    EXPECT_FALSE(item("remoteSave")->isEnabled());      // nothing changed yet
+    EXPECT_EQ(text("remoteStatus"), "Wireless control is off.");
+
+    dialog->setProperty("ip", "127.0.0.1");
+    dialog->setProperty("port", port);
+    tap("remoteSwitch");
+    ASSERT_TRUE(waitFor([&] { return item("remoteSave")->isEnabled(); }));
+    tap("remoteSave");
+    ASSERT_TRUE(waitFor([&] { return remote.running(); }));
+    EXPECT_EQ(remote.port(), port);
+    EXPECT_TRUE(remote.settings().headlessStatus);
+    const QString url = QString("http://127.0.0.1:%1/#/remote").arg(port);
+    EXPECT_TRUE(waitFor([&] { return text("remoteStatus").startsWith("Serving the pendant at " + url); }));
+    // The QR code holds the phone's address.
+    QQuickItem* qr = item("remoteQr");
+    ASSERT_NE(qr, nullptr);
+    EXPECT_EQ(qr->property("text").toString(), url);
+    QQuickItem* image = findItem(qr, "qrImage");
+    ASSERT_TRUE(waitFor([&] { return image->property("status").toInt() == 1; }));  // Image.Ready
+    screenshot("remote_dialog");
+
+    // Off again.
+    tap("remoteSwitch");
+    tap("remoteSave");
+    ASSERT_TRUE(waitFor([&] { return !remote.running(); }));
+    EXPECT_FALSE(remote.settings().headlessStatus);
+}
+
+TEST_F(UiTest, HelpLinksOfferTheirQrCode) {
+    backend_->showHelper("Alarm 1", "<p>Hard limit</p>",
+                         "https://resources.sienci.com/view/gs-gsender-grbl-alarm-error-codes/#alarms");
+    ASSERT_TRUE(waitFor([&] { return item("helperQr") && item("helperQr")->isVisible(); }));
+    tap("helperQr");
+    QObject* popup = window_->findChild<QObject*>("qrPopup");
+    ASSERT_NE(popup, nullptr);
+    ASSERT_TRUE(waitFor([&] { return popup->property("opened").toBool(); }));
+    screenshot("helper_qr");
+
+    backend_->showHelper("No link", "<p>text</p>");
+    EXPECT_TRUE(waitFor([&] { return !item("helperQr")->isVisible(); }));
 }
 
 int main(int argc, char** argv) {

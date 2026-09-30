@@ -9,5 +9,5 @@ Material Design icons (md; Apache 2.0), Feather (fi; MIT), Line Awesome (lia;
 MIT/CC BY 4.0), Tabler (tb; MIT), Game Icons (gi; CC BY 3.0), BoxIcons (bi;
 MIT), Github Octicons (go; MIT), IcoMoon Free (im; CC BY 4.0), Ionicons 4
 (io; MIT).
-Carve.svg, the Jog*Labels.svg files and the Surfacing*.svg patterns are
-gSender's own.
+Carve.svg, the Jog*Labels.svg files, the Surfacing*.svg patterns and
+RemoteIndicator.svg are gSender's own.

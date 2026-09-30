@@ -106,18 +106,20 @@ QString RemoteService::apply(const remote::RemoteSettings& requested) {
     return error;
 }
 
-void RemoteService::startFromSettings() {
+QString RemoteService::startFromSettings() {
     const remote::RemoteSettings saved = settings();
     // server/index.js ignores the setting without an address, or with 0.0.0.0.
     if (!saved.headlessStatus || saved.ip.empty() || saved.ip == "0.0.0.0") {
-        return;
+        return {};
     }
-    if (!startServer(QString::fromStdString(saved.ip), saved.port).isEmpty()) {
+    const QString error = startServer(QString::fromStdString(saved.ip), saved.port);
+    if (!error.isEmpty()) {
         remote::RemoteSettings off = saved;
         off.headlessStatus = false;
         off.error = true;
         machine_.config().set(remote::kSettingsKey, remote::settingsToJson(off));
     }
+    return error;
 }
 
 QString RemoteService::startServer(const QString& host, int port) {

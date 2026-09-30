@@ -2041,3 +2041,60 @@ Carrying architectural refactoring and code de-duplication to its ultimate stand
 - **Pillar 5: Legacy Adaptation Purge & Dead Code Pruning**:
   - Pruned orphaned `src/ui/qml/PlaceholderPage.qml` and cleaned module resource declarations.
   - Verified full test suite across all 4 test targets with zero regressions.
+
+## Step 69 — Remote mode: the wireless pendant and QR codes (`gs/remote`, `gs/util/qrcode`, `gs/transport/remote_server`, `src/app/remote_service`)
+
+Upstream's remote mode (features/RemoteMode, api.remote.js, server/index.js)
+saved `remoteSettings` (`ip`, `port`, `headlessStatus`), restarted the app so
+its Express/socket.io server bound that address, and the phone loaded the
+whole React app at `/#/remote` (Control, Workflow, Tools, Info routes).
+The port has no web client, so the pendant is its own small page talking
+JSON over a WebSocket; everything else keeps upstream's rules.
+
+- **QR codes** (`gs/util/qrcode`): react-qr-code runs qrcode-generator 2.0.4
+  (byte mode over UTF-8, the smallest version, the mask with the fewest of
+  its "lost points" - not the standard's penalty rules). Ported as it is and
+  checked module for module against it (`tools/gen_qrcode_fixtures.mjs` ->
+  `tests/data/qrcode_golden.json`, versions 1-15, all four levels). The UI
+  draws them with the `image://qr/<level>/<text>` provider (`QrCode.qml`).
+  QR buttons sit beside the Helper panel's resource link and the accessory
+  wizards' "Need Help?" link (`QrLinkButton.qml`, level H as
+  SecondaryContentPanel).
+- **Addresses and settings** (`gs/remote/network`): network-interfaces.js'
+  classification (virtual adapters, Wi-Fi, Ethernet by name; APIPA and
+  loopback unusable), the recommendation (the default route's address, else
+  the best private one) and sort order; the dialog's validation messages;
+  `remoteSettings` read and written in the config store. `gs_transport`
+  enumerates the interfaces (getifaddrs; GetAdaptersAddresses' friendly names
+  on Windows, as Node reports them) and probes the default route with an
+  unsent UDP "connect", as upstream does.
+- **The server** (`gs/transport/remote_server`): Boost.Beast on its own I/O
+  thread - GETs of fixed pages, WebSocket clients on `/ws`; callbacks come
+  back through the Dispatcher; stop() closes everything and joins. A client
+  that falls 256 messages behind is dropped.
+- **The protocol** (`gs/remote/pendant`): a `state` message (DRO in the
+  workspace units, status, workflow, progress, what may be pressed, the jog
+  preset) and validated commands (`jogPress`/`jogRelease`/`jogStop`,
+  `start`/`pause`/`stop`, `unlock`/`home`/`reset`, zeroing, go to zero,
+  workspace, preset, `ping`). Anything malformed is ignored.
+- **RemoteService** (`src/app`): (re)starts the server as settings change,
+  pushes the state (coalesced over 50 ms, only when it changed) and applies
+  commands with the desktop's rules - jogging through the shared `Jogger`,
+  job control through `controller::runJob/pauseJob/stopJob` with JobModel's
+  conditions, zeroing through the Machine. Tests drive the simulator from a
+  WebSocket client (`tests/app/test_remote.cpp`).
+- **The page** (`resources/remote/pendant.html`, embedded in gs_core): Control
+  (workspace, DRO with zero buttons, jog pad, presets), Workflow (file,
+  progress, Start/Pause/Stop) and Info, as upstream's BottomNav splits them.
+  Self-contained - a shop phone may have no internet.
+- **The dialog** (`RemoteDialog.qml`, `RemoteModel`): the switch, address
+  picker with upstream's notes (gone, unreachable, what it is), port, status,
+  and the QR code with the address to type; opened from the top bar's phone
+  icon, green while serving.
+
+| Behaviour | gSender | Port | Why |
+|---|---|---|---|
+| Applying settings | saved, then the app restarts | the server restarts at once | no web client to reload |
+| The phone's page | the full React app (all tools, config) | a pendant page: DRO, jogging, zeroing, job control, info | the port has no web UI; the pendant's jobs |
+| Held jog on a phone | stops on release (or socket loss) | also stops after 1 s without word from the page (it pings while held) | a phone that sleeps mid-hold must not leave the machine jogging |
+| Save confirmation | "This will restart the application" | none needed | nothing restarts |
