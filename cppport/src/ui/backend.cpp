@@ -12,6 +12,7 @@
 
 #include "gs/controller/actions.hpp"
 #include "gs/controller/controller.hpp"
+#include "gs/transport/asio_link.hpp"
 #include "gs/util/datetime.hpp"
 
 #include <QDateTime>
@@ -177,8 +178,7 @@ QString UiBackend::connectionKind() const {
         return QStringLiteral("simulator");
     }
     // An address is the Ethernet board (ConnectionStateIndicator's BsEthernet).
-    const bool network = !port.isEmpty() && port.front().isDigit() && port.contains('.');
-    return network ? QStringLiteral("ethernet") : QStringLiteral("usb");
+    return transport::looksLikeIpAddress(port.toStdString()) ? QStringLiteral("ethernet") : QStringLiteral("usb");
 }
 
 QString UiBackend::activeState() const {
