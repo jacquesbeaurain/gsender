@@ -5,6 +5,8 @@ import GSender
 
 Item {
     id: root
+    // The bridge PluginHost hands the plugin: capability-checked requests, topics, storage.
+    property var gsender: null
     implicitWidth: 600
     implicitHeight: 400
 
@@ -25,7 +27,7 @@ Item {
             }
 
             Label {
-                text: qsTr("This is a sandboxed plugin running with QML UI and WebAssembly host bindings.")
+                text: qsTr("A plugin with a QML UI and WebAssembly logic, talking to gSender through its bridge.")
                 color: Theme.contentSecondary
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -34,8 +36,8 @@ Item {
             GButton {
                 text: qsTr("Send Test Command")
                 onClicked: {
-                    if (typeof PluginBridge !== "undefined") {
-                        PluginBridge.send("machine:command", { command: "$G" })
+                    if (root.gsender) {
+                        root.gsender.send("machine:command", { command: "$G" })
                     }
                 }
             }

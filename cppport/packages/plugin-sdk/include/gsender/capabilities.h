@@ -25,13 +25,18 @@ extern "C" {
 #define GS_CAP_VIEWER_SCREEN_TO_WORLD   "viewer:screen-to-world"
 #define GS_CAP_VIEWER_WORLD_TO_SCREEN   "viewer:world-to-screen"
 #define GS_CAP_VIEWER_CAMERA_SET        "viewer:camera:set"
+#define GS_CAP_VIEWER_CAMERA_LOCK_ROTATE "viewer:camera:lock-rotate"
+#define GS_CAP_VIEWER_PICK_ARM          "viewer:pick:arm"
+#define GS_CAP_VIEWER_PICK_DISARM       "viewer:pick:disarm"
 #define GS_CAP_VIEWER_OVERLAY_SET       "viewer:overlay:set"
 
 /** Standard reactive topic streams. */
 #define GS_TOPIC_WORKSPACE              "workspace"
 #define GS_TOPIC_CONTROLLER             "controller"
 #define GS_TOPIC_VIEWER                 "viewer"
+/** Addressed to one plugin only, and needing no grant: its parsers' matches and its queries' replies. */
 #define GS_TOPIC_PARSER                 "parser"
+#define GS_TOPIC_QUERY                  "query"
 
 #ifdef __cplusplus
 }

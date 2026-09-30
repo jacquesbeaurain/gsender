@@ -3,6 +3,7 @@
 #include "jogger.hpp"
 #include "machine.hpp"
 #include "notification_center.hpp"
+#include "plugin_service.hpp"
 #include "remote_service.hpp"
 #include "shortcuts.hpp"
 
@@ -113,6 +114,7 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::connectionChanged);
     connect(&machine_, &app::Machine::connectionChanged, this, &UiBackend::stateChanged);
     connect(&machine_, &app::Machine::stateChanged, this, &UiBackend::stateChanged);
+    connect(&machine_.pluginService().bridge(), &app::PluginBridge::busyChanged, this, &UiBackend::stateChanged);
     connect(&machine_, &app::Machine::programChanged, this, &UiBackend::programChanged);
     connect(&machine_, &app::Machine::appSettingsChanged, this, &UiBackend::appSettingsChanged);
 }
@@ -177,6 +179,14 @@ QString UiBackend::stateText() const {
         return tr("Disconnected");
     }
     return QString::fromStdString(controller::statusLabel(state.toStdString()));
+}
+
+bool UiBackend::pluginBusy() const {
+    return machine_.pluginService().bridge().busy();
+}
+
+QString UiBackend::pluginBusyLabel() const {
+    return machine_.pluginService().bridge().busyLabel();
 }
 
 QString UiBackend::alarmCode() const {
