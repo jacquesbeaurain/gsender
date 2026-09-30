@@ -1979,6 +1979,25 @@ TEST_F(UiTest, PromptOnExitAsksBeforeClosing) {
     QMetaObject::invokeMethod(prompt, "close");
 }
 
+TEST_F(UiTest, TheVisualizerTakesTheKeysWhenAsked) {
+    app::AppSettings settings = machine_->settings();
+    settings.accessibility.visualizerKeyboardControl = true;
+    machine_->setSettings(settings);
+    QQuickItem* toolpath = item("toolpath");
+    ASSERT_NE(toolpath, nullptr);
+    EXPECT_TRUE(toolpath->activeFocusOnTab());
+    QMetaObject::invokeMethod(toolpath, "setView", Q_ARG(QString, "3d"));
+    toolpath->forceActiveFocus();
+    const double yaw = toolpath->property("yaw").toDouble();
+    QTest::keyClick(window_, Qt::Key_Left);
+    EXPECT_NEAR(toolpath->property("yaw").toDouble(), yaw - 15, 1e-9);
+
+    settings.accessibility.visualizerKeyboardControl = false;
+    machine_->setSettings(settings);
+    EXPECT_FALSE(toolpath->activeFocusOnTab());
+    EXPECT_FALSE(toolpath->hasActiveFocus());
+}
+
 TEST_F(UiTest, IconProviderRendersPiPuzzlePiece) {
     ui::IconProvider provider;
     QSize size;

@@ -37,6 +37,10 @@ class ToolpathItem : public QQuickPaintedItem, public app::PluginViewer {
     // Plugin-driven: orbiting locked, and a pick gesture armed ("", "click" or "hold").
     Q_PROPERTY(bool rotateEnabled READ rotateEnabled NOTIFY rotateEnabledChanged)
     Q_PROPERTY(QString pickMode READ pickMode NOTIFY pickModeChanged)
+    // Accessibility's "Visualizer keyboard control": the item takes the
+    // focus (Tab) and its keys - arrows orbit, Ctrl+arrows pan, +/- zoom,
+    // Home fits.
+    Q_PROPERTY(bool keyboardControl READ keyboardControl WRITE setKeyboardControl NOTIFY keyboardControlChanged)
 
 public:
     explicit ToolpathItem(QQuickItem* parent = nullptr);
@@ -61,6 +65,8 @@ public:
     void setPluginHost(bool host);
     bool rotateEnabled() const noexcept { return rotateEnabled_; }
     QString pickMode() const { return pickMode_; }
+    bool keyboardControl() const noexcept { return keyboardControl_; }
+    void setKeyboardControl(bool on);
     // The pick gesture (ToolpathGestures): a click or a completed hold at a
     // point of the item, and a hold's progress (0..1).
     Q_INVOKABLE void pickAt(double x, double y);
@@ -81,10 +87,12 @@ Q_SIGNALS:
     void pluginHostChanged();
     void rotateEnabledChanged();
     void pickModeChanged();
+    void keyboardControlChanged();
 
 protected:
     void componentComplete() override;
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
+    void keyPressEvent(QKeyEvent* event) override;
     // What is drawn and what Fit frames: the main visualizer by default.
     virtual void paintContent(QPainter& painter, app::ToolpathCamera& camera);
     virtual std::optional<gcode::BoundingBox> contentBounds() const;
@@ -102,6 +110,7 @@ private:
     std::size_t doneLines_ = 0;  // sender lines acknowledged
     bool pluginHost_ = false;
     bool rotateEnabled_ = true;
+    bool keyboardControl_ = false;
     QString pickMode_;
     QMap<QString, QJsonArray> overlays_;  // by plugin
 };
