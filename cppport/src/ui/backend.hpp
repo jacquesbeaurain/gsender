@@ -85,6 +85,8 @@ class UiBackend final : public QObject {
     Q_PROPERTY(bool focusRings READ focusRings NOTIFY appSettingsChanged)
     // Accessibility: no animations.
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY appSettingsChanged)
+    // Accessibility: the visualizer taking the focus and its arrow keys.
+    Q_PROPERTY(bool visualizerKeyboardControl READ visualizerKeyboardControl NOTIFY appSettingsChanged)
     // The loaded file in words ("Show summary visually"): empty when not shown.
     Q_PROPERTY(QString jobSummary READ jobSummary NOTIFY jobSummaryChanged)
 
@@ -143,6 +145,7 @@ public:
     bool promptExit() const;
     bool focusRings() const;
     bool reducedMotion() const;
+    bool visualizerKeyboardControl() const;
     QString jobSummary() const;
 
     Q_INVOKABLE void toggleLiteMode();

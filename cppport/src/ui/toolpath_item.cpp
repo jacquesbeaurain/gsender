@@ -7,6 +7,7 @@
 #include "gs/controller/controller.hpp"
 
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QPainter>
 
 #include <algorithm>
@@ -141,6 +142,40 @@ void ToolpathItem::orbit(double yawDegrees, double pitchDegrees) {
 void ToolpathItem::pan(double dx, double dy) {
     camera_.pan(dx, dy);
     changed();
+}
+
+void ToolpathItem::setKeyboardControl(bool on) {
+    if (on == keyboardControl_) {
+        return;
+    }
+    keyboardControl_ = on;
+    // (Qt keeps activeFocusOnTab while the item has the focus: drop it first.)
+    if (!on && hasActiveFocus()) {
+        setFocus(false);
+    }
+    setActiveFocusOnTab(on);
+    Q_EMIT keyboardControlChanged();
+}
+
+void ToolpathItem::keyPressEvent(QKeyEvent* event) {
+    if (!keyboardControl_) {
+        QQuickPaintedItem::keyPressEvent(event);
+        return;
+    }
+    const bool panning = (event->modifiers() & Qt::ControlModifier) != 0;
+    const double step = 0.1 * std::min(width(), height());
+    switch (event->key()) {
+        case Qt::Key_Left: panning ? pan(-step, 0) : orbit(-15, 0); break;
+        case Qt::Key_Right: panning ? pan(step, 0) : orbit(15, 0); break;
+        case Qt::Key_Up: panning ? pan(0, -step) : orbit(0, 15); break;
+        case Qt::Key_Down: panning ? pan(0, step) : orbit(0, -15); break;
+        case Qt::Key_Plus:
+        case Qt::Key_Equal: zoomAt(width() / 2, height() / 2, 1.25); break;
+        case Qt::Key_Minus: zoomAt(width() / 2, height() / 2, 0.8); break;
+        case Qt::Key_Home: fit(); break;
+        default: QQuickPaintedItem::keyPressEvent(event); return;
+    }
+    event->accept();
 }
 
 // ---- plugins ---------------------------------------------------------------------------
