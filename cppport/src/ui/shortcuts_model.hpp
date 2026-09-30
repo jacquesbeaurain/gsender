@@ -34,7 +34,6 @@ class ShortcutsModel : public UiModelBase {
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
     // Each {id, title, keys (as the platform writes them), category, active}.
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* rowsModel READ rowsModel CONSTANT)
 
 public:
     explicit ShortcutsModel(QObject* parent = nullptr);
@@ -54,7 +53,6 @@ public:
         bool active = false;
     };
     QVariantList rows() const;
-    StructListModelBase* rowsModel() { syncRows(); return &rowsModel_; }
 
     // A key press as a shortcut (portable text, e.g. "Shift+Right"); empty
     // for a modifier alone.

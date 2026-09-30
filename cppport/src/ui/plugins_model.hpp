@@ -44,7 +44,6 @@ class PluginsModel : public UiModelBase {
     Q_PROPERTY(int enabledCount READ enabledCount NOTIFY pluginsChanged)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY filterChanged)
     Q_PROPERTY(QString filter READ filter WRITE setFilter NOTIFY filterChanged)
-    Q_PROPERTY(QVariantList plugins READ plugins NOTIFY pluginsChanged)
     Q_PROPERTY(StructListModelBase* pluginsModel READ pluginsModel CONSTANT)
     // The plugins' Tools page cards ("tools-page") {key, title, description,
     // icon, isPlugin, pluginId, uiUrl} and tool area tabs ("tools-tab")
@@ -66,7 +65,6 @@ public:
     QString filter() const { return filter_; }
     void setFilter(const QString& filter);
 
-    QVariantList plugins() const;
     StructListModelBase* pluginsModel() { return &listModel_; }
     QVariantList toolCards() const;
     QVariantList toolTabs() const;

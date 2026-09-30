@@ -44,7 +44,6 @@ class FileModel : public UiModelBase {
     // Recent files {name, path}, newest first; the last job {file, status
     // ("COMPLETE"/"STOPPED"), duration ("1h 2m 3s")} - empty without one.
     Q_PROPERTY(QVariantList recentFiles READ recentFiles NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* recentFilesModel READ recentFilesModel CONSTANT)
     Q_PROPERTY(QVariantMap lastJob READ lastJob NOTIFY changed)
 
 public:
@@ -65,7 +64,6 @@ public:
     bool canLoad() const;
     bool canReload() const;
     QVariantList recentFiles() const;
-    StructListModelBase* recentFilesModel() { return &recentFilesModel_; }
     QVariantMap lastJob() const;
 
     // A file from disk (a path or a file:// URL): "" when loaded, else why not.

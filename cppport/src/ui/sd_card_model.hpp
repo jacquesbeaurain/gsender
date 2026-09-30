@@ -32,8 +32,6 @@ class SdCardModel : public UiModelBase {
     Q_PROPERTY(QString message READ message NOTIFY changed)
     // Each {name, size (text), atci, unusable, problem, runnable, deletable}.
     Q_PROPERTY(QVariantList files READ files NOTIFY changed)
-    Q_PROPERTY(StructListModelBase* filesModel READ filesModel CONSTANT)
-    Q_PROPERTY(StructListModelBase* pendingModel READ pendingModel CONSTANT)
     Q_PROPERTY(QString uploadState READ uploadState NOTIFY changed)  // idle, uploading, complete
     Q_PROPERTY(int uploadProgress READ uploadProgress NOTIFY changed)
     // The Upload modal's files: each {path, name, size}.
@@ -48,8 +46,6 @@ public:
     bool mounted() const;
     QString message() const;
     QVariantList files() const;
-    StructListModelBase* filesModel() { return &filesModel_; }
-    StructListModelBase* pendingModel() { return &pendingModel_; }
     QString uploadState() const { return uploadState_; }
     int uploadProgress() const { return progress_; }
     QVariantList pending() const;
