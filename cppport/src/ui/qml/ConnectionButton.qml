@@ -91,7 +91,7 @@ Rectangle {
         property NumberAnimation run: NumberAnimation {
             target: pulse; property: "phase"; from: 0; to: 2 * Math.PI
             duration: 2000; loops: Animation.Infinite
-            running: button.state === "disconnected" && button.visible
+            running: button.state === "disconnected" && button.visible && !Theme.reducedMotion
         }
     }
 

@@ -104,7 +104,7 @@ Item {
                     GradientStop { position: 1; color: "#dcfce7" }
                 }
                 SequentialAnimation on opacity {
-                    running: macroItem.running
+                    running: macroItem.running && !Theme.reducedMotion
                     loops: Animation.Infinite
                     NumberAnimation { from: 1; to: 0.5; duration: 1000 }
                     NumberAnimation { from: 0.5; to: 1; duration: 1000 }
