@@ -271,6 +271,11 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
   targets of at least `Theme.touchTarget`, no behaviour that needs hover.
 - Logic stays in C++: a screen's decisions go into a view model (QObject,
   Qt Core only, beside the services) exposed to QML; QML binds and calls.
+  That includes parsing and clamping what a field takes, searching and
+  sorting lists, and a page's own state machine. What needs no Qt (a
+  formatter, a search, a wizard's walk) goes further down, into `gs_core`
+  with a core test, and the view model wraps it (`qt_text.hpp`'s `qstr`).
+  QML keeps geometry, animation, focus and popups opening and closing.
 - Give items a test needs an `objectName`; `gs_ui_tests` finds them
   (`findItem`), taps them and runs touch gestures. Wait on the UI's own
   text or properties, not just on the machine, before asserting what it

@@ -2231,3 +2231,30 @@ already probes for real (Step 21).
 - **Shared Qt glue.** `src/ui/qt_text.hpp` (`qstr`, `jsNumber`,
   `localPath`) replaces copies in eight view models; the top bar's
   connection kind uses `transport::looksLikeIpAddress`, as connecting does.
+- **Second pass: QML logic and Qt-free helpers.** What was still worked
+  out in QML JavaScript, or in view models with nothing Qt about it, moved
+  down a layer, each with tests:
+  - into `gs_core`: `util::WizardWalk` (a wizard's steps, skips and
+    completion page; AccessoryModel walks with it), `util::LineMatches`
+    (the editor's and Step Through's search), `job/file_info` (the file
+    panel's size, feed and speed ranges), `util::durationText`,
+    `estimatedTimeText` and `clockText`, `config::macrosInColumn`,
+    `config::jobHistory`, `jobMatches` and `maintenanceMatches` (the Stats
+    lists' search and sort) and `toolchange::ContinuityCheck` and
+    `PositionFollower` (the TLS installer's two interactive pages);
+    `transport::shortPortName` joins the port listing.
+  - into the view models: StatsModel's `jobSearch`, `sortJobs` and
+    `taskSearch`; ConfigModel's `setNumber`, `setPart`, `setFolder` and
+    `toggleEepromBit` (the row editors' checks); PluginsModel's
+    `toolCards` and `toolTabs`; AccessoryModel's continuity and position
+    state; `JobModel::startLine`/`safeHeight`,
+    `GcodeEditorModel::jumpRow`, `GridCaptureModel::gridPoints` and
+    `DroModel::confirmZero`.
+  - Flaws fixed on the way: Browse for the backup folder saved "/C:/..."
+    on Windows (the QML stripped "file://" by hand; `localPath` now);
+    Start From Line took a non-number as NaN (now the suggested line);
+    Go to line took a fraction as a row.
+  - Left in QML on purpose: geometry and drawing (JogWheel, PieChart, the
+    macro columns' layout), shortcut routing (CarvePage, Visualizer),
+    toast timing, popups opening and closing, and the notices shown after
+    an action.
