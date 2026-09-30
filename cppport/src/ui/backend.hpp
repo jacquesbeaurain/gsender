@@ -19,6 +19,7 @@ class QJSEngine;
 class QQmlEngine;
 
 namespace gs::app {
+class AccessibilityAnnouncer;
 class GamepadService;
 class Jogger;
 class Machine;
@@ -78,6 +79,8 @@ class UiBackend final : public QObject {
     // Lightweight mode (widgets.visualizer.liteMode) and perspective projection.
     Q_PROPERTY(bool liteMode READ liteMode WRITE setLiteMode NOTIFY appSettingsChanged)
     Q_PROPERTY(bool perspective READ perspective WRITE setPerspective NOTIFY appSettingsChanged)
+    // The loaded file in words ("Show summary visually"): empty when not shown.
+    Q_PROPERTY(QString jobSummary READ jobSummary NOTIFY jobSummaryChanged)
 
 public:
     explicit UiBackend(app::Machine& machine, QObject* parent = nullptr);
@@ -96,6 +99,8 @@ public:
     app::RemoteService& remote() noexcept { return *remote_; }
     // The gamepads (polled once main() gives them a backend).
     app::GamepadService& gamepad() noexcept { return *gamepad_; }
+    // What the screen reader hears, and the audio cues.
+    app::AccessibilityAnnouncer& announcer() noexcept { return *announcer_; }
     bool gamepadConnected() const;
 
     bool connected() const;
@@ -129,6 +134,7 @@ public:
     void setLiteMode(bool enabled);
     bool perspective() const;
     void setPerspective(bool persp);
+    QString jobSummary() const;
 
     Q_INVOKABLE void toggleLiteMode();
     Q_INVOKABLE void togglePerspective();
@@ -180,6 +186,7 @@ Q_SIGNALS:
     void programChanged();
     void appSettingsChanged();
     void gamepadsChanged();
+    void jobSummaryChanged();
 
 private:
     app::Machine& machine_;
@@ -187,6 +194,7 @@ private:
     app::NotificationCenter* notifications_;   // a child
     app::RemoteService* remote_;               // a child
     app::GamepadService* gamepad_;             // a child
+    app::AccessibilityAnnouncer* announcer_;   // a child
     QPointer<app::ShortcutManager> shortcuts_;  // the window's
     bool helperVisible_ = false;
     QString helperTitle_;

@@ -50,9 +50,40 @@ Rectangle {
     }
 
     WorkspaceSelector {
+        id: workspaceSelector
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 8
+    }
+
+    // Accessibility's G-code summary, shown visually (AccessibilityAnnouncer).
+    Rectangle {
+        objectName: "jobSummary"
+        visible: Backend.jobSummary !== ""
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.margins: 8
+        width: Math.min(560, workspaceSelector.x - 16)
+        height: summaryColumn.implicitHeight + 24
+        radius: Theme.radiusSmall
+        color: Theme.surfaceRaised
+        border.color: Theme.outlineSubtle
+        Rectangle { width: 4; height: parent.height; radius: 2; color: Theme.primary }
+        ColumnLayout {
+            id: summaryColumn
+            anchors.fill: parent
+            anchors.margins: 12
+            anchors.leftMargin: 16
+            spacing: 4
+            Label { text: qsTr("Job Summary"); font.bold: true; color: Theme.contentPrimary }
+            Label {
+                Layout.fillWidth: true
+                text: Backend.jobSummary
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSm
+                color: Theme.contentSecondary
+            }
+        }
     }
 
     // Navigation & Viewport Controls (bottom-left overlay)

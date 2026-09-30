@@ -7,6 +7,7 @@
 // --screenshot renders the window after --wait milliseconds, saves it and
 // exits; with -platform offscreen it needs no display.
 
+#include "accessibility_announcer.hpp"
 #include "backend.hpp"
 #include "gamepad_service.hpp"
 #include "remote_service.hpp"
@@ -107,6 +108,7 @@ int main(int argc, char** argv) {
     window->resize(dimensions.value(0).toInt() > 0 ? dimensions.value(0).toInt() : 1400,
                    dimensions.value(1).toInt() > 0 ? dimensions.value(1).toInt() : 900);
     window->show();
+    backend.announcer().setTarget(window);
     if (QObject* toolpath = window->findChild<QObject*>("toolpath")) {
         QMetaObject::invokeMethod(toolpath, "setView", Q_ARG(QString, parser.value(view)));
     }
