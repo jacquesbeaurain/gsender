@@ -10,6 +10,7 @@
 #include "toolpath_item.hpp"
 
 #include "gs/job/step_through.hpp"
+#include "gs/util/line_matches.hpp"
 
 #include <QAbstractListModel>
 #include <QElapsedTimer>
@@ -45,7 +46,7 @@ public:
 
     void setLines(const std::vector<std::string>* lines, bool dark);
     void setCurrent(std::size_t line);
-    void setMatches(const std::vector<std::size_t>& matches);
+    void setMatches(const util::LineMatches& matches);
 
     int rowCount(const QModelIndex& parent = {}) const override;
     QVariant data(const QModelIndex& index, int role) const override;
@@ -162,7 +163,7 @@ private:
     std::vector<job::StepperTool> tools_;
     std::vector<bool> hiddenTools_;
     std::vector<Span> spans_;
-    std::vector<std::size_t> matches_;
+    util::LineMatches matches_;
     bool searching_ = false;
     std::size_t line_ = 1;
     bool hideProcessed_ = false;
