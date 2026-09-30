@@ -79,6 +79,8 @@ public:
     // Opening the run step: the check starts over (passed already when
     // the settings turn it off); on the simulator a plate goes under the bit.
     Q_INVOKABLE void beginRun();
+    // The check alone starting over (the rectangular grid's dialog).
+    Q_INVOKABLE void beginCheck();
     // "Confirm Probe" by hand.
     Q_INVOKABLE void confirmCircuit();
     // Runs the routine; false when it cannot.

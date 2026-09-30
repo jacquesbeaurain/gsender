@@ -246,6 +246,11 @@ void ProbeModel::nextCorner() {
     machine_.setSettings(settings);
 }
 
+void ProbeModel::beginCheck() {
+    checked_ = !machine_.settings().probe.connectivityTest;
+    Q_EMIT changed();
+}
+
 void ProbeModel::beginRun() {
     checked_ = !machine_.settings().probe.connectivityTest;
     if (machine_.isSimulated()) {

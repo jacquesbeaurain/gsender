@@ -63,6 +63,7 @@ qt_add_qml_module(gs_ui
         qml/MacrosTab.qml
         qml/ProbeTab.qml
         qml/RunProbeDialog.qml
+        qml/RectangularGridDialog.qml
         qml/RotaryTab.qml
         qml/MountingSetupDialog.qml
         qml/ToolChange.qml
@@ -139,6 +140,8 @@ qt_add_qml_module(gs_ui
         macros_model.hpp
         probe_model.cpp
         probe_model.hpp
+        grid_capture_model.cpp
+        grid_capture_model.hpp
         rotary_model.cpp
         rotary_model.hpp
         tool_change_model.cpp
