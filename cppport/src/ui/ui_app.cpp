@@ -4,6 +4,7 @@
 #include "ui_shortcuts.hpp"
 
 #include "icon_provider.hpp"
+#include "qr_provider.hpp"
 
 #include <QDir>
 #include <QQmlApplicationEngine>
@@ -21,6 +22,7 @@ void configureQuick(bool offscreen) {
 
 QQuickWindow* loadMainWindow(QQmlApplicationEngine& engine) {
     engine.addImageProvider(QStringLiteral("icon"), new IconProvider);
+    engine.addImageProvider(QStringLiteral("qr"), new QrProvider);
 #ifdef GS_QT_QML_DIR
     // Run from the build tree, Qt looks for its QML modules beside the copied
     // DLLs; point it at the Qt installation's (the LibPack's on Windows).

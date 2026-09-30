@@ -48,6 +48,9 @@ qt_add_qml_module(gs_ui
         qml/ToastArea.qml
         qml/NotificationBell.qml
         qml/HelperPanel.qml
+        qml/QrCode.qml
+        qml/QrLinkButton.qml
+        qml/RemoteDialog.qml
         qml/JobAlerts.qml
         qml/ToolTab.qml
         qml/ToolsWidget.qml
@@ -168,6 +171,10 @@ qt_add_qml_module(gs_ui
         config_model.hpp
         icon_provider.cpp
         icon_provider.hpp
+        qr_provider.cpp
+        qr_provider.hpp
+        remote_model.cpp
+        remote_model.hpp
         nav_cube_item.cpp
         nav_cube_item.hpp
         toolpath_item.cpp

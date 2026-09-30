@@ -22,6 +22,7 @@ namespace gs::app {
 class Jogger;
 class Machine;
 class NotificationCenter;
+class RemoteService;
 class ShortcutManager;
 }
 
@@ -83,6 +84,9 @@ public:
     // The jog presets and tap/hold jogging, shared by the jog controls and
     // the keyboard shortcuts.
     app::Jogger& jogger() noexcept { return *jogger_; }
+    // Remote mode: the wireless pendant's server (started as the saved
+    // settings say).
+    app::RemoteService& remote() noexcept { return *remote_; }
 
     bool connected() const;
     bool connecting() const;
@@ -168,6 +172,7 @@ private:
     app::Machine& machine_;
     app::Jogger* jogger_;                      // a child
     app::NotificationCenter* notifications_;   // a child
+    app::RemoteService* remote_;               // a child
     QPointer<app::ShortcutManager> shortcuts_;  // the window's
     bool helperVisible_ = false;
     QString helperTitle_;

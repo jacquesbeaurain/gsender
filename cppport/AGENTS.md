@@ -306,6 +306,9 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
+- **Remote mode** (Step 69): ported as a pendant page rather than the whole
+  web app; the Tools tab (probe, macros, spindle, coolant, rotary) and the
+  Config page upstream also offered on the phone are not on it yet.
 - **The QML touch UI** (Steps 61-65): Complete. Phases 0-4 are implemented,
   promoted to the primary `gsender` application, and the legacy widget UI
   retired.
@@ -314,10 +317,8 @@ walkthrough says how each ported piece maps to upstream):
   has no Qt Gamepad - and hardware to verify.
 - **ATC** (features/ATC): the Sienci ATC's wizard (Accessory Installation),
   its controls and the SD card's ATC macro templates.
-- **Remote mode** (features/RemoteMode): the wireless pendant's web server.
 - **Plugins** (features/Plugins): upstream's plugin system.
 - **macOS serial port listing** (Windows: SetupAPI, Linux: sysfs).
-- **QR codes** beside help links (the Helper panel, the accessory wizards).
 - **Configuration file decision**: share gSender's `~/.sender_rc` or keep
   the port's own file (walkthrough Step 13) - a decision for the owner.
 - Hardware checks only a person can do: serial connections to real Grbl

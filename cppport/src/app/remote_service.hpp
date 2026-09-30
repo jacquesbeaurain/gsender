@@ -50,8 +50,9 @@ public:
     // wrong (the validation message, or why the address could not be bound;
     // remote mode is then saved off with `error` set, as upstream does).
     QString apply(const remote::RemoteSettings& settings);
-    // On start: serve when the saved settings say so.
-    void startFromSettings();
+    // On start: serve when the saved settings say so. Empty, or why it
+    // could not (remote mode is then saved off, flagged).
+    QString startFromSettings();
 
     // Serves on `host`:`port` without touching the settings (port 0: any
     // free one) - tests and diagnostics. Empty on success.

@@ -8,6 +8,7 @@
 // exits; with -platform offscreen it needs no display.
 
 #include "backend.hpp"
+#include "remote_service.hpp"
 #include "app_settings.hpp"
 #include "machine.hpp"
 #include "qt_event_loop.hpp"
@@ -109,6 +110,13 @@ int main(int argc, char** argv) {
         QMetaObject::invokeMethod(toolpath, "setView", Q_ARG(QString, parser.value(view)));
     }
 
+    // Remote mode, as saved (server/index.js binds it at start-up).
+    if (!parser.isSet(screenshot)) {
+        const QString error = backend.remote().startFromSettings();
+        if (!error.isEmpty()) {
+            backend.notify(error, QStringLiteral("error"));
+        }
+    }
     if (parser.isSet(simulator) || parser.isSet(simulatorHal)) {
         backend.connectSimulator(parser.isSet(simulatorHal));
     }
