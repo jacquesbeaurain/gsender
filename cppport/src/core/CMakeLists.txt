@@ -67,5 +67,6 @@ gs_precompile_headers(gs_core
 
 set(GS_RESOURCE_DIR "${PROJECT_SOURCE_DIR}/resources")
 file(GLOB_RECURSE GS_RESOURCE_FILES CONFIGURE_DEPENDS
-    "${GS_RESOURCE_DIR}/data/*.json" "${GS_RESOURCE_DIR}/images/*.png")
+    "${GS_RESOURCE_DIR}/data/*.json" "${GS_RESOURCE_DIR}/images/*.png"
+    "${GS_RESOURCE_DIR}/remote/*.html")
 gs_embed_resources(gs_core BASE_DIR "${GS_RESOURCE_DIR}" FILES ${GS_RESOURCE_FILES})
