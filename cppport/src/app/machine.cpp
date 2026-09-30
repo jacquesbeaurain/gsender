@@ -199,6 +199,7 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     pluginService_ = std::make_unique<PluginService>(*this, storageDir);
     pluginService_->addSearchPath(QString::fromStdString((configDir / "plugins").string()));
     pluginService_->addSearchPath(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"));
+    pluginService_->addSearchPath(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("../../plugins")));
     pluginService_->addSearchPath(QDir::current().filePath(QStringLiteral("plugins")));
     pluginService_->scanPlugins();
 }
