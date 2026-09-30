@@ -84,9 +84,20 @@ public:
     Q_INVOKABLE int sectionRow(const QString& section) const;
 
     // ---- edits (staged) ----
+    Q_INVOKABLE QVariant valueOf(const QString& key) const;  // a setting's staged value
     Q_INVOKABLE void setValue(const QString& key, const QVariant& value);
+    // An editor's text committed; ignored unless it is a number. A number
+    // row's value is kept within its range.
+    Q_INVOKABLE void setNumber(const QString& key, const QString& text);
+    // One part of a location (index 0-2, any number), an IP address (index
+    // 0-3, rounded to 0-255) or jog speeds (field name, never negative).
+    Q_INVOKABLE void setPart(const QString& key, const QVariant& part, const QString& text);
+    // A path row set from a folder dialog's URL.
+    Q_INVOKABLE void setFolder(const QString& key, const QUrl& folder);
     Q_INVOKABLE void resetValue(const QString& key);   // to its default
     Q_INVOKABLE void setEeprom(const QString& setting, const QString& value);
+    // A bitfield setting's bit turned on or off.
+    Q_INVOKABLE void toggleEepromBit(const QString& setting, int bit);
     Q_INVOKABLE void resetEeprom(const QString& setting);  // to the profile's default
     Q_INVOKABLE void apply();   // Apply Settings
     Q_INVOKABLE void revert();  // the staged edits dropped

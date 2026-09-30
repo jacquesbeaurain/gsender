@@ -171,11 +171,7 @@ Item {
                 Layout.preferredWidth: 160
                 value: Number(row.entry.value)
                 decimals: row.entry.decimals !== undefined ? row.entry.decimals : 3
-                onCommitted: (text) => {
-                    const n = Number(text)
-                    if (text !== "" && !isNaN(n))
-                        row.model.setValue(row.key, Math.min(row.entry.max, Math.max(row.entry.min, n)))
-                }
+                onCommitted: (text) => row.model.setNumber(row.key, text)
             }
             Label { text: row.entry.unit || ""; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
             Item { Layout.fillWidth: true }
@@ -223,10 +219,7 @@ Item {
             FolderDialog {
                 id: folder
                 title: row.entry.label || ""
-                onAccepted: {
-                    const path = decodeURIComponent(selectedFolder.toString().replace(/^file:\/\//, ""))
-                    row.model.setValue(row.key, path)
-                }
+                onAccepted: row.model.setFolder(row.key, selectedFolder)
             }
         }
     }
@@ -269,14 +262,7 @@ Item {
                         Layout.fillWidth: true
                         value: row.entry.value ? row.entry.value[index] : 0
                         leftPadding: 24
-                        onCommitted: (text) => {
-                            const n = Number(text)
-                            if (text === "" || isNaN(n))
-                                return
-                            const at = row.entry.value.slice()
-                            at[index] = n
-                            row.model.setValue(row.key, at)
-                        }
+                        onCommitted: (text) => row.model.setPart(row.key, index, text)
                         Label {
                             anchors.left: parent.left
                             anchors.leftMargin: 8
@@ -322,14 +308,7 @@ Item {
                         horizontalAlignment: TextInput.AlignHCenter
                         decimals: 0
                         value: row.entry.value ? row.entry.value[index] : 0
-                        onCommitted: (text) => {
-                            const n = Number(text)
-                            if (text === "" || isNaN(n))
-                                return
-                            const ip = row.entry.value.slice()
-                            ip[index] = Math.max(0, Math.min(255, Math.round(n)))
-                            row.model.setValue(row.key, ip)
-                        }
+                        onCommitted: (text) => row.model.setPart(row.key, index, text)
                     }
                 }
             }
@@ -358,14 +337,7 @@ Item {
                         objectName: "configValue_" + row.key + "_" + modelData.field
                         Layout.fillWidth: true
                         value: row.entry.value ? row.entry.value[modelData.field] : 0
-                        onCommitted: (text) => {
-                            const n = Number(text)
-                            if (text === "" || isNaN(n) || n < 0)
-                                return
-                            const speeds = Object.assign({}, row.entry.value)
-                            speeds[modelData.field] = n
-                            row.model.setValue(row.key, speeds)
-                        }
+                        onCommitted: (text) => row.model.setPart(row.key, modelData.field, text)
                     }
                 }
             }
@@ -468,11 +440,7 @@ Item {
                     }
                     TapHandler {
                         enabled: parent.usable && row.model.idle
-                        onTapped: {
-                            const mask = 1 << parent.index
-                            const value = parent.on ? (parent.parent.value & ~mask) : (parent.parent.value | mask)
-                            row.model.setEeprom(row.key, String(value))
-                        }
+                        onTapped: row.model.toggleEepromBit(row.key, parent.index)
                     }
                 }
             }
