@@ -1,5 +1,6 @@
 #include "backend.hpp"
 
+#include "accessibility_announcer.hpp"
 #include "gamepad_service.hpp"
 #include "jogger.hpp"
 #include "machine.hpp"
@@ -48,7 +49,8 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
       jogger_(new app::Jogger(machine, this)),
       notifications_(new app::NotificationCenter(this)),
       remote_(new app::RemoteService(machine, *jogger_, this)),
-      gamepad_(new app::GamepadService(machine, *jogger_, this)) {
+      gamepad_(new app::GamepadService(machine, *jogger_, this)),
+      announcer_(new app::AccessibilityAnnouncer(machine, this)) {
     connect(gamepad_, &app::GamepadService::notice, this, [this](const QString& text) { notify(text); });
     connect(gamepad_, &app::GamepadService::padsChanged, this, &UiBackend::gamepadsChanged);
     // Every notification pops up for workspace.toastDuration and is kept.
@@ -126,6 +128,8 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
     const auto applyPower = [this] { app::setDisplaySleepAllowed(machine_.settings().powerSaving); };
     connect(&machine_, &app::Machine::appSettingsChanged, this, applyPower);
     applyPower();
+    connect(announcer_, &app::AccessibilityAnnouncer::summaryChanged, this, &UiBackend::jobSummaryChanged);
+    connect(&machine_, &app::Machine::appSettingsChanged, this, &UiBackend::jobSummaryChanged);
 }
 
 void UiBackend::setInstance(UiBackend* backend) {
@@ -374,6 +378,10 @@ void UiBackend::resetMaintenanceTimers(const QVariantList& ids) {
         list.push_back(id.toInt());
     }
     machine_.resetMaintenanceTimers(list);
+}
+
+QString UiBackend::jobSummary() const {
+    return machine_.settings().accessibility.gcodeSummaryVisible ? announcer_->summary() : QString();
 }
 
 }  // namespace gs::ui
