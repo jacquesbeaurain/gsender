@@ -2,6 +2,7 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/controller/controller.hpp"
 #include "gs/probe/probing.hpp"
@@ -19,10 +20,6 @@ constexpr probe::PlateType kPlates[] = {probe::PlateType::StandardBlock, probe::
 
 bool autoPlate(probe::PlateType plate) {
     return plate == probe::PlateType::AutoZero || plate == probe::PlateType::BitZero;
-}
-
-QString number(double value) {
-    return QString::fromStdString(js::numberToString(value));
 }
 
 }  // namespace
@@ -51,7 +48,7 @@ void ProbeModel::settingsChanged() {
             tool_ = choices.isEmpty() ? QString() : choices.first().toMap().value("value").toString();
         } else {
             const probe::ToolDiameter& first = settings.probeTools.front();
-            tool_ = number(settings.metric ? first.metric : first.imperial);
+            tool_ = jsNumber(settings.metric ? first.metric : first.imperial);
         }
     }
     Q_EMIT changed();
@@ -112,7 +109,7 @@ QVariantList ProbeModel::tools() const {
     std::sort(diameters.begin(), diameters.end());
     const bool removable = diameters.size() > 1;
     for (const double d : diameters) {
-        list.append(QVariantMap{{"value", number(d)}, {"label", number(d) + " " + units()}, {"removable", removable}});
+        list.append(QVariantMap{{"value", jsNumber(d)}, {"label", jsNumber(d) + " " + units()}, {"removable", removable}});
     }
     return list;
 }
@@ -221,10 +218,10 @@ bool ProbeModel::addTool(const QString& text) {
         // The other unit to 3 decimals, as upstream.
         const double other = std::round((metric ? value / 25.4 : value * 25.4) * 1000) / 1000;
         settings.probeTools.push_back(metric ? probe::ToolDiameter{value, other} : probe::ToolDiameter{other, value});
-        tool_ = number(value);
+        tool_ = jsNumber(value);
         machine_.setSettings(settings);
     } else {
-        selectTool(number(value));
+        selectTool(jsNumber(value));
     }
     return true;
 }
@@ -234,7 +231,7 @@ void ProbeModel::removeTool(const QString& value) {
     const bool metric = settings.metric;
     const auto before = settings.probeTools.size();
     std::erase_if(settings.probeTools,
-                  [&](const probe::ToolDiameter& t) { return number(metric ? t.metric : t.imperial) == value; });
+                  [&](const probe::ToolDiameter& t) { return jsNumber(metric ? t.metric : t.imperial) == value; });
     if (settings.probeTools.size() != before && !settings.probeTools.empty()) {
         machine_.setSettings(settings);
     }

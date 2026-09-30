@@ -2,20 +2,13 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/util/jsnumber.hpp"
 
 #include <algorithm>
 
 namespace gs::ui {
-namespace {
-
-QString number(double value) {
-    return QString::fromStdString(js::numberToString(value));
-}
-
-}  // namespace
-
 SquaringModel::SquaringModel(QObject* parent) : WizardModelBase(parent) {
     connectMachineSignals(true, false);
     setTotalSteps(4);
@@ -235,7 +228,7 @@ QString SquaringModel::resultText() const {
     }
     text += "<p>" + tr("Bottom edge (1-2): %1%4<br>Right edge (2-3): %2%4<br>Diagonal (1-3): %3%4<br>Angle "
                        "deviation: %5&deg;")
-                        .arg(number(triangle_.a), number(triangle_.b), number(triangle_.c), unit,
+                        .arg(jsNumber(triangle_.a), jsNumber(triangle_.b), jsNumber(triangle_.c), unit,
                              QString::fromStdString(js::toFixed(r.angle, 2))) +
             "</p>";
     const calibration::StepsAdjustment a = adjustment();
@@ -245,9 +238,9 @@ QString SquaringModel::resultText() const {
                    "your machine's accuracy.") +
                 "<br>" +
                 tr("X-axis step/mm - current: %1, recommended: %2<br>Y-axis step/mm - current: %3, recommended: %4")
-                    .arg(number(machine_.settingNumber("$100")),
+                    .arg(jsNumber(machine_.settingNumber("$100")),
                          QString::fromStdString(js::toFixed(a.x.stepsPerMm, 3)),
-                         number(machine_.settingNumber("$101")),
+                         jsNumber(machine_.settingNumber("$101")),
                          QString::fromStdString(js::toFixed(a.y.stepsPerMm, 3))) +
                 "</p>";
     }

@@ -2,6 +2,7 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 #include "visualizer_theme.hpp"
 
 #include "gs/config/machine_profiles.hpp"
@@ -34,10 +35,6 @@ std::optional<int> settingNumber(const std::string& name) {
     }
     const auto [end, ec] = std::from_chars(name.data() + 1, name.data() + name.size(), number);
     return ec == std::errc() && end == name.data() + name.size() ? std::optional<int>(number) : std::nullopt;
-}
-
-QString str(const std::string& text) {
-    return QString::fromStdString(text);
 }
 
 // Lengths stored in mm (mm/min), shown in the staged units.
@@ -718,7 +715,7 @@ void ConfigModel::buildMenu() {
         p.get = [key](const ConfigModel&, const Staged& st) {
             const auto it = st.hooks.find(key);
             const Staged::Hook hook = it == st.hooks.end() ? Staged::Hook{} : it->second;
-            return QVariant(QVariantMap{{"enabled", hook.enabled}, {"commands", str(hook.commands)}});
+            return QVariant(QVariantMap{{"enabled", hook.enabled}, {"commands", qstr(hook.commands)}});
         };
         p.set = [key](ConfigModel&, Staged& st, const QVariant& v) {
             const QVariantMap m = v.toMap();
@@ -743,7 +740,7 @@ void ConfigModel::buildMenu() {
                       "bit and re-zero Z. Flexible Re-zero: a wizard measuring tools on the touch plate. Fixed Tool "
                       "Sensor: a wizard measuring tools on a sensor (needs homing). Code: run the hooks below around "
                       "the tool change."),
-                   strategies, GETTER(str(s.toolChange.option)),
+                   strategies, GETTER(qstr(s.toolChange.option)),
                    SETTER(s.toolChange.option = v.toString().toStdString())),
         [](const Staged& st) { return st.s.toolChange.passthrough; })));
     const auto isOption = [](const char* option) {
@@ -777,11 +774,11 @@ void ConfigModel::buildMenu() {
                                      })));
     {
         Pref pre = withType(boolPref("preHook", tr("Before tool change"), tr("G-code run before the tool change."),
-                                     GETTER(str(s.toolChange.preHook)),
+                                     GETTER(qstr(s.toolChange.preHook)),
                                      SETTER(s.toolChange.preHook = v.toString().toStdString())),
                             "textarea");
         Pref post = withType(boolPref("postHook", tr("After tool change"), tr("G-code run after the tool change."),
-                                      GETTER(str(s.toolChange.postHook)),
+                                      GETTER(qstr(s.toolChange.postHook)),
                                       SETTER(s.toolChange.postHook = v.toString().toStdString())),
                              "textarea");
         tools.push_back(add(hiddenUnless(pre, isOption("Code"))));
@@ -966,18 +963,18 @@ QVariantMap ConfigModel::eepromRow(const std::string& name, const QString& secti
     const auto own = number ? settings.descriptions.find(*number) : settings.descriptions.end();
     // grblHAL describes its own settings ($ES/$ESH); the static tables fill the gaps.
     if (own != settings.descriptions.end()) {
-        unit = str(own->second.unit);
-        description = str(own->second.description);
+        unit = qstr(own->second.unit);
+        description = qstr(own->second.description);
         dataType = own->second.dataType;
         kind = dataType;
         for (const std::string& entry : own->second.format) {
-            labels << str(entry);
+            labels << qstr(entry);
         }
     } else if (const protocol::SettingInfo* info = tables.setting(name)) {
-        unit = str(info->units);
-        description = str(info->message);
+        unit = qstr(info->units);
+        description = qstr(info->message);
         if (!info->description.empty() && info->description != info->message) {
-            details = str(info->description);
+            details = qstr(info->description);
         }
         const std::string& type = info->inputType;
         kind = type == "switch" || type == "mask-status-report" ? 0
@@ -987,7 +984,7 @@ QVariantMap ConfigModel::eepromRow(const std::string& name, const QString& secti
                                                                   : -1;
         if (const boost::json::value* values = info->raw.if_contains("values"); values && values->is_object()) {
             for (const auto& [key, text] : values->as_object()) {
-                labels << str(text.is_string() ? std::string(text.as_string()) : std::string(key));
+                labels << qstr(text.is_string() ? std::string(text.as_string()) : std::string(key));
             }
         }
     }
@@ -1011,7 +1008,7 @@ QVariantMap ConfigModel::eepromRow(const std::string& name, const QString& secti
     const bool isDefault = config::isDefaultValue(value, fallback, dataType);
     return {
         {"kind", "eeprom"},
-        {"key", str(name)},
+        {"key", qstr(name)},
         {"section", section},
         {"label", label.isEmpty() ? description : label},
         {"description", label.isEmpty() ? details : description},
@@ -1019,10 +1016,10 @@ QVariantMap ConfigModel::eepromRow(const std::string& name, const QString& secti
         {"editor", editor},
         {"bits", labels},
         {"unit", unit},
-        {"value", str(value)},
+        {"value", qstr(value)},
         {"changed", value != board},
         {"modified", fallback.has_value() && !isDefault},
-        {"defaultText", fallback ? str(*fallback) : QString()},
+        {"defaultText", fallback ? qstr(*fallback) : QString()},
     };
 }
 
@@ -1208,7 +1205,7 @@ bool ConfigModel::idle() const {
 
 QString ConfigModel::pinState() const {
     controller::Controller* c = machine_.controller();
-    return c ? str(c->state().status.pinState) : QString();
+    return c ? qstr(c->state().status.pinState) : QString();
 }
 
 QString ConfigModel::units() const {
@@ -1218,7 +1215,7 @@ QString ConfigModel::units() const {
 QVariantList ConfigModel::profiles() const {
     QVariantList list;
     for (const config::MachineProfile& profile : config::machineProfiles()) {
-        list.append(QVariantMap{{"id", profile.id}, {"name", str(config::machineProfileName(profile))}});
+        list.append(QVariantMap{{"id", profile.id}, {"name", qstr(config::machineProfileName(profile))}});
     }
     return list;
 }
@@ -1243,7 +1240,7 @@ bool ConfigModel::canRestoreFirmwareDefaults() const {
 
 QString ConfigModel::profileName() const {
     const config::MachineProfile& profile = machine_.machineProfile();
-    return str(profile.name + " " + profile.type).trimmed();
+    return qstr(profile.name + " " + profile.type).trimmed();
 }
 
 // ---- edits -------------------------------------------------------------------------------------
@@ -1279,7 +1276,7 @@ void ConfigModel::resetEeprom(const QString& setting) {
     const std::optional<std::string> value =
         config::defaultValue(machine_.machineProfile(), machine_.boardContext(), setting.toStdString());
     if (value) {
-        setEeprom(setting, str(*value));
+        setEeprom(setting, qstr(*value));
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/config/records.hpp"
 #include "gs/controller/controller.hpp"
@@ -16,11 +17,6 @@
 
 namespace gs::ui {
 namespace {
-
-QString localPath(const QString& file) {
-    const QUrl url(file);
-    return url.isLocalFile() ? url.toLocalFile() : file;
-}
 
 // The stored macros in a column, by row (computeColumn).
 std::vector<config::MacroRecord> inColumn(std::vector<config::MacroRecord> macros, const std::string& column) {

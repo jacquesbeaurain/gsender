@@ -2,6 +2,7 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/calibration/calibration.hpp"
 #include "gs/util/jsnumber.hpp"
@@ -9,14 +10,6 @@
 #include <cctype>
 
 namespace gs::ui {
-namespace {
-
-QString number(double value) {
-    return QString::fromStdString(js::numberToString(value));
-}
-
-}  // namespace
-
 MovementTuningModel::MovementTuningModel(QObject* parent)
     : WizardModelBase(parent) {
     connectMachineSignals(true, false);
@@ -72,14 +65,14 @@ QString MovementTuningModel::resultText() const {
     }
     return tr("Your %1-axis movement was off by <b>%2 %3.</b> Consider updating your %1-axis step/mm value in your "
               "CNC firmware.")
-        .arg(axis(), number(calibration::tuningError(moveDistance_, travelled_)), units());
+        .arg(axis(), jsNumber(calibration::tuningError(moveDistance_, travelled_)), units());
 }
 
 QString MovementTuningModel::updateText() const {
     const std::string setting = calibration::stepsSetting(axis_);
     return tr("This will update the %1-axis step/mm value in your CNC firmware (%2).\n\nFrom: %3\nTo: %4")
-        .arg(axis(), QString::fromStdString(setting), number(machine_.settingNumber(setting)),
-             number(recommendedStepsPerMm()));
+        .arg(axis(), QString::fromStdString(setting), jsNumber(machine_.settingNumber(setting)),
+             jsNumber(recommendedStepsPerMm()));
 }
 
 bool MovementTuningModel::start() {

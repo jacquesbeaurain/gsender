@@ -3,6 +3,7 @@
 #include "backend.hpp"
 #include "diagnostics.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/config/history.hpp"
 #include "gs/config/machine_profiles.hpp"
@@ -27,29 +28,16 @@
 namespace gs::ui {
 namespace {
 
-QString qs(const std::string& text) {
-    return QString::fromStdString(text);
-}
-
-QString number(double value) {
-    return qs(js::numberToString(value));
-}
-
 // A Date's toLocaleString('en-US'): "9/23/2026, 2:40:12 AM".
 QString enUsDateTime(std::int64_t ms) {
     return QDateTime::fromMSecsSinceEpoch(ms).toString("M/d/yyyy, h:mm:ss AP");
-}
-
-QString localPath(const QString& file) {
-    const QUrl url(file);
-    return url.isLocalFile() ? url.toLocalFile() : file;
 }
 
 QVariantMap chart(const std::vector<std::pair<std::string, double>>& perPort) {
     QStringList labels;
     QVariantList values;
     for (const auto& [port, value] : perPort) {
-        labels << qs(config::truncatePort(port));
+        labels << qstr(config::truncatePort(port));
         values << value;
     }
     return {{"labels", labels}, {"values", values}};
@@ -67,7 +55,7 @@ std::vector<StatsModel::UpcomingRow> preview(const std::vector<config::Maintenan
             case config::MaintenanceDue::Soon: word = QObject::tr("Soon"); color = "#689AC9"; break;
             case config::MaintenanceDue::Low: word = QObject::tr("Low"); color = "#059669"; break;
         }
-        list.push_back({qs(task.name), QObject::tr("%1 hrs").arg(number(config::hoursUntilDue(task))), word, color});
+        list.push_back({qstr(task.name), QObject::tr("%1 hrs").arg(jsNumber(config::hoursUntilDue(task))), word, color});
     }
     return list;
 }
@@ -172,27 +160,27 @@ void StatsModel::reload() {
     };
     statRowsModel_.reset({
         statRow(tr("Total jobs run"), QString::number(results.completeJobs + results.incompleteJobs)),
-        statRow(tr("Total cutting time"), qs(config::statTimeString(results.totalCutTime))),
-        statRow(tr("Average job time"), qs(config::statTimeString(results.averageCutTime))),
-        statRow(tr("Longest job"), qs(config::statTimeString(results.longestCutTime))),
+        statRow(tr("Total cutting time"), qstr(config::statTimeString(results.totalCutTime))),
+        statRow(tr("Average job time"), qstr(config::statTimeString(results.averageCutTime))),
+        statRow(tr("Longest job"), qstr(config::statTimeString(results.longestCutTime))),
     });
 
     // Recent Jobs: the last five, whatever the port.
     std::vector<RecentJobRow> recentJobs;
     int shown = 0;
     for (auto it = stats.jobs.rbegin(); it != stats.jobs.rend() && shown < 5; ++it, ++shown) {
-        recentJobs.push_back({qs(it->file), qs(config::previewDuration(static_cast<double>(it->duration))), it->completed});
+        recentJobs.push_back({qstr(it->file), qstr(config::previewDuration(static_cast<double>(it->duration))), it->completed});
     }
     recentJobsModel_.reset(std::move(recentJobs));
 
     // Configuration.
     const config::MachineProfile& machineProfile = machine_.machineProfile();
-    profile_ = QString("%1 %2 %3").arg(qs(machineProfile.company), qs(machineProfile.name), qs(machineProfile.type)).trimmed();
+    profile_ = QString("%1 %2 %3").arg(qstr(machineProfile.company), qstr(machineProfile.name), qstr(machineProfile.type)).trimmed();
     const auto setting = [c](const char* key) { return c ? c->runner().setting(key) : std::string(); };
     const auto enabled = [](bool on) { return on ? tr("Enabled") : tr("Disabled"); };
     const QString connection = transport::looksLikeIpAddress(port)
-                                   ? qs(port)
-                                   : tr("%1 at %2 baud").arg(qs(config::truncatePort(port))).arg(machine_.baudRate());
+                                   ? qstr(port)
+                                   : tr("%1 at %2 baud").arg(qstr(config::truncatePort(port))).arg(machine_.baudRate());
     QString axes;
     if (c) {
         const std::string letters = c->runner().state().axes.letters;
@@ -207,7 +195,7 @@ void StatsModel::reload() {
         row(tr("Axes"), axes),
         row(tr("Soft limits"), enabled(setting("$20") == "1")),
         row(tr("Homing"), enabled(js::stringToNumber(setting("$22")) > 0)),
-        row(tr("Home location"), qs(controller::homingString(setting("$23")))),
+        row(tr("Home location"), qstr(controller::homingString(setting("$23")))),
         row(tr("Report inches"), enabled(setting("$13") == "1")),
     });
 
@@ -216,8 +204,8 @@ void StatsModel::reload() {
     for (std::size_t i = 0; i < alarms.size() && i < 4; ++i) {
         const config::AlarmRecord& alarm = alarms[i];
         alarmPreview.push_back({alarm.alarm,
-                                QString("%1 %2").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code)),
-                                tr("on %1").arg(qs(config::isoTime(alarm.time)))});
+                                QString("%1 %2").arg(alarm.alarm ? "ALARM" : "ERROR", qstr(alarm.code)),
+                                tr("on %1").arg(qstr(config::isoTime(alarm.time)))});
     }
     alarmPreviewModel_.reset(std::move(alarmPreview));
 
@@ -226,15 +214,15 @@ void StatsModel::reload() {
     for (auto it = stats.jobs.rbegin(); it != stats.jobs.rend(); ++it) {
         const config::JobRecord& job = *it;
         // What the search looks through: the records' values (includesString).
-        const QString search = QStringList{qs(job.file), number(static_cast<double>(job.duration)),
-                                           QString::number(job.totalLines), qs(config::isoTime(job.startTime)),
+        const QString search = QStringList{qstr(job.file), jsNumber(static_cast<double>(job.duration)),
+                                           QString::number(job.totalLines), qstr(config::isoTime(job.startTime)),
                                            job.completed ? "COMPLETE" : "STOPPED"}
                                    .join('\n')
                                    .toLower();
         jobList.push_back({
-            qs(job.file),
-            qs(job.path),
-            qs(util::millisecondsToTimeStamp(static_cast<double>(job.duration))),
+            qstr(job.file),
+            qstr(job.path),
+            qstr(util::millisecondsToTimeStamp(static_cast<double>(job.duration))),
             static_cast<double>(job.duration),
             static_cast<int>(job.totalLines),
             enUsDateTime(job.startTime),
@@ -257,17 +245,17 @@ void StatsModel::reload() {
         QString hours;
         if (task.currentTime < task.rangeStart) {
             state = "hours";
-            hours = number(config::hoursUntilDue(task));
+            hours = jsNumber(config::hoursUntilDue(task));
         } else if (task.currentTime <= task.rangeEnd) {
             state = "due";
         }
         taskRows.push_back({
             task.id,
-            qs(task.name),
-            qs(task.description),
+            qstr(task.name),
+            qstr(task.description),
             state,
             hours,
-            QStringList{state == "due" ? tr("Due") : hours, qs(task.name), qs(task.description)}
+            QStringList{state == "due" ? tr("Due") : hours, qstr(task.name), qstr(task.description)}
                 .join('\n')
                 .toLower(),
         });
@@ -281,10 +269,10 @@ void StatsModel::reload() {
     for (const config::AlarmRecord& alarm : alarms) {
         alarmRows.push_back({
             alarm.alarm,
-            QString("%1 %2 - %3").arg(alarm.alarm ? "ALARM" : "ERROR", qs(alarm.code), qs(alarm.source)),
+            QString("%1 %2 - %3").arg(alarm.alarm ? "ALARM" : "ERROR", qstr(alarm.code), qstr(alarm.source)),
             tr("at %1").arg(enUsDateTime(alarm.time)),
-            alarm.message.empty() ? tr("No associated message") : qs(alarm.message),
-            qs(alarm.line),
+            alarm.message.empty() ? tr("No associated message") : qstr(alarm.message),
+            qstr(alarm.line),
         });
     }
     alarmsModel_.reset(std::move(alarmRows));
@@ -335,7 +323,7 @@ void StatsModel::resetAllTasks() {
 }
 
 QString StatsModel::nameProblem(const QString& name) const {
-    return qs(config::maintenanceNameProblem(name.toStdString()));
+    return qstr(config::maintenanceNameProblem(name.toStdString()));
 }
 
 QString StatsModel::rangeProblem(const QString& start, const QString& end) const {
@@ -346,7 +334,7 @@ QString StatsModel::rangeProblem(const QString& start, const QString& end) const
     if (!okStart || !okEnd) {
         return tr("Enter the hours as numbers");
     }
-    return qs(config::maintenanceRangeProblem(first, last));
+    return qstr(config::maintenanceRangeProblem(first, last));
 }
 
 bool StatsModel::saveTask(int id, const QString& name, const QString& start, const QString& end,
@@ -385,10 +373,10 @@ QVariantMap StatsModel::task(int id) const {
     for (const config::MaintenanceTask& task : config::MaintenanceStore(machine_.config()).list()) {
         if (task.id == id) {
             return {{"id", task.id},
-                    {"name", qs(task.name)},
-                    {"rangeStart", number(task.rangeStart)},
-                    {"rangeEnd", number(task.rangeEnd)},
-                    {"description", qs(task.description)}};
+                    {"name", qstr(task.name)},
+                    {"rangeStart", jsNumber(task.rangeStart)},
+                    {"rangeEnd", jsNumber(task.rangeEnd)},
+                    {"description", qstr(task.description)}};
         }
     }
     return {};

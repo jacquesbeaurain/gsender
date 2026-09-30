@@ -1,6 +1,7 @@
 #include "grid_capture_model.hpp"
 
 #include "machine.hpp"
+#include "qt_text.hpp"
 
 #include "gs/controller/controller.hpp"
 #include "gs/sim/grbl_simulator.hpp"
@@ -15,15 +16,6 @@
 #include <cmath>
 
 namespace gs::ui {
-namespace {
-
-QString localPath(const QString& file) {
-    const QUrl url(file);
-    return url.isLocalFile() ? url.toLocalFile() : file;
-}
-
-}  // namespace
-
 GridCaptureModel::GridCaptureModel(QObject* parent)
     : UiModelBase(parent), capture_([this](std::vector<std::string> lines) { send(std::move(lines)); }) {
     connectMachineSignals(false, true);

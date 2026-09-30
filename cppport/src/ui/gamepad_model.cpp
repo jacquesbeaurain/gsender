@@ -3,6 +3,7 @@
 #include "backend.hpp"
 #include "gamepad_service.hpp"
 #include "machine.hpp"
+#include "qt_text.hpp"
 #include "shortcuts.hpp"
 
 #include <QDate>
@@ -18,15 +19,6 @@
 
 namespace gs::ui {
 namespace {
-
-QString localPath(const QString& file) {
-    const QUrl url(file);
-    return url.isLocalFile() ? url.toLocalFile() : file;
-}
-
-QString q(const std::string& s) {
-    return QString::fromStdString(s);
-}
 
 gamepad::StickOptions& stickOf(gamepad::JoystickOptions& options, const QString& stick) {
     return stick == QLatin1String("stick2") ? options.stick2 : options.stick1;
@@ -46,8 +38,8 @@ gamepad::StickAction* directionOf(gamepad::StickOptions& stick, const QString& d
 }
 
 QVariantMap actionMap(const gamepad::StickAction& a) {
-    return {{"primaryAction", q(a.primaryAction)},
-            {"secondaryAction", q(a.secondaryAction)},
+    return {{"primaryAction", qstr(a.primaryAction)},
+            {"secondaryAction", qstr(a.secondaryAction)},
             {"isReversed", a.isReversed}};
 }
 
@@ -89,7 +81,7 @@ void GamepadModel::onButton(int index, int /*button*/, bool isPressed) {
     if (!pad) {
         return;
     }
-    detectedId_ = q(pad->id);
+    detectedId_ = qstr(pad->id);
     detectedState_ = gamepad::findProfile(machine_.settings().gamepadProfiles, pad->id) ? QStringLiteral("exists")
                                                                                           : QStringLiteral("available");
     Q_EMIT detectChanged();
@@ -100,7 +92,7 @@ QVariantList GamepadModel::profiles() const {
     const auto& profiles = machine_.settings().gamepadProfiles;
     for (std::size_t i = 0; i < profiles.size(); ++i) {
         out.append(QVariantMap{{"index", static_cast<int>(i)},
-                               {"name", q(profiles[i].name)},
+                               {"name", qstr(profiles[i].name)},
                                {"connected", service_.padFor(profiles[i].ids).has_value()}});
     }
     return out;
@@ -121,7 +113,7 @@ void GamepadModel::setCurrent(int index) {
 
 QString GamepadModel::name() const {
     const gamepad::Profile* p = profile();
-    return p ? q(p->name) : QString();
+    return p ? qstr(p->name) : QString();
 }
 
 bool GamepadModel::padConnected() const {
@@ -148,12 +140,12 @@ QVariantList GamepadModel::buttons() const {
                              : b.value == p->modifier ? QStringLiteral("modifier")
                                                       : QString();
         out.append(QVariantMap{{"value", b.value},
-                               {"label", q(b.label)},
-                               {"primary", q(b.primaryAction)},
-                               {"primaryTitle", b.primaryAction.empty() ? QString() : actionTitle(q(b.primaryAction))},
-                               {"secondary", q(b.secondaryAction)},
+                               {"label", qstr(b.label)},
+                               {"primary", qstr(b.primaryAction)},
+                               {"primaryTitle", b.primaryAction.empty() ? QString() : actionTitle(qstr(b.primaryAction))},
+                               {"secondary", qstr(b.secondaryAction)},
                                {"secondaryTitle",
-                                b.secondaryAction.empty() ? QString() : actionTitle(q(b.secondaryAction))},
+                                b.secondaryAction.empty() ? QString() : actionTitle(qstr(b.secondaryAction))},
                                {"role", role}});
     }
     return out;
@@ -269,7 +261,7 @@ bool GamepadModel::addProfile(const QString& name) {
     }
     std::optional<gamepad::PadState> pad;
     for (int i = 0; i < gamepad::kSlots && !pad; ++i) {
-        if (const auto& p = service_.listener().pad(i); p && q(p->id) == detectedId_) {
+        if (const auto& p = service_.listener().pad(i); p && qstr(p->id) == detectedId_) {
             pad = p;
         }
     }
