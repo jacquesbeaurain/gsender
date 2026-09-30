@@ -30,5 +30,5 @@ fi
 export MAMBA_ROOT_PREFIX="$tools/root"
 [[ "${1:-}" == "--force" ]] && rm -rf "$deps"
 "$mamba" create -y -q -p "$deps" -c conda-forge --override-channels \
-    "qt6-main=6.11.1" "libboost-devel=1.91" "gtest"
+    "qt6-main=6.11.1" "libboost-devel=1.91" "gtest" "sdl3"
 echo "dependencies: installed in $deps"

@@ -47,6 +47,9 @@ add_library(gs_core STATIC
     src/rotary/rotary.cpp
     src/surfacing/surfacing.cpp
     src/toolchange/wizards.cpp
+    src/gamepad/profile.cpp
+    src/gamepad/input.cpp
+    src/gamepad/stick_jog.cpp
     src/sim/grbl_simulator.cpp
 )
 add_library(gs::core ALIAS gs_core)
