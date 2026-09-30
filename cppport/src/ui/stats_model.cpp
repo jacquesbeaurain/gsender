@@ -24,6 +24,7 @@
 #include <QUrl>
 
 #include <cmath>
+#include <map>
 
 namespace gs::ui {
 namespace {
@@ -85,11 +86,9 @@ StatsModel::StatsModel(QObject* parent) : UiModelBase(parent) {
         {Qt::UserRole + 1, "file", [](const JobRow& r) { return r.file; }},
         {Qt::UserRole + 2, "path", [](const JobRow& r) { return r.path; }},
         {Qt::UserRole + 3, "duration", [](const JobRow& r) { return r.duration; }},
-        {Qt::UserRole + 4, "durationMs", [](const JobRow& r) { return r.durationMs; }},
-        {Qt::UserRole + 5, "lines", [](const JobRow& r) { return r.lines; }},
-        {Qt::UserRole + 6, "start", [](const JobRow& r) { return r.start; }},
-        {Qt::UserRole + 7, "complete", [](const JobRow& r) { return r.complete; }},
-        {Qt::UserRole + 8, "search", [](const JobRow& r) { return r.search; }},
+        {Qt::UserRole + 4, "lines", [](const JobRow& r) { return r.lines; }},
+        {Qt::UserRole + 5, "start", [](const JobRow& r) { return r.start; }},
+        {Qt::UserRole + 6, "complete", [](const JobRow& r) { return r.complete; }},
     });
     tasksModel_.setRoles({
         {Qt::UserRole + 1, "id", [](const TaskRow& r) { return r.id; }},
@@ -97,7 +96,6 @@ StatsModel::StatsModel(QObject* parent) : UiModelBase(parent) {
         {Qt::UserRole + 3, "description", [](const TaskRow& r) { return r.description; }},
         {Qt::UserRole + 4, "state", [](const TaskRow& r) { return r.state; }},
         {Qt::UserRole + 5, "hours", [](const TaskRow& r) { return r.hours; }},
-        {Qt::UserRole + 6, "search", [](const TaskRow& r) { return r.search; }},
     });
     const auto upcomingRoles = std::vector<StructListModel<UpcomingRow>::Role>{
         {Qt::UserRole + 1, "name", [](const UpcomingRow& r) { return r.name; }},
@@ -209,58 +207,16 @@ void StatsModel::reload() {
     }
     alarmPreviewModel_.reset(std::move(alarmPreview));
 
-    // Jobs, newest first.
-    std::vector<JobRow> jobList;
-    for (auto it = stats.jobs.rbegin(); it != stats.jobs.rend(); ++it) {
-        const config::JobRecord& job = *it;
-        // What the search looks through: the records' values (includesString).
-        const QString search = QStringList{qstr(job.file), jsNumber(static_cast<double>(job.duration)),
-                                           QString::number(job.totalLines), qstr(config::isoTime(job.startTime)),
-                                           job.completed ? "COMPLETE" : "STOPPED"}
-                                   .join('\n')
-                                   .toLower();
-        jobList.push_back({
-            qstr(job.file),
-            qstr(job.path),
-            qstr(util::millisecondsToTimeStamp(static_cast<double>(job.duration))),
-            static_cast<double>(job.duration),
-            static_cast<int>(job.totalLines),
-            enUsDateTime(job.startTime),
-            job.completed,
-            search,
-        });
-    }
-    jobsModel_.reset(std::move(jobList));
+    jobRecords_ = stats.jobs;
+    listJobs();
 
     // Per CNC, the ports as the newest jobs first meet them.
     const std::vector<config::JobRecord> newestFirst(stats.jobs.rbegin(), stats.jobs.rend());
     jobsPerCnc_ = chart(config::jobsPerPort(newestFirst));
     runTimePerCnc_ = chart(config::runTimePerPort(newestFirst));
 
-    // Maintenance.
-    std::vector<TaskRow> taskRows;
-    for (const config::MaintenanceTask& task : config::maintenanceListOrder(tasks)) {
-        // determineTime(): the hours until due, "Due", or urgent.
-        QString state = "urgent";
-        QString hours;
-        if (task.currentTime < task.rangeStart) {
-            state = "hours";
-            hours = jsNumber(config::hoursUntilDue(task));
-        } else if (task.currentTime <= task.rangeEnd) {
-            state = "due";
-        }
-        taskRows.push_back({
-            task.id,
-            qstr(task.name),
-            qstr(task.description),
-            state,
-            hours,
-            QStringList{state == "due" ? tr("Due") : hours, qstr(task.name), qstr(task.description)}
-                .join('\n')
-                .toLower(),
-        });
-    }
-    tasksModel_.reset(std::move(taskRows));
+    taskRecords_ = config::maintenanceListOrder(tasks);
+    listTasks();
     upcomingModel_.reset(preview(tasks, 3));
     upcomingMoreModel_.reset(preview(tasks, 6));
 
@@ -276,6 +232,81 @@ void StatsModel::reload() {
         });
     }
     alarmsModel_.reset(std::move(alarmRows));
+    Q_EMIT changed();
+}
+
+void StatsModel::listJobs() {
+    static const std::map<QString, config::JobColumn> columns{{"file", config::JobColumn::File},
+                                                              {"duration", config::JobColumn::Duration},
+                                                              {"lines", config::JobColumn::Lines},
+                                                              {"start", config::JobColumn::Start},
+                                                              {"complete", config::JobColumn::Status}};
+    const auto column = columns.find(jobSort_);
+    std::vector<JobRow> rows;
+    for (const config::JobRecord& job :
+         config::jobHistory(jobRecords_, jobSearch_.toStdString(),
+                            column != columns.end() ? column->second : config::JobColumn::Start, jobsAscending_)) {
+        rows.push_back({
+            qstr(job.file),
+            qstr(job.path),
+            qstr(util::millisecondsToTimeStamp(static_cast<double>(job.duration))),
+            static_cast<int>(job.totalLines),
+            enUsDateTime(job.startTime),
+            job.completed,
+        });
+    }
+    jobsModel_.reset(std::move(rows));
+}
+
+void StatsModel::listTasks() {
+    std::vector<TaskRow> rows;
+    for (const config::MaintenanceTask& task : taskRecords_) {
+        if (!config::maintenanceMatches(task, taskSearch_.toStdString())) {
+            continue;
+        }
+        // determineTime(): the hours until due, "Due", or urgent.
+        QString state = "urgent";
+        QString hours;
+        switch (config::maintenanceDue(task)) {
+            case config::MaintenanceDue::Urgent: break;
+            case config::MaintenanceDue::Due: state = "due"; break;
+            case config::MaintenanceDue::Soon:
+            case config::MaintenanceDue::Low:
+                state = "hours";
+                hours = jsNumber(config::hoursUntilDue(task));
+                break;
+        }
+        rows.push_back({task.id, qstr(task.name), qstr(task.description), state, hours});
+    }
+    tasksModel_.reset(std::move(rows));
+}
+
+void StatsModel::setJobSearch(const QString& search) {
+    if (search == jobSearch_) {
+        return;
+    }
+    jobSearch_ = search;
+    listJobs();
+    Q_EMIT changed();
+}
+
+void StatsModel::sortJobs(const QString& column) {
+    if (column == jobSort_) {
+        jobsAscending_ = !jobsAscending_;
+    } else {
+        jobSort_ = column;
+        jobsAscending_ = true;
+    }
+    listJobs();
+    Q_EMIT changed();
+}
+
+void StatsModel::setTaskSearch(const QString& search) {
+    if (search == taskSearch_) {
+        return;
+    }
+    taskSearch_ = search;
+    listTasks();
     Q_EMIT changed();
 }
 

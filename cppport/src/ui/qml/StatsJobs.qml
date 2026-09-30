@@ -4,33 +4,14 @@ import QtQuick.Layouts
 import GSender
 
 // Stats: Jobs (features/Stats/Jobs): the job history - searchable, newest
-// first, sortable by its columns - and the jobs and run time per CNC.
+// first, sortable by its columns, as StatsModel lists it - and the jobs and
+// run time per CNC.
 Item {
     id: page
     objectName: "statsJobs"
 
     property StatsModel model
-    property string query: ""
-    property string sortKey: "start"
-    property bool ascending: false
     signal clearRequested()
-
-    readonly property var shown: {
-        const needle = query.trim().toLowerCase()
-        let list = model.jobs.map((job, i) => Object.assign({ order: i }, job))
-        if (needle)
-            list = list.filter(job => job.search.includes(needle))
-        const key = sortKey
-        if (key !== "start" || ascending) {
-            list.sort((a, b) => {
-                const va = key === "start" ? -a.order : key === "duration" ? a.durationMs : a[key]
-                const vb = key === "start" ? -b.order : key === "duration" ? b.durationMs : b[key]
-                const order = va < vb ? -1 : va > vb ? 1 : 0
-                return ascending ? order : -order
-            })
-        }
-        return list
-    }
 
     RowLayout {
         anchors.fill: parent
@@ -60,7 +41,7 @@ Item {
                 implicitHeight: 40
                 placeholderText: qsTr("Search past jobs...")
                 color: Theme.contentPrimary
-                onTextChanged: page.query = text
+                onTextChanged: page.model.jobSearch = text
             }
             // The header: tap to sort.
             RowLayout {
@@ -80,20 +61,11 @@ Item {
                         Layout.preferredWidth: modelData.width
                         Layout.minimumHeight: 36
                         verticalAlignment: Text.AlignVCenter
-                        text: modelData.label + (page.sortKey === modelData.key ? (page.ascending ? " ▲" : " ▼") : "")
+                        text: modelData.label + (page.model.jobSort === modelData.key ? (page.model.jobsAscending ? " ▲" : " ▼") : "")
                         font.bold: true
                         font.pixelSize: Theme.fontSm
                         color: Theme.contentPrimary
-                        TapHandler {
-                            onTapped: {
-                                if (page.sortKey === modelData.key)
-                                    page.ascending = !page.ascending
-                                else {
-                                    page.sortKey = modelData.key
-                                    page.ascending = true
-                                }
-                            }
-                        }
+                        TapHandler { onTapped: page.model.sortJobs(modelData.key) }
                     }
                 }
             }
@@ -102,7 +74,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: page.shown
+                model: page.model.jobs
                 ScrollBar.vertical: ScrollBar {}
                 delegate: Rectangle {
                     required property var modelData
