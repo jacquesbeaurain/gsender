@@ -6,6 +6,8 @@
 // reverted. While a job runs it is read-only and follows the line running:
 // the lines done, running (it and the two after) and to come.
 
+#include "gs/util/line_matches.hpp"
+
 #include <QAbstractListModel>
 #include <QString>
 #include <QStringList>
@@ -53,7 +55,7 @@ public:
     int runningRow() const { return runningRow_; }
     int selectedCount() const { return static_cast<int>(selected_.size()); }
     int matchCount() const { return static_cast<int>(matches_.size()); }
-    int currentMatch() const { return currentMatch_; }
+    int currentMatch() const { return matches_.current() ? static_cast<int>(*matches_.current()) : -1; }
     int currentMatchRow() const;
 
     Q_INVOKABLE void load();
@@ -92,9 +94,7 @@ private:
     std::set<int> selected_;
     int lastSelected_ = -1;
     QString query_;
-    std::vector<int> matches_;
-    std::set<int> matchSet_;
-    int currentMatch_ = -1;
+    util::LineMatches matches_;
     int runningRow_ = -1;
     bool running_ = false;
 };
