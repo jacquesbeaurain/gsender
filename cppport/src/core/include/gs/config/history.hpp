@@ -152,6 +152,21 @@ std::vector<MaintenanceTask> upcomingMaintenance(std::vector<MaintenanceTask> ta
 // MaintenanceList's order (its time column sorted): the urgent tasks, the
 // due ones, then the fewest hours until due.
 std::vector<MaintenanceTask> maintenanceListOrder(std::vector<MaintenanceTask> tasks);
+
+// JobHistory's columns; Start is the order the jobs ran in.
+enum class JobColumn { File, Duration, Lines, Start, Status };
+// JobHistory's search (includesString): whether a job's values - its file,
+// duration (ms), lines, ISO start time and COMPLETE/STOPPED - hold the
+// query, trimmed and ignoring case. An empty query matches every job.
+bool jobMatches(const JobRecord& job, std::string_view query);
+// The history as JobHistory lists it: of `jobs` (oldest first), those that
+// match the query, newest first or sorted by a column (ties newest first).
+std::vector<JobRecord> jobHistory(const std::vector<JobRecord>& jobs, std::string_view query, JobColumn column,
+                                  bool ascending);
+// MaintenanceList's search: the task's time column ("Due", the hours until
+// due, or nothing when urgent), name and description.
+bool maintenanceMatches(const MaintenanceTask& task, std::string_view query);
+
 // MaintenanceTaskForm's checks: the message, empty when fine.
 std::string maintenanceNameProblem(std::string_view name);
 std::string maintenanceRangeProblem(double rangeStart, double rangeEnd);

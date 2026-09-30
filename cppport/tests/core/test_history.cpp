@@ -260,3 +260,55 @@ TEST(StatsPage, MaintenanceIsOrderedByWhatIsPressing) {
     EXPECT_EQ(maintenanceRangeProblem(5, 5), "End range must be greater than start range");
     EXPECT_EQ(maintenanceRangeProblem(0, 1), "");
 }
+
+TEST(StatsPage, JobHistoryIsSearchedAndSortedByItsColumns) {
+    JobRecord a;
+    a.file = "Sign.nc";
+    a.duration = 60'000;
+    a.totalLines = 300;
+    a.startTime = 1'790'000'000'000;
+    a.completed = true;
+    JobRecord b = a;
+    b.file = "bowl.gcode";
+    b.duration = 5'000;
+    b.totalLines = 900;
+    b.completed = false;
+    JobRecord c = a;
+    c.file = "Coaster.nc";
+    c.duration = 60'000;
+    const std::vector<JobRecord> jobs{a, b, c};  // oldest first
+    const auto files = [](const std::vector<JobRecord>& list) {
+        std::vector<std::string> out;
+        for (const JobRecord& job : list) {
+            out.push_back(job.file);
+        }
+        return out;
+    };
+    using Files = std::vector<std::string>;
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::Start, false)), (Files{"Coaster.nc", "bowl.gcode", "Sign.nc"}));
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::Start, true)), (Files{"Sign.nc", "bowl.gcode", "Coaster.nc"}));
+    // Ties keep the newest first.
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::Duration, true)), (Files{"bowl.gcode", "Coaster.nc", "Sign.nc"}));
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::Lines, false)), (Files{"bowl.gcode", "Coaster.nc", "Sign.nc"}));
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::File, true)), (Files{"Coaster.nc", "Sign.nc", "bowl.gcode"}));
+    EXPECT_EQ(files(jobHistory(jobs, "", JobColumn::Status, true)), (Files{"bowl.gcode", "Coaster.nc", "Sign.nc"}));
+
+    // Searched through every value, trimmed and ignoring case.
+    EXPECT_EQ(files(jobHistory(jobs, "  .NC ", JobColumn::Start, false)), (Files{"Coaster.nc", "Sign.nc"}));
+    EXPECT_EQ(files(jobHistory(jobs, "stopped", JobColumn::Start, false)), (Files{"bowl.gcode"}));
+    EXPECT_EQ(files(jobHistory(jobs, "900", JobColumn::Start, false)), (Files{"bowl.gcode"}));
+    EXPECT_TRUE(jobMatches(a, "2026-09-21"));
+    EXPECT_TRUE(jobHistory(jobs, "nothing", JobColumn::Start, false).empty());
+}
+
+TEST(StatsPage, MaintenanceIsSearchedByItsTimeNameAndDescription) {
+    const MaintenanceTask low{0, "Oil rails", "Lithium grease", 15, 20, 0};
+    const MaintenanceTask due{1, "Belts", "", 50, 60, 55};
+    const MaintenanceTask urgent{2, "Bits", "", 1, 2, 3};
+    EXPECT_TRUE(maintenanceMatches(low, ""));
+    EXPECT_TRUE(maintenanceMatches(low, " GREASE"));
+    EXPECT_TRUE(maintenanceMatches(low, "15"));
+    EXPECT_TRUE(maintenanceMatches(due, "due"));
+    EXPECT_FALSE(maintenanceMatches(urgent, "due"));
+    EXPECT_FALSE(maintenanceMatches(low, "belts"));
+}

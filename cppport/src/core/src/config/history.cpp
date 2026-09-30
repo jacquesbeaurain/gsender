@@ -1,6 +1,7 @@
 #include "gs/config/history.hpp"
 
 #include "gs/util/jsnumber.hpp"
+#include "gs/util/strings.hpp"
 
 #include <boost/json.hpp>
 
@@ -485,6 +486,62 @@ std::vector<MaintenanceTask> upcomingMaintenance(std::vector<MaintenanceTask> ta
         tasks.resize(limit);
     }
     return tasks;
+}
+
+bool jobMatches(const JobRecord& job, std::string_view query) {
+    const std::string_view needle = str::trim(query);
+    if (needle.empty()) {
+        return true;
+    }
+    const std::string text = job.file + "\n" + js::numberToString(static_cast<double>(job.duration)) + "\n" +
+                             std::to_string(job.totalLines) + "\n" + isoTime(job.startTime) + "\n" +
+                             (job.completed ? "COMPLETE" : "STOPPED");
+    return str::icontains(text, needle);
+}
+
+std::vector<JobRecord> jobHistory(const std::vector<JobRecord>& jobs, std::string_view query, JobColumn column,
+                                  bool ascending) {
+    std::vector<JobRecord> list;
+    for (auto it = jobs.rbegin(); it != jobs.rend(); ++it) {
+        if (jobMatches(*it, query)) {
+            list.push_back(*it);
+        }
+    }
+    if (column == JobColumn::Start) {
+        if (ascending) {
+            std::reverse(list.begin(), list.end());
+        }
+        return list;
+    }
+    const auto compare = [column](const JobRecord& a, const JobRecord& b) {
+        switch (column) {
+            case JobColumn::File: return a.file.compare(b.file);
+            case JobColumn::Duration: return a.duration < b.duration ? -1 : a.duration > b.duration ? 1 : 0;
+            case JobColumn::Lines: return a.totalLines < b.totalLines ? -1 : a.totalLines > b.totalLines ? 1 : 0;
+            case JobColumn::Status: return static_cast<int>(a.completed) - static_cast<int>(b.completed);
+            case JobColumn::Start: break;
+        }
+        return 0;
+    };
+    std::stable_sort(list.begin(), list.end(), [&](const JobRecord& a, const JobRecord& b) {
+        return ascending ? compare(a, b) < 0 : compare(a, b) > 0;
+    });
+    return list;
+}
+
+bool maintenanceMatches(const MaintenanceTask& task, std::string_view query) {
+    const std::string_view needle = str::trim(query);
+    if (needle.empty()) {
+        return true;
+    }
+    std::string time;
+    switch (maintenanceDue(task)) {
+        case MaintenanceDue::Urgent: break;
+        case MaintenanceDue::Due: time = "Due"; break;
+        case MaintenanceDue::Soon:
+        case MaintenanceDue::Low: time = js::numberToString(hoursUntilDue(task)); break;
+    }
+    return str::icontains(time + "\n" + task.name + "\n" + task.description, needle);
 }
 
 std::vector<MaintenanceTask> maintenanceListOrder(std::vector<MaintenanceTask> tasks) {
