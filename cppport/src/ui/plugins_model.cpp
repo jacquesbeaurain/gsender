@@ -188,10 +188,6 @@ QObject* PluginsModel::createContext(const QString& pluginId) {
     return new PluginQmlContext(machine_.pluginService(), pluginId, this);
 }
 
-QVariantList PluginsModel::plugins() const {
-    return listModel_.toList();
-}
-
 void PluginsModel::refresh() {
     std::vector<PluginItem> items;
     const auto& loaded = machine_.pluginService().plugins();
