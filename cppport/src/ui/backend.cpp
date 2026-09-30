@@ -384,6 +384,10 @@ bool UiBackend::promptExit() const {
     return machine_.settings().promptExit;
 }
 
+bool UiBackend::focusRings() const {
+    return machine_.settings().accessibility.focusRings;
+}
+
 QString UiBackend::jobSummary() const {
     return machine_.settings().accessibility.gcodeSummaryVisible ? announcer_->summary() : QString();
 }
