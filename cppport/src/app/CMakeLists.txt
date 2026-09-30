@@ -2,6 +2,8 @@
 # Jogger, ToolpathScene, Shortcuts, ConsoleLog, Diagnostics).
 
 add_library(gs_app STATIC
+    accessibility_announcer.cpp
+    accessibility_announcer.hpp
     accessory_wizards.cpp
     accessory_wizards.hpp
     app_settings.cpp
