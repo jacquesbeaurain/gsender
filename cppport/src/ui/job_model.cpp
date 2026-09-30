@@ -11,6 +11,7 @@
 #include "gs/util/units.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace gs::ui {
 
@@ -193,6 +194,19 @@ QString JobModel::outline() {
         return tr("The machine must be idle with a file loaded");
     }
     return machine_.runOutline(&error) ? QString() : error;
+}
+
+int JobModel::startLine(const QString& text) const {
+    const double value = js::stringToNumber(text.trimmed().toStdString());
+    if (!std::isfinite(value) || text.trimmed().isEmpty()) {
+        return suggestedStartLine();
+    }
+    return static_cast<int>(std::clamp(js::mathRound(value), 1.0, std::max(1.0, static_cast<double>(totalLines()))));
+}
+
+double JobModel::safeHeight(const QString& text) const {
+    const double value = js::stringToNumber(text.trimmed().toStdString());
+    return !std::isfinite(value) || text.trimmed().isEmpty() ? defaultSafeHeight() : std::max(0.0, value);
 }
 
 bool JobModel::startFromLine(int line, double safeHeight) {

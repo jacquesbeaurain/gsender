@@ -9,6 +9,8 @@
 #include <QString>
 #include <QtQml/qqmlregistration.h>
 
+#include <algorithm>
+
 namespace gs::app {
 class Machine;
 }
@@ -40,6 +42,9 @@ class JobModel : public UiModelBase {
     Q_PROPERTY(int totalLines READ totalLines NOTIFY changed)
     Q_PROPERTY(int lastLine READ lastLine NOTIFY changed)
     Q_PROPERTY(double defaultSafeHeight READ defaultSafeHeight NOTIFY changed)
+    // Where to resume: ten lines before the last stop (upstream's advice;
+    // at least line 1).
+    Q_PROPERTY(int suggestedStartLine READ suggestedStartLine NOTIFY changed)
     // Overrides (%) and what they act on: the feed in the workspace units a
     // minute, the spindle's RPM (or the laser's power).
     Q_PROPERTY(int feedOverride READ feedOverride NOTIFY overridesChanged)
@@ -68,6 +73,7 @@ public:
     int totalLines() const;
     int lastLine() const;
     double defaultSafeHeight() const;
+    int suggestedStartLine() const { return std::max(lastLine() - 10, 1); }
     int feedOverride() const;
     int spindleOverride() const;
     QString feedText() const;
@@ -82,6 +88,11 @@ public:
     Q_INVOKABLE QString outline();
     // Start from `line`, rising to `safeHeight` (workspace units) first.
     Q_INVOKABLE bool startFromLine(int line, double safeHeight);
+    // The popup's fields as typed: a line of the job (1 to totalLines; the
+    // suggested line when not a number), a height of 0 or more (the
+    // default when not a number).
+    Q_INVOKABLE int startLine(const QString& text) const;
+    Q_INVOKABLE double safeHeight(const QString& text) const;
     // 10-200 %, sent as the realtime override bytes.
     Q_INVOKABLE void setFeedOverride(int percent);
     Q_INVOKABLE void setSpindleOverride(int percent);

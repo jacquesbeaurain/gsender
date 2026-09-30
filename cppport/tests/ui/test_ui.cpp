@@ -569,6 +569,20 @@ TEST_F(UiTest, TheJobControlsRunPauseStopAndOverride) {
     QObject* popup = window_->findChild<QObject*>("startFromLinePopup");
 
     ASSERT_TRUE(waitFor([&] { return popup->property("opened").toBool(); }));
+    // The fields' checks.
+    QObject* job = popup->property("model").value<QObject*>();
+    const auto startLine = [&](const QString& text) {
+        int line = 0;
+        QMetaObject::invokeMethod(job, "startLine", Q_RETURN_ARG(int, line), Q_ARG(QString, text));
+        return line;
+    };
+    EXPECT_EQ(startLine("3"), 3);
+    EXPECT_EQ(startLine("0"), 1);
+    EXPECT_EQ(startLine("999999"), job->property("totalLines").toInt());
+    EXPECT_EQ(startLine("abc"), job->property("suggestedStartLine").toInt());
+    double height = -1;
+    QMetaObject::invokeMethod(job, "safeHeight", Q_RETURN_ARG(double, height), Q_ARG(QString, "-3"));
+    EXPECT_EQ(height, 0);
     QQuickItem* startButton = nullptr;
     ASSERT_TRUE(waitFor([&] {
         startButton = item("startFromLineStart");  // the overlay is under the root item too
@@ -881,6 +895,11 @@ TEST_F(UiTest, TheProbeTabCapturesARectangularGridAndManualPoints) {
     // A 3 x 2 grid from where the probe is.
     item("gridNx")->setProperty("text", "3");
     item("gridNy")->setProperty("text", "2");
+    int points = 0;
+    QMetaObject::invokeMethod(model, "gridPoints", Q_RETURN_ARG(int, points), Q_ARG(QString, "3"), Q_ARG(QString, "2"));
+    EXPECT_EQ(points, 6);
+    QMetaObject::invokeMethod(model, "gridPoints", Q_RETURN_ARG(int, points), Q_ARG(QString, "999"), Q_ARG(QString, "x"));
+    EXPECT_EQ(points, 200);  // each count 1-200
     screenshot("ui_probe_grid");
     const std::array<double, 4> w = machine_->workPositionMm();
     const double z0 = w[2];
@@ -1181,6 +1200,15 @@ TEST_F(UiTest, TheEditorEditsSearchesAndSavesTheJob) {
     EXPECT_EQ(model->property("count").toInt(), 5);
     ASSERT_TRUE(waitFor([&] { return item("editorLine_1") != nullptr; }));
     screenshot("ui_editor");
+    const auto jumpRow = [&](const QString& text) {
+        int row = 0;
+        QMetaObject::invokeMethod(model, "jumpRow", Q_RETURN_ARG(int, row), Q_ARG(QString, text));
+        return row;
+    };
+    EXPECT_EQ(jumpRow("3"), 2);
+    EXPECT_EQ(jumpRow("2.7"), 1);
+    EXPECT_EQ(jumpRow("99"), 4);  // past the end: the last line
+    EXPECT_EQ(jumpRow("x"), -1);
 
     // Tap a line's text to edit it.
     QQuickItem* line = item("editorLine_1");

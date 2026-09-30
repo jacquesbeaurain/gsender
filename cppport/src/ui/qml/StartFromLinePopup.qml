@@ -20,7 +20,7 @@ Popup {
     Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
 
     onOpened: {
-        line.value = Math.max(model.lastLine - 10, 1)
+        line.value = model.suggestedStartLine
         height_.value = model.defaultSafeHeight
     }
 
@@ -60,7 +60,7 @@ Popup {
                 decimals: 0
                 implicitHeight: Theme.touchTarget
                 Layout.fillWidth: true
-                onCommitted: (text) => value = Math.max(1, Math.min(popup.model.totalLines, Math.round(Number(text))))
+                onCommitted: (text) => value = popup.model.startLine(text)
             }
             Label { text: qsTr("With safe height:"); color: Theme.contentPrimary }
             NumberField {
@@ -69,7 +69,7 @@ Popup {
                 suffix: popup.model.units
                 implicitHeight: Theme.touchTarget
                 Layout.fillWidth: true
-                onCommitted: (text) => value = Math.max(0, Number(text))
+                onCommitted: (text) => value = popup.model.safeHeight(text)
             }
         }
         RowLayout {
