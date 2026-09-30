@@ -12,6 +12,8 @@ QtObject {
     id: theme
 
     readonly property bool dark: Backend.darkMode
+    // Accessibility: focus rings shown (upstream draws none otherwise).
+    readonly property bool focusRings: Backend.focusRings
 
     // Tailwind's gray (upstream keeps the default scale).
     readonly property var gray: ({

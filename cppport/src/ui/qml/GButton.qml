@@ -60,7 +60,7 @@ AbstractButton {
             color: "transparent"
             border.color: Theme.ring
             border.width: 2
-            visible: button.visualFocus
+            visible: button.visualFocus && Theme.focusRings
         }
     }
 
