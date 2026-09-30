@@ -2,6 +2,7 @@
 // the simulated board (real time, so kept short), configuration, shortcuts,
 // diagnostics, console log, and SD card utilities.
 
+#include "accessibility_announcer.hpp"
 #include "accessory_wizards.hpp"
 #include "app_settings.hpp"
 #include "console_log.hpp"
@@ -651,6 +652,73 @@ TEST(GSenderSettings, AccessibilityComesAlong) {
     rc.write(R"({"app": {"accessibility": {"displayScaleFactor": "125%"}}})");
     rc.close();
     EXPECT_EQ(displayScaleFactor(path.toStdWString()), 1.25);
+}
+
+TEST_F(AppTest, AccessibilityAnnouncesSoundsAndSumsUpTheJob) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    AccessibilityAnnouncer announcer(machine);
+    std::vector<job::AudioCue> cues;
+    announcer.setCuePlayer([&](job::AudioCue cue) { cues.push_back(cue); });
+    AppSettings settings = machine.settings();
+    AccessibilitySettings& a = settings.accessibility;
+    a.statusAnnouncements = a.jobProgressAnnouncements = true;
+    a.jobProgressIncrement = 25;
+    a.audioCues = a.cueJobComplete = a.cueAlarm = a.cueToolChange = a.cueProbeSuccess = true;
+    a.gcodeSummary = true;
+    machine.setSettings(settings);
+
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.isConnected() && machine.controller()->runner().hasSettings() &&
+               machine.controller()->state().status.activeState == "Idle";
+    }));
+    EXPECT_TRUE(waitFor([&] { return announcer.announcements().contains("Machine status changed to Idle"); }));
+
+    // The loaded file in words.
+    std::string program = "(Stock: 60x60)\nG21 G90\nG0 Z1\n";
+    for (int i = 1; i <= 40; ++i) {
+        program += "G1 X" + std::to_string(i % 2 ? 60 : 0) + " Y" + std::to_string(i) + " F3000\n";
+    }
+    program += "G0 Z5\nM30\n";
+    machine.loadProgram("zigzag.nc", program);
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing() && !announcer.summary().isEmpty(); }));
+    EXPECT_TRUE(announcer.summary().startsWith("File loaded: zigzag.nc. Dimensions: 60.00 wide, 40.00 deep"))
+        << announcer.summary().toStdString();
+    EXPECT_TRUE(announcer.summary().contains("Job metadata: Stock: 60x60."));
+    EXPECT_TRUE(announcer.announcements().contains(announcer.summary()));
+
+    // A job: its progress every 25 %, and a sound as it ends.
+    machine.simulator()->setSpeed(20);
+    machine.controller()->start();
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isRunning(); }));
+    ASSERT_TRUE(waitFor([&] { return machine.controller()->workflow().isIdle(); }, 15000));
+    ASSERT_TRUE(waitFor([&] { return announcer.announcements().contains("Job complete: 100%"); }));
+    const QStringList said = announcer.announcements();
+    EXPECT_TRUE(std::any_of(said.begin(), said.end(), [](const QString& s) { return s.startsWith("Job progress: "); }))
+        << said.join(" | ").toStdString();
+    EXPECT_TRUE(said.contains("Machine status changed to Run"));
+    ASSERT_TRUE(waitFor([&] { return !cues.empty(); }));
+    EXPECT_EQ(cues.front(), job::AudioCue::Success);
+
+    // An alarm, a tool change, a probe: their cues.
+    cues.clear();
+    machine.simulator()->triggerAlarm(1);
+    ASSERT_TRUE(waitFor([&] { return !cues.empty(); }));
+    EXPECT_EQ(cues, std::vector<job::AudioCue>{job::AudioCue::Alarm});
+    EXPECT_TRUE(announcer.announcements().contains("Machine status changed to Alarm"));
+    Q_EMIT machine.toolChangeRequired();
+    Q_EMIT machine.probeSucceeded();
+    EXPECT_EQ(cues, (std::vector<job::AudioCue>{job::AudioCue::Alarm, job::AudioCue::Info, job::AudioCue::Success}));
+    // Off, silent.
+    settings = machine.settings();
+    settings.accessibility.audioCues = false;
+    settings.accessibility.gcodeSummary = false;
+    machine.setSettings(settings);
+    Q_EMIT machine.probeSucceeded();
+    EXPECT_EQ(cues.size(), 3u);
+    EXPECT_TRUE(announcer.summary().isEmpty());
 }
 
 TEST_F(AppTest, ReconnectAutomaticallyGoesBackToTheLastPort) {
