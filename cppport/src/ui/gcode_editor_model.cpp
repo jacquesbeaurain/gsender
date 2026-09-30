@@ -38,7 +38,7 @@ QVariant GcodeEditorModel::data(const QModelIndex& index, int role) const {
         case StyledRole:
             return running_ ? lines_[row].toHtmlEscaped() : app::gcodeStyledText(lines_[row], machine_.settings().darkMode);
         case SelectedRole: return selected_.count(row) != 0;
-        case MatchRole: return matchSet_.count(row) != 0;
+        case MatchRole: return matches_.contains(static_cast<std::size_t>(row));
         case CurrentMatchRole: return row == currentMatchRow();
         case StatusRole:
             if (!running_ || runningRow_ < 0) {
@@ -213,29 +213,24 @@ void GcodeEditorModel::setSearch(const QString& query) {
 }
 
 void GcodeEditorModel::findMatches() {
-    matches_.clear();
-    matchSet_.clear();
-    const QString needle = query_.trimmed();
-    if (!needle.isEmpty()) {
-        for (int i = 0; i < count(); ++i) {
-            if (lines_[i].contains(needle, Qt::CaseInsensitive)) {
-                matches_.push_back(i);
-                matchSet_.insert(i);
-            }
-        }
+    std::vector<std::string> lines;
+    lines.reserve(static_cast<std::size_t>(lines_.size()));
+    for (const QString& line : lines_) {
+        lines.push_back(line.toStdString());
     }
-    currentMatch_ = matches_.empty() ? -1 : 0;
+    matches_.find(lines, query_.toStdString());
     rowsChanged({MatchRole, CurrentMatchRole});
     Q_EMIT searchChanged();
 }
 
 int GcodeEditorModel::currentMatchRow() const {
-    return currentMatch_ >= 0 && currentMatch_ < matchCount() ? matches_[static_cast<std::size_t>(currentMatch_)] : -1;
+    const std::optional<std::size_t> line = matches_.currentLine();
+    return line ? static_cast<int>(*line) : -1;
 }
 
 void GcodeEditorModel::nextMatch() {
     if (!matches_.empty()) {
-        currentMatch_ = (currentMatch_ + 1) % matchCount();
+        matches_.next();
         rowsChanged({CurrentMatchRole});
         Q_EMIT searchChanged();
     }
@@ -243,7 +238,7 @@ void GcodeEditorModel::nextMatch() {
 
 void GcodeEditorModel::previousMatch() {
     if (!matches_.empty()) {
-        currentMatch_ = currentMatch_ > 0 ? currentMatch_ - 1 : matchCount() - 1;
+        matches_.previous();
         rowsChanged({CurrentMatchRole});
         Q_EMIT searchChanged();
     }

@@ -39,12 +39,6 @@ QString localeNumber(double value) {
     return text;
 }
 
-bool containsIgnoringCase(const std::string& line, const std::string& lowerNeedle) {
-    const auto it = std::search(line.begin(), line.end(), lowerNeedle.begin(), lowerNeedle.end(),
-                                [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == b; });
-    return it != line.end();
-}
-
 }  // namespace
 
 // ---- the source rows ------------------------------------------------------------------
@@ -65,10 +59,10 @@ void StepSourceModel::setCurrent(std::size_t line) {
     changed(line);
 }
 
-void StepSourceModel::setMatches(const std::vector<std::size_t>& matches) {
+void StepSourceModel::setMatches(const util::LineMatches& matches) {
     std::fill(matched_.begin(), matched_.end(), false);
-    for (const std::size_t line : matches) {
-        matched_[line - 1] = true;
+    for (const std::size_t line : matches.lines()) {
+        matched_[line] = true;
     }
     if (rowCount() > 0) {
         Q_EMIT dataChanged(index(0), index(rowCount() - 1), {MatchRole});
@@ -129,6 +123,7 @@ void StepThroughModel::load() {
     }
     source_.setLines(&lines_, machine_.settings().darkMode);
     matches_.clear();
+    source_.setMatches(matches_);
     searching_ = false;
     line_ = 1;
     const job::ProgramAnalysis& analysis = machine_.analysis();
@@ -335,26 +330,17 @@ QVariantList StepThroughModel::tools() const {
 }
 
 void StepThroughModel::setSearch(const QString& query) {
-    matches_.clear();
-    const std::string needle = query.trimmed().toLower().toStdString();
-    searching_ = !needle.empty();
-    if (searching_) {
-        for (std::size_t i = 0; i < lines_.size() && matches_.size() < kMaxMatches; ++i) {
-            if (containsIgnoringCase(lines_[i], needle)) {
-                matches_.push_back(i + 1);
-            }
-        }
-    }
+    searching_ = !query.trimmed().isEmpty();
+    matches_.find(lines_, query.toStdString(), kMaxMatches);
     source_.setMatches(matches_);
     Q_EMIT matchesChanged();
 }
 
 void StepThroughModel::goToNextMatch() {
-    if (matches_.empty()) {
-        return;
+    // Lines count from 1 here, from 0 in the matches.
+    if (const std::optional<std::size_t> next = matches_.after(line_ - 1)) {
+        goToLine(static_cast<int>(*next + 1));
     }
-    const auto next = std::upper_bound(matches_.begin(), matches_.end(), line_);
-    goToLine(static_cast<int>(next != matches_.end() ? *next : matches_.front()));
 }
 
 QStringList StepThroughModel::quarterLabels() const {
