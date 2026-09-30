@@ -1786,6 +1786,30 @@ TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     EXPECT_FALSE(machine_->settings().metric);
     EXPECT_NEAR(machine_->settings().safeRetractHeight, 25.4, 1e-9);
 
+    // The editors hand their text to the model, which checks it.
+    const auto value = [&](const QString& key) {
+        QVariant entry;
+        QMetaObject::invokeMethod(model, "valueOf", Q_RETURN_ARG(QVariant, entry), Q_ARG(QString, key));
+        return entry;
+    };
+    QMetaObject::invokeMethod(model, "setNumber", Q_ARG(QString, "jogThreshold"), Q_ARG(QString, "99999"));
+    EXPECT_EQ(value("jogThreshold").toInt(), 10000);  // kept within its range
+    QMetaObject::invokeMethod(model, "setNumber", Q_ARG(QString, "jogThreshold"), Q_ARG(QString, "abc"));
+    EXPECT_EQ(value("jogThreshold").toInt(), 10000);
+    QMetaObject::invokeMethod(model, "setPart", Q_ARG(QString, "ethernetIp"), Q_ARG(QVariant, 3),
+                              Q_ARG(QString, "300"));
+    EXPECT_EQ(value("ethernetIp").toList()[3].toInt(), 255);
+    QMetaObject::invokeMethod(model, "setPart", Q_ARG(QString, "park"), Q_ARG(QVariant, 2), Q_ARG(QString, "-7.5"));
+    EXPECT_EQ(value("park").toList()[2].toDouble(), -7.5);
+    const double feed = value("jog1").toMap()["feedrate"].toDouble();
+    QMetaObject::invokeMethod(model, "setPart", Q_ARG(QString, "jog1"), Q_ARG(QVariant, QString("feedrate")),
+                              Q_ARG(QString, "-1"));
+    EXPECT_EQ(value("jog1").toMap()["feedrate"].toDouble(), feed);  // never negative
+    QMetaObject::invokeMethod(model, "setFolder", Q_ARG(QString, "backupLocation"),
+                              Q_ARG(QUrl, QUrl::fromLocalFile("/tmp/my backups")));
+    EXPECT_EQ(value("backupLocation").toString(), "/tmp/my backups");
+    QMetaObject::invokeMethod(model, "revert");
+
     // The board's settings, in their sections.
     connectSimulator();
     ASSERT_TRUE(waitFor([&] { return machine_->controller()->runner().hasSettings(); }));
