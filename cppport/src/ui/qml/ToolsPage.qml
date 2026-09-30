@@ -16,24 +16,7 @@ Item {
     readonly property PluginsModel pluginsModel: PluginsModel { objectName: "toolsPluginsModel" }
     property var activePluginTool: null
 
-    readonly property var allCards: {
-        const _trigger = pluginsModel.count
-        const list = cards.slice()
-        const pluginContribs = pluginsModel.contributions("tools-page")
-        for (let i = 0; i < pluginContribs.length; ++i) {
-            const c = pluginContribs[i]
-            list.push({
-                key: "plugin:" + c.pluginId + ":" + c.route,
-                title: c.label || c.pluginName,
-                description: qsTr("Plugin tool by %1").arg(c.pluginName),
-                icon: c.icon || "PiPuzzlePiece",
-                isPlugin: true,
-                pluginId: c.pluginId,
-                uiUrl: c.uiUrl
-            })
-        }
-        return list
-    }
+    readonly property var allCards: [...cards, ...pluginsModel.toolCards]
 
     // The tools there are: {key, title, description, icon, component}.
     readonly property var cards: [
