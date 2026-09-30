@@ -5,6 +5,7 @@
 // results and settings values must format exactly like the original, so these
 // follow the ECMAScript algorithms rather than printf conventions.
 
+#include <cmath>
 #include <string>
 #include <string_view>
 
@@ -33,5 +34,19 @@ double mathRound(double value);
 
 // True for anything other than NaN and +/-Infinity.
 bool isFinite(double value);
+
+// Number(value.toFixed(digits)): rounding to `digits` places the way
+// gSender does before it compares or formats a coordinate.
+double toFixedNumber(double value, int digits);
+
+// Number(value.toFixed(3)), the rounding most of gSender uses.
+inline double fixed3(double value) {
+    return toFixedNumber(value, 3);
+}
+
+// Boolean(value): false for 0 and NaN.
+inline bool truthy(double value) {
+    return value != 0 && !std::isnan(value);
+}
 
 }  // namespace gs::js
