@@ -77,6 +77,9 @@ tools/build.sh -Config release-nopch -Test
   and audio cues beep there.
 - Screenshots: `build/linux-release/bin/gsender -platform offscreen ...`
   with the same arguments as on Windows.
+- CI: `.github/workflows/cppport.yml` runs `setup_linux.sh` and
+  `build.sh -Test` on pull requests that touch `cppport/` and on pushes to
+  `devcpp*` branches (dependencies cached until `setup_linux.sh` changes).
 
 ## Fast iteration
 
@@ -276,6 +279,9 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
   formatter, a search, a wizard's walk) goes further down, into `gs_core`
   with a core test, and the view model wraps it (`qt_text.hpp`'s `qstr`).
   QML keeps geometry, animation, focus and popups opening and closing.
+- A QML warning (TypeError, ReferenceError, binding loop) fails the UI
+  test that caused it: the fixture records them. Fix the QML; a test that
+  provokes one on purpose clears `qmlWarnings()` itself.
 - Give items a test needs an `objectName`; `gs_ui_tests` finds them
   (`findItem`), taps them and runs touch gestures. Wait on the UI's own
   text or properties, not just on the machine, before asserting what it
