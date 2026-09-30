@@ -10,6 +10,9 @@
 
 #include "ui_model_base.hpp"
 #include "struct_list_model.hpp"
+
+#include "gs/config/history.hpp"
+
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -36,16 +39,22 @@ class StatsModel : public UiModelBase {
     Q_PROPERTY(QString profile READ profile NOTIFY changed)                 // "Sienci LongMill MK2 30x30"
     Q_PROPERTY(QVariantList configuration READ configuration NOTIFY changed)  // {label, value}
     Q_PROPERTY(QVariantList alarmPreview READ alarmPreview NOTIFY changed)  // {alarm, what, when}
-    // Jobs: newest first {file, path, duration, lines, start, complete, search}.
+    // Jobs: those matching jobSearch, newest first or sorted by jobSort
+    // ("file", "duration", "lines", "start", "complete") {file, path,
+    // duration, lines, start, complete}.
     Q_PROPERTY(QVariantList jobs READ jobs NOTIFY changed)
+    Q_PROPERTY(QString jobSearch READ jobSearch WRITE setJobSearch NOTIFY changed)
+    Q_PROPERTY(QString jobSort READ jobSort NOTIFY changed)
+    Q_PROPERTY(bool jobsAscending READ jobsAscending NOTIFY changed)
     Q_PROPERTY(StructListModelBase* jobsListModel READ jobsListModel CONSTANT)
     // Per CNC: {labels, values}.
     Q_PROPERTY(QVariantMap jobsPerCnc READ jobsPerCnc NOTIFY changed)
     Q_PROPERTY(QVariantMap runTimePerCnc READ runTimePerCnc NOTIFY changed)
-    // Maintenance: in the list's order {id, name, description, rangeStart,
-    // rangeEnd, state ("hours"/"due"/"urgent"), hours, search}; the upcoming
-    // ones {name, hours, word, color}.
+    // Maintenance: those matching taskSearch, in the list's order {id, name,
+    // description, state ("hours"/"due"/"urgent"), hours}; the upcoming ones
+    // {name, hours, word, color}.
     Q_PROPERTY(QVariantList tasks READ tasks NOTIFY changed)
+    Q_PROPERTY(QString taskSearch READ taskSearch WRITE setTaskSearch NOTIFY changed)
     Q_PROPERTY(StructListModelBase* tasksListModel READ tasksListModel CONSTANT)
     Q_PROPERTY(QVariantList upcoming READ upcoming NOTIFY changed)  // three
     Q_PROPERTY(QVariantList upcomingMore READ upcomingMore NOTIFY changed)  // six
@@ -67,11 +76,9 @@ public:
         QString file;
         QString path;
         QString duration;
-        double durationMs = 0;
         int lines = 0;
         QString start;
         bool complete = false;
-        QString search;
     };
     struct TaskRow {
         int id = 0;
@@ -79,7 +86,6 @@ public:
         QString description;
         QString state;
         QString hours;
-        QString search;
     };
     struct UpcomingRow { QString name; QString hours; QString word; QString color; };
     struct AlarmRow {
@@ -99,10 +105,16 @@ public:
     QVariantList alarmPreview() const;
     QVariantList jobs() const;
     StructListModelBase* jobsListModel() { return &jobsModel_; }
+    QString jobSearch() const { return jobSearch_; }
+    void setJobSearch(const QString& search);
+    QString jobSort() const { return jobSort_; }
+    bool jobsAscending() const { return jobsAscending_; }
     QVariantMap jobsPerCnc() const { return jobsPerCnc_; }
     QVariantMap runTimePerCnc() const { return runTimePerCnc_; }
     QVariantList tasks() const;
     StructListModelBase* tasksListModel() { return &tasksModel_; }
+    QString taskSearch() const { return taskSearch_; }
+    void setTaskSearch(const QString& search);
     QVariantList upcoming() const;
     QVariantList upcomingMore() const;
     QVariantList alarms() const;
@@ -111,6 +123,9 @@ public:
     QVariantList releases() const;
 
     Q_INVOKABLE void reload();
+    // A column header tapped: sorted by it ascending, or the other way round
+    // when it already was.
+    Q_INVOKABLE void sortJobs(const QString& column);
     Q_INVOKABLE void clearJobHistory();
     Q_INVOKABLE void clearAlarms();
     Q_INVOKABLE void resetTask(int id);
@@ -129,7 +144,16 @@ public:
 
 
 private:
+    void listJobs();
+    void listTasks();
+
     QTimer* refresh_;
+    std::vector<config::JobRecord> jobRecords_;
+    std::vector<config::MaintenanceTask> taskRecords_;
+    QString jobSearch_;
+    QString jobSort_ = QStringLiteral("start");
+    bool jobsAscending_ = false;
+    QString taskSearch_;
     int completeJobs_ = 0;
     int incompleteJobs_ = 0;
     QString profile_;

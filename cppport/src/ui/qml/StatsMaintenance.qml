@@ -11,15 +11,9 @@ Item {
     objectName: "statsMaintenance"
 
     property StatsModel model
-    property string query: ""
     signal resetRequested(int id, string name)
     signal resetAllRequested()
     signal editRequested(int id)
-
-    readonly property var shown: {
-        const needle = query.trim().toLowerCase()
-        return needle ? model.tasks.filter(t => t.search.includes(needle)) : model.tasks
-    }
 
     RowLayout {
         anchors.fill: parent
@@ -40,7 +34,7 @@ Item {
                     implicitHeight: 40
                     placeholderText: qsTr("Search Tasks...")
                     color: Theme.contentPrimary
-                    onTextChanged: page.query = text
+                    onTextChanged: page.model.taskSearch = text
                 }
                 GButton { objectName: "addTask"; text: qsTr("Add New Task"); fontSize: Theme.fontSm; onClicked: page.editRequested(-1) }
                 GButton { objectName: "resetAllTasks"; text: qsTr("Reset All"); fontSize: Theme.fontSm; onClicked: page.resetAllRequested() }
@@ -51,7 +45,7 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 spacing: 4
-                model: page.shown
+                model: page.model.tasks
                 ScrollBar.vertical: ScrollBar {}
                 delegate: Rectangle {
                     required property var modelData
