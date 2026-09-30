@@ -251,6 +251,20 @@ bool ShortcutManager::trigger(const QString& id) {
     return true;
 }
 
+bool ShortcutManager::run(const QString& id) {
+    const auto it = handlers_.find(id);
+    if (it != handlers_.end() && it->second.press) {
+        it->second.press();
+        return true;
+    }
+    const ShortcutAction* known = action(id);
+    if (known && known->category == kMacroCategory && macroHandler_) {
+        macroHandler_(id);
+        return true;
+    }
+    return false;
+}
+
 void ShortcutManager::release() {
     if (held_.isEmpty()) {
         return;

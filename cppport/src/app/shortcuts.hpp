@@ -85,6 +85,12 @@ public:
     // Runs an action's press as its key would (TOGGLE_SHORTCUTS aside, only
     // while shortcuts are enabled). False when nothing handles it.
     bool trigger(const QString& id);
+    // Runs an action for another input (a gamepad button): its press, or the
+    // macro, whether keyboard shortcuts are on or not. False when nothing
+    // handles it.
+    bool run(const QString& id);
+    // The table and the macros (what a gamepad button can be given).
+    const std::vector<ShortcutAction>& actions() const noexcept { return actions_; }
     void release();  // ends a held action (jog)
 
 protected:

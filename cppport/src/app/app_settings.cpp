@@ -533,6 +533,11 @@ AppSettings appSettingsFromJson(const json::object& root) {
         }
     }
     readProp(root, "shortcutsEnabled", settings.shortcutsEnabled);
+    if (const json::value* pads = root.if_contains("gamepad"); pads && pads->is_object()) {
+        if (const json::value* profiles = pads->as_object().if_contains("profiles"); profiles && profiles->is_array()) {
+            settings.gamepadProfiles = gamepad::profilesFromJson(*profiles);
+        }
+    }
     return settings;
 }
 
@@ -650,6 +655,7 @@ json::object appSettingsToJson(const AppSettings& settings) {
                          {"liteOption", settings.liteOption},
                          {"shortcuts", shortcutsObject(settings.shortcuts)},
                          {"shortcutsEnabled", settings.shortcutsEnabled},
+                         {"gamepad", json::object{{"profiles", gamepad::profilesToJson(settings.gamepadProfiles)}}},
                      };
 }
 
@@ -922,6 +928,11 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
                 continue;
             }
             s.shortcuts[std::string(command)] = ShortcutBinding{*keys, flag(value.as_object(), "isActive", true)};
+        }
+    }
+    if (const json::object* pads = child(w, "gamepad")) {
+        if (const json::value* profiles = pads->if_contains("profiles"); profiles && profiles->is_array()) {
+            s.gamepadProfiles = gamepad::profilesFromJson(*profiles);
         }
     }
     if (const json::object* events = child(root, "events")) {

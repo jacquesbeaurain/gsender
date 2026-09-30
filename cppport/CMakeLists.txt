@@ -30,6 +30,7 @@ option(GS_BUILD_QML "Build the QML touch UI (needs Qt Quick)" ON)
 option(GS_DEPLOY_QT "Deploy Qt dependencies with windeployqt (Windows)" ON)
 option(GS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(GS_USE_PCH "Precompile common standard and third-party headers" ON)
+option(GS_WITH_SDL3 "Read gamepads with SDL3 (built without: no gamepads)" ON)
 
 include(GsLibPack)
 include(GsCompilerOptions)
@@ -44,6 +45,23 @@ add_subdirectory(src/transport)
 
 if(GS_BUILD_APP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/CMakeLists.txt")
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
+    # Gamepads: SDL3 (the LibPack has no Qt Gamepad). Windows: GS_SDL3_DIR,
+    # the official SDL3-devel-*-VC package (tools/build.ps1 fetches it);
+    # Linux: the conda prefix (tools/setup_linux.sh).
+    if(GS_WITH_SDL3)
+        set(GS_SDL3_DIR "$ENV{GS_SDL3_DIR}" CACHE PATH "Root of an SDL3 development package")
+        if(NOT GS_SDL3_DIR AND NOT "$ENV{GS_SDL3_DIR}" STREQUAL "")
+            # A tree configured before the package was fetched.
+            set(GS_SDL3_DIR "$ENV{GS_SDL3_DIR}" CACHE PATH "Root of an SDL3 development package" FORCE)
+        endif()
+        if(GS_SDL3_DIR)
+            list(APPEND CMAKE_PREFIX_PATH "${GS_SDL3_DIR}")
+        endif()
+        find_package(SDL3 3.2 CONFIG COMPONENTS SDL3-shared)
+        if(NOT SDL3_FOUND)
+            message(STATUS "SDL3 not found: built without gamepads (set GS_SDL3_DIR)")
+        endif()
+    endif()
     add_subdirectory(src/app)
     # The QML touch UI, where the Qt has Qt Quick and its Controls.
     if(GS_BUILD_QML)

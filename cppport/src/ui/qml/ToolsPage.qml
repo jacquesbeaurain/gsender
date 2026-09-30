@@ -54,6 +54,7 @@ Item {
         movementTuning: movementTuningTool,
         squaring: squaringTool,
         shortcuts: keyboardShortcutsTool,
+        gamepad: gamepadTool,
         sd: sdCardTool,
         accessoryInstall: accessoryInstallerTool,
         plugins: pluginsTool
@@ -188,6 +189,10 @@ Item {
     Component {
         id: keyboardShortcutsTool
         KeyboardShortcutsTool {}
+    }
+    Component {
+        id: gamepadTool
+        GamepadTool {}
     }
     Component {
         id: sdCardTool

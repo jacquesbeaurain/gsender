@@ -7,6 +7,7 @@
 #include "gs/config/config_store.hpp"
 #include "gs/controller/controller.hpp"
 #include "gs/controller/jogging.hpp"
+#include "gs/gamepad/profile.hpp"
 #include "gs/job/outline.hpp"
 #include "gs/probe/probing.hpp"
 #include "gs/rotary/rotary.hpp"
@@ -219,6 +220,9 @@ struct AppSettings {
     // and the global switch (preferences.shortcuts.shouldHold, inverted).
     std::map<std::string, ShortcutBinding> shortcuts;
     bool shortcutsEnabled = true;
+    // Gamepad profiles (workspace.gamepad.profiles), in upstream's JSON
+    // shape under "gamepad": {"profiles": [...]}.
+    std::vector<gamepad::Profile> gamepadProfiles = gamepad::defaultProfiles();
     // Tool change wizards: the fixed sensor's position (machine
     // coordinates, workspace.toolChangePosition), the first tool with it,
     // and the optional position to change bits at.
