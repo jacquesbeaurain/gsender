@@ -1646,6 +1646,7 @@ TEST_F(UiTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
     EXPECT_EQ(text("wizardStepTitle"), "Zero Position");
     EXPECT_EQ(text("wizardProgress"), "Step 1 of 3");
     EXPECT_FALSE(item("wizardNext")->isEnabled());
+    EXPECT_FALSE(item("wizardPrevious")->isEnabled());
     EXPECT_TRUE(item("wizardJog")->isVisible());
     waitForTap("zeroXY");
     ASSERT_TRUE(waitFor([&] { return sent("G10 L20 P0 X0 Y0"); }));
@@ -1724,7 +1725,11 @@ TEST_F(UiTest, TheAccessoryInstallerWalksTheVacuumTableAndTlsWizards) {
     EXPECT_TRUE(item("wizardComplete")->isVisible());
     EXPECT_EQ(text("wizardProgress"), "All Steps Complete");
     screenshot("ui_accessories_complete");
-    tap("wizardExit");
+    // Restart: from the first step again; Exit: back to the landing page.
+    tap("wizardRestart");
+    EXPECT_EQ(text("wizardStepTitle"), "Tool Change Options");
+    EXPECT_FALSE(tool->property("atCompletion").toBool());
+    QMetaObject::invokeMethod(tool->property("model").value<QObject*>(), "exitSubWizard");
     EXPECT_EQ(tool->property("screen").toString(), "landing");
 }
 

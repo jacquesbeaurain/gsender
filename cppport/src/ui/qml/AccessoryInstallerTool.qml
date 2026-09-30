@@ -16,115 +16,28 @@ ToolPage {
 
     property AccessoryModel model: AccessoryModel { objectName: "accessories" }
 
-    property string screen: "hub"  // landing, run
-    property var wizard: null
-    property var sub: null
-    property int step: 0
-    property var completed: ({})
-    property bool atCompletion: false
     property string vacuumSize: "4x8"  // the Vacuum Table's choice, across its steps
 
-    readonly property var steps: sub ? sub.steps : []
-    // (re-read whenever the machine changes: model.wizards notifies then)
-    readonly property var failed: { model.wizards; return wizard ? model.failedChecks(wizard.id) : [] }
-    readonly property bool canGoNext: sub !== null && !atCompletion && !!completed[step]
-                                      && (step + 1 < steps.length || !!sub.completion)
+    // Where the model's walk is (AccessoryModel decides every move).
+    readonly property string screen: model.screen
+    readonly property var wizard: model.screen !== "hub" ? model.wizard : null
+    readonly property var sub: model.screen === "run" ? model.subWizard : null
+    readonly property var steps: model.steps
+    readonly property int step: model.stepIndex
+    readonly property bool atCompletion: model.atCompletion
+    readonly property var failed: model.failed
 
-    function findWizard(id) { return model.wizards.find(w => w.id === id) || null }
-    function openWizard(id) {
-        wizard = findWizard(id)
-        if (!wizard)
-            return false
-        sub = null
-        if (wizard.subWizards.length === 1 && model.failedChecks(id).length === 0)
-            return startSubWizard(wizard.subWizards[0].id)
-        screen = "landing"
-        return true
-    }
-    function startSubWizard(id) {
-        if (!wizard || model.failedChecks(wizard.id).length > 0)
-            return false
-        const found = wizard.subWizards.find(s => s.id === id)
-        if (!found)
-            return false
-        sub = found
-        completed = ({})
-        atCompletion = false
-        screen = "run"
-        enterStep(0)
-        return true
-    }
-    function markDone(index, done) {
-        const next = Object.assign({}, completed)
-        if (done)
-            next[index] = true
-        else
-            delete next[index]
-        completed = next
-    }
-    // autoComplete: a step with nothing to do counts as done and is passed.
-    function enterStep(index) {
-        const last = steps.length - 1
-        while (index <= last && model.skipStep(steps[index].id)) {
-            markDone(index, true)
-            if (index === last) {
-                step = index
-                if (sub.completion) {
-                    showCompletion()
-                    return
-                }
-                break
-            }
-            ++index
-        }
-        step = Math.min(index, last)
-        atCompletion = false
-        showStep()
-    }
-    function showStep() {
+    function openWizard(id) { return model.openWizard(id) }
+
+    Connections {
+        target: tool.model
         // The page is made afresh each time it shows, as a remounted component.
-        pageLoader.sourceComponent = null
-        pageLoader.sourceComponent = pages[steps[step].id] || null
-    }
-    function showCompletion() {
-        pageLoader.sourceComponent = null
-        atCompletion = true
-    }
-    function next() {
-        if (!canGoNext)
-            return false
-        if (step + 1 < steps.length)
-            enterStep(step + 1)
-        else
-            showCompletion()
-        return true
-    }
-    function previous() {
-        if (!sub || atCompletion || step === 0)
-            return false
-        let index = step - 1
-        while (index > 0 && model.skipStep(steps[index].id))
-            --index
-        step = index
-        showStep()
-        return true
-    }
-    function restart() {
-        completed = ({})
-        atCompletion = false
-        enterStep(0)
-    }
-    function exitSubWizard() {
-        sub = null
-        completed = ({})
-        atCompletion = false
-        pageLoader.sourceComponent = null
-        screen = wizard ? "landing" : "hub"
-    }
-    function backToHub() {
-        exitSubWizard()
-        wizard = null
-        screen = "hub"
+        function onPageChanged() {
+            pageLoader.sourceComponent = null
+            const current = tool.steps[tool.step]
+            if (tool.sub && !tool.atCompletion && current)
+                pageLoader.sourceComponent = tool.pages[current.id] || null
+        }
     }
 
     readonly property var pages: ({
@@ -222,7 +135,7 @@ ToolPage {
                 variant: "ghost"
                 iconName: "LuArrowLeft"
                 text: qsTr("Back to Wizards")
-                onClicked: tool.backToHub()
+                onClicked: tool.model.backToHub()
             }
             Label {
                 objectName: "wizardTitle"
@@ -267,7 +180,7 @@ ToolPage {
                     variant: index === 0 ? "primary" : "outline"
                     text: modelData.title + "  →"
                     enabled: tool.failed.length === 0
-                    onClicked: tool.startSubWizard(modelData.id)
+                    onClicked: tool.model.startSubWizard(modelData.id)
                 }
             }
             // The help link, with its QR code (SecondaryContentPanel).
@@ -366,7 +279,7 @@ ToolPage {
                         id: pageLoader
                         objectName: "wizardPage"
                         Layout.fillWidth: true
-                        onLoaded: if (item.complete) tool.markDone(tool.step, true)
+                        onLoaded: if (item.complete) tool.model.setStepComplete(true)
                     }
 
                     // The closing page.
@@ -450,7 +363,7 @@ ToolPage {
                 objectName: "wizardRestart"
                 variant: "outline"
                 text: qsTr("Restart Wizard")
-                onClicked: tool.restart()
+                onClicked: tool.model.restart()
             }
             Item { Layout.fillWidth: true }
             GButton {
@@ -458,23 +371,23 @@ ToolPage {
                 objectName: "wizardPrevious"
                 variant: "outline"
                 text: qsTr("Previous")
-                enabled: tool.step > 0
-                onClicked: tool.previous()
+                enabled: tool.model.canBack
+                onClicked: tool.model.back()
             }
             GButton {
                 visible: !tool.atCompletion
                 objectName: "wizardNext"
                 variant: "primary"
                 text: qsTr("Next")
-                enabled: tool.canGoNext
-                onClicked: tool.next()
+                enabled: tool.model.canNext
+                onClicked: tool.model.next()
             }
             GButton {
                 visible: tool.atCompletion
                 objectName: "wizardExit"
                 variant: "primary"
                 text: qsTr("Exit")
-                onClicked: tool.exitSubWizard()
+                onClicked: tool.model.exitSubWizard()
             }
         }
     }
@@ -483,9 +396,7 @@ ToolPage {
         target: pageLoader.item
         ignoreUnknownSignals: true
         function onCompleteChanged() {
-            tool.markDone(tool.step, pageLoader.item.complete)
-            if (!pageLoader.item.complete)
-                tool.atCompletion = false
+            tool.model.setStepComplete(pageLoader.item.complete)
         }
         function onFinish() {
             // A page that loaded a file into the visualizer: to the Carve page.
