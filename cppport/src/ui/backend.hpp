@@ -83,6 +83,8 @@ class UiBackend final : public QObject {
     Q_PROPERTY(bool promptExit READ promptExit NOTIFY appSettingsChanged)
     // Accessibility: a ring around the control with the keyboard focus.
     Q_PROPERTY(bool focusRings READ focusRings NOTIFY appSettingsChanged)
+    // Accessibility: no animations.
+    Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY appSettingsChanged)
     // The loaded file in words ("Show summary visually"): empty when not shown.
     Q_PROPERTY(QString jobSummary READ jobSummary NOTIFY jobSummaryChanged)
 
@@ -140,6 +142,7 @@ public:
     void setPerspective(bool persp);
     bool promptExit() const;
     bool focusRings() const;
+    bool reducedMotion() const;
     QString jobSummary() const;
 
     Q_INVOKABLE void toggleLiteMode();

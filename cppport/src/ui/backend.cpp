@@ -388,6 +388,10 @@ bool UiBackend::focusRings() const {
     return machine_.settings().accessibility.focusRings;
 }
 
+bool UiBackend::reducedMotion() const {
+    return machine_.settings().accessibility.reducedMotion;
+}
+
 QString UiBackend::jobSummary() const {
     return machine_.settings().accessibility.gcodeSummaryVisible ? announcer_->summary() : QString();
 }

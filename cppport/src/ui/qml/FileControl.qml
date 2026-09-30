@@ -211,7 +211,7 @@ Item {
                             height: 20
                             radius: 10
                             color: "white"
-                            Behavior on y { NumberAnimation { duration: 120 } }
+                            Behavior on y { enabled: !Theme.reducedMotion; NumberAnimation { duration: 120 } }
                         }
                         TapHandler { onTapped: sizeSwitch.checked = !sizeSwitch.checked }
                     }

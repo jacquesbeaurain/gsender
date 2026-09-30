@@ -101,7 +101,7 @@ Item {
             flickableDirection: Flickable.HorizontalFlick
             boundsBehavior: Flickable.StopAtBounds
             clip: true
-            Behavior on contentX { NumberAnimation { duration: 150 } }
+            Behavior on contentX { enabled: !Theme.reducedMotion; NumberAnimation { duration: 150 } }
             Row {
                 id: row
                 height: strip.height
