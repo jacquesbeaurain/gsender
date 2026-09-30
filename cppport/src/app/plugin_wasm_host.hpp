@@ -3,10 +3,14 @@
 #include "wasm_engine.hpp"
 #include "plugin_manifest.hpp"
 
-#include <QString>
 #include <QJsonObject>
+#include <QString>
+
+#include <deque>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 
 namespace gs::app {
 
@@ -14,6 +18,10 @@ class Machine;
 class PluginBridge;
 class PluginStorage;
 
+/** Runs one plugin's Wasm module: links the SDK's host imports (each
+ *  capability-checked through the bridge) and calls the plugin's exports.
+ *  Strings go into the plugin's memory through its own allocator
+ *  (gsender_plugin_alloc / gsender_plugin_free). */
 class PluginWasmHost {
 public:
     PluginWasmHost(Machine& machine, PluginBridge& bridge, PluginStorage& storage, const PluginManifest& manifest);
@@ -28,7 +36,8 @@ public:
     /** Execute RPC request via Wasm export `gsender_plugin_handle_request`. */
     QString handleRequest(const QString& requestJson);
 
-    /** Dispatch topic snapshot via Wasm export `gsender_plugin_on_topic_event`. */
+    /** Dispatch topic snapshot via Wasm export `gsender_plugin_on_topic_event`
+     *  (only for topics the manifest grants; queued while the plugin is running). */
     void onTopicEvent(const QString& topic, const QJsonObject& data);
 
     bool isLoaded() const noexcept { return instance_ != nullptr; }
@@ -37,8 +46,15 @@ public:
 
     const PluginManifest& manifest() const noexcept { return manifest_; }
 
+    /** Largest response a plugin may write per request. */
+    static constexpr int32_t ResponseBufferSize = 256 * 1024;
+
 private:
+    bool instantiate(std::shared_ptr<WasmModule> module, QString* outError);
     void registerHostImports();
+    std::optional<uint32_t> copyIn(const std::string& text);
+    void release(uint32_t ptr);
+    void flushTopicEvents();
 
     Machine& machine_;
     PluginBridge& bridge_;
@@ -47,11 +63,10 @@ private:
 
     std::shared_ptr<WasmModule> module_;
     std::unique_ptr<WasmInstance> instance_;
-
-    // Scratch memory offset inside linear memory for string passing
-    static constexpr uint32_t ScratchReqOffset = 1024;
-    static constexpr uint32_t ScratchRespOffset = 8192;
-    static constexpr uint32_t ScratchBufSize = 65536;
+    bool initialized_ = false;
+    bool running_ = false;
+    std::deque<std::pair<QString, QJsonObject>> pendingTopics_;
+    QString lastError_;
 };
 
 }  // namespace gs::app

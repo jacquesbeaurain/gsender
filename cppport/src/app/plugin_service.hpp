@@ -68,6 +68,7 @@ private:
     std::map<QString, std::unique_ptr<class PluginWasmHost>> wasmHosts_;
 
     void setupTopicBroadcasters();
+    void startWasmHost(const LoadedPlugin& plugin);
 };
 
 }  // namespace gs::app

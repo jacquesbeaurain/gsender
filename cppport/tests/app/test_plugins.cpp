@@ -11,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QDir>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 
 using namespace gs::app;
@@ -379,6 +380,41 @@ TEST(WasmEngineTest, TrapsUnreachableAndDivideByZero) {
     EXPECT_EQ(inst.lastTrap(), WasmTrap::DivisionByZero);
 }
 
+namespace {
+
+QByteArray examplePluginWasm(const QString& plugin) {
+    QFile f(QStringLiteral(GS_SOURCE_DIR "/plugins/") + plugin + QStringLiteral("/bin/plugin.wasm"));
+    return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
+}
+
+PluginManifest exampleManifest(const QString& plugin) {
+    PluginManifest manifest;
+    QString err;
+    EXPECT_TRUE(loadPluginManifestFile(QStringLiteral(GS_SOURCE_DIR "/plugins/") + plugin + QStringLiteral("/gsender-plugin.json"), &manifest, &err))
+        << err.toStdString();
+    return manifest;
+}
+
+QJsonObject parseReply(const QString& reply) {
+    return QJsonDocument::fromJson(reply.toUtf8()).object();
+}
+
+}  // namespace
+
+TEST(WasmEngineTest, PluginsMustExportAnAllocator) {
+    QTemporaryDir tempDir;
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginStorage storage(tempDir.path());
+    PluginBridge bridge(machine, storage);
+    PluginManifest manifest;
+    manifest.id = "com.sienci.wasm-test";
+    PluginWasmHost host(machine, bridge, storage, manifest);
+    QString err;
+    EXPECT_FALSE(host.loadBinary(kTestWasmBytes, kTestWasmBytesLen, &err));
+    EXPECT_TRUE(err.contains("gsender_plugin_alloc")) << err.toStdString();
+}
+
 TEST(WasmEngineTest, PluginWasmHostLifecycleAndRpc) {
     QTemporaryDir tempDir;
     ASSERT_TRUE(tempDir.isValid());
@@ -387,34 +423,76 @@ TEST(WasmEngineTest, PluginWasmHostLifecycleAndRpc) {
     Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
     PluginStorage storage(tempDir.path());
     PluginBridge bridge(machine, storage);
+    const PluginManifest manifest = exampleManifest("example-hello");
 
-    PluginManifest manifest;
-    manifest.id = "com.sienci.wasm-test";
-    manifest.name = "Wasm Test Plugin";
-    manifest.version = "1.0.0";
-    manifest.capabilities.requestTypes.insert("machine:command");
-    manifest.capabilities.topics.insert("workspace");
+    for (int launch = 1; launch <= 2; ++launch) {
+        PluginWasmHost host(machine, bridge, storage, manifest);
+        const QByteArray wasm = examplePluginWasm("example-hello");
+        QString err;
+        ASSERT_TRUE(host.loadBinary(reinterpret_cast<const uint8_t*>(wasm.constData()), static_cast<size_t>(wasm.size()), &err))
+            << err.toStdString();
+        ASSERT_TRUE(host.init()) << host.lastError().toStdString();
 
-    PluginWasmHost host(machine, bridge, storage, manifest);
+        // Topic events reach the plugin; ones the manifest does not grant do not.
+        host.onTopicEvent("workspace", QJsonObject{{"x", 1.0}});
+        host.onTopicEvent("controller", QJsonObject{{"activeState", "Idle"}});
+        host.onTopicEvent("parser", QJsonObject{{"line", "ok"}});
+
+        const QJsonObject reply = parseReply(host.handleRequest("{\"action\":\"hello\"}"));
+        EXPECT_TRUE(reply.value("ok").toBool());
+        EXPECT_EQ(reply.value("message").toString(), "Hello from Wasm plugin!");
+        // Its launch counter lives in its own storage, across instances.
+        EXPECT_EQ(reply.value("launches").toInt(), launch);
+        EXPECT_EQ(reply.value("events").toInt(), 2);
+        EXPECT_TRUE(reply.value("wpos").isObject());
+        host.shutdown();
+    }
+    EXPECT_EQ(storage.get(manifest.id, "launches").value_or(""), "2");
+}
+
+TEST(WasmEngineTest, BasicCamGeneratesAndLoadsAToolpath) {
+    QTemporaryDir tempDir;
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginStorage storage(tempDir.path());
+    PluginBridge bridge(machine, storage);
+    PluginWasmHost host(machine, bridge, storage, exampleManifest("basic-cam"));
+    const QByteArray wasm = examplePluginWasm("basic-cam");
     QString err;
-    ASSERT_TRUE(host.loadBinary(kTestWasmBytes, kTestWasmBytesLen, &err)) << err.toStdString();
-    EXPECT_TRUE(host.isLoaded());
+    ASSERT_TRUE(host.loadBinary(reinterpret_cast<const uint8_t*>(wasm.constData()), static_cast<size_t>(wasm.size()), &err))
+        << err.toStdString();
+    ASSERT_TRUE(host.init());
 
-    // Test initialization lifecycle
-    EXPECT_TRUE(host.init());
+    const QJsonObject reply = parseReply(host.handleRequest(
+        R"({"action":"generate","width":50,"height":20,"depth":1,"stepDown":0.5,"stepover":10,"feed":1500,"plunge":200,"safeZ":4})"));
+    ASSERT_TRUE(reply.value("ok").toBool()) << reply.value("error").toString().toStdString();
+    EXPECT_TRUE(machine.hasProgram());
+    EXPECT_EQ(machine.programName(), "basic-cam-facing.gcode");
+    // Two passes (0.5 mm each): plunge, first cut, two step-over/cut pairs, retract, return.
+    EXPECT_EQ(reply.value("lines").toInt(), 4 + 2 * (1 + 1 + 2 * 2 + 2) + 1);
+}
 
-    // Test RPC request handling
-    const QString resp = host.handleRequest("{\"cmd\":\"test\"}");
-    EXPECT_FALSE(resp.isEmpty());
-    EXPECT_TRUE(resp.startsWith("{"));
+TEST(WasmEngineTest, CornerFinderSetsOverlayMarkersThroughTheBridge) {
+    QTemporaryDir tempDir;
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginStorage storage(tempDir.path());
+    PluginBridge bridge(machine, storage);
+    PluginWasmHost host(machine, bridge, storage, exampleManifest("corner-finder"));
+    const QByteArray wasm = examplePluginWasm("corner-finder");
+    QString err;
+    ASSERT_TRUE(host.loadBinary(reinterpret_cast<const uint8_t*>(wasm.constData()), static_cast<size_t>(wasm.size()), &err))
+        << err.toStdString();
+    ASSERT_TRUE(host.init());
 
-    // Test topic event dispatch
-    QJsonObject eventData;
-    eventData.insert("x", 123.456);
-    host.onTopicEvent("workspace", eventData);
-
-    // Test shutdown lifecycle
-    host.shutdown();
+    QJsonObject overlay;
+    QObject::connect(&bridge, &PluginBridge::overlayMarkerUpdated, [&](const QString&, const QJsonObject& data) { overlay = data; });
+    const QJsonObject reply = parseReply(host.handleRequest(R"({"action":"mark","x":10,"y":5,"width":100,"height":50})"));
+    EXPECT_TRUE(reply.value("ok").toBool()) << reply.value("error").toString().toStdString();
+    const QJsonArray markers = overlay.value("markers").toArray();
+    ASSERT_EQ(markers.size(), 4);
+    EXPECT_DOUBLE_EQ(markers[2].toObject().value("x").toDouble(), 110.0);
+    EXPECT_DOUBLE_EQ(markers[2].toObject().value("y").toDouble(), 55.0);
 }
 
 TEST(PluginServiceTest, WasmModuleAutoDiscoveryAndRpc) {
@@ -447,7 +525,7 @@ TEST(PluginServiceTest, WasmModuleAutoDiscoveryAndRpc) {
 
     QFile wasmFile(pdir + "/bin/plugin.wasm");
     ASSERT_TRUE(wasmFile.open(QIODevice::WriteOnly));
-    wasmFile.write(reinterpret_cast<const char*>(kTestWasmBytes), kTestWasmBytesLen);
+    wasmFile.write(examplePluginWasm("example-hello"));
     wasmFile.close();
 
     service.addSearchPath(tempDir.path());
