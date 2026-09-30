@@ -17,6 +17,26 @@ ApplicationWindow {
 
     font.pixelSize: Theme.fontBase
 
+    // Basics' "Prompt on exit": closing asks first.
+    property bool exitConfirmed: false
+    onClosing: (close) => {
+        if (Backend.promptExit && !exitConfirmed) {
+            close.accepted = false
+            exitPrompt.open()
+        }
+    }
+    ConfirmDialog {
+        id: exitPrompt
+        objectName: "exitPrompt"
+        title: qsTr("Exit gSender")
+        message: qsTr("Are you sure you want to exit?")
+        actionText: qsTr("Exit")
+        onAccepted: {
+            window.exitConfirmed = true
+            window.close()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0

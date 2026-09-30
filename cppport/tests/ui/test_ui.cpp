@@ -1967,6 +1967,18 @@ TEST_F(UiTest, TheJobSummaryShowsOverTheVisualizer) {
     EXPECT_TRUE(waitFor([&] { return !item("jobSummary")->isVisible(); }));
 }
 
+TEST_F(UiTest, PromptOnExitAsksBeforeClosing) {
+    app::AppSettings settings = machine_->settings();
+    settings.promptExit = true;
+    machine_->setSettings(settings);
+    QObject* prompt = window_->findChild<QObject*>("exitPrompt");
+    ASSERT_NE(prompt, nullptr);
+    window_->close();
+    ASSERT_TRUE(waitFor([&] { return prompt->property("opened").toBool(); }));
+    EXPECT_TRUE(window_->isVisible());
+    QMetaObject::invokeMethod(prompt, "close");
+}
+
 TEST_F(UiTest, IconProviderRendersPiPuzzlePiece) {
     ui::IconProvider provider;
     QSize size;

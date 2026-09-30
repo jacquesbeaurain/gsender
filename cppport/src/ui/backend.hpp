@@ -79,6 +79,8 @@ class UiBackend final : public QObject {
     // Lightweight mode (widgets.visualizer.liteMode) and perspective projection.
     Q_PROPERTY(bool liteMode READ liteMode WRITE setLiteMode NOTIFY appSettingsChanged)
     Q_PROPERTY(bool perspective READ perspective WRITE setPerspective NOTIFY appSettingsChanged)
+    // Basics' "Prompt on exit": closing the window asks first.
+    Q_PROPERTY(bool promptExit READ promptExit NOTIFY appSettingsChanged)
     // The loaded file in words ("Show summary visually"): empty when not shown.
     Q_PROPERTY(QString jobSummary READ jobSummary NOTIFY jobSummaryChanged)
 
@@ -134,6 +136,7 @@ public:
     void setLiteMode(bool enabled);
     bool perspective() const;
     void setPerspective(bool persp);
+    bool promptExit() const;
     QString jobSummary() const;
 
     Q_INVOKABLE void toggleLiteMode();

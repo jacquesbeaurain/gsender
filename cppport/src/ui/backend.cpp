@@ -380,6 +380,10 @@ void UiBackend::resetMaintenanceTimers(const QVariantList& ids) {
     machine_.resetMaintenanceTimers(list);
 }
 
+bool UiBackend::promptExit() const {
+    return machine_.settings().promptExit;
+}
+
 QString UiBackend::jobSummary() const {
     return machine_.settings().accessibility.gcodeSummaryVisible ? announcer_->summary() : QString();
 }
