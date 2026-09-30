@@ -858,6 +858,101 @@ TEST_F(UiTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     EXPECT_NEAR(offset[2], start[2] - 25, 1e-6);
 }
 
+TEST_F(UiTest, TheProbeTabCapturesARectangularGrid) {
+    app::AppSettings settings = machine_->settings();
+    settings.probe.plateType = probe::PlateType::Probe3D;
+    machine_->setSettings(settings);
+    connectSimulator();
+    machine_->simulator()->setSpeed(200);
+    ASSERT_TRUE(waitFor([&] { return item("probeTab") && item("probeTab")->isVisible(); }));
+    ASSERT_TRUE(waitFor([&] { return item("gridCaptureButton")->isVisible() && item("gridCaptureButton")->isEnabled(); }));
+
+    tap("gridCaptureButton");
+    QObject* dialog = item("probeTab")->findChild<QObject*>("rectangularGrid");
+    ASSERT_NE(dialog, nullptr);
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    QObject* model = dialog->property("model").value<QObject*>();
+    QQuickItem* start = nullptr;
+    ASSERT_TRUE(waitFor([&] { return (start = item("gridStart")) && centreOf(start).y() < window_->height(); }));
+    EXPECT_FALSE(start->isEnabled());  // the circuit check first
+    tap("gridConfirmProbe");
+    ASSERT_TRUE(waitFor([&] { return start->isEnabled(); }));
+
+    // A 3 x 2 grid from where the probe is.
+    item("gridNx")->setProperty("text", "3");
+    item("gridNy")->setProperty("text", "2");
+    screenshot("ui_probe_grid");
+    const std::array<double, 4> w = machine_->workPositionMm();
+    const double z0 = w[2];
+    tap("gridStart");
+    ASSERT_TRUE(waitFor([&] { return model->property("status").toString() == "done"; }, 20000))
+        << model->property("statusText").toString().toStdString();
+    EXPECT_EQ(model->property("statusText").toString(), "Captured 6 points");
+    EXPECT_EQ(model->property("pointCount").toInt(), 6);
+    ASSERT_TRUE(waitFor([&] {
+        return machine_->simulator()->activeState() == "Idle" && std::abs(machine_->workPositionMm()[2] - z0) < 1e-3;
+    }, 10000));  // back at the safe height
+
+    // The simulator's surface: 10 mm down, sloping per 20 mm tile.
+    const auto surface = [&](double x, double y) {
+        const auto centre = [](double at) { return -5 + 20 * std::floor((at + 15) / 20); };
+        return z0 - 10 - 0.02 * centre(x) + 0.01 * centre(y);
+    };
+    QString csv;
+    QMetaObject::invokeMethod(model, "csv", Q_RETURN_ARG(QString, csv));
+    const QStringList rows = csv.split('\n');
+    ASSERT_EQ(rows.size(), 7);
+    EXPECT_EQ(rows[0], "X,Y,Z");
+    for (int i = 0; i < 6; ++i) {
+        const double dx = 10.0 * (i % 3);
+        const double dy = 10.0 * (i / 3);
+        const QStringList cells = rows[i + 1].split(',');
+        ASSERT_EQ(cells.size(), 3);
+        EXPECT_NEAR(cells[0].toDouble(), w[0] + dx, 1e-3) << i;
+        EXPECT_NEAR(cells[1].toDouble(), w[1] + dy, 1e-3) << i;
+        EXPECT_NEAR(cells[2].toDouble(), surface(dx, dy), 1e-3) << i;
+    }
+
+    // Saved as a CSV.
+    QVariantMap result;
+    QMetaObject::invokeMethod(model, "save", Q_RETURN_ARG(QVariantMap, result), Q_ARG(QString, dir_.path() + "/grid"));
+    EXPECT_TRUE(result.value("ok").toBool()) << result.value("message").toString().toStdString();
+    QFile file(dir_.path() + "/grid.csv");
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    EXPECT_EQ(QString::fromUtf8(file.readAll()), csv + "\n");
+    tap("gridClose");
+    EXPECT_TRUE(waitFor([&] { return !dialog->property("visible").toBool(); }));
+}
+
+TEST_F(UiTest, TheRectangularGridStopsGracefully) {
+    app::AppSettings settings = machine_->settings();
+    settings.probe.plateType = probe::PlateType::Probe3D;
+    machine_->setSettings(settings);
+    connectSimulator();
+    machine_->simulator()->setSpeed(20);
+    ASSERT_TRUE(waitFor([&] { return item("gridCaptureButton") && item("gridCaptureButton")->isEnabled(); }));
+    tap("gridCaptureButton");
+    QObject* dialog = item("probeTab")->findChild<QObject*>("rectangularGrid");
+    ASSERT_TRUE(waitFor([&] { return dialog->property("opened").toBool(); }));
+    QObject* model = dialog->property("model").value<QObject*>();
+    ASSERT_TRUE(waitFor([&] { return item("gridConfirmProbe") && centreOf(item("gridConfirmProbe")).y() < window_->height(); }));
+    tap("gridConfirmProbe");
+    ASSERT_TRUE(waitFor([&] { return item("gridStart")->isEnabled(); }));
+    tap("gridStart");
+    ASSERT_TRUE(waitFor([&] { return model->property("captured").toInt() >= 2; }, 20000));
+    // Stop: the point in flight is kept, then the probe retracts.
+    EXPECT_FALSE(item("gridClose")->isEnabled());
+    tap("gridStart");
+    ASSERT_TRUE(waitFor([&] { return model->property("status").toString() == "stopped"; }, 20000));
+    const int captured = model->property("captured").toInt();
+    EXPECT_GE(captured, 3);
+    EXPECT_LT(captured, 16);
+    EXPECT_EQ(model->property("statusText").toString(), QString("Stopped after %1 of 16 points").arg(captured));
+    EXPECT_EQ(model->property("pointCount").toInt(), captured);
+    EXPECT_TRUE(waitFor([&] { return machine_->simulator()->activeState() == "Idle"; }, 10000));
+    EXPECT_TRUE(item("gridSave")->isEnabled());
+}
+
 TEST_F(UiTest, TheRotaryTabSwitchesModeAndLoadsTheMountingSetup) {
     app::AppSettings settings = machine_->settings();
     settings.rotary.showControls = true;

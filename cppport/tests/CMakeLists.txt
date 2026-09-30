@@ -37,6 +37,7 @@ add_executable(gs_core_tests
     core/test_simulator.cpp
     core/test_spindle.cpp
     core/test_probing.cpp
+    core/test_grid_capture.cpp
     core/test_surfacing.cpp
     core/test_toolchange.cpp
     core/test_gamepad.cpp
