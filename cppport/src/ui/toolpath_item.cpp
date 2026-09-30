@@ -2,10 +2,14 @@
 
 #include "backend.hpp"
 #include "machine.hpp"
+#include "plugin_service.hpp"
 
 #include "gs/controller/controller.hpp"
 
+#include <QJsonObject>
 #include <QPainter>
+
+#include <algorithm>
 
 namespace gs::ui {
 namespace {
@@ -23,9 +27,16 @@ ToolpathItem::ToolpathItem(QQuickItem* parent) : QQuickPaintedItem(parent) {
     setAntialiasing(true);
 }
 
+ToolpathItem::~ToolpathItem() {
+    if (machine_ && machine_->pluginService().bridge().viewer() == this) {
+        machine_->pluginService().bridge().setViewer(nullptr);
+    }
+}
+
 void ToolpathItem::componentComplete() {
     QQuickPaintedItem::componentComplete();
     machine_ = &UiBackend::instance()->machine();
+    registerViewer();
     connect(machine_, &app::Machine::appSettingsChanged, this, &ToolpathItem::applySettings);
     connect(machine_, &app::Machine::programChanged, this, [this] {
         doneLines_ = 0;
@@ -72,6 +83,7 @@ void ToolpathItem::paint(QPainter* painter) {
     }
     camera_.setViewport(size());
     paintContent(*painter, camera_);
+    paintOverlay(*painter);
 }
 
 void ToolpathItem::paintContent(QPainter& painter, app::ToolpathCamera& camera) {
@@ -119,6 +131,9 @@ void ToolpathItem::zoomAt(double x, double y, double factor) {
 }
 
 void ToolpathItem::orbit(double yawDegrees, double pitchDegrees) {
+    if (!rotateEnabled_) {
+        return;
+    }
     camera_.orbit(yawDegrees, pitchDegrees);
     changed();
 }
@@ -126,6 +141,149 @@ void ToolpathItem::orbit(double yawDegrees, double pitchDegrees) {
 void ToolpathItem::pan(double dx, double dy) {
     camera_.pan(dx, dy);
     changed();
+}
+
+// ---- plugins ---------------------------------------------------------------------------
+
+void ToolpathItem::setPluginHost(bool host) {
+    if (host == pluginHost_) {
+        return;
+    }
+    pluginHost_ = host;
+    registerViewer();
+    Q_EMIT pluginHostChanged();
+}
+
+void ToolpathItem::registerViewer() {
+    if (!machine_) {
+        return;
+    }
+    app::PluginBridge& bridge = machine_->pluginService().bridge();
+    if (pluginHost_) {
+        bridge.setViewer(this);
+    } else if (bridge.viewer() == this) {
+        bridge.setViewer(nullptr);
+    }
+}
+
+std::optional<app::PluginViewer::WorldPoint> ToolpathItem::screenToWorld(double px, double py) const {
+    app::ToolpathCamera camera = camera_;
+    camera.setViewport(size());
+    const auto p = camera.unproject(QPointF(px, py));
+    if (!p) {
+        return std::nullopt;
+    }
+    return WorldPoint{p->x, p->y, p->z};
+}
+
+std::optional<QPointF> ToolpathItem::worldToScreen(const WorldPoint& world) const {
+    app::ToolpathCamera camera = camera_;
+    camera.setViewport(size());
+    return camera.project({world.x, world.y, world.z});
+}
+
+bool ToolpathItem::setCameraView(const QString& view) {
+    static const QStringList kPluginViews{QStringLiteral("3d"), QStringLiteral("top"), QStringLiteral("front"),
+                                          QStringLiteral("left"), QStringLiteral("right")};
+    if (!kPluginViews.contains(view)) {
+        return false;
+    }
+    setView(view);
+    return true;
+}
+
+void ToolpathItem::setRotateEnabled(bool enabled) {
+    if (enabled != rotateEnabled_) {
+        rotateEnabled_ = enabled;
+        Q_EMIT rotateEnabledChanged();
+    }
+}
+
+bool ToolpathItem::isRotaryFile() const {
+    return machine_ && app::isRotaryJob(*machine_);
+}
+
+void ToolpathItem::armPick(const QString& mode) {
+    if (mode != pickMode_) {
+        pickMode_ = mode;
+        Q_EMIT pickModeChanged();
+    }
+}
+
+void ToolpathItem::disarmPick() {
+    armPick(QString());
+}
+
+void ToolpathItem::pickAt(double x, double y) {
+    // A pick stays armed: the plugin decides when it has enough.
+    if (pickMode_.isEmpty() || !machine_ || isRotaryFile()) {
+        return;
+    }
+    const auto world = screenToWorld(x, y);
+    if (!world) {
+        return;
+    }
+    const QPointF screen = worldToScreen(*world).value_or(QPointF(x, y));
+    machine_->pluginService().bridge().viewerPicked(*world, screen);
+}
+
+void ToolpathItem::pickHoldProgress(double t) {
+    if (pickMode_ == u"hold" && machine_) {
+        machine_->pluginService().bridge().viewerHoldProgress(t);
+    }
+}
+
+void ToolpathItem::setOverlay(const QString& pluginId, const QJsonArray& markers) {
+    if (markers.isEmpty()) {
+        overlays_.remove(pluginId);
+    } else {
+        overlays_.insert(pluginId, markers);
+    }
+    update();
+}
+
+void ToolpathItem::paintOverlay(QPainter& painter) {
+    if (overlays_.isEmpty()) {
+        return;
+    }
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QFont font = painter.font();
+    font.setPointSizeF(8);
+    painter.setFont(font);
+    const QColor fallback = app::mainViewTheme(*machine_).tool;
+    for (const QJsonArray& markers : std::as_const(overlays_)) {
+        for (const QJsonValue& value : markers) {
+            const QJsonObject m = value.toObject();
+            const QPointF at = camera_.project({m.value(QStringLiteral("x")).toDouble(),
+                                                m.value(QStringLiteral("y")).toDouble(),
+                                                m.value(QStringLiteral("z")).toDouble()});
+            QColor color(m.value(QStringLiteral("color")).toString());
+            if (!color.isValid()) {
+                color = fallback;
+            }
+            const double size = std::clamp(m.value(QStringLiteral("size")).toDouble(6), 2.0, 40.0);
+            const QString shape = m.value(QStringLiteral("shape")).toString(QStringLiteral("circle"));
+            painter.setPen(QPen(color, 2));
+            if (shape == u"cross") {
+                painter.setBrush(Qt::NoBrush);
+                painter.drawLine(at + QPointF(-size, -size), at + QPointF(size, size));
+                painter.drawLine(at + QPointF(-size, size), at + QPointF(size, -size));
+            } else if (shape == u"ring") {
+                painter.setBrush(Qt::NoBrush);
+                painter.drawEllipse(at, size, size);
+            } else {
+                painter.setBrush(color);
+                painter.drawEllipse(at, size, size);
+            }
+            const QString label = m.value(QStringLiteral("label")).toString().left(40);
+            if (!label.isEmpty()) {
+                painter.drawText(QRectF(at.x() + size + 3, at.y() - 8, 200, 16), Qt::AlignLeft | Qt::AlignVCenter,
+                                 label);
+            }
+        }
+    }
+    painter.restore();
 }
 
 }  // namespace gs::ui

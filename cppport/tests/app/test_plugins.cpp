@@ -37,7 +37,7 @@ TEST(PluginManifestTest, ParsesValidManifest) {
             "topics": ["workspace", "controller"]
         },
         "parsers": [
-            { "pattern": "^;TOOL:(\\d+)", "type": "line" }
+            { "id": "tool", "mode": "line", "match": "^\\[TLO:(?<offset>[-\\d.]+)\\]" }
         ]
     })json");
 
@@ -62,7 +62,7 @@ TEST(PluginManifestTest, ParsesValidManifest) {
     EXPECT_TRUE(m.capabilities.topics.contains("workspace"));
     EXPECT_TRUE(m.capabilities.topics.contains("controller"));
     ASSERT_EQ(m.parsers.size(), 1);
-    EXPECT_EQ(m.parsers[0].pattern, "^;TOOL:(\\d+)");
+    EXPECT_EQ(m.parsers[0].toObject().value("id").toString(), "tool");
 }
 
 TEST(PluginManifestTest, RejectsMissingRequiredFields) {
@@ -266,7 +266,7 @@ TEST(PluginServiceTest, MirroredReferencePluginsSuiteValidation) {
 
     const auto* parser = service.findPlugin("com.sienci.parser-demo");
     ASSERT_NE(parser, nullptr);
-    EXPECT_GE(parser->manifest.parsers.size(), 2u);
+    EXPECT_GE(parser->manifest.parsers.size(), 2);
 
     // Verify slot contributions across suite
     const auto toolsPageContribs = service.contributionsForSlot("tools-page");
@@ -399,6 +399,27 @@ QJsonObject parseReply(const QString& reply) {
     return QJsonDocument::fromJson(reply.toUtf8()).object();
 }
 
+// Records what plugins ask of the visualizer.
+struct FakeViewer : PluginViewer {
+    std::optional<WorldPoint> screenToWorld(double px, double py) const override { return WorldPoint{px, -py, 0}; }
+    std::optional<QPointF> worldToScreen(const WorldPoint& w) const override { return QPointF(w.x, -w.y); }
+    bool setCameraView(const QString& v) override {
+        view = v;
+        return v == "top" || v == "3d";
+    }
+    void setRotateEnabled(bool enabled) override { rotate = enabled; }
+    bool isRotaryFile() const override { return false; }
+    void armPick(const QString& mode) override { pick = mode; }
+    void disarmPick() override { pick.clear(); }
+    void setOverlay(const QString& pluginId, const QJsonArray& m) override {
+        overlayOwner = pluginId;
+        markers = m;
+    }
+    QString view, pick, overlayOwner;
+    bool rotate = true;
+    QJsonArray markers;
+};
+
 }  // namespace
 
 TEST(WasmEngineTest, PluginsMustExportAnAllocator) {
@@ -436,7 +457,7 @@ TEST(WasmEngineTest, PluginWasmHostLifecycleAndRpc) {
         // Topic events reach the plugin; ones the manifest does not grant do not.
         host.onTopicEvent("workspace", QJsonObject{{"x", 1.0}});
         host.onTopicEvent("controller", QJsonObject{{"activeState", "Idle"}});
-        host.onTopicEvent("parser", QJsonObject{{"line", "ok"}});
+        host.onTopicEvent("viewer", QJsonObject{{"kind", "pick"}});
 
         const QJsonObject reply = parseReply(host.handleRequest("{\"action\":\"hello\"}"));
         EXPECT_TRUE(reply.value("ok").toBool());
@@ -485,14 +506,71 @@ TEST(WasmEngineTest, CornerFinderSetsOverlayMarkersThroughTheBridge) {
         << err.toStdString();
     ASSERT_TRUE(host.init());
 
-    QJsonObject overlay;
-    QObject::connect(&bridge, &PluginBridge::overlayMarkerUpdated, [&](const QString&, const QJsonObject& data) { overlay = data; });
+    FakeViewer viewer;
+    bridge.setViewer(&viewer);
     const QJsonObject reply = parseReply(host.handleRequest(R"({"action":"mark","x":10,"y":5,"width":100,"height":50})"));
     EXPECT_TRUE(reply.value("ok").toBool()) << reply.value("error").toString().toStdString();
-    const QJsonArray markers = overlay.value("markers").toArray();
+    EXPECT_EQ(viewer.overlayOwner, "com.sienci.corner-finder");
+    const QJsonArray& markers = viewer.markers;
     ASSERT_EQ(markers.size(), 4);
     EXPECT_DOUBLE_EQ(markers[2].toObject().value("x").toDouble(), 110.0);
     EXPECT_DOUBLE_EQ(markers[2].toObject().value("y").toDouble(), 55.0);
+}
+
+TEST(PluginBridgeTest, ViewerRequestsReachTheVisualizer) {
+    QTemporaryDir tempDir;
+    QtEventLoop loop;
+    Machine machine(loop, (tempDir.path() + "/rc").toStdWString());
+    PluginStorage storage(tempDir.path());
+    PluginBridge bridge(machine, storage);
+    PluginManifest manifest;
+    manifest.id = "com.example.viewer";
+    manifest.capabilities.requestTypes = {"viewer:screen-to-world", "viewer:world-to-screen", "viewer:camera:set",
+                                          "viewer:camera:lock-rotate", "viewer:pick:arm", "viewer:pick:disarm",
+                                          "viewer:overlay:set"};
+
+    // Nothing to talk to until the visualizer registers.
+    EXPECT_FALSE(bridge.execute(manifest, "viewer:camera:set", {{"view", "top"}}).ok);
+    FakeViewer viewer;
+    bridge.setViewer(&viewer);
+
+    const auto world = bridge.execute(manifest, "viewer:screen-to-world", {{"px", 12}, {"py", 34}});
+    ASSERT_TRUE(world.ok);
+    EXPECT_DOUBLE_EQ(world.result.value("x").toDouble(), 12);
+    EXPECT_DOUBLE_EQ(world.result.value("y").toDouble(), -34);
+    EXPECT_FALSE(bridge.execute(manifest, "viewer:screen-to-world", {{"px", 12}}).ok);
+    const auto screen = bridge.execute(manifest, "viewer:world-to-screen", {{"x", 5}, {"y", 6}});
+    ASSERT_TRUE(screen.ok);
+    EXPECT_DOUBLE_EQ(screen.result.value("y").toDouble(), -6);
+
+    EXPECT_TRUE(bridge.execute(manifest, "viewer:camera:set", {{"view", "top"}}).ok);
+    EXPECT_FALSE(bridge.execute(manifest, "viewer:camera:set", {{"view", "sideways"}}).ok);
+    EXPECT_TRUE(bridge.execute(manifest, "viewer:camera:lock-rotate", {{"locked", true}}).ok);
+    EXPECT_FALSE(viewer.rotate);
+
+    // Picking needs a connected, idle machine.
+    EXPECT_FALSE(bridge.execute(manifest, "viewer:pick:arm", {{"mode", "click"}}).ok);
+    EXPECT_TRUE(viewer.pick.isEmpty());
+
+    // Markers without coordinates are dropped.
+    EXPECT_TRUE(bridge.execute(manifest, "viewer:overlay:set",
+                               {{"markers", QJsonArray{QJsonObject{{"id", "a"}, {"x", 1}, {"y", 2}},
+                                                       QJsonObject{{"id", "b"}, {"label", "no position"}}}}})
+                    .ok);
+    EXPECT_EQ(viewer.markers.size(), 1);
+    // A disabled plugin's overlay goes with it.
+    bridge.releasePlugin(manifest.id);
+    EXPECT_TRUE(viewer.markers.isEmpty());
+
+    // Picks go out on the viewer topic.
+    QJsonObject event;
+    QObject::connect(&bridge, &PluginBridge::pluginEvent, [&](const QString& target, const QString& topic, const QJsonObject& data) {
+        if (target.isEmpty() && topic == "viewer") event = data;
+    });
+    bridge.viewerPicked({1, 2, 0}, QPointF(10, 20));
+    EXPECT_EQ(event.value("kind").toString(), "pick");
+    EXPECT_DOUBLE_EQ(event.value("world").toObject().value("y").toDouble(), 2);
+    bridge.setViewer(nullptr);
 }
 
 TEST(PluginServiceTest, WasmModuleAutoDiscoveryAndRpc) {

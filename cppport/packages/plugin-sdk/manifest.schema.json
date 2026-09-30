@@ -92,14 +92,40 @@
     },
     "parsers": {
       "type": "array",
+      "maxItems": 16,
       "items": {
         "type": "object",
-        "required": ["pattern"],
+        "required": ["id"],
         "properties": {
-          "pattern": { "type": "string" },
-          "type": { "type": "string", "enum": ["line", "block"] }
+          "id": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{1,64}$" },
+          "label": { "type": "string" },
+          "mode": { "type": "string", "enum": ["line", "block"], "default": "line" },
+          "match": { "$ref": "#/definitions/regex" },
+          "begin": { "$ref": "#/definitions/regex" },
+          "end": { "$ref": "#/definitions/regex" },
+          "ignore": { "$ref": "#/definitions/regex" },
+          "until": { "type": "string", "enum": ["ok", "error", "ok-or-error"] },
+          "whenWorkflow": { "type": "string", "enum": ["any", "idle"], "default": "any" },
+          "maxLines": { "type": "integer", "minimum": 1, "maximum": 500, "default": 64 },
+          "timeout": { "type": "integer", "minimum": 100, "maximum": 30000, "default": 2000 },
+          "strict": { "type": "boolean", "default": false },
+          "restartOnBegin": { "type": "boolean", "default": false },
+          "emitPartial": { "type": "boolean", "default": true },
+          "ignoreStatusReports": { "type": "boolean", "default": true }
         }
       }
+    }
+  },
+  "definitions": {
+    "regex": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["source"],
+          "properties": { "source": { "type": "string" }, "flags": { "type": "string" } }
+        }
+      ]
     }
   }
 }

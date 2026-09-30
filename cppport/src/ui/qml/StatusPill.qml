@@ -15,7 +15,10 @@ Item {
     objectName: "statusPill"
 
     property StatusModel model: StatusModel {}
-    readonly property string text: Backend.stateText + (Backend.alarmCode ? " (" + Backend.alarmCode + ")" : "")
+    // A plugin's busy latch shows through Idle and motion, not alarms or holds.
+    readonly property bool pluginBusy: Backend.pluginBusy && ["Idle", "Run", "Jog", "Check"].indexOf(Backend.activeState) >= 0
+    readonly property string text: pluginBusy ? (Backend.pluginBusyLabel || qsTr("Running"))
+                                              : Backend.stateText + (Backend.alarmCode ? " (" + Backend.alarmCode + ")" : "")
 
     implicitWidth: 288
     implicitHeight: 60
@@ -37,7 +40,7 @@ Item {
         anchors.fill: parent
         ShapePath {
             strokeWidth: -1
-            fillColor: Theme.stateColor(Backend.activeState)
+            fillColor: Theme.stateColor(pill.pluginBusy ? "Run" : Backend.activeState)
             startX: 0; startY: 0
             PathLine { x: pill.width; y: 0 }
             PathLine { x: pill.width * 0.85; y: pill.height }

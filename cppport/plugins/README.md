@@ -11,7 +11,7 @@ This directory contains reference plugins demonstrating WebAssembly logic module
 | `controller-events-demo/` | Wasm + QML Telemetry | Subscribes to `workspace` and `controller` topics for live DRO and state streaming. |
 | `basic-cam/` | Wasm + CAM Toolpath | Generates 2D facing toolpaths and streams G-code via `gcode:load:to:visualizer`. |
 | `corner-finder/` | QML Overlay + Wasm | Interactive 3D visualizer overlay (`visualizer-overlay` slot) and camera viewport controls. |
-| `parser-demo/` | Regex Parsers + QML | Declares line/block firmware response parsers in manifest (`parsers`) to intercept GRBL replies. |
+| `parser-demo/` | Regex Parsers + Wasm | Declares firmware response parsers in its manifest (`parsers`); the Wasm counts the matches it receives on the `parser` topic. |
 
 ## Plugin Structure
 
@@ -26,3 +26,5 @@ plugin-folder/
 │   └── Main.qml             # QML user interface mounted into host slots
 └── README.md                # Plugin overview and documentation
 ```
+
+Rebuild the `.wasm` files after changing a plugin's C sources with `tools/build_plugins.sh` (needs clang with the wasm32 target and wasm-ld).

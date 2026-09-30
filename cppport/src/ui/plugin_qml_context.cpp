@@ -8,7 +8,7 @@ namespace gs::ui {
 
 PluginQmlContext::PluginQmlContext(app::PluginService& service, const QString& pluginId, QObject* parent)
     : QObject(parent), service_(service), pluginId_(pluginId) {
-    connect(&service_.bridge(), &app::PluginBridge::topicEvent, this, &PluginQmlContext::onTopicEvent);
+    connect(&service_.bridge(), &app::PluginBridge::pluginEvent, this, &PluginQmlContext::onPluginEvent);
 }
 
 const app::LoadedPlugin* PluginQmlContext::plugin() const {
@@ -69,7 +69,7 @@ QVariantMap PluginQmlContext::send(const QString& type, const QVariantMap& paylo
 
 void PluginQmlContext::subscribe(const QString& topic, const QJSValue& callback) {
     const auto* p = plugin();
-    if (!p || !service_.bridge().hasTopic(p->manifest, topic)) {
+    if (!p || !service_.bridge().mayReceive(p->manifest, topic)) {
         return;
     }
     if (callback.isCallable()) {
@@ -111,7 +111,7 @@ QVariantMap PluginQmlContext::storageGetAll() {
     if (!p) return {};
     const auto res = service_.bridge().execute(p->manifest, QStringLiteral("storage:get:all"), {});
     if (!res.ok) return {};
-    return res.result.value(QStringLiteral("entries")).toObject().toVariantMap();
+    return res.result.toVariantMap();
 }
 
 void PluginQmlContext::storageClear() {
@@ -121,7 +121,16 @@ void PluginQmlContext::storageClear() {
     }
 }
 
-void PluginQmlContext::onTopicEvent(const QString& topic, const QJsonObject& data) {
+void PluginQmlContext::onPluginEvent(const QString& targetId, const QString& topic, const QJsonObject& data) {
+    // Another plugin's parser matches and query replies are not ours; a
+    // broadcast only reaches us on a topic the manifest grants.
+    if (!targetId.isEmpty() && targetId != pluginId_) {
+        return;
+    }
+    const auto* p = plugin();
+    if (!p || (targetId.isEmpty() && !service_.bridge().hasTopic(p->manifest, topic))) {
+        return;
+    }
     const auto it = topicCallbacks_.find(topic);
     const QVariantMap varData = data.toVariantMap();
     if (it != topicCallbacks_.end()) {

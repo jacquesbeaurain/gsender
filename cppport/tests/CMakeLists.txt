@@ -69,6 +69,7 @@ if(TARGET gs_app)
     add_executable(gs_app_tests
         app/test_app.cpp
         app/test_plugins.cpp
+        app/test_plugin_parsers.cpp
         app/test_remote.cpp
         app/test_wasm_engine.cpp
     )

@@ -16,7 +16,11 @@ PluginService::PluginService(Machine& machine, const QString& storageDir, QObjec
     setupTopicBroadcasters();
 }
 
-PluginService::~PluginService() = default;
+PluginService::~PluginService() {
+    // The hosts' shutdown must not route events back into a half-destroyed map.
+    disconnect(&bridge_, nullptr, this, nullptr);
+    wasmHosts_.clear();
+}
 
 void PluginService::addSearchPath(const QString& path) {
     if (!path.isEmpty() && !searchPaths_.contains(path)) {
@@ -25,6 +29,9 @@ void PluginService::addSearchPath(const QString& path) {
 }
 
 void PluginService::scanPlugins() {
+    for (const auto& p : plugins_) {
+        bridge_.releasePlugin(p.manifest.id);
+    }
     plugins_.clear();
     QSet<QString> seenIds;
 
@@ -60,11 +67,19 @@ void PluginService::scanPlugins() {
     wasmHosts_.clear();
     for (const auto& p : plugins_) {
         if (p.enabled) {
-            startWasmHost(p);
+            startPlugin(p);
         }
     }
 
     Q_EMIT pluginsChanged();
+}
+
+void PluginService::startPlugin(const LoadedPlugin& plugin) {
+    for (const auto& problem : bridge_.parsers().setManifestParsers(plugin.manifest.id, plugin.manifest.parsers)) {
+        qWarning().noquote() << QStringLiteral("Plugin %1: parser %2 rejected: %3")
+                                    .arg(plugin.manifest.id, problem.id, problem.message);
+    }
+    startWasmHost(plugin);
 }
 
 void PluginService::startWasmHost(const LoadedPlugin& plugin) {
@@ -106,10 +121,11 @@ void PluginService::setPluginEnabled(const QString& id, bool enabled) {
                 plugin.enabled = enabled;
                 if (enabled) {
                     disabledPluginIds_.remove(id);
-                    startWasmHost(plugin);
+                    startPlugin(plugin);
                 } else {
                     disabledPluginIds_.insert(id);
                     wasmHosts_.erase(id);
+                    bridge_.releasePlugin(id);
                 }
                 Q_EMIT pluginsChanged();
             }
@@ -150,14 +166,19 @@ void PluginService::setupTopicBroadcasters() {
         QJsonObject controllerData;
         controllerData.insert(QStringLiteral("activeState"), QString::fromStdString(status.activeState));
         bridge_.broadcastTopic(QStringLiteral("controller"), controllerData);
-
-        for (auto& [pid, host] : wasmHosts_) {
-            if (host) {
-                host->onTopicEvent(QStringLiteral("workspace"), workspaceData);
-                host->onTopicEvent(QStringLiteral("controller"), controllerData);
-            }
-        }
     });
+
+    // Events reach the Wasm side of plugins; each host keeps to its grants.
+    connect(&bridge_, &PluginBridge::pluginEvent, this,
+            [this](const QString& pluginId, const QString& topic, const QJsonObject& data) {
+                if (pluginId.isEmpty()) {
+                    for (auto& [pid, host] : wasmHosts_) {
+                        if (host) host->onTopicEvent(topic, data);
+                    }
+                } else if (PluginWasmHost* host = wasmHost(pluginId)) {
+                    host->onTopicEvent(topic, data);
+                }
+            });
 }
 
 PluginWasmHost* PluginService::wasmHost(const QString& id) const {
