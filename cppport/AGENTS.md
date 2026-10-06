@@ -329,9 +329,6 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
 What upstream has that the port does not (keep this list current; the
 walkthrough says how each ported piece maps to upstream):
 
-- **Remote mode** (Step 69): ported as a pendant page rather than the whole
-  web app; the Tools tab (probe, macros, spindle, coolant, rotary) and the
-  Config page upstream also offered on the phone are not on it yet.
 - **ATC** (features/ATC): not started. Missing: the Accessory Installation
   wizard (skipped in `accessory_model.cpp`), the tool table, the timeline,
   the load-tool popover, the start validations, the keep-out config and the

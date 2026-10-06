@@ -2074,9 +2074,29 @@ JSON over a WebSocket; everything else keeps upstream's rules.
   conditions, zeroing through the Machine. Tests drive the simulator from a
   WebSocket client (`tests/app/test_remote.cpp`).
 - **The page** (`resources/remote/pendant.html`, embedded in gs_core): Control
-  (workspace, DRO with zero buttons, jog pad, presets), Workflow (file,
-  progress, Start/Pause/Stop) and Info, as upstream's BottomNav splits them.
-  Self-contained - a shop phone may have no internet.
+  (workspace, DRO with zero buttons, jog pad, presets, the units badge),
+  Workflow, Tools, Info and Config, as upstream's BottomNav splits them (its
+  Config route sat behind the hamburger menu; here it is a tab), and the
+  title bar's connection panel. Self-contained - a shop phone may have no
+  internet.
+- **The tool pages are the desktop's own view models** (`RemoteService::
+  bindModel`, `src/ui/remote_models.cpp`). Rather than write a second
+  implementation of Probe, Macros, Spindle/Laser, Coolant, Rotary, Config, the
+  job card, the file card, the connection, the machine information and the
+  notifications for the phone, each is bound under a name with the methods and
+  properties a pendant may use. A page `subscribe`s and is sent the model's
+  properties as JSON now and on every change (coalesced over 50 ms, only when
+  they differ); it `call`s the allowed methods (JSON arguments, the result
+  comes back as a `result` message) and `set`s the allowed properties. The
+  allow-list is the security boundary: what names a file on the computer
+  (config import/export, folders, loading a path) is not on it, nor are the
+  models' other invokables (editing macros). Methods are invoked with
+  `QMetaObject::metacall`, so the models need nothing special. The page only
+  renders: Config's 160 rows use one generic renderer that updates in place and
+  never replaces a field being edited.
+- **Files** come from the phone, as upstream's file input did: `loadProgram`
+  carries the name (cleaned to a plain file name) and the text, up to 12 MB
+  (the WebSocket takes 16 MiB); it loads when no job is running.
 - **The dialog** (`RemoteDialog.qml`, `RemoteModel`): the switch, address
   picker with upstream's notes (gone, unreachable, what it is), port, status,
   and the QR code with the address to type; opened from the top bar's phone
@@ -2085,7 +2105,9 @@ JSON over a WebSocket; everything else keeps upstream's rules.
 | Behaviour | gSender | Port | Why |
 |---|---|---|---|
 | Applying settings | saved, then the app restarts | the server restarts at once | no web client to reload |
-| The phone's page | the full React app (all tools, config) | a pendant page: DRO, jogging, zeroing, job control, info | the port has no web UI; the pendant's jobs |
+| The phone's page | the React app's /remote routes | the same five pages (Control, Workflow, Tools, Info, Config), drawn by a small page from the desktop's view models | the port has no web client; the tool pages share the desktop's logic |
+| Config on the phone | a route behind the menu | a tab; no import/export, folder pickers or shortcut/squaring editors | those name files or windows on the computer |
+| Loading a file | a file input on the phone | the same (an upload); no choosing a path on the computer | a phone should not name paths on the computer |
 | Held jog on a phone | stops on release (or socket loss) | also stops after 1 s without word from the page (it pings while held) | a phone that sleeps mid-hold must not leave the machine jogging |
 | Save confirmation | "This will restart the application" | none needed | nothing restarts |
 
