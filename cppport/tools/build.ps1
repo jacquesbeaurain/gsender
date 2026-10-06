@@ -164,7 +164,7 @@ try {
     if ($Target) {
         $effectiveTargets = @($Target)
     } elseif ($Filter) {
-        if ($Filter -like 'UiTest*') { $effectiveTargets = @('gs_ui_tests') }
+        if ($Filter -like 'UiTest*' -or $Filter -like 'RemoteModelsTest*') { $effectiveTargets = @('gs_ui_tests') }
         elseif ($Filter -like 'AppTest*' -or $Filter -like 'GSenderSettings*' -or $Filter -like 'AccessoryWizards*' -or $Filter -like 'Console*' -or $Filter -like 'RemoteTest*' -or $Filter -like 'SdCard*' -or $Filter -like '*Plugin*') { $effectiveTargets = @('gs_app_tests') }
         elseif ($Filter -like '*Transport*') { $effectiveTargets = @('gs_transport_tests') }
         else { $effectiveTargets = @('gs_core_tests') }
@@ -184,7 +184,7 @@ try {
         $runs = @()
         $candidateExes = @(Get-ChildItem (Join-Path $buildDir 'bin') -Filter '*_tests.exe')
         if ($Filter) {
-            if ($Filter -like 'UiTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_ui_tests' }) }
+            if ($Filter -like 'UiTest*' -or $Filter -like 'RemoteModelsTest*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_ui_tests' }) }
             elseif ($Filter -like 'AppTest*' -or $Filter -like 'GSenderSettings*' -or $Filter -like 'AccessoryWizards*' -or $Filter -like 'Console*' -or $Filter -like 'RemoteTest*' -or $Filter -like 'SdCard*' -or $Filter -like '*Plugin*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_app_tests' }) }
             elseif ($Filter -like '*Transport*') { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_transport_tests' }) }
             else { $candidateExes = @($candidateExes | Where-Object { $_.BaseName -eq 'gs_core_tests' }) }

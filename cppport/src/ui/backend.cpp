@@ -7,6 +7,7 @@
 #include "notification_center.hpp"
 #include "plugin_service.hpp"
 #include "power.hpp"
+#include "remote_models.hpp"
 #include "remote_service.hpp"
 #include "shortcuts.hpp"
 
@@ -52,6 +53,7 @@ UiBackend::UiBackend(app::Machine& machine, QObject* parent)
       remote_(new app::RemoteService(machine, *jogger_, this)),
       gamepad_(new app::GamepadService(machine, *jogger_, this)),
       announcer_(new app::AccessibilityAnnouncer(machine, this)) {
+    bindRemoteModels(*remote_, this);
     connect(gamepad_, &app::GamepadService::notice, this, [this](const QString& text) { notify(text); });
     connect(gamepad_, &app::GamepadService::padsChanged, this, &UiBackend::gamepadsChanged);
     // Every notification pops up for workspace.toastDuration and is kept.

@@ -98,6 +98,7 @@ if(TARGET gs_ui)
         ui/test_job.cpp
         ui/test_plugins.cpp
         ui/test_probe.cpp
+        ui/test_remote.cpp
         ui/test_settings.cpp
         ui/test_shell.cpp
         ui/test_tools.cpp

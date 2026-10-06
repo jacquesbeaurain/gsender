@@ -546,12 +546,15 @@ void RemoteService::callModel(const remote::PendantCommand& command, std::uint64
     std::vector<void*> argv(static_cast<std::size_t>(args.size()) + 1, nullptr);
     for (int i = 0; i < args.size(); ++i) {
         QVariant value = args.at(i).toVariant();
-        if (!value.convert(method.parameterMetaType(i))) {
+        const QMetaType wanted = method.parameterMetaType(i);
+        // A QVariant parameter is the variant itself, not its content.
+        if (wanted.id() != QMetaType::QVariant && !value.convert(wanted)) {
             reply("null", "bad argument " + std::to_string(i + 1));
             return;
         }
         values.push_back(std::move(value));
-        argv[static_cast<std::size_t>(i) + 1] = values.back().data();
+        argv[static_cast<std::size_t>(i) + 1] =
+            wanted.id() == QMetaType::QVariant ? static_cast<void*>(&values.back()) : values.back().data();
     }
     const QMetaType returnType = method.returnMetaType();
     void* result = returnType.isValid() && returnType.id() != QMetaType::Void ? returnType.create() : nullptr;

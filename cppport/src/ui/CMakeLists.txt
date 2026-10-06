@@ -183,6 +183,8 @@ qt_add_qml_module(gs_ui
         qr_provider.hpp
         remote_model.cpp
         remote_model.hpp
+        remote_models.cpp
+        remote_models.hpp
         nav_cube_item.cpp
         nav_cube_item.hpp
         toolpath_item.cpp
