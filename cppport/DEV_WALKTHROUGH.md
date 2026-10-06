@@ -60,7 +60,7 @@ decision point worth revisiting if a touch-first UI becomes the priority.
 ## Step 2 — Build system
 
 - `CMakeLists.txt` + `CMakePresets.json` with Ninja and Visual Studio presets
-  for RelWithDebInfo (originally also Debug, against a FreeCAD LibPack).
+  for Debug and RelWithDebInfo.
 - `cmake/GsWindowsDeps.cmake` (first `GsLibPack.cmake`, replaced by the
   libs in `D:\repos\libs` and the official Qt) locates Boost, GoogleTest,
   SDL3 and Qt from `GS_LIBS_DIR` / `GS_QT_DIR` and maps RelWithDebInfo onto

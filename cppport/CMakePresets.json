@@ -12,6 +12,16 @@
       }
     },
     {
+      "name": "ninja-debug",
+      "displayName": "Ninja Debug (GS_LIBS_DIR, GS_QT_DIR)",
+      "description": "Needs a VS developer environment; GS_LIBS_DIR and GS_QT_DIR locate the dependencies",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
       "name": "ninja-release",
       "displayName": "Ninja Release (GS_LIBS_DIR, GS_QT_DIR)",
       "description": "Needs a VS developer environment; GS_LIBS_DIR (Boost, GoogleTest, SDL3) and GS_QT_DIR (Qt) locate the dependencies",
@@ -50,6 +60,16 @@
       }
     },
     {
+      "name": "vs-debug",
+      "displayName": "Visual Studio 2026 Debug (GS_LIBS_DIR, GS_QT_DIR)",
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug"
+      }
+    },
+    {
       "name": "vs-release",
       "displayName": "Visual Studio 2026 Release (GS_LIBS_DIR, GS_QT_DIR)",
       "inherits": "base",
@@ -61,10 +81,12 @@
     }
   ],
   "buildPresets": [
+    { "name": "ninja-debug", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "configurePreset": "ninja-release" },
     { "name": "ninja-release-nopch", "configurePreset": "ninja-release-nopch" },
     { "name": "linux-release", "configurePreset": "linux-release" },
     { "name": "linux-release-nopch", "configurePreset": "linux-release-nopch" },
+    { "name": "vs-debug", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ],
   "testPresets": [
@@ -74,10 +96,12 @@
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 0, "noTestsAction": "error", "stopOnFailure": false }
     },
+    { "name": "ninja-debug", "inherits": "test-base", "configurePreset": "ninja-debug" },
     { "name": "ninja-release", "inherits": "test-base", "configurePreset": "ninja-release" },
     { "name": "ninja-release-nopch", "inherits": "test-base", "configurePreset": "ninja-release-nopch" },
     { "name": "linux-release", "inherits": "test-base", "configurePreset": "linux-release" },
     { "name": "linux-release-nopch", "inherits": "test-base", "configurePreset": "linux-release-nopch" },
+    { "name": "vs-debug", "inherits": "test-base", "configurePreset": "vs-debug", "configuration": "Debug" },
     { "name": "vs-release", "inherits": "test-base", "configurePreset": "vs-release", "configuration": "RelWithDebInfo" }
   ]
 }

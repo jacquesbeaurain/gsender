@@ -5,7 +5,7 @@
 #
 # Each is a cache variable, or taken from the environment variable of the same
 # name. Nothing is downloaded: a missing library is a configure error.
-# Release only: the GoogleTest and SDL3 packages there are Release builds.
+# Debug builds use the Debug builds of Boost (-gd), GoogleTest and Qt (d).
 
 if(NOT WIN32)
     return()
@@ -53,6 +53,7 @@ if(GS_BUILD_TESTS)
         add_library(GTest::${_gs_lib} STATIC IMPORTED GLOBAL)
         set_target_properties(GTest::${_gs_lib} PROPERTIES
             IMPORTED_LOCATION "${_gs_gtest}/lib/${_gs_lib}.lib"
+            IMPORTED_LOCATION_DEBUG "${_gs_gtest}/build/lib/Debug/${_gs_lib}.lib"
             INTERFACE_INCLUDE_DIRECTORIES "${_gs_gtest}/googletest/include")
     endforeach()
     target_link_libraries(GTest::gtest_main INTERFACE GTest::gtest)
@@ -64,7 +65,7 @@ list(PREPEND CMAKE_PREFIX_PATH "${GS_QT_DIR}")
 set(GS_QT_BIN_DIR "${GS_QT_DIR}/bin" CACHE INTERNAL "")
 message(STATUS "Windows dependencies: Qt ${GS_QT_DIR}; Boost ${_gs_boost}; GTest ${_gs_gtest}; SDL3 ${_gs_sdl3}")
 
-# These Release packages only provide the RELEASE imported configuration; let
+# Release packages (Boost, SDL3) may only provide the RELEASE imported configuration; let
 # RelWithDebInfo/MinSizeRel builds consume them.
 set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release RelWithDebInfo)
 set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release MinSizeRel)
