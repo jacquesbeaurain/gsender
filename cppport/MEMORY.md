@@ -3,6 +3,7 @@
 - Repo: https://github.com/jacquesbeaurain/gsender
 - Owner: Jacques (GitHub jacquesbeaurain)
 - Port lives on branch devcpp-pfpo06 (not master). Read cppport/AGENTS.md and DEV_WALKTHROUGH.md first.
+- Upstream sync 2026-10-06: devcpp-pfpo06 was rebased onto upstream Sienci-Labs dev and force-pushed (PR #9, now 1cb1220c9); upstream dev changes up to then are ported. Future upstream syncs: rebase the port onto upstream dev, then move devcpp-pfpo06 by force-push (Jacques approved this approach), rather than merging.
 - Decision 2026-09-30: upstream JS plugins do NOT need to run on the port. Keep the port's own QML/Wasm plugin system; fix its Wasm engine and bridge gaps.
 - Decision 2026-09-30: no plugin sandboxing for now; plugins get full capabilities. Risks are to be documented for later review, not fixed.
 - Decision 2026-09-30: the port keeps its own config file, separate from Electron's ~/.sender_rc. A one-time import from .sender_rc is planned for later, not now.
