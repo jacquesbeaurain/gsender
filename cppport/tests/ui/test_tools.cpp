@@ -234,7 +234,14 @@ TEST_F(UiTest, TheCalibrationToolsTuneAndSquareTheMachine) {
     tap("squaringNext");
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     EXPECT_FALSE(item("squaringRow_0")->isEnabled());  // nothing measured yet
+    enter("squaringValue_0", "48");
+    tap("squaringRow_0");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    EXPECT_FALSE(item("squaringValue_2")->isEnabled());  // a later measurement
+    // A past measurement can be corrected and confirmed again.
+    ASSERT_TRUE(item("squaringValue_0")->isEnabled());
     enter("squaringValue_0", "49");
+    ASSERT_TRUE(waitFor([&] { return item("squaringRow_0") && item("squaringRow_0")->isEnabled(); }));
     tap("squaringRow_0");
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     enter("squaringValue_1", "50");

@@ -28,7 +28,7 @@ class SquaringModel : public WizardModelBase {
     Q_PROPERTY(QString title READ title NOTIFY changed)
     Q_PROPERTY(QString description READ description NOTIFY changed)
     Q_PROPERTY(QString instruction READ instruction NOTIFY changed)
-    // Each {button, hasValue, value, completed, current, enabled}.
+    // Each {button, hasValue, value, completed, current, editable, enabled}.
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
     Q_PROPERTY(bool canGoNext READ canGoNext NOTIFY changed)
     Q_PROPERTY(QString resultText READ resultText NOTIFY changed)  // styled text
@@ -66,7 +66,8 @@ public:
     Q_INVOKABLE void back() override;  // upstream resets this step and the one before
     Q_INVOKABLE void restart() override;
     // The current step's row `index`, as its button: marks, moves (the X
-    // and Y rows) and measurements (their values must be positive).
+    // and Y rows) and measurements (their values must be positive; a past
+    // measurement can be confirmed again with a corrected value).
     Q_INVOKABLE bool completeRow(int index);
     Q_INVOKABLE void setRowValue(int index, double value);
     Q_INVOKABLE void updateFirmware();  // once asked

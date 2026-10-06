@@ -83,7 +83,7 @@ ToolPage {
                                 objectName: "squaringValue_" + index
                                 visible: modelData.hasValue
                                 Layout.preferredWidth: 140
-                                enabled: modelData.current
+                                enabled: modelData.editable
                                 value: modelData.value
                                 suffix: tool.model.units
                                 onCommitted: (text) => { if (text !== "" && !isNaN(Number(text))) tool.model.setRowValue(index, Number(text)) }

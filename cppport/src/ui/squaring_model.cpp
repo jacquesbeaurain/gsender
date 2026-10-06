@@ -88,7 +88,10 @@ QVariantList SquaringModel::rows() const {
             {"value", row.value},
             {"completed", row.completed},
             {"current", current},
-            {"enabled", current && (!isMove || canMove) && (!isMeasure || row.value > 0)},
+            // A measurement can be corrected on a past row too (upstream 551f857fa):
+            // its field stays editable and confirming it again re-records the side.
+            {"editable", current || (isMeasure && row.completed)},
+            {"enabled", isMeasure ? (current || row.completed) && row.value > 0 : current && (!isMove || canMove)},
         });
     }
     return list;
@@ -135,11 +138,17 @@ void SquaringModel::restart() {
 
 bool SquaringModel::completeRow(int index) {
     std::vector<Row>& rows = rows_[static_cast<std::size_t>(stepIndex_)];
-    if (index < 0 || index >= static_cast<int>(rows.size()) || index != substepIndex_) {
+    if (index < 0 || index >= static_cast<int>(rows.size())) {
         return false;
     }
     Row& row = rows[static_cast<std::size_t>(index)];
-    if (row.completed) {
+    if (stepIndex_ == 2 && row.completed && row.value > 0) {
+        // A past measurement confirmed again.
+        (index == 0 ? triangle_.a : index == 1 ? triangle_.b : triangle_.c) = row.value;
+        Q_EMIT changed();
+        return true;
+    }
+    if (index != substepIndex_ || row.completed) {
         return false;
     }
     if (stepIndex_ == 1 && row.hasValue) {
