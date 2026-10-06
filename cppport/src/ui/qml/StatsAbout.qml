@@ -43,7 +43,7 @@ Flickable {
                 Label {
                     Layout.alignment: Qt.AlignRight
                     text: qsTr("GNU GPLv3 License")
-                    color: Theme.blue[500]
+                    color: Theme.primaryText
                     font.underline: true
                     TapHandler { onTapped: Qt.openUrlExternally("https://github.com/Sienci-Labs/gsender/blob/master/LICENSE") }
                 }

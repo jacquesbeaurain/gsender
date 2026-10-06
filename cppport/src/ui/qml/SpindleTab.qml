@@ -206,7 +206,7 @@ Item {
                 value: tab.model.duration
                 decimals: 1
                 horizontalAlignment: TextInput.AlignHCenter
-                color: Theme.blue[500]
+                color: Theme.primaryText
                 font.pixelSize: Theme.fontXl
                 Layout.preferredWidth: 80
                 onCommitted: (text) => tab.model.setDuration(Number(text))

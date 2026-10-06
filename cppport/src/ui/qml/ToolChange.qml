@@ -179,7 +179,7 @@ Item {
                                                 visible: !stepItem.done
                                                 text: stepItem.index + 1
                                                 font.pixelSize: 10
-                                                color: stepItem.current ? Theme.blue[700] : Theme.gray[500]
+                                                color: stepItem.current ? Theme.blue[700] : Theme.contentMuted
                                             }
                                             Icon {
                                                 anchors.centerIn: parent
@@ -223,7 +223,7 @@ Item {
                                                 text: modelData
                                                 font.pixelSize: Theme.fontXs
                                                 font.weight: parent.active ? Font.Medium : Font.Normal
-                                                color: parent.active ? Theme.blue[700] : parent.done ? Theme.gray[500] : Theme.gray[400]
+                                                color: parent.active ? Theme.blue[700] : parent.done ? Theme.contentMuted : Theme.gray[400]
                                             }
                                         }
                                     }
@@ -313,7 +313,7 @@ Item {
                             font.pixelSize: Theme.fontXs
                             font.weight: Font.DemiBold
                             font.letterSpacing: 1.5
-                            color: Theme.dark ? "#fbbf24" : Theme.gray[500]
+                            color: Theme.dark ? "#fbbf24" : Theme.gray[600]
                         }
                         Label {
                             objectName: "toolChangeDescription"

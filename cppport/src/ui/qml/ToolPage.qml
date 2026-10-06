@@ -26,7 +26,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: 2
                 Label { text: page.title; font.pixelSize: 30; font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
-                Label { visible: page.description !== ""; text: page.description; color: Theme.gray[500] }
+                Label { visible: page.description !== ""; text: page.description; color: Theme.contentMuted }
             }
             GButton {
                 objectName: "toolGoBack"

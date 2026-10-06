@@ -14,14 +14,14 @@ RowLayout {
     Label {
         text: header.title
         font.pixelSize: Theme.fontXl
-        color: Theme.blue[500]
+        color: Theme.primaryText
         Layout.fillWidth: true
     }
     Label {
         visible: header.linkLabel !== ""
         text: header.linkLabel + " ›"
         font.pixelSize: Theme.fontSm
-        color: Theme.blue[500]
+        color: Theme.primaryText
         TapHandler { onTapped: header.linkActivated() }
         Layout.minimumHeight: Theme.touchTarget
         verticalAlignment: Text.AlignVCenter

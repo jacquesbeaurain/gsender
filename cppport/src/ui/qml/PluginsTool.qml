@@ -53,7 +53,7 @@ ToolPage {
 
             Label {
                 text: qsTr("%1 plugins (%2 enabled)").arg(tool.model.count).arg(tool.model.enabledCount)
-                color: Theme.gray[500]
+                color: Theme.contentMuted
                 font.pixelSize: Theme.fontSm
                 Layout.alignment: Qt.AlignVCenter
             }
@@ -101,7 +101,7 @@ ToolPage {
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Place WebAssembly and QML plugin packages into the plugins directory to extend gSender.")
-                        color: Theme.gray[500]
+                        color: Theme.contentMuted
                         font.pixelSize: Theme.fontSm
                     }
                     GButton {
@@ -148,7 +148,7 @@ ToolPage {
 
                             Icon {
                                 name: "PiPuzzlePiece"
-                                color: model.official ? Theme.blue[500] : Theme.contentPrimary
+                                color: model.official ? Theme.primaryText : Theme.contentPrimary
                                 width: 24; height: 24
                             }
 
@@ -186,14 +186,14 @@ ToolPage {
                                             text: model.official ? qsTr("Official") : qsTr("Community")
                                             font.pixelSize: Theme.fontXs
                                             font.weight: Font.DemiBold
-                                            color: model.official ? (Theme.dark ? "#34d399" : "#065f46") : Theme.gray[500]
+                                            color: model.official ? (Theme.dark ? "#34d399" : "#065f46") : Theme.contentMuted
                                         }
                                     }
                                 }
                                 Label {
                                     text: qsTr("By %1 • %2").arg(model.author).arg(model.id)
                                     font.pixelSize: Theme.fontSm
-                                    color: Theme.gray[500]
+                                    color: Theme.contentMuted
                                 }
                             }
 
@@ -225,7 +225,7 @@ ToolPage {
                                 text: qsTr("Capabilities:")
                                 font.pixelSize: Theme.fontXs
                                 font.bold: true
-                                color: Theme.gray[500]
+                                color: Theme.contentMuted
                             }
 
                             Repeater {

@@ -91,7 +91,7 @@ Item {
                         text: modelData.label
                         font.pixelSize: Theme.fontSm
                         font.weight: Font.Medium
-                        color: parent.active ? Theme.blue[500] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])
+                        color: parent.active ? Theme.primaryText : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])
                     }
                     TapHandler { onTapped: stats.current = modelData.key }
                 }

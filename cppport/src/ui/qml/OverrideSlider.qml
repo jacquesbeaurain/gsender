@@ -21,7 +21,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Label { text: override.title; color: Theme.contentPrimary; font.pixelSize: Theme.fontBase }
         Item { Layout.fillWidth: true }
-        Label { text: override.valueText; color: Theme.blue[500]; font.pixelSize: Theme.fontBase }
+        Label { text: override.valueText; color: Theme.primaryText; font.pixelSize: Theme.fontBase }
         Item { Layout.fillWidth: true }
         Label {
             objectName: override.objectName + "Percent"

@@ -22,7 +22,7 @@ WizardStepPage {
         spacing: 8
         readonly property color tone: page.phase === "success" ? Theme.green[500]
                                       : page.phase === "stuckOn" ? Theme.red[500]
-                                      : page.phase === "waiting" ? Theme.blue[500] : Theme.gray[500]
+                                      : page.phase === "waiting" ? Theme.primaryText : Theme.contentMuted
         Label {
             Layout.alignment: Qt.AlignHCenter
             text: page.phase === "success" ? "✔" : page.phase === "stuckOn" ? "⚠" : "◎"

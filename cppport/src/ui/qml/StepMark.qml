@@ -11,6 +11,6 @@ Label {
     Layout.preferredWidth: 24
     horizontalAlignment: Text.AlignHCenter
     text: done ? "✔" : current ? "▶" : "•"
-    color: done ? Theme.green[500] : current ? Theme.blue[500] : Theme.gray[400]
+    color: done ? Theme.green[500] : current ? Theme.primaryText : Theme.gray[400]
     font.pixelSize: 16
 }

@@ -70,7 +70,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: link.label
             font.pixelSize: Theme.fontSm
-            color: link.active ? Theme.blue[600] : (Theme.dark ? Theme.contentMuted : Theme.gray[500])
+            color: link.active ? Theme.blue[600] : Theme.contentMuted
         }
     }
 

@@ -143,7 +143,7 @@ Popup {
                     wrapMode: Text.Wrap
                     font.pixelSize: Theme.fontXs
                     textFormat: Text.StyledText
-                    linkColor: Theme.blue[500]
+                    linkColor: Theme.primaryText
                     color: dialog.addressMissing || dialog.selected.usable === false ? Theme.orange[600] : Theme.contentMuted
                     text: dialog.addressMissing
                           ? qsTr("This computer no longer has <b>%1</b>.").arg(dialog.ip)
@@ -211,7 +211,7 @@ Popup {
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("Scan QR Code")
                     font.pixelSize: 24
-                    color: Theme.blue[500]
+                    color: Theme.primaryText
                 }
                 Label {
                     Layout.alignment: Qt.AlignHCenter
@@ -247,7 +247,7 @@ Popup {
                         objectName: "remoteAddressText"
                         text: dialog.ip + ":" + dialog.port
                         font.bold: true
-                        color: Theme.blue[500]
+                        color: Theme.primaryText
                     }
                     GButton {
                         text: qsTr("Copy")

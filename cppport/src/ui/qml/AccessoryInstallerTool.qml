@@ -191,7 +191,7 @@ ToolPage {
                 WizardText {
                     Layout.fillWidth: true
                     text: "<b>" + qsTr("Need Help?") + "</b><br>" + qsTr("Follow along in our") + " <a href=\"" + helpRow.url + "\">" + qsTr("online resources") + "</a>"
-                    linkColor: Theme.blue[500]
+                    linkColor: Theme.primaryText
                     onLinkActivated: (link) => Qt.openUrlExternally(link)
                 }
                 QrLinkButton {

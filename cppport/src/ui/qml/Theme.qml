@@ -6,7 +6,8 @@ import GSender
 // Upstream's design tokens (src/app/src/index.css, tailwind.config.ts): the
 // semantic surface / content / outline colours, light and the Workshop dark
 // theme, and the palettes upstream overrides (its blue, green, red, orange,
-// purple are not Tailwind's). Components use the semantic names; the raw
+// purple are not Tailwind's; 50-300 of blue, green, red and orange are pale
+// tints, 500 mixed with white). Components use the semantic names; the raw
 // palettes are for the few places upstream names a shade.
 QtObject {
     id: theme
@@ -23,22 +24,27 @@ QtObject {
         500: "#6b7280", 600: "#4b5563", 700: "#374151", 800: "#1f2937", 900: "#111827"
     })
     readonly property var blue: ({
-        50: "#9fc2e3", 100: "#8cb6dd", 200: "#79aad8", 300: "#659dd2", 400: "#5291cd",
-        500: "#3F85C7", 600: "#3978b3", 700: "#2c5d8b", 800: "#265077", 900: "#204364"
+        50: "#f5f9fc", 100: "#e6eff8", 200: "#b8d2ea", 300: "#88b3dc", 400: "#5291cd",
+        500: "#3F85C7", 600: "#3978b3", 700: "#2c5d8b", 800: "#265077", 900: "#204364",
+        950: "#193550"
     })
     readonly property var green: ({
-        50: "#82cbb4", 100: "#69c0a5", 200: "#50b696", 300: "#37ab87", 400: "#1ea178",
+        50: "#f3faf8", 100: "#dff1ec", 200: "#a3d8c8", 300: "#64bea2", 400: "#1ea178",
         500: "#059669", 600: "#05875f", 700: "#047854", 800: "#04694a", 900: "#035a3f"
     })
     readonly property var red: ({
-        50: "#ee9393", 100: "#ea7d7d", 200: "#e76767", 300: "#e35151", 400: "#e03c3c",
+        50: "#fdf4f4", 100: "#fae3e3", 200: "#f2afaf", 300: "#e97878", 400: "#e03c3c",
         500: "#dc2626", 600: "#c62222", 700: "#b01e1e", 800: "#9a1b1b", 900: "#841717"
     })
     readonly property var orange: ({
-        500: "#bb6a0c", 600: "#a85f0b", 700: "#96550a"
+        50: "#fcf8f3", 100: "#f6ecdf", 200: "#e6c8a5", 300: "#d5a368", 400: "#c27924",
+        500: "#bb6a0c", 600: "#a85f0b", 700: "#96550a", 800: "#834a08", 900: "#704007",
+        950: "#5e3506"
     })
     readonly property var purple: ({
-        50: "#EEEDFE", 100: "#CECBF6", 200: "#AFA9EC", 400: "#7F77DD", 600: "#534AB7"
+        50: "#f7f6fc", 100: "#eae9f8", 200: "#c3bfec", 300: "#9a94df", 400: "#6d64d0",
+        500: "#5c52cb", 600: "#534ab7", 700: "#4a42a3", 800: "#413a8e", 900: "#37317a",
+        950: "#2e2966"
     })
     // Upstream's robin (the secondary buttons' border, the active glow).
     readonly property var robin: ({
@@ -67,7 +73,7 @@ QtObject {
     // Content (text and icons).
     readonly property color contentPrimary: dark ? "#F4F7FA" : gray[900]
     readonly property color contentSecondary: dark ? "#CFD6DF" : gray[700]
-    readonly property color contentMuted: dark ? "#A0AABA" : gray[500]
+    readonly property color contentMuted: dark ? "#A0AABA" : gray[600]
     readonly property color contentDisabled: dark ? "#778291" : gray[400]
     readonly property color contentInverse: dark ? "#151B23" : "#ffffff"
     // Outlines.
@@ -78,8 +84,10 @@ QtObject {
     // shadcn primitives.
     readonly property color background: dark ? surfaceBase : "#ffffff"
     readonly property color card: dark ? surfaceRaised : "#ffffff"
-    readonly property color primary: blue[500]
+    readonly property color primary: blue[600]
     readonly property color primaryForeground: "#ffffff"
+    // Blue text and icons on a surface (text-blue-600 dark:text-blue-400).
+    readonly property color primaryText: dark ? blue[400] : blue[600]
     readonly property color destructive: red[500]
     readonly property color ring: blue[500]
 
@@ -107,12 +115,17 @@ QtObject {
         switch (state) {
         case "Idle": return gray[500]
         case "Run": case "Jog": case "Check": return green[600]
-        case "Home": return blue[500]
+        case "Home": return blue[600]
         case "Hold": case "Door": return yellow600
         case "Alarm": return red[500]
         case "Tool": return purple[600]
+        case "Sleep": return blue[300]
         default: return gray[800]   // disconnected
         }
+    }
+    // The text on the status pill: white, but dark blue on Sleep's pale blue.
+    function stateTextColor(state) {
+        return state === "Sleep" ? blue[950] : "white"
     }
 
     // An icon of resources/icons in a colour.

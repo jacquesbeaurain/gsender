@@ -56,7 +56,7 @@ Item {
                         Layout.fillWidth: true
                         spacing: 2
                         Label { text: modelData.title; font.pixelSize: Theme.fontLg; font.weight: Font.DemiBold; color: parent.parent.tone }
-                        Label { text: modelData.time; color: Theme.gray[500]; font.pixelSize: Theme.fontSm }
+                        Label { text: modelData.time; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
                         Label { text: modelData.message; wrapMode: Text.Wrap; color: Theme.contentPrimary; Layout.fillWidth: true }
                         Label {
                             textFormat: Text.StyledText

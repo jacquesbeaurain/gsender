@@ -175,7 +175,7 @@ Item {
                 text: control.model.analyzing ? qsTr("Analysing...")
                                               : qsTr("%1 (%2 lines)").arg(control.model.sizeText).arg(control.model.lines)
                 font.pixelSize: Theme.fontXs
-                color: Theme.gray[500]
+                color: Theme.contentMuted
             }
             Label {
                 visible: control.model.path !== ""
@@ -184,7 +184,7 @@ Item {
                 text: control.model.path
                 elide: Text.ElideMiddle
                 font.pixelSize: Theme.fontXs
-                color: Theme.gray[500]
+                color: Theme.contentMuted
             }
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
@@ -193,7 +193,7 @@ Item {
                 // Info / Size.
                 ColumnLayout {
                     spacing: 0
-                    Label { text: qsTr("Info"); font.pixelSize: Theme.fontSm; color: Theme.gray[500]; Layout.alignment: Qt.AlignHCenter }
+                    Label { text: qsTr("Info"); font.pixelSize: Theme.fontSm; color: Theme.contentMuted; Layout.alignment: Qt.AlignHCenter }
                     // A vertical switch (Switch position="vertical").
                     Rectangle {
                         id: sizeSwitch
@@ -215,7 +215,7 @@ Item {
                         }
                         TapHandler { onTapped: sizeSwitch.checked = !sizeSwitch.checked }
                     }
-                    Label { text: qsTr("Size"); font.pixelSize: Theme.fontSm; color: Theme.gray[500]; Layout.alignment: Qt.AlignHCenter }
+                    Label { text: qsTr("Size"); font.pixelSize: Theme.fontSm; color: Theme.contentMuted; Layout.alignment: Qt.AlignHCenter }
                 }
                 GridLayout {
                     objectName: "fileInfo"

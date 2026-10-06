@@ -69,7 +69,7 @@ Item {
                             width: menu.width
                             height: 44
                             radius: Theme.radiusSmall
-                            color: current ? Theme.blue[500] : sectionTap.pressed ? Theme.gray[200] : "transparent"
+                            color: current ? Theme.primary : sectionTap.pressed ? Theme.gray[200] : "transparent"
                             Label {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left

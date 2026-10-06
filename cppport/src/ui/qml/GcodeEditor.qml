@@ -117,7 +117,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Theme.dark ? "#18181f" : Theme.gray[100]
+            color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
             clip: true
 
             ListView {

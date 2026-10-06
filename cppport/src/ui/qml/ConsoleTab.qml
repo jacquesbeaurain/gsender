@@ -55,7 +55,7 @@ Item {
                             width: filterRow.implicitWidth + 16
                             height: 36
                             radius: 4
-                            color: selected ? Theme.blue[500] : "transparent"
+                            color: selected ? Theme.primary : "transparent"
                             Row {
                                 id: filterRow
                                 anchors.centerIn: parent
@@ -180,7 +180,7 @@ Item {
                 width: Theme.touchTarget
                 height: Theme.touchTarget
                 radius: width / 2
-                color: Theme.blue[500]
+                color: Theme.primary
                 Icon { anchors.centerIn: parent; name: "LuArrowDown"; color: "white"; width: 16; height: 16 }
                 TapHandler {
                     onTapped: {

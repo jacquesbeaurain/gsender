@@ -86,7 +86,7 @@ Item {
                 wrapMode: Text.Wrap
                 text: qsTr("Tools are plugins that can be installed and used to extend the functionality of gSender. Some are built in to gSender, some are third party plugins.")
                 font.pixelSize: Theme.fontSm
-                color: Theme.gray[500]
+                color: Theme.contentMuted
             }
             GridLayout {
                 id: grid
@@ -122,7 +122,7 @@ Item {
                                 wrapMode: Text.Wrap
                                 text: modelData.description
                                 font.pixelSize: Theme.fontSm
-                                color: Theme.gray[500]
+                                color: Theme.contentMuted
                             }
                             Item { Layout.fillHeight: true }
                             Icon {

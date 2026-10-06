@@ -261,7 +261,7 @@ Flickable {
                                 Layout.fillWidth: true
                             }
                         }
-                        Icon { name: "GoArrowUpRight"; color: Theme.blue[500]; width: 20; height: 20 }
+                        Icon { name: "GoArrowUpRight"; color: Theme.primaryText; width: 20; height: 20 }
                     }
                     TapHandler { onTapped: Qt.openUrlExternally(modelData.link) }
                 }

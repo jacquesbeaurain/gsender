@@ -55,7 +55,7 @@ Item {
         anchors.verticalCenterOffset: -2
         anchors.horizontalCenterOffset: pill.model.alarm ? -20 : 0
         text: pill.text
-        color: "white"
+        color: Theme.stateTextColor(pill.pluginBusy ? "Run" : Backend.activeState)
         font.pixelSize: Theme.font3xl
         font.weight: Font.Light
     }

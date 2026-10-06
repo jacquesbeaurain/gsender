@@ -12,7 +12,7 @@ NumberField {
     Layout.fillWidth: true
     value: model && model.options[key] !== undefined ? model.options[key] : 0
     horizontalAlignment: TextInput.AlignHCenter
-    color: Theme.blue[500]
+    color: Theme.primaryText
     font.pixelSize: Theme.fontLg
     onCommitted: (text) => { if (text !== "" && !isNaN(Number(text))) model.setOption(key, Number(text)) }
 }

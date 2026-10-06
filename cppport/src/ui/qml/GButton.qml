@@ -20,7 +20,7 @@ AbstractButton {
     property bool bold: false
 
     readonly property var variants: ({
-        primary: { bg: Theme.blue[500], border: Theme.blue[500], fg: "white" },
+        primary: { bg: Theme.primary, border: Theme.primary, fg: "white" },
         secondary: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : Theme.robin[500],
                      fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] },
         alt: { bg: Theme.robin[500], border: Theme.robin[500], fg: "white" },
@@ -32,7 +32,7 @@ AbstractButton {
         ghost: { bg: "transparent", border: "transparent", fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] }
     })
     readonly property var colors: variants[variant] || variants.secondary
-    readonly property color foreground: !enabled ? (Theme.dark ? Theme.contentDisabled : Theme.gray[500]) : colors.fg
+    readonly property color foreground: !enabled ? (Theme.dark ? Theme.contentDisabled : Theme.gray[600]) : colors.fg
 
     implicitHeight: Theme.touchTarget
     implicitWidth: Math.max(Theme.touchTarget, contentRow.implicitWidth + 24)

@@ -542,7 +542,7 @@ ToolPage {
                                     wrapMode: Text.Wrap
                                     text: qsTr("For gamepads that don't work well with variable speed jogging")
                                     font.pixelSize: Theme.fontXs
-                                    color: Theme.gray[500]
+                                    color: Theme.contentMuted
                                 }
                             }
                         }
@@ -616,7 +616,7 @@ ToolPage {
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
                     name: parent.state === "available" ? "FaCheck" : parent.state === "exists" ? "FaTimes" : "FaGamepad"
-                    color: parent.state === "available" ? Theme.green[600] : parent.state === "exists" ? Theme.red[500] : Theme.blue[500]
+                    color: parent.state === "available" ? Theme.green[600] : parent.state === "exists" ? Theme.red[500] : Theme.primaryText
                     width: 24; height: 24
                 }
                 Label {
@@ -636,7 +636,7 @@ ToolPage {
                     wrapMode: Text.Wrap
                     text: qsTr("Device ID: %1").arg(tool.model.detectedId)
                     font.pixelSize: Theme.fontXs
-                    color: Theme.gray[500]
+                    color: Theme.contentMuted
                 }
             }
             TextField {
@@ -821,7 +821,7 @@ ToolPage {
                 Rectangle {
                     implicitWidth: selectedTitle.implicitWidth + 24
                     implicitHeight: 32
-                    color: Theme.blue[500]
+                    color: Theme.primary
                     Label {
                         id: selectedTitle
                         objectName: "gamepadSelectedAction"

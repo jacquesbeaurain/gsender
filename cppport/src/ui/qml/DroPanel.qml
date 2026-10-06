@@ -166,7 +166,7 @@ Item {
                         font.pixelSize: Theme.fontXl
                         font.bold: true
                         font.family: Theme.monoFont
-                        color: Theme.blue[500]
+                        color: Theme.primaryText
                         background: Rectangle {
                             radius: 4
                             color: parent.activeFocus ? (Theme.dark ? Theme.surfaceSunken : "white") : "transparent"

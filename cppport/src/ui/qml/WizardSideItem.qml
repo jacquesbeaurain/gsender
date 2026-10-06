@@ -157,7 +157,7 @@ ColumnLayout {
             text: "<b>" + (side.item.title || "") + "</b> " + (side.item.text || "")
                   + " <a href=\"" + (side.item.url || "") + "\">" + qsTr("online resources") + "</a>"
             color: Theme.contentPrimary
-            linkColor: Theme.blue[500]
+            linkColor: Theme.primaryText
             onLinkActivated: (url) => Qt.openUrlExternally(url)
         }
     }
