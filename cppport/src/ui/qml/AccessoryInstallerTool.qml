@@ -288,11 +288,21 @@ ToolPage {
                         Layout.fillWidth: true
                         Layout.topMargin: 24
                         spacing: 16
-                        readonly property var content: tool.sub && tool.sub.completion ? tool.sub.completion : ({ done: "", next: [], warning: "" })
+                        readonly property var content: tool.sub && tool.sub.completion ? tool.sub.completion : ({ done: "", next: [], warning: "", image: "" })
+                        Image {
+                            objectName: "wizardCompleteImage"
+                            visible: !!parent.content.image
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.maximumHeight: 256   // max-h-64
+                            Layout.preferredHeight: Math.min(implicitHeight, 256)
+                            Layout.preferredWidth: implicitHeight > 0 ? implicitWidth * Layout.preferredHeight / implicitHeight : 0
+                            fillMode: Image.PreserveAspectFit
+                            source: parent.content.image || ""
+                        }
                         Label {
                             objectName: "wizardComplete"
                             Layout.alignment: Qt.AlignHCenter
-                            text: "✔ " + qsTr("Setup Complete!")
+                            text: (parent.content.image ? "" : "✔ ") + qsTr("Setup Complete!")
                             font.pixelSize: 30
                             font.bold: true
                             color: Theme.green[500]

@@ -43,8 +43,11 @@ QVariantMap step(const QString& id, const QString& title, const QVariantList& si
     return {{"id", id}, {"title", title}, {"side", side}};
 }
 
-QVariantMap completion(const QString& done, const QStringList& next, const QString& warning = {}) {
-    return {{"done", done}, {"next", next}, {"warning", warning}};
+// `image` replaces the check mark above "Setup Complete!" (the spindle's
+// completion page shows the spindle).
+QVariantMap completion(const QString& done, const QStringList& next, const QString& warning = {},
+                       const QString& image = {}) {
+    return {{"done", done}, {"next", next}, {"warning", warning}, {"image", image}};
 }
 
 struct VacuumTableSize {
@@ -154,7 +157,8 @@ QVariantList AccessoryModel::wizards() const {
               completion(tr("Your spindle has been successfully configured and is ready to use."),
                          {tr("Restart your controller using the power switch"),
                           tr("Ensure the VFD is turned on before restarting the controller"),
-                          tr("Reconnect in gSender and verify your spindle is working as expected.")})},
+                          tr("Reconnect in gSender and verify your spindle is working as expected.")},
+                         {}, "qrc:/accessories/Spindle_01.png")},
          }}},
     };
     QStringList tlsNext;
