@@ -8,6 +8,8 @@ from (each C++ file names its origin in its header comment).
 `DEV_WALKTHROUGH.md` records the design, step by step. This file holds the
 practical knowledge needed to build, test and extend the port.
 
+`MEMORY.md` holds the project's working memory (decisions, conventions, where work runs).
+
 ## Build and test
 
 ```powershell
