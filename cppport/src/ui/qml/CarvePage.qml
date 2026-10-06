@@ -13,30 +13,6 @@ Item {
 
     readonly property bool portrait: height > width
 
-    // A widget not ported to the touch UI yet.
-    component Pending: Card {
-        id: pending
-        property string title
-        property string note
-        Column {
-            anchors.centerIn: parent
-            spacing: 4
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: pending.title
-                font.pixelSize: Theme.fontLg
-                font.bold: true
-                color: Theme.contentSecondary
-            }
-            Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: pending.note
-                font.pixelSize: Theme.fontSm
-                color: Theme.contentMuted
-            }
-        }
-    }
-
     StepThrough { id: stepThrough }
 
     // The keyboard shortcuts for this page's screens.
