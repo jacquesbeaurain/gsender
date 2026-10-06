@@ -38,7 +38,7 @@ when asked.
   `phase: ok (time)` line per step. A failure without recognisable
   diagnostics prints the whole output.
 - Build trees live in `build/<preset>/`; binaries in `build/<preset>/bin/`.
-- No LibPack. Boost, GoogleTest and SDL3 come from `GS_LIBS_DIR`
+- Boost, GoogleTest and SDL3 come from `GS_LIBS_DIR`
   (`D:\repos\libs`: `boost_*`, `googletest-*`, `SDL3-*`), Qt from the official
   install in `GS_QT_DIR` (`D:\Qt\6.11.1\msvc2022_64`). Both are cache
   variables or environment variables, defaulted in `tools/build.ps1` and
@@ -65,7 +65,7 @@ tools/build.sh -Filter 'Controller*'
 tools/build.sh -Config release-nopch -Test
 ```
 
-- The dependencies are the LibPack's versions, from conda-forge, installed
+- The dependencies (Qt 6.11.1, Boost 1.91) come from conda-forge, installed
   with a micromamba that the script also fetches from conda-forge
   (`download.qt.io` and `archives.boost.io` may be blocked by the network policy;
   `conda.anaconda.org` is the source that works). `GS_DEPS_DIR` moves the

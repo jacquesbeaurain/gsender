@@ -2,7 +2,7 @@
 
 This is a running log of how the native port is designed and built, in the
 order the work happened. Each step says what was built, why, and how it maps
-to the JavaScript original. Operational notes (build commands, LibPack facts,
+to the JavaScript original. Operational notes (build commands, dependency facts,
 rules for contributors) live in `AGENTS.md`.
 
 ---
@@ -45,24 +45,18 @@ as an optional adapter.)
    the machine and how its answers are interpreted. Time and I/O come in
    through interfaces, so the whole streaming/controller state machine can be
    tested with simulated time instead of sleeps and real ports.
-2. Transport — Boost.Asio serial and TCP. The LibPack has no QtSerialPort, and
-   Asio keeps the transport testable without Qt.
-3. `src/app` — Qt 6 Widgets application (FreeCAD's stack), with a
-   `QOpenGLWidget` toolpath visualizer. Adapters turn core events into Qt
-   signals and run the core's timers on the Qt event loop.
-
-Qt Widgets rather than QML: it matches FreeCAD, `QOpenGLWidget` makes a
-custom toolpath renderer straightforward (the LibPack has no Qt Quick 3D), and
-widgets can be rendered off-screen for automated screenshots. This is a
-decision point worth revisiting if a touch-first UI becomes the priority.
-(Revisited in Step 61: the port moves to a QML touch UI.)
+2. Transport — Boost.Asio serial and TCP. Asio keeps the transport testable
+   without Qt.
+3. `src/app` and `src/ui` — the Qt 6 application: `src/app` holds the
+   application services (adapters that turn core events into Qt signals and
+   run the core's timers on the Qt event loop), `src/ui` the QML touch UI
+   (Step 61).
 
 ## Step 2 — Build system
 
 - `CMakeLists.txt` + `CMakePresets.json` with Ninja and Visual Studio presets
   for Debug and RelWithDebInfo.
-- `cmake/GsWindowsDeps.cmake` (first `GsLibPack.cmake`, replaced by the
-  libs in `D:\repos\libs` and the official Qt) locates Boost, GoogleTest,
+- `cmake/GsWindowsDeps.cmake` (libs in `D:\repos\libs` and the official Qt) locates Boost, GoogleTest,
   SDL3 and Qt from `GS_LIBS_DIR` / `GS_QT_DIR` and maps RelWithDebInfo onto
   the Release imported configuration.
 - `cmake/GsCompilerOptions.cmake`: one interface target with the warning level
@@ -342,7 +336,7 @@ The store takes any path; the application picks one.
 ## Step 14 — Transport (`src/transport`, `gs_transport`)
 
 `AsioLink` is the `DeviceLink` to a real board, ported from
-`SerialConnection.js` onto Boost.Asio (the LibPack has no QtSerialPort):
+`SerialConnection.js` onto Boost.Asio (Asio rather than QtSerialPort):
 
 - **Serial:** 8N1 at the chosen baud rate (115200 by default); Asio's
   flow-control option asserts DTR and RTS - or RTS/CTS handshaking with
@@ -1553,8 +1547,8 @@ are passed over both ways (autoComplete). The wizards:
 The Sienci ATC's wizard is left for the ATC feature. The wizards' pictures
 and the vacuum table's programs (`resources/accessories`, copied by
 `extract_data.mjs`) are Qt resources of the app - 4 MB, too much for the
-core's hex embedding. AutoSpin's dial video is not shown (Qt Multimedia is
-not in the LibPack); the QR codes beside the help links are left out.
+core's hex embedding. AutoSpin's dial video is not shown (the port does not
+use Qt Multimedia); the QR codes beside the help links are left out.
 
 For all this the grblHAL simulator reports H: (homed since the last full
 homing), takes any numbered setting and "$9 = 1" with its spaces, and
@@ -1656,8 +1650,8 @@ page by page, with the StatMenu as tabs along the bottom:
 
 The charts are `PieChart`, a QPainter take on Chart.js's pie and doughnut
 (clockwise from the top, white slice borders, the legend above with a
-click to hide a slice, the tooltip "<label>: <value>") - the LibPack has no
-Qt Charts. Deviations: the run time per CNC's tooltip gives hours (upstream
+click to hide a slice, the tooltip "<label>: <value>") - the port does not
+use Qt Charts. Deviations: the run time per CNC's tooltip gives hours (upstream
 labels the milliseconds "hours"); editing a task checks the form as adding
 does (upstream saves it unchecked); the job history scrolls rather than
 paging (SortableTable's 15 per page); the About page carries the port's
@@ -1667,7 +1661,7 @@ version and has no update check.
 
 So the port can be developed in Linux (cloud) sessions too: the
 `linux-release` and `linux-release-nopch` presets build with GCC against a
-prefix of conda-forge packages at the LibPack's versions (Qt 6.11.1,
+prefix of conda-forge packages (Qt 6.11.1,
 Boost 1.91, GoogleTest), which `tools/setup_linux.sh` installs with a
 micromamba fetched from conda-forge; `tools/build.sh` takes build.ps1's
 options and prints the same brief output (the application tests in four
@@ -2098,8 +2092,8 @@ JSON over a WebSocket; everything else keeps upstream's rules.
 ## Step 70 — Gamepads with SDL3 (`gs/gamepad`, `src/app/gamepad_*`, `GamepadTool.qml`)
 
 Upstream (features/Gamepad, lib/gamepad, JoystickLoop, MPGJogManager) polled
-the browser's `navigator.getGamepads()` every animation frame. The LibPack
-has no Qt Gamepad, so the port reads pads with SDL3 (3.4.16; conda-forge's
+the browser's `navigator.getGamepads()` every animation frame. The port
+does not use Qt Gamepad, so the port reads pads with SDL3 (3.4.16; conda-forge's
 `sdl3` on Linux, the official `SDL3-devel-*-VC` package on Windows, taken
 from `SDL3-*` in `GS_LIBS_DIR`, `D:\repos\libs`; `-DGS_WITH_SDL3=OFF` builds
 without). The logic lives in the core and is tested with fake input; the

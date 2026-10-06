@@ -54,7 +54,7 @@ $root = Split-Path -Parent $PSScriptRoot
 if ($Filter) { $Test = $true }
 if ($TestRegex) { $CTest = $true }
 
-# Dependencies (no LibPack): Boost, GoogleTest and SDL3 from GS_LIBS_DIR, Qt
+# Dependencies: Boost, GoogleTest and SDL3 from GS_LIBS_DIR, Qt
 # from the official install in GS_QT_DIR (see cmake/GsWindowsDeps.cmake).
 # Nothing is downloaded.
 if (-not $env:GS_LIBS_DIR) { $env:GS_LIBS_DIR = 'D:\repos\libs' }

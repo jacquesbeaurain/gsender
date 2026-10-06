@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installs the Linux build's dependencies - the same versions as the FreeCAD
-# LibPack (Qt 6.11.1, Boost 1.91, GoogleTest) - from conda-forge into a
+# Installs the Linux build's dependencies (Qt 6.11.1, Boost 1.91, GoogleTest)
+# from conda-forge into a
 # prefix (GS_DEPS_DIR, default /opt/gs-deps), with a micromamba fetched from
 # conda-forge itself. Needs only curl, tar (bzip2) and a C++20 compiler.
 #
