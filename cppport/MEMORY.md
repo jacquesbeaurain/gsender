@@ -8,7 +8,7 @@
 - Decision 2026-09-30: no plugin sandboxing for now; plugins get full capabilities. Risks are to be documented for later review, not fixed.
 - Decision 2026-09-30: the port keeps its own config file, separate from Electron's ~/.sender_rc. A one-time import from .sender_rc is planned for later, not now.
 - Gamepad support: use SDL3 (decided 2026-09-30).
-- Windows dependencies (decided 2026-10-06): no LibPack. Boost, GoogleTest and SDL3 come from D:\repos\libs; Qt from the official install at D:\Qt\6.11.1\msvc2022_64. If a new library is needed, pause and ask Jacques how to resolve it; never download or install one unasked.
+- Windows dependencies (decided 2026-10-06): Boost, GoogleTest and SDL3 come from D:\repos\libs; Qt from the official install at D:\Qt\6.11.1\msvc2022_64. If a new library is needed, pause and ask Jacques how to resolve it; never download or install one unasked.
 - Git convention: Jacques wants linear history. Update PR branches by rebasing onto devcpp-pfpo06 and force-pushing (with lease), not merge commits; he rebase-merges PRs.
 - Git convention: Jacques wants small, focused commits (one logical change each), not one big commit per PR (said 2026-09-30 on the cleanup PR).
 - CI (added in cleanup PR #7, 2026-09-30): a cppport GitHub workflow builds and tests on Ubuntu only; QML warnings fail the UI tests. Windows/macOS code is not built by CI.
