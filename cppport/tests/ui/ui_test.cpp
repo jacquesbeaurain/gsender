@@ -3,7 +3,6 @@
 #include "ui_test.hpp"
 
 #include <QDeadlineTimer>
-#include <QRegularExpression>
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <cstdio>
@@ -14,6 +13,20 @@ namespace {
 
 QtMessageHandler previousHandler = nullptr;
 
+// ".qml:<digits>" anywhere in the text. Not a static QRegularExpression: this
+// handler also runs for messages logged while statics are destroyed at exit,
+// where such an object is invalid and Qt warns about it.
+bool hasQmlLocation(const QString& message) {
+    const QLatin1StringView marker(".qml:");
+    for (qsizetype at = message.indexOf(marker); at >= 0; at = message.indexOf(marker, at + 1)) {
+        const qsizetype digit = at + marker.size();
+        if (digit < message.size() && message.at(digit).isDigit()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool isQmlWarning(QtMsgType type, const QMessageLogContext& context, const QString& message) {
     if (type == QtDebugMsg || type == QtInfoMsg) {
         return false;
@@ -23,8 +36,7 @@ bool isQmlWarning(QtMsgType type, const QMessageLogContext& context, const QStri
         category.startsWith(QLatin1StringView("qt.qml"))) {
         return true;
     }
-    static const QRegularExpression qmlLocation(QStringLiteral("\\.qml:\\d+"));
-    return qmlLocation.match(message).hasMatch() ||
+    return hasQmlLocation(message) ||
            (context.file && QLatin1StringView(context.file).endsWith(QLatin1StringView(".qml")));
 }
 
