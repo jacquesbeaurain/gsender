@@ -21,6 +21,8 @@
 #include <QString>
 #include <QStringList>
 
+class QTimer;
+
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -364,6 +366,14 @@ private:
     void handle(const controller::ControllerEvent& event);
     void attachProgram();
     void sendEstimates();
+    // The estimator's machine now: the firmware settings, the connection and
+    // the spindle mode (getEstimatorConfig).
+    gcode::EstimatorSettings estimatorSettings() const;
+    // controllerSagas' scheduleReestimate(): re-runs the loaded file's time
+    // estimate, debounced, when what feeds it changed (connecting after the
+    // file was opened), but never under a running job.
+    void scheduleReestimate();
+    void reestimate();
     void analysisFinished(std::uint64_t generation, job::ProgramAnalysis analysis, Toolpath toolpath);
     // updateJobStats() / updateMaintenanceTasks() at a job's end.
     void recordJob(const controller::SenderStatus& status);
@@ -388,6 +398,10 @@ private:
     Toolpath toolpath_;
     bool analyzing_ = false;
     std::uint64_t analysisGeneration_ = 0;
+    gcode::EstimatorSettings estimatorSettings_;  // what the current estimate used
+    QTimer* reestimateTimer_ = nullptr;
+    std::shared_ptr<std::atomic<bool>> reestimateCancel_;
+    std::uint64_t reestimateGeneration_ = 0;
     bool jobRunning_ = false;
     // The G-code errors of the job running (upstream's saga keeps them,
     // throttled to one per 250 ms).

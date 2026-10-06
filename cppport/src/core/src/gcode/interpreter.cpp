@@ -13,7 +13,6 @@ namespace {
 
 constexpr double kInchToMm = 25.4;
 constexpr double kRotaryCurveThreshold = 30;  // degrees of A travel drawn as a curve
-constexpr double kAtcToolChangeSeconds = 45;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 constexpr std::uint32_t bitFor(char letter) noexcept {
@@ -84,20 +83,6 @@ double Interpreter::Args::number(char letter) const {
 // ---- Interpreter -------------------------------------------------------------
 
 Interpreter::Interpreter(InterpreterOptions options) : options_(options) {
-    const auto sanitize = [](AxisLimits& limits, const AxisLimits& fallback) {
-        if (!(limits.acceleration > 0)) {
-            limits.acceleration = fallback.acceleration;
-        }
-        if (!(limits.maxFeed > 0)) {
-            limits.maxFeed = fallback.maxFeed;
-        }
-    };
-    const InterpreterOptions defaults;
-    sanitize(options_.x, defaults.x);
-    sanitize(options_.y, defaults.y);
-    sanitize(options_.z, defaults.z);
-    sanitize(options_.a, defaults.a);
-
     if (options_.rotaryDiameter && *options_.rotaryDiameter > 0) {
         rotaryDiameter_ = *options_.rotaryDiameter;
         autoDetectDiameter_ = false;
@@ -114,7 +99,6 @@ void Interpreter::processProgram(std::string_view text) {
 
 void Interpreter::processLine(std::string_view line) {
     lineHadTokens_ = false;
-    lineTime_ = 0;
     lineSpindle_.reset();
     ++totalLines_;
 
@@ -124,7 +108,15 @@ void Interpreter::processLine(std::string_view line) {
     }
     scanLine(line, scan_);
     if (scan_.tokens.empty()) {
+        // Comment-only lines are still streamed (and acked) by the sender,
+        // so they need a time slot; whitespace-only lines are dropped.
+        if (estimator_ && !str::trim(line).empty()) {
+            estimator_->beginLine(0);
+        }
         return;
+    }
+    if (estimator_) {
+        estimator_->beginLine(line.size());
     }
     lineHadTokens_ = true;
     if (scan_.hasInvalidTokens) {
@@ -148,6 +140,12 @@ void Interpreter::processLine(std::string_view line) {
             lineSValue = speed;
             if (!std::isnan(speed)) {
                 lineSpindle_ = speed;
+                // grbl syncs the planner on a speed change while the spindle runs
+                if (estimator_ && speed != spindleSpeed_ && modal_.spindle != "M5" &&
+                    !estimator_->config().laserMode) {
+                    estimator_->addSync();
+                }
+                spindleSpeed_ = speed;
             }
         }
     }
@@ -184,6 +182,11 @@ void Interpreter::dispatchGroup(std::size_t begin, std::size_t end) {
 
     switch (lead.letter) {
         case 'G': {
+            // G-codes that make grbl drain the planner buffer before executing
+            if (estimator_ && (code == 10 || code == 28 || code == 30 || code == 38.2 || code == 38.3 ||
+                               code == 38.4 || code == 38.5)) {
+                estimator_->addSync();
+            }
             Args args;
             for (std::size_t i = begin + 1; i < end; ++i) {
                 args.set(scan_.tokens[i].letter, scan_.tokens[i].value);
@@ -307,11 +310,17 @@ void Interpreter::execute(Cmd cmd, const Args& args) {
         case Cmd::M1:
         case Cmd::M2:
         case Cmd::M30:
+            if (estimator_) {
+                estimator_->addSync();
+            }
             modal_.program = commandName(cmd);
             break;
         case Cmd::M3:
         case Cmd::M4:
         case Cmd::M5:
+            if (modal_.spindle != commandName(cmd)) {
+                syncForSpindle(cmd != Cmd::M5 && modal_.spindle == "M5");
+            }
             modal_.spindle = commandName(cmd);
             break;
         case Cmd::M6:
@@ -320,21 +329,30 @@ void Interpreter::execute(Cmd cmd, const Args& args) {
             if (args.has('T')) {
                 setTool(args.get('T'));
             }
-            if (options_.atcEnabled) {
-                addTime(kAtcToolChangeSeconds);
+            if (estimator_) {
+                estimator_->addToolChange();
             }
             break;
         case Cmd::M7:
             if (modal_.coolant.find("M7") == std::string::npos) {
+                if (estimator_) {
+                    estimator_->addSync();
+                }
                 modal_.coolant = modal_.coolant.find("M8") != std::string::npos ? "M7,M8" : "M7";
             }
             break;
         case Cmd::M8:
             if (modal_.coolant.find("M8") == std::string::npos) {
+                if (estimator_) {
+                    estimator_->addSync();
+                }
                 modal_.coolant = modal_.coolant.find("M7") != std::string::npos ? "M7,M8" : "M8";
             }
             break;
         case Cmd::M9:
+            if (estimator_ && modal_.coolant != "M9") {
+                estimator_->addSync();
+            }
             modal_.coolant = "M9";
             break;
         case Cmd::G10:
@@ -379,7 +397,11 @@ void Interpreter::linearMove(Cmd cmd, const Args& args) {
             sink_->addLine(modal_, withOffsets(from), withOffsets(to));
         }
     }
-    addMoveTime(from, to);
+    if (estimator_) {
+        estimator_->addLinear(to.x - from.x, to.y - from.y, to.z - from.z, to.a - from.a,
+                              cmd == Cmd::G0 ? Motion::Rapid : Motion::Feed, feed_, modal_.units == "G20",
+                              modal_.feedrate == "G93");
+    }
     updateBounds(withOffsets(to));
     position_ = to;
 }
@@ -446,7 +468,16 @@ void Interpreter::arcMove(Cmd cmd, const Args& args) {
         sink_->addArc(modal_, p1, p2, p0);
     }
 
-    // Time and bounds follow the actual arc rather than its chord.
+    if (estimator_) {
+        // p1/p2/p0 are in plane order (axis0, axis1, linear) as x/y/z.
+        const std::array<int, 3> axes = modal_.plane == "G18"   ? std::array<int, 3>{2, 0, 1}
+                                        : modal_.plane == "G19" ? std::array<int, 3>{1, 2, 0}
+                                                                : std::array<int, 3>{0, 1, 2};
+        estimator_->addArc({p1.x, p1.y, p1.z}, {p2.x, p2.y, p2.z}, {p0.x, p0.y}, clockwise, axes, feed_,
+                           modal_.units == "G20", modal_.feedrate == "G93");
+    }
+
+    // Bounds follow the actual arc rather than its chord.
     const double radius = std::hypot(p1.x - p0.x, p1.y - p0.y);
     const double startAngle = std::atan2(p1.y - p0.y, p1.x - p0.x);
     double endAngle = std::atan2(p2.y - p0.y, p2.x - p0.x);
@@ -454,31 +485,6 @@ void Interpreter::arcMove(Cmd cmd, const Args& args) {
         endAngle += 2 * std::numbers::pi;  // full circle
     }
     const double sweep = arcSweep(startAngle, endAngle, clockwise);
-    const double arcLength = std::hypot(std::fabs(sweep) * radius, p2.z - p1.z);
-
-    {
-        const AxisLimits& inPlane1 = modal_.plane == "G18" ? options_.z : (modal_.plane == "G19" ? options_.y : options_.x);
-        const AxisLimits& inPlane2 = modal_.plane == "G18" ? options_.x : (modal_.plane == "G19" ? options_.z : options_.y);
-        double maxFeed = std::min(inPlane1.maxFeed, inPlane2.maxFeed);
-        double acceleration = std::min(inPlane1.acceleration, inPlane2.acceleration);
-        if (p2.z != p1.z) {
-            const AxisLimits& normal =
-                modal_.plane == "G18" ? options_.y : (modal_.plane == "G19" ? options_.x : options_.z);
-            maxFeed = std::min(maxFeed, normal.maxFeed);
-            acceleration = std::min(acceleration, normal.acceleration);
-        }
-        double feed = modal_.units == "G20" ? feed_ * kInchToMm : feed_;
-        feed = std::min(feed, maxFeed);
-        const double f = feed / 60;
-        double duration = 0;
-        if (f == lastF_) {
-            duration = f != 0 ? arcLength / f : 0;
-        } else {
-            duration = acceleratedMoveTime(arcLength, f, acceleration);
-        }
-        lastF_ = f;
-        addTime(duration);
-    }
 
     // Include the arc's extreme points, not just its end point.
     updateBounds(fromPlane(p2));
@@ -500,16 +506,16 @@ void Interpreter::arcMove(Cmd cmd, const Args& args) {
 }
 
 void Interpreter::dwell(const Args& args) {
+    // grbl and grblHAL take P in seconds
     double seconds = 0;
-    const double p = args.number('P');
-    if (std::isfinite(p) && p > 0) {
-        seconds = p;
+    if (args.has('P')) {
+        seconds = args.number('P');
+    } else if (args.has('S')) {
+        seconds = args.number('S');
     }
-    const double s = args.number('S');
-    if (std::isfinite(s) && s > 0) {
-        seconds = s;
+    if (estimator_) {
+        estimator_->addDwell(std::isnan(seconds) ? 0 : seconds);
     }
-    addTime(seconds);
 }
 
 void Interpreter::setG92(const Args& args) {
@@ -663,112 +669,16 @@ FileType Interpreter::fileType() const noexcept {
     return usesA ? FileType::Rotary : FileType::Default;
 }
 
-void Interpreter::addTime(double seconds) {
-    if (!std::isfinite(seconds) || seconds <= 0) {
+// Spindle state changes sync the planner unless in laser mode.
+void Interpreter::syncForSpindle(bool startingFromOff) {
+    if (!estimator_ || estimator_->config().laserMode) {
         return;
     }
-    totalTime_ += seconds;
-    lineTime_ += seconds;
-}
-
-// Port of GCodeVirtualizer.calculateMachiningTime().
-void Interpreter::addMoveTime(const Vec4& from, const Vec4& to) {
-    const double dx = to.x - from.x;
-    const double dy = to.y - from.y;
-    const double dz = to.z - from.z;
-    const double da = to.a - from.a;
-
-    const double travelXY = std::hypot(dx, dy);
-    if (std::isnan(travelXY)) {
-        return;
-    }
-    const double linearTravel = std::hypot(travelXY, dz);
-    const double circumference = std::numbers::pi * rotaryDiameter_;
-    const double rotaryTravel = da != 0 ? (std::fabs(da) / 360) * circumference : 0;
-
-    struct AxisMove {
-        double distance;
-        double maxFeed;
-        double acceleration;
-    };
-    std::vector<AxisMove> moves;
-    moves.reserve(4);
-    if (dx != 0) {
-        moves.push_back({std::fabs(dx), options_.x.maxFeed, options_.x.acceleration});
-    }
-    if (dy != 0) {
-        moves.push_back({std::fabs(dy), options_.y.maxFeed, options_.y.acceleration});
-    }
-    if (dz != 0) {
-        moves.push_back({std::fabs(dz), options_.z.maxFeed, options_.z.acceleration});
-    }
-    if (da != 0) {
-        // A rates are degrees; express them as surface speed on the stock.
-        moves.push_back({rotaryTravel, options_.a.maxFeed / 360 * circumference,
-                         options_.a.acceleration / 360 * circumference});
-    }
-    if (moves.empty()) {
-        return;
-    }
-
-    const bool rapid = modal_.motion == "G0";
-    const bool imperial = modal_.units == "G20";
-    double duration = 0;
-
-    if (da != 0 && (dx != 0 || dy != 0 || dz != 0)) {
-        // Combined linear + rotary: every axis moves at once; the slowest wins.
-        const double programmed = rapid ? 0 : (imperial ? feed_ * kInchToMm : feed_);
-        for (const AxisMove& axis : moves) {
-            const double axisFeed = std::min(rapid ? axis.maxFeed : programmed, axis.maxFeed);
-            const double f = axisFeed / 60;
-            if (f > 0) {
-                duration = std::max(duration, acceleratedMoveTime(axis.distance, f, axis.acceleration));
-            }
-        }
+    if (startingFromOff) {
+        estimator_->addSpindleStart();
     } else {
-        const double travel = da != 0 ? rotaryTravel : linearTravel;
-        double minMaxFeed = std::numeric_limits<double>::infinity();
-        double minAcceleration = std::numeric_limits<double>::infinity();
-        for (const AxisMove& axis : moves) {
-            minMaxFeed = std::min(minMaxFeed, axis.maxFeed);
-            minAcceleration = std::min(minAcceleration, axis.acceleration);
-        }
-        double feed = rapid ? minMaxFeed : feed_;
-        if (da != 0 && dx == 0 && dy == 0 && dz == 0) {
-            // Pure rotary: F is degrees/min; convert to surface speed.
-            const double degreesPerMin = imperial ? feed * kInchToMm : feed;
-            feed = degreesPerMin / 360 * circumference;
-        } else if (!rapid && imperial) {
-            feed *= kInchToMm;
-        }
-        feed = std::min(feed, minMaxFeed);
-        const double f = feed / 60;
-        if (f == lastF_ && da == 0) {
-            duration = f != 0 ? travel / f : 0;
-        } else {
-            duration = acceleratedMoveTime(travel, f, minAcceleration);
-        }
-        lastF_ = f;
+        estimator_->addSync();
     }
-    addTime(duration);
-}
-
-// Trapezoidal move time (from Slic3r), as used by gSender's estimator.
-double Interpreter::acceleratedMoveTime(double length, double velocity, double acceleration) {
-    if (!(velocity > 0)) {
-        return 0;
-    }
-    const double accel = acceleration == 0 ? 750 : acceleration;
-    double halfLength = length / 2;
-    const double initTime = velocity / accel;
-    const double initDistance = 0.5 * velocity * initTime;
-    double time = 0;
-    if (halfLength >= initDistance) {
-        halfLength -= initDistance;
-        time += initTime;
-    }
-    time += halfLength / velocity;
-    return 2 * time;
 }
 
 Interpreter::Cmd Interpreter::gCommand(double code) noexcept {

@@ -30,6 +30,7 @@
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QThreadPool>
+#include <QTimer>
 #include <QCoreApplication>
 
 #include <boost/json.hpp>
@@ -176,7 +177,7 @@ private:
 
 Toolpath traceToolpath(const std::string& program) {
     ToolpathSink sink;
-    job::analyzeProgram(program, {}, &sink);
+    job::analyzeProgram(program, {}, {}, &sink);
     return std::move(sink.path);
 }
 
@@ -203,11 +204,18 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     pluginService_->addSearchPath(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("../../plugins")));
     pluginService_->addSearchPath(QDir::current().filePath(QStringLiteral("plugins")));
     pluginService_->scanPlugins();
+    reestimateTimer_ = new QTimer(this);
+    reestimateTimer_->setSingleShot(true);
+    reestimateTimer_->setInterval(750);
+    connect(reestimateTimer_, &QTimer::timeout, this, &Machine::reestimate);
 }
 
 Machine::~Machine() {
     if (analysisCancel_) {
         *analysisCancel_ = true;
+    }
+    if (reestimateCancel_) {
+        *reestimateCancel_ = true;
     }
     QThreadPool::globalInstance()->waitForDone();
     teardown();
@@ -606,7 +614,10 @@ void Machine::handle(const controller::ControllerEvent& event) {
                    // The DRO's corner, park and MCS moves follow these.
                    [this](const HasHomedChanged&) { Q_EMIT stateChanged(); },
                    [this](const HomingFlagChanged&) { Q_EMIT stateChanged(); },
-                   [this](const SettingsChanged&) { Q_EMIT settingsChanged(); },
+                   [this](const SettingsChanged&) {
+                       Q_EMIT settingsChanged();
+                       scheduleReestimate();
+                   },
                    [this](const WorkflowChanged& e) {
                        // A job ending: note where it got to before the sender
                        // rewinds (upstream reads its last, up to 250 ms old,
@@ -978,11 +989,11 @@ void Machine::loadProgram(const QString& name, std::string text, const QString& 
     analysisCancel_ = cancel;
     const std::uint64_t generation = ++analysisGeneration_;
     analyzing_ = true;
-    const gcode::InterpreterOptions options =
-        controller() ? job::interpreterOptionsFor(controller()->settings()) : gcode::InterpreterOptions{};
+    const gcode::EstimatorSettings estimator = estimatorSettings();
+    estimatorSettings_ = estimator;
     auto program = std::make_shared<const std::string>(programText_);
     const bool nonCenterZeros = settings_.rotary.diameterOffset;
-    QThreadPool::globalInstance()->start([this, program, options, cancel, generation, nonCenterZeros] {
+    QThreadPool::globalInstance()->start([this, program, estimator, cancel, generation, nonCenterZeros] {
         ToolpathSink sink;
         // "Visualize non-center zeros": a file declaring its cylinder and
         // never moving Y is drawn about the stock's axis.
@@ -992,7 +1003,8 @@ void Machine::loadProgram(const QString& name, std::string text, const QString& 
                 sink.zOffset = *metadata.radius;
             }
         }
-        job::ProgramAnalysis analysis = job::analyzeProgram(*program, options, &sink, [&cancel] { return cancel->load(); });
+        job::ProgramAnalysis analysis =
+            job::analyzeProgram(*program, {}, estimator, &sink, [&cancel] { return cancel->load(); });
         if (analysis.cancelled) {
             return;
         }
@@ -1054,8 +1066,64 @@ void Machine::attachProgram() {
 void Machine::sendEstimates() {
     controller::Controller* c = controller();
     if (c && hasProgram() && !analyzing_) {
-        c->updateEstimateData(analysis_.estimates, analysis_.estimatedTime);
+        c->updateEstimateData(std::vector<double>(analysis_.lineTime.begin(), analysis_.lineTime.end()),
+                              analysis_.estimatedTime);
     }
+}
+
+gcode::EstimatorSettings Machine::estimatorSettings() const {
+    job::EstimatorInputs inputs;
+    inputs.laserMode = settings_.spindle.laserMode;
+    inputs.useAaxisForGrbl = settings_.preferences.useAaxisForGrbl;
+    inputs.baudRate = baudRate_;
+    const controller::Controller* c = controller();
+    inputs.grblHal = c && c->isGrblHal();
+    return job::estimatorSettingsFor(c ? c->settings() : protocol::FirmwareSettings{}, inputs);
+}
+
+void Machine::scheduleReestimate() {
+    reestimateTimer_->start();
+}
+
+void Machine::reestimate() {
+    // Never swap estimates under a running job.
+    if (!hasProgram() || analyzing_ || jobRunning_) {
+        return;
+    }
+    const gcode::EstimatorSettings estimator = estimatorSettings();
+    if (estimator == estimatorSettings_) {
+        return;
+    }
+    estimatorSettings_ = estimator;
+
+    if (reestimateCancel_) {
+        *reestimateCancel_ = true;
+    }
+    auto cancel = std::make_shared<std::atomic<bool>>(false);
+    reestimateCancel_ = cancel;
+    const std::uint64_t generation = ++reestimateGeneration_;
+    const std::uint64_t program = analysisGeneration_;
+    auto text = std::make_shared<const std::string>(programText_);
+    QThreadPool::globalInstance()->start([this, text, estimator, cancel, generation, program] {
+        std::optional<gcode::EstimateResult> estimate =
+            job::estimateProgram(*text, estimator, [&cancel] { return cancel->load(); });
+        if (!estimate) {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            this,
+            [this, generation, program, result = std::move(*estimate)]() mutable {
+                if (generation != reestimateGeneration_ || program != analysisGeneration_ || analyzing_) {
+                    return;
+                }
+                analysis_.lineTime = std::move(result.lineTime);
+                analysis_.lineKind = std::move(result.lineKind);
+                analysis_.estimatedTime = result.totalTime;
+                sendEstimates();
+                Q_EMIT programChanged();
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 void Machine::setSettings(const AppSettings& settings) {
@@ -1069,6 +1137,7 @@ void Machine::setSettings(const AppSettings& settings) {
     }
     saveAppSettings(config_, settings_);
     Q_EMIT appSettingsChanged();
+    scheduleReestimate();  // the spindle mode and the A axis feed it too
     if (leaveLaser) {
         setLaserMode(false);
     }

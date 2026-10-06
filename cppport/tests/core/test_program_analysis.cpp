@@ -17,16 +17,16 @@ TEST(ProgramAnalysis, EstimatesFollowTheSendersLineNumbering) {
     const std::string program = "G21\n\nG0 X10\n  \nG1 X20 F600\r\nM30\n";
     const ProgramAnalysis analysis = analyzeProgram(program);
     EXPECT_EQ(analysis.totalLines, 6u);   // blank lines count for the visualizer
-    EXPECT_EQ(analysis.estimates.size(), 4u);  // but not for the sender
+    EXPECT_EQ(analysis.lineTime.size(), 4u);  // but not for the sender
 
     runtime::ManualEventLoop loop;
     controller::Sender sender(loop, controller::Sender::Protocol::CharacterCounting, 100);
     ASSERT_TRUE(sender.load("job.nc", program));
-    EXPECT_EQ(sender.total(), analysis.estimates.size());
+    EXPECT_EQ(sender.total(), analysis.lineTime.size());
 
     // 10 mm at 600 mm/min is at least a second; the whole file sums up.
-    EXPECT_GE(analysis.estimates[2], 1.0);
-    EXPECT_NEAR(std::accumulate(analysis.estimates.begin(), analysis.estimates.end(), 0.0), analysis.estimatedTime,
+    EXPECT_GE(analysis.lineTime[2], 1.0);
+    EXPECT_NEAR(std::accumulate(analysis.lineTime.begin(), analysis.lineTime.end(), 0.0), analysis.estimatedTime,
                 1e-9);
     EXPECT_EQ(analysis.bytes, program.size());
 }
@@ -46,32 +46,23 @@ TEST(ProgramAnalysis, StatisticsDescribeTheFile) {
     EXPECT_FALSE(analysis.cancelled);
 }
 
-TEST(ProgramAnalysis, MachineLimitsComeFromTheFirmwareSettings) {
-    protocol::FirmwareSettings settings;
-    settings.settings.set("$120", "300.000");
-    settings.settings.set("$110", "2500");
-    settings.settings.set("$121", "not a number");
-    const gcode::InterpreterOptions options = interpreterOptionsFor(settings);
-    EXPECT_EQ(options.x.acceleration, 300);
-    EXPECT_EQ(options.x.maxFeed, 2500);
-    EXPECT_EQ(options.y.acceleration, gcode::InterpreterOptions{}.y.acceleration);  // fallback
-    EXPECT_EQ(options.z.maxFeed, gcode::InterpreterOptions{}.z.maxFeed);
-    EXPECT_FALSE(options.atcEnabled);
-
-    protocol::InfoValue newopt;
-    newopt.options.emplace_back("ATC", "1");
-    settings.info["NEWOPT"] = newopt;
-    EXPECT_TRUE(interpreterOptionsFor(settings).atcEnabled);
-}
-
 TEST(ProgramAnalysis, SlowerMachinesTakeLonger) {
-    // Long enough to reach full speed: gSender's (Slic3r) formula ignores
-    // acceleration for moves that never do.
     const std::string program = "G1 X1000 F10000\n";
     protocol::FirmwareSettings slow;
     slow.settings.set("$120", "10");
-    EXPECT_GT(analyzeProgram(program, interpreterOptionsFor(slow)).estimatedTime,
+    EXPECT_GT(analyzeProgram(program, {}, estimatorSettingsFor(slow, {})).estimatedTime,
               analyzeProgram(program).estimatedTime);
+}
+
+TEST(ProgramAnalysis, AnEstimateAloneMatchesTheAnalysis) {
+    const std::string program = "G21\n\n(comment)\nG0 X10\nG1 X20 F600\nG4 P1\nM30\n";
+    const ProgramAnalysis analysis = analyzeProgram(program);
+    const std::optional<gcode::EstimateResult> estimate = estimateProgram(program, {});
+    ASSERT_TRUE(estimate);
+    EXPECT_EQ(estimate->lineTime, analysis.lineTime);
+    EXPECT_EQ(estimate->lineKind, analysis.lineKind);
+    EXPECT_EQ(estimate->totalTime, analysis.estimatedTime);
+    EXPECT_FALSE(estimateProgram(std::string(5000, '\n'), {}, [] { return true; }));
 }
 
 class CountingSink final : public gcode::GeometrySink {
@@ -86,7 +77,7 @@ public:
 
 TEST(ProgramAnalysis, GeometryGoesToTheSinkWithSenderLineNumbers) {
     CountingSink sink;
-    analyzeProgram("G0 X1\n\nG1 Y1 F100\nG2 X2 Y0 I0.5 J-0.5\n", {}, &sink);
+    analyzeProgram("G0 X1\n\nG1 Y1 F100\nG2 X2 Y0 I0.5 J-0.5\n", {}, {}, &sink);
     EXPECT_EQ(sink.lines, 2);
     EXPECT_EQ(sink.arcs, 1);
     EXPECT_EQ(sink.senderLines, (std::vector<std::size_t>{0, 1, 2}));  // the blank line is not streamed
@@ -105,9 +96,9 @@ TEST(ProgramAnalysis, ACancelledAnalysisStopsEarly) {
         program += "G1 X" + std::to_string(i % 100) + " F1000\n";
     }
     int polls = 0;
-    const ProgramAnalysis analysis = analyzeProgram(program, {}, nullptr, [&] { return ++polls >= 2; });
+    const ProgramAnalysis analysis = analyzeProgram(program, {}, {}, nullptr, [&] { return ++polls >= 2; });
     EXPECT_TRUE(analysis.cancelled);
-    EXPECT_LT(analysis.estimates.size(), 20000u);
+    EXPECT_LT(analysis.lineTime.size(), 20000u);
 }
 
 }  // namespace

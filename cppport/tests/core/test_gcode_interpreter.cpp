@@ -115,11 +115,9 @@ TEST(GcodeInterpreter, RadiusArcsComputeCenter) {
     EXPECT_NEAR(sink.arcs[0].center.y, 0, 1e-9);
 }
 
-TEST(GcodeInterpreter, FullCircleCountsArcLengthAndExtents) {
-    // A full circle has a zero-length chord; time must follow the circumference.
+TEST(GcodeInterpreter, FullCircleCountsItsExtents) {
+    // A full circle has a zero-length chord; the bounds follow the circle.
     Interpreter vm = run("G0 X10 Y0\nG1 F600\nG3 X10 Y0 I-10 J0\n");
-    const double circumference = 2 * 3.14159265358979 * 10;
-    EXPECT_GT(vm.totalTime(), circumference / 10.0 * 0.95);
     const BoundingBox box = vm.bounds();
     EXPECT_NEAR(box.min.x, -10, 1e-9);
     EXPECT_NEAR(box.max.y, 10, 1e-9);
@@ -138,28 +136,8 @@ TEST(GcodeInterpreter, ArcPlanesAreRotated) {
     EXPECT_DOUBLE_EQ(sink.arcs[0].to.y, 0);
 }
 
-TEST(GcodeInterpreter, LinearMoveTimeUsesTrapezoidalProfile) {
-    // 100 mm at F600 (10 mm/s) with 750 mm/s^2: 2*(v/a + (L/2 - v^2/2a)/v).
-    Interpreter vm = run("G1 X100 F600\n");
-    const double v = 10;
-    const double a = 750;
-    const double expected = 2 * (v / a + (50 - 0.5 * v * (v / a)) / v);
-    EXPECT_NEAR(vm.totalTime(), expected, 1e-9);
-    EXPECT_NEAR(vm.lastLineTime(), expected, 1e-9);
-}
-
-TEST(GcodeInterpreter, RapidsUseMaxFeed) {
-    InterpreterOptions options;
-    options.x.maxFeed = 6000;  // 100 mm/s
-    options.y.maxFeed = 6000;
-    Interpreter vm = run("G0 X100\n", nullptr, options);
-    EXPECT_GT(vm.totalTime(), 1.0);
-    EXPECT_LT(vm.totalTime(), 1.2);
-}
-
-TEST(GcodeInterpreter, DwellIsSeconds) {
+TEST(GcodeInterpreter, DwellKeepsTheMotionMode) {
     Interpreter vm = run("G4 P2\nG4 P0.5\n");
-    EXPECT_DOUBLE_EQ(vm.totalTime(), 2.5);
     EXPECT_EQ(vm.modal().motion, "G0");  // G4 is not a motion mode
 }
 
@@ -233,9 +211,3 @@ TEST(GcodeInterpreter, InvalidLinesAreRecorded) {
     EXPECT_EQ(vm.invalidLines()[0], "G1 X5 E0.2");
 }
 
-TEST(GcodeInterpreter, AtcToolChangesAddTime) {
-    InterpreterOptions options;
-    options.atcEnabled = true;
-    Interpreter vm = run("M6 T1\n", nullptr, options);
-    EXPECT_DOUBLE_EQ(vm.totalTime(), 45);
-}

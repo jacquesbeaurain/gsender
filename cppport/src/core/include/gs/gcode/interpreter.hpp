@@ -1,20 +1,19 @@
 #pragma once
 
 // G-code interpreter: tracks modal state and position line by line, reports
-// motion geometry to a sink, and collects the statistics and time estimates
-// gSender shows for a loaded file.
+// motion geometry to a sink, feeds the time estimator (MotionPlanner) when
+// given one, and collects the statistics gSender shows for a loaded file.
 //
 // Port of the app's GCodeVirtualizer (visualizer/estimates) merged with the
 // server's GcodeToolpath (start-from-line state recovery) so both features
 // interpret programs identically. Differences from the JavaScript, all
 // deliberate and documented in DEV_WALKTHROUGH.md:
-//   * G4 P is seconds (Grbl semantics) rather than milliseconds;
 //   * G4 does not overwrite the motion modal;
-//   * arc time estimates use the arc length instead of the chord;
 //   * the bounding box is taken in the same (G92-offset) frame as the geometry;
 //   * axes used on modal-continuation lines ("X10" after "G1 X0") count as used;
 //   * a malformed F word does not poison the feed rate with NaN.
 
+#include "gs/gcode/motion_planner.hpp"
 #include "gs/gcode/parser.hpp"
 
 #include <array>
@@ -69,17 +68,7 @@ public:
     virtual void atLine(std::size_t /*index*/) {}
 };
 
-struct AxisLimits {
-    double acceleration = 750;  // mm/s^2 (deg/s^2 for A)
-    double maxFeed = 4000;      // mm/min (deg/min for A)
-};
-
 struct InterpreterOptions {
-    AxisLimits x{750, 4000};
-    AxisLimits y{750, 4000};
-    AxisLimits z{500, 3000};
-    AxisLimits a{500, 3000};
-    bool atcEnabled = false;  // adds 45 s per M6 to the estimate
     // A fixed rotary stock diameter disables auto-detection from Y/Z extents.
     std::optional<double> rotaryDiameter;
     bool autoDetectRotaryDiameter = true;
@@ -118,6 +107,8 @@ public:
     explicit Interpreter(InterpreterOptions options = {});
 
     void setSink(GeometrySink* sink) noexcept { sink_ = sink; }
+    // Fed every streamed line, move, dwell and planner sync.
+    void setEstimator(MotionPlanner* estimator) noexcept { estimator_ = estimator; }
 
     // Feeds one program line (no line terminator). Every line counts towards
     // totalLines(), including blank ones.
@@ -136,12 +127,10 @@ public:
     // ---- results for the most recent processLine() ----
     const LineScan& lastScan() const noexcept { return scan_; }
     bool lastLineHadTokens() const noexcept { return lineHadTokens_; }
-    double lastLineTime() const noexcept { return lineTime_; }  // seconds
     std::optional<double> lastSpindleSpeed() const noexcept { return lineSpindle_; }
 
     // ---- program totals ----
     std::size_t totalLines() const noexcept { return totalLines_; }
-    double totalTime() const noexcept { return totalTime_; }  // seconds
     BoundingBox bounds() const noexcept;
     const OrderedStringSet& tools() const noexcept { return tools_; }
     const OrderedStringSet& spindleSpeeds() const noexcept { return spindleSpeeds_; }
@@ -191,9 +180,7 @@ private:
     double translateAxis(double current, const Args& args, char letter) const;
     Vec4 withOffsets(const Vec4& v) const noexcept;
     void updateBounds(const Vec4& p);
-    void addMoveTime(const Vec4& from, const Vec4& to);
-    void addTime(double seconds);
-    static double acceleratedMoveTime(double length, double velocity, double acceleration);
+    void syncForSpindle(bool startingFromOff);
 
     static Cmd gCommand(double code) noexcept;
     static Cmd mCommand(double code) noexcept;
@@ -202,24 +189,23 @@ private:
 
     InterpreterOptions options_;
     GeometrySink* sink_ = nullptr;
+    MotionPlanner* estimator_ = nullptr;
 
     Modal modal_;
     Cmd motionMode_ = Cmd::G0;  // continuation mode for axis-only lines
     Vec4 position_;
     Vec4 offsets_;
     double feed_ = 0;
-    double lastF_ = 0;
+    double spindleSpeed_ = 0;
     bool sawM6_ = false;
     double rotaryDiameter_ = 50;
     bool autoDetectDiameter_ = true;
 
     LineScan scan_;
     bool lineHadTokens_ = false;
-    double lineTime_ = 0;
     std::optional<double> lineSpindle_;
 
     std::size_t totalLines_ = 0;
-    double totalTime_ = 0;
     std::array<double, 4> minBounds_{};
     std::array<double, 4> maxBounds_{};
     OrderedStringSet tools_;

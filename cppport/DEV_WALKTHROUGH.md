@@ -122,15 +122,12 @@ lines, tool-change lines and per-line S/T/M events for the tool timeline.
 | Behaviour | gSender | Port | Why |
 |---|---|---|---|
 | Unclosed `(` | words after it are still parsed | rest of line is a comment | matches what Grbl/grblHAL execute |
-| `G4 P` | milliseconds | seconds | Grbl semantics; gSender itself emits `G4 P<seconds>` |
 | `G4` | overwrites the motion modal | leaves it | G4 is non-modal |
-| Arc time | chord length (a full circle took 0 s) | arc length | accurate estimates |
 | Arc bounds | end point only | includes the arc's extreme points | outline/limit checks |
 | Bounding box frame | G92-shifted frame | same frame as the drawn geometry | consistency |
 | Used axes | only words on `G` lines | also modal-continuation lines | correct 3/4-axis detection |
 | `G92 A..` | ignored | offsets A too | rotary jobs commonly reset A with G92 |
 | Bad `F` word | feed becomes NaN, estimates break | ignored | robustness |
-| Per-line estimates | pushed only for lines with tokens (drifts from the sender's line numbering) | kept per line; aligned to sender lines by the caller | exact remaining-time countdown |
 
 Tests: `tests/core/test_gcode_parser.cpp`, `tests/core/test_gcode_interpreter.cpp`.
 
@@ -382,9 +379,9 @@ tool changes, the final units and the file type. `interpreterOptionsFor()`
 reads the machine limits from the firmware settings as the UI did
 (accelerations `$120`-`$123`, rates `$110`-`$113`, ATC from `NEWOPT`).
 
-Faithful quirk: the estimator's trapezoid formula (from Slic3r) assumes a
-move reaches its programmed speed; for moves too short to do so it returns
-distance / speed, ignoring acceleration.
+(Step 73 replaced the estimator: the interpreter now feeds upstream's
+`MotionPlanner`, and `estimatorSettingsFor()` replaced
+`interpreterOptionsFor()`.)
 
 ## Step 16 — A simulated Grbl board (`gs/sim/grbl_simulator`)
 
@@ -2258,3 +2255,29 @@ already probes for real (Step 21).
     macro columns' layout), shortcut routing (CarvePage, Visualizer),
     toast timing, popups opening and closing, and the notices shown after
     an action.
+
+## Step 73 — Upstream dev of 2026-10-01: the motion planner estimator (`gs/gcode/motion_planner`)
+
+The port was rebased onto upstream `dev` (`81fc7f8ad`); the upstream
+commits that matter for the port are ported here, one commit each:
+the colour overhaul (`Theme.qml`: pale 50-300 tints, primary blue-600,
+`Theme.primaryText`, darker muted text, a Sleep pill), squaring
+measurements correctable on a past row, the new rotary track and spindle
+renders, fewer spindle events on laser rasters, and the estimator rewrite.
+
+- **Estimator** (upstream a440be05b, `lib/timeEstimator`). The
+  interpreter's Slic3r time formula is gone. `gcode::MotionPlanner`
+  simulates grbl's planner: a lookahead window of the firmware's planner
+  blocks, junction deviation cornering, per-axis rate and acceleration
+  limits, arcs expanded into `mc_arc` chords, planner syncs (G10, G28,
+  G30, G38.x, M0/M1/M2/M30, coolant, spindle and S changes outside laser
+  mode), dwell, ATC tool change time, grblHAL's spindle delay and grbl's
+  serial throughput. The interpreter feeds it when given one
+  (`setEstimator`); each streamed line gets exactly one slot, with its
+  time and kind (feed, rapid, fixed). `job::estimatorSettingsFor()` is
+  upstream's `buildEstimatorConfig()`; `job::estimateProgram()` is
+  `Estimate.worker`. `Machine` re-estimates the loaded file, debounced,
+  when the firmware settings or the spindle mode change and no job runs
+  (upstream compares a settings signature; the port compares
+  `EstimatorSettings`). Tests: `tests/core/test_motion_planner.cpp`
+  (MotionPlanner.test.ts), `AppTest.TheEstimateFollowsTheMachinesSettings`.

@@ -15,6 +15,7 @@ add_library(gs_core STATIC
     src/remote/pendant.cpp
     src/gcode/parser.cpp
     src/gcode/interpreter.cpp
+    src/gcode/motion_planner.cpp
     src/gcode/highlight.cpp
     src/expr/value.cpp
     src/expr/expression.cpp

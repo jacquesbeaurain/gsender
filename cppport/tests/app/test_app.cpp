@@ -119,13 +119,35 @@ TEST_F(AppTest, TheMachineConnectsToTheSimulatorAndAnalysesPrograms) {
     machine.loadProgram("square.nc", "G21 G90\nG1 X5 F1200\nG1 Y5\nG2 X0 Y0 I-2.5 J-2.5\n");
     EXPECT_TRUE(machine.isAnalyzing());
     ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
-    EXPECT_EQ(machine.analysis().estimates.size(), 4u);
+    EXPECT_EQ(machine.analysis().lineTime.size(), 4u);
     EXPECT_GT(machine.toolpath().feeds.size(), 6u * 3);  // the arc is tessellated
     EXPECT_TRUE(machine.controller()->sender().hasProgram());
 
     machine.disconnectFromMachine();
     EXPECT_FALSE(machine.isConnected());
     EXPECT_TRUE(machine.hasProgram());  // the file stays loaded
+}
+
+TEST_F(AppTest, TheEstimateFollowsTheMachinesSettings) {
+    QTemporaryDir dir;
+    QtEventLoop loop;
+    Machine machine(loop, (dir.path() + "/rc").toStdWString());
+    // Opened before connecting: estimated with the default machine.
+    machine.loadProgram("long.nc", "G1 X1000 F10000\n");
+    ASSERT_TRUE(waitFor([&] { return !machine.isAnalyzing(); }));
+    const double before = machine.analysis().estimatedTime;
+    EXPECT_GT(before, 0);
+
+    machine.connectTo(Machine::kSimulatorPort);
+    ASSERT_TRUE(waitFor([&] { return machine.isConnected(); }));
+    // A much slower X acceleration: the file is estimated again.
+    machine.sendConsoleLine("$120=10");
+    machine.sendConsoleLine("$$");
+    ASSERT_TRUE(waitFor([&] { return machine.analysis().estimatedTime > before + 1; }, 5000));
+    EXPECT_EQ(machine.analysis().lineTime.size(), 1u);
+    ASSERT_TRUE(waitFor([&] {
+        return machine.controller()->sender().status().estimatedTime == machine.analysis().estimatedTime;
+    }));
 }
 
 TEST_F(AppTest, MacrosAreStoredAndRunOnTheMachine) {

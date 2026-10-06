@@ -1,17 +1,20 @@
 #pragma once
 
 // What gSender's visualizer worker worked out for a loaded program - the
-// per-line time estimates the sender's countdown uses and the statistics the
-// file panel shows - computed with the port's single interpreter.
-// (app: workers/Visualize.worker.ts + GCodeVirtualizer.generateFileStats,
-// and the settings read in store/redux/sagas/controllerSagas.tsx.)
+// per-line time estimates the sender tracks remaining time with and the
+// statistics the file panel shows - computed with the port's single
+// interpreter and its MotionPlanner.
+// (app: workers/Visualize.worker.ts, workers/Estimate.worker.ts,
+// GCodeVirtualizer.generateFileStats and lib/timeEstimator/config.ts.)
 
 #include "gs/gcode/interpreter.hpp"
 #include "gs/protocol/types.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,8 +25,10 @@ struct ProgramAnalysis {
     std::size_t bytes = 0;
     std::size_t totalLines = 0;       // every line, as the visualizer counts them
     // Seconds per line the sender streams (every non-blank line, in order),
-    // so estimates[i] belongs to sender line i.
-    std::vector<double> estimates;
+    // so lineTime[i] belongs to sender line i, and how overrides scale it
+    // (gcode::LineKind).
+    std::vector<float> lineTime;
+    std::vector<std::uint8_t> lineKind;
     double estimatedTime = 0;  // seconds
     gcode::BoundingBox bounds;
     std::string fileModal = "G21";  // units in effect at the end of the file
@@ -39,10 +44,20 @@ struct ProgramAnalysis {
     bool cancelled = false;
 };
 
-// Interpreter limits from the firmware settings: accelerations $120-$123,
-// maximum rates $110-$113 (defaults where a setting is missing or not a
-// positive number) and the ATC option (a 45 s estimate per tool change).
-gcode::InterpreterOptions interpreterOptionsFor(const protocol::FirmwareSettings& settings);
+// What else feeds the estimate beside the firmware settings.
+struct EstimatorInputs {
+    bool grblHal = false;
+    bool laserMode = false;        // the spindle widget's mode
+    bool useAaxisForGrbl = false;  // otherwise Grbl's A runs on Y's limits
+    double baudRate = 115200;
+};
+
+// buildEstimatorConfig(): the time estimator's machine from the firmware
+// settings ($11, $12, $110-$113, $120-$123, $376, $394, $398, $701), the
+// ATC option (45 s per tool change) and `inputs`. Two results compare equal
+// when a re-estimate would change nothing (getEstimatorSignature).
+gcode::EstimatorSettings estimatorSettingsFor(const protocol::FirmwareSettings& settings,
+                                              const EstimatorInputs& inputs);
 
 // Runs the whole program through the interpreter, reporting geometry to
 // `sink` when given. `cancelled` is polled every few thousand lines; a
@@ -52,7 +67,13 @@ gcode::InterpreterOptions interpreterOptionsFor(const protocol::FirmwareSettings
 std::vector<std::size_t> senderLineNumbers(std::string_view program);
 
 ProgramAnalysis analyzeProgram(std::string_view program, const gcode::InterpreterOptions& options = {},
-                               gcode::GeometrySink* sink = nullptr,
+                               const gcode::EstimatorSettings& estimator = {}, gcode::GeometrySink* sink = nullptr,
                                const std::function<bool()>& cancelled = {});
+
+// The time estimate alone, for a re-estimate when the machine settings
+// change (Estimate.worker). Empty when cancelled.
+std::optional<gcode::EstimateResult> estimateProgram(std::string_view program,
+                                                     const gcode::EstimatorSettings& estimator,
+                                                     const std::function<bool()>& cancelled = {});
 
 }  // namespace gs::job
