@@ -183,6 +183,26 @@ TEST(RemotePendant, ParsesTheToolPageCommands) {
     EXPECT_FALSE(parseCommand(R"({"type":"set","model":"config","property":"search","value":[1]})"));
 }
 
+TEST(RemotePendant, ParsesAProgramUpload) {
+    using Kind = PendantCommand::Kind;
+    const auto upload = parseCommand(R"({"type":"loadProgram","name":"part.nc","content":"G21\nG0 X1\n"})");
+    ASSERT_TRUE(upload);
+    EXPECT_EQ(upload->kind, Kind::LoadProgram);
+    EXPECT_EQ(upload->text, "part.nc");
+    EXPECT_EQ(upload->content, "G21\nG0 X1\n");
+    // A name is only a file name: directories, control characters and empty
+    // names are cleaned up.
+    EXPECT_EQ(parseCommand(R"({"type":"loadProgram","name":"C:\\Users\\me\\part.nc","content":"G0"})")->text, "part.nc");
+    EXPECT_EQ(parseCommand(R"({"type":"loadProgram","name":"../../etc/passwd","content":"G0"})")->text, "passwd");
+    EXPECT_EQ(parseCommand(R"({"type":"loadProgram","name":"a\u0007b.nc","content":"G0"})")->text, "ab.nc");
+    EXPECT_EQ(parseCommand(R"({"type":"loadProgram","name":"","content":"G0"})")->text, "program.nc");
+    EXPECT_EQ(parseCommand(R"({"type":"loadProgram","name":"dir/","content":"G0"})")->text, "program.nc");
+    EXPECT_EQ(parseCommand(std::string(R"({"type":"loadProgram","name":")") + std::string(400, 'x') + R"(","content":"G0"})")->text.size(), 255u);
+    EXPECT_FALSE(parseCommand(R"({"type":"loadProgram","name":"x.nc"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"loadProgram","name":"x.nc","content":""})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"loadProgram","name":"x.nc","content":5})"));
+}
+
 TEST(RemotePendant, ModelAndResultMessages) {
     const json::object model = json::parse(modelMessage("spindle", R"({"speed":1000,"forward":true})")).as_object();
     EXPECT_EQ(model.at("type").as_string(), "model");

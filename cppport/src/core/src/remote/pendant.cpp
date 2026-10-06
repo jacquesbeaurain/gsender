@@ -60,6 +60,22 @@ bool isIdentifier(std::string_view name) {
            std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isalnum(c) || c == '_'; });
 }
 
+// What a phone calls a file, as a plain file name: no directories, no control
+// characters, at most 255 bytes; "program.nc" when nothing is left.
+std::string programName(std::string_view given) {
+    std::string name;
+    const std::size_t slash = given.find_last_of("/\\");
+    for (const char c : slash == std::string_view::npos ? given : given.substr(slash + 1)) {
+        if (static_cast<unsigned char>(c) >= 0x20 && c != 0x7f) {
+            name.push_back(c);
+        }
+    }
+    if (name.size() > 255) {
+        name.resize(255);
+    }
+    return name.empty() || name == "." || name == ".." ? "program.nc" : name;
+}
+
 }  // namespace
 
 std::string stateMessage(const PendantState& s) {
@@ -178,6 +194,17 @@ std::optional<PendantCommand> parseCommand(std::string_view text) {
         }
         command.kind = Kind::Preset;
         command.text = std::string(*preset);
+        return command;
+    }
+    if (t == "loadProgram") {
+        const json::string* name = stringField(object, "name");
+        const json::string* content = stringField(object, "content");
+        if (!name || !content || content->empty()) {
+            return std::nullopt;
+        }
+        command.kind = Kind::LoadProgram;
+        command.text = programName(*name);
+        command.content = std::string(*content);
         return command;
     }
     if (t == "subscribe" || t == "unsubscribe" || t == "call" || t == "set") {

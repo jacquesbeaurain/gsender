@@ -80,6 +80,10 @@ struct PendantCommand {
         Unsubscribe,
         Call,         // {"model":"spindle","method":"stop","args":[...],"id":7}
         SetProperty,  // {"model":"config","property":"search","value":"..."}
+        // A G-code file chosen on the phone: {"name":"part.nc","content":"G21..."}.
+        // Upstream's remote page loaded files the same way (a file input);
+        // nothing names a path on the computer.
+        LoadProgram,
     };
     Kind kind = Kind::Ping;
     std::array<int, 4> directions{};  // JogPress: X, Y, Z, A as -1, 0 or +1
@@ -89,6 +93,7 @@ struct PendantCommand {
     std::string member;               // the method or property: an identifier
     std::string argsJson;             // Call: a JSON array; SetProperty: the value
     std::int64_t callId = 0;          // Call: echoed in the reply (0: no reply wanted)
+    std::string content;              // LoadProgram: the program (text = its name)
 };
 
 // {"type":"model","model":"spindle","properties":{...}}: a model's properties.
