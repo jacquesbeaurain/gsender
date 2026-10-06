@@ -134,8 +134,29 @@ try {
     if ($Clean -and (Test-Path $buildDir)) {
         Remove-Item -Recurse -Force $buildDir
     }
-    if ($Reconfigure -or -not (Test-Path (Join-Path $buildDir 'CMakeCache.txt'))) {
-        Invoke-Step 'configure' { cmake --preset $preset } 'CMake (Error|Warning)'
+    $cacheFile = Join-Path $buildDir 'CMakeCache.txt'
+    # find_package results are cached, so a tree configured against other
+    # Qt/library directories (an old LibPack, a moved install) keeps linking
+    # and copying DLLs from them even when GS_QT_DIR/GS_LIBS_DIR changed: Qt
+    # then fails to load its plugins. Such a cache is discarded (--fresh).
+    $staleCache = $false
+    if (Test-Path $cacheFile) {
+        $norm = { param($p) ([string]$p).Replace('\', '/').TrimEnd('/').ToLowerInvariant() }
+        $cache = Get-Content $cacheFile
+        foreach ($entry in @(@('GS_QT_DIR', $env:GS_QT_DIR), @('GS_LIBS_DIR', $env:GS_LIBS_DIR))) {
+            $line = $cache | Where-Object { $_ -like "$($entry[0]):*=*" } | Select-Object -First 1
+            if ($line -and (& $norm ($line -replace '^[^=]*=', '')) -ne (& $norm $entry[1])) { $staleCache = $true }
+        }
+        $qtCore = $cache | Where-Object { $_ -like 'Qt6Core_DIR:*=*' } | Select-Object -First 1
+        if ($qtCore -and -not (& $norm ($qtCore -replace '^[^=]*=', '')).StartsWith((& $norm $env:GS_QT_DIR))) { $staleCache = $true }
+        if ($staleCache) { Write-Host 'configure: the cache points at other Qt/library directories; starting it fresh' }
+    }
+    if ($Reconfigure -or $staleCache -or -not (Test-Path $cacheFile)) {
+        if ($staleCache) {
+            Invoke-Step 'configure' { cmake --fresh --preset $preset } 'CMake (Error|Warning)'
+        } else {
+            Invoke-Step 'configure' { cmake --preset $preset } 'CMake (Error|Warning)'
+        }
     }
 
     $buildArgs = @('--build', '--preset', $preset)
