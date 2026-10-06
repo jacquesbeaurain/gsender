@@ -131,9 +131,9 @@ mkdirSync(outDir, { recursive: true });
     const images = resolve(here, '..', 'resources', 'images', 'rotary');
     mkdirSync(images, { recursive: true });
     for (const name of [
-        'custom-boring-track-top-view.png',
-        'extension-track-top-view.png',
-        'standard-track-top-view.png',
+        'Vortex_Custom_Boring_Track_01.png',
+        'Vortex_Extension_Track_01.png',
+        'Vortex_Standard_Track_01.png',
     ]) {
         copyFileSync(join(assets, name), join(images, name));
         console.log(`copied ${relative(repoRoot, join(images, name))}`);
@@ -152,7 +152,7 @@ mkdirSync(outDir, { recursive: true });
         join(wizards, 'tls/assets/TLS_Step_02.png'),
         join(wizards, 'tls/assets/TLS_Step_03_Pin.png'),
         join(wizards, 'autospin/assets/AutoSpin_landing.png'),
-        join(wizards, 'spindle/assets/spindle_image.png'),
+        join(wizards, 'spindle/assets/Spindle_01.png'),
         join(wizards, 'vacuum-table/assets/gcode/4x8HoleMounts.gcode'),
         join(wizards, 'vacuum-table/assets/gcode/Grids.gcode'),
     ]) {

@@ -139,7 +139,7 @@ QVariantList AccessoryModel::wizards() const {
     const QVariantMap spindle{
         {"id", "sienci-spindle"},
         {"title", tr("Sienci Spindle")},
-        {"image", "qrc:/accessories/spindle_image.png"},
+        {"image", "qrc:/accessories/Spindle_01.png"},
         {"helpUrl", ""},
         {"subWizards",
          QVariantList{QVariantMap{

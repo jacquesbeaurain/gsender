@@ -255,9 +255,9 @@ TEST_F(UiTest, TheRotaryTabSwitchesModeAndLoadsTheMountingSetup) {
         return linesUp && centreOf(linesUp).y() < window_->height();
     }));
     tap("mounting_Lines up");
-    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("standard-track-top-view.png"));
+    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("Vortex_Standard_Track_01.png"));
     tap("mounting_10");
-    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("extension-track-top-view.png"));
+    EXPECT_TRUE(item("mountingIllustration")->property("source").toString().endsWith("Vortex_Extension_Track_01.png"));
     screenshot("ui_mounting_setup");
     tap("mountingLoad");
     ASSERT_TRUE(waitFor([&] { return !mounting->property("visible").toBool(); }));

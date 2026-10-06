@@ -67,9 +67,9 @@ bool RotaryModel::runProbe(bool yAlignment) {
 QString RotaryModel::mountingImage(bool linesUp, int holes) const {
     // getIllustrationImage(): the custom boring layout unless the track
     // lines up; then the standard track or the one with the extension.
-    const char* name = !linesUp      ? "custom-boring-track-top-view.png"
-                       : holes == 10 ? "extension-track-top-view.png"
-                                     : "standard-track-top-view.png";
+    const char* name = !linesUp      ? "Vortex_Custom_Boring_Track_01.png"
+                       : holes == 10 ? "Vortex_Extension_Track_01.png"
+                                     : "Vortex_Standard_Track_01.png";
     return QString("qrc:/images/rotary/") + name;
 }
 
