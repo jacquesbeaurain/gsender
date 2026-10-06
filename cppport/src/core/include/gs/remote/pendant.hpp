@@ -73,11 +73,31 @@ struct PendantCommand {
         Workspace,    // {"wcs":"G55"}
         Preset,       // {"preset":"Rapid" | "Normal" | "Precise"}
         Ping,         // keeps a hold alive; answered with nothing
+        // The tool pages (Tools, Config): the application's view models,
+        // named, whose properties are pushed to the page that subscribed and
+        // whose methods it may call (the application decides which).
+        Subscribe,    // {"model":"spindle"}: its properties now, and on every change
+        Unsubscribe,
+        Call,         // {"model":"spindle","method":"stop","args":[...],"id":7}
+        SetProperty,  // {"model":"config","property":"search","value":"..."}
     };
     Kind kind = Kind::Ping;
     std::array<int, 4> directions{};  // JogPress: X, Y, Z, A as -1, 0 or +1
     std::string text;                 // axis, axes, wcs or preset
+    // Subscribe, Unsubscribe, Call and SetProperty.
+    std::string model;                // [a-z0-9_]{1,32}
+    std::string member;               // the method or property: an identifier
+    std::string argsJson;             // Call: a JSON array; SetProperty: the value
+    std::int64_t callId = 0;          // Call: echoed in the reply (0: no reply wanted)
 };
+
+// {"type":"model","model":"spindle","properties":{...}}: a model's properties.
+// `propertiesJson` is a JSON object.
+std::string modelMessage(std::string_view model, std::string_view propertiesJson);
+// {"type":"result","id":7,"ok":true,"value":...}: a call's answer. `valueJson`
+// is any JSON value ("null" for none); `error` (when not empty) turns it into
+// {"ok":false,"error":"..."}.
+std::string resultMessage(std::int64_t id, std::string_view valueJson, std::string_view error = {});
 
 // Empty for anything malformed or unknown (the page is outside the
 // application's control; nothing it sends may throw or reach the machine

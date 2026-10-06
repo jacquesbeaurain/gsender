@@ -143,6 +143,64 @@ TEST(RemotePendant, ParsesCommands) {
     EXPECT_FALSE(parseCommand(R"({"type":7})"));
 }
 
+TEST(RemotePendant, ParsesTheToolPageCommands) {
+    using Kind = PendantCommand::Kind;
+    const auto subscribe = parseCommand(R"({"type":"subscribe","model":"spindle"})");
+    ASSERT_TRUE(subscribe);
+    EXPECT_EQ(subscribe->kind, Kind::Subscribe);
+    EXPECT_EQ(subscribe->model, "spindle");
+    EXPECT_EQ(parseCommand(R"({"type":"unsubscribe","model":"config"})")->kind, Kind::Unsubscribe);
+
+    const auto call = parseCommand(R"({"type":"call","model":"spindle","method":"setSpeed","args":[12000.5],"id":7})");
+    ASSERT_TRUE(call);
+    EXPECT_EQ(call->kind, Kind::Call);
+    EXPECT_EQ(call->member, "setSpeed");
+    EXPECT_EQ(call->callId, 7);
+    EXPECT_EQ(json::parse(call->argsJson), json::parse("[12000.5]"));
+    // No arguments, no id: an empty list, no reply wanted.
+    const auto bare = parseCommand(R"({"type":"call","model":"coolant","method":"off"})");
+    ASSERT_TRUE(bare);
+    EXPECT_EQ(bare->argsJson, "[]");
+    EXPECT_EQ(bare->callId, 0);
+
+    const auto set = parseCommand(R"({"type":"set","model":"config","property":"search","value":"baud"})");
+    ASSERT_TRUE(set);
+    EXPECT_EQ(set->kind, Kind::SetProperty);
+    EXPECT_EQ(set->member, "search");
+    EXPECT_EQ(set->argsJson, R"("baud")");
+
+    // Anything that is not a plain model, member or argument list is refused.
+    EXPECT_FALSE(parseCommand(R"({"type":"subscribe"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"subscribe","model":"Spindle"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"subscribe","model":"../x"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"subscribe","model":""})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"call","model":"spindle"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"call","model":"spindle","method":"a b"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"call","model":"spindle","method":"1stop"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"call","model":"spindle","method":"stop","args":5})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"call","model":"spindle","method":"stop","args":[1,2,3,4,5,6,7,8,9]})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"set","model":"config","property":"search"})"));
+    EXPECT_FALSE(parseCommand(R"({"type":"set","model":"config","property":"search","value":[1]})"));
+}
+
+TEST(RemotePendant, ModelAndResultMessages) {
+    const json::object model = json::parse(modelMessage("spindle", R"({"speed":1000,"forward":true})")).as_object();
+    EXPECT_EQ(model.at("type").as_string(), "model");
+    EXPECT_EQ(model.at("model").as_string(), "spindle");
+    EXPECT_EQ(model.at("properties").as_object().at("speed").as_int64(), 1000);
+    // Properties that are not a JSON object are sent as an empty one.
+    EXPECT_TRUE(json::parse(modelMessage("x", "nonsense")).as_object().at("properties").as_object().empty());
+
+    const json::object ok = json::parse(resultMessage(7, R"({"a":[1,2]})")).as_object();
+    EXPECT_EQ(ok.at("type").as_string(), "result");
+    EXPECT_EQ(ok.at("id").as_int64(), 7);
+    EXPECT_TRUE(ok.at("ok").as_bool());
+    EXPECT_EQ(ok.at("value").as_object().at("a").as_array().size(), 2u);
+    const json::object failed = json::parse(resultMessage(8, "null", "not allowed")).as_object();
+    EXPECT_FALSE(failed.at("ok").as_bool());
+    EXPECT_EQ(failed.at("error").as_string(), "not allowed");
+}
+
 TEST(RemotePendant, StateMessageCarriesTheDroAndTheButtons) {
     PendantState s;
     s.connected = true;

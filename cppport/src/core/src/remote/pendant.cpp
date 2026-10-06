@@ -48,6 +48,18 @@ int direction(const json::object& object, std::string_view key) {
     return d > 0 ? 1 : d < 0 ? -1 : 0;
 }
 
+constexpr std::size_t kMaxCallArguments = 8;
+
+bool isModelName(std::string_view name) {
+    return !name.empty() && name.size() <= 32 &&
+           std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::islower(c) || std::isdigit(c) || c == '_'; });
+}
+
+bool isIdentifier(std::string_view name) {
+    return !name.empty() && name.size() <= 64 && !std::isdigit(static_cast<unsigned char>(name[0])) &&
+           std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isalnum(c) || c == '_'; });
+}
+
 }  // namespace
 
 std::string stateMessage(const PendantState& s) {
@@ -168,7 +180,70 @@ std::optional<PendantCommand> parseCommand(std::string_view text) {
         command.text = std::string(*preset);
         return command;
     }
+    if (t == "subscribe" || t == "unsubscribe" || t == "call" || t == "set") {
+        const json::string* model = stringField(object, "model");
+        if (!model || !isModelName(*model)) {
+            return std::nullopt;
+        }
+        command.model = std::string(*model);
+        if (t == "subscribe" || t == "unsubscribe") {
+            command.kind = t == "subscribe" ? Kind::Subscribe : Kind::Unsubscribe;
+            return command;
+        }
+        const json::string* member = stringField(object, t == "call" ? "method" : "property");
+        if (!member || !isIdentifier(*member)) {
+            return std::nullopt;
+        }
+        command.member = std::string(*member);
+        if (t == "set") {
+            const json::value* scalar = object.if_contains("value");
+            if (!scalar || scalar->is_object() || scalar->is_array()) {
+                return std::nullopt;  // a property takes a scalar
+            }
+            command.kind = Kind::SetProperty;
+            command.argsJson = json::serialize(*scalar);
+            return command;
+        }
+        command.kind = Kind::Call;
+        json::array args;
+        if (const json::value* given = object.if_contains("args")) {
+            if (!given->is_array() || given->get_array().size() > kMaxCallArguments) {
+                return std::nullopt;
+            }
+            args = given->get_array();
+        }
+        command.argsJson = json::serialize(args);
+        if (const json::value* id = object.if_contains("id"); id && id->is_int64()) {
+            command.callId = id->get_int64();
+        }
+        return command;
+    }
     return std::nullopt;
+}
+
+std::string modelMessage(std::string_view model, std::string_view propertiesJson) {
+    // The properties come from the application (already JSON); one that does
+    // not parse is sent empty rather than breaking the message.
+    boost::system::error_code ec;
+    json::value properties = json::parse(propertiesJson, ec);
+    if (ec || !properties.is_object()) {
+        properties = json::object{};
+    }
+    return json::serialize(json::object{{"type", "model"}, {"model", model}, {"properties", std::move(properties)}});
+}
+
+std::string resultMessage(std::int64_t id, std::string_view valueJson, std::string_view error) {
+    json::object o{{"type", "result"}, {"id", id}};
+    if (!error.empty()) {
+        o["ok"] = false;
+        o["error"] = error;
+        return json::serialize(o);
+    }
+    boost::system::error_code ec;
+    json::value parsed = json::parse(valueJson, ec);
+    o["ok"] = true;
+    o["value"] = ec ? json::value(nullptr) : std::move(parsed);
+    return json::serialize(o);
 }
 
 }  // namespace gs::remote
