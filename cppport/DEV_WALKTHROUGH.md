@@ -1760,7 +1760,7 @@ has caught up; then the widget UI goes.
 the settings, the jogger, the console log, the event loop, the highlighter
 (about 3,000 lines, no widgets) - serve both UIs. `src/ui` holds the QML
 module `GSender` (a static library, `gs_ui`, with its plugin) and the
-executable `gsender-qml`:
+executable (first `gsender-qml`, now `gsender`; Step 65):
 
 - `UiBackend` (`Backend` in QML, a singleton registered before the QML
   loads): the Machine as properties, signals and invokables. As screens are
@@ -1796,7 +1796,7 @@ stacks them as upstream. The widgets not ported yet are marked cards.
 with Qt Quick's software renderer - against a real Machine and the
 simulated board; items are found by objectName (Repeater delegates too) and
 driven with QTest taps and touch sequences (one-finger orbit, two-finger
-pinch). `GS_TEST_SCREENSHOTS` saves what they show; `gsender-qml
+pinch). `GS_TEST_SCREENSHOTS` saves what they show; `gsender
 --screenshot` does the same for the application.
 
 **Plan.** Each phase ends with the QML screens tested and the walkthrough
@@ -1812,7 +1812,7 @@ updated:
    editor.
 3. The Stats, Tools and Config pages (settings and the firmware table),
    the remaining tools and dialogs.
-4. Parity: `gsender-qml` becomes `gsender`; the widget UI and its tests go,
+4. Parity: the QML executable (then `gsender-qml`) becomes `gsender`; the widget UI and its tests go,
    their checks of the services kept as view-model and UI tests.
 
 The Qt must have Qt Quick, Quick Controls 2, Svg and Test (the Linux
@@ -1956,8 +1956,8 @@ promoted to the main application and the legacy QtWidgets UI is retired:
   `gsender` executable target is now produced directly from `src/ui`, with
   all CLI parameters supported (`--simulator`, `--platform offscreen`,
   `--load`, `--screenshot`, `--wait`, `--size`, `--dark`, `--config`,
-  `--start`). An automatic copy rule maintains `gsender-qml.exe` as a
-  drop-in alias for existing developer scripts.
+  `--start`). (A copy rule kept `gsender-qml.exe` as an alias for a while;
+  it is gone.)
 - **Qt runtime deployment** (`GS_DEPLOY_QT`):
   Added `gs_deploy_qml()` invoking `windeployqt.exe --qmldir <ui/qml>` into
   the shared runtime directory, packaging QML imports, Quick styles, and

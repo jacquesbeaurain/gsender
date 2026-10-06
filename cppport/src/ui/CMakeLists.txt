@@ -236,10 +236,3 @@ target_link_libraries(gsender PRIVATE gs_ui gs_uiplugin)
 gs_copy_runtime_dlls(gsender)
 gs_deploy_qt_plugins(gsender)
 gs_deploy_qml(gsender "${CMAKE_CURRENT_SOURCE_DIR}/qml")
-
-# Backward-compatibility copy so gsender-qml remains directly runnable
-add_custom_target(gsender-qml ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:gsender>"
-        "$<TARGET_FILE_DIR:gsender>/gsender-qml$<TARGET_FILE_SUFFIX:gsender>"
-    DEPENDS gsender)
