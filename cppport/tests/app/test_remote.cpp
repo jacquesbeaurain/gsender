@@ -22,7 +22,10 @@
 #include <QCoreApplication>
 #include <QDeadlineTimer>
 #include <QGuiApplication>
+#include <QObject>
+#include <QStringList>
 #include <QTemporaryDir>
+#include <QVariantList>
 #include <gtest/gtest.h>
 
 #include <deque>
@@ -103,17 +106,38 @@ public:
 
     // The newest state message.
     std::optional<json::object> state() {
+        return newest([](const json::object& o) { return o.at("type") == "state"; });
+    }
+    // The newest `model` message for a model.
+    std::optional<json::object> model(const std::string& name) {
+        return newest([&](const json::object& o) { return o.at("type") == "model" && o.at("model").as_string() == name; });
+    }
+    // The reply to call `id`.
+    std::optional<json::object> result(std::int64_t id) {
+        return newest([&](const json::object& o) { return o.at("type") == "result" && o.at("id").as_int64() == id; });
+    }
+    int modelMessages(const std::string& name) {
+        std::lock_guard lock(mutex_);
+        int count = 0;
+        for (const std::string& text : messages_) {
+            const json::value v = json::parse(text);
+            count += v.as_object().at("type") == "model" && v.as_object().at("model").as_string() == name;
+        }
+        return count;
+    }
+
+private:
+    std::optional<json::object> newest(const std::function<bool(const json::object&)>& wanted) {
         std::lock_guard lock(mutex_);
         for (auto it = messages_.rbegin(); it != messages_.rend(); ++it) {
             json::value v = json::parse(*it);
-            if (v.as_object().at("type") == "state") {
+            if (wanted(v.as_object())) {
                 return v.as_object();
             }
         }
         return std::nullopt;
     }
 
-private:
     asio::io_context io_;
     websocket::stream<beast::tcp_stream> ws_;
     std::thread reader_;
@@ -139,6 +163,48 @@ std::uint16_t freePort() {
     tcp::acceptor acceptor(io, tcp::endpoint(asio::ip::make_address("127.0.0.1"), 0));
     return acceptor.local_endpoint().port();
 }
+
+// A view model as the tool pages use them: properties that notify, methods
+// the pendant may call (and one it may not), a property it may set.
+class FakeModel : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int speed READ speed NOTIFY changed)
+    Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
+    Q_PROPERTY(QString locked READ locked WRITE setLocked NOTIFY changed)
+    Q_PROPERTY(QVariantList items READ items NOTIFY changed)
+
+public:
+    int speed() const { return speed_; }
+    QString search() const { return search_; }
+    QString locked() const { return locked_; }
+    QVariantList items() const { return {QVariantMap{{"id", 1}, {"name", "one"}}, QStringLiteral("two")}; }
+    void setSearch(const QString& text) {
+        search_ = text;
+        Q_EMIT changed();
+    }
+    void setLocked(const QString& text) {
+        locked_ = text;
+        Q_EMIT changed();
+    }
+
+    Q_INVOKABLE void setSpeed(int speed) {
+        speed_ = speed;
+        Q_EMIT changed();
+    }
+    Q_INVOKABLE QString echo(const QString& text, double times) const { return text + QString::number(times); }
+    Q_INVOKABLE QVariantMap pair(bool flag) const { return {{"flag", flag}}; }
+    Q_INVOKABLE void secret() { secretCalls_++; }
+
+    int secretCalls_ = 0;
+
+Q_SIGNALS:
+    void changed();
+
+private:
+    int speed_ = 0;
+    QString search_;
+    QString locked_ = QStringLiteral("fixed");
+};
 
 class RemoteTest : public ::testing::Test {
 protected:
@@ -295,3 +361,86 @@ TEST_F(RemoteTest, SettingsAreValidatedSavedAndApplied) {
     EXPECT_FALSE(remote_->settings().headlessStatus);
     EXPECT_TRUE(remote_->settings().error);
 }
+
+TEST_F(RemoteTest, APendantUsesABoundModelOnlyThroughItsAllowedMembers) {
+    FakeModel* model = nullptr;
+    remote_->bindModel("fake", {[&] { return model = new FakeModel; }, {"setSpeed", "echo", "pair"}, {"search"}});
+    ASSERT_EQ(remote_->startServer("127.0.0.1", 0), "");
+    Pendant pendant(static_cast<std::uint16_t>(remote_->port()));
+    ASSERT_TRUE(waitFor([&] { return remote_->clientCount() == 1; }));
+
+    // Nothing is made, or sent, until a pendant asks.
+    EXPECT_EQ(model, nullptr);
+    pendant.send(R"({"type":"subscribe","model":"nope"})");
+    pendant.send(R"({"type":"subscribe","model":"fake"})");
+    ASSERT_TRUE(waitFor([&] { return pendant.model("fake").has_value(); }));
+    EXPECT_FALSE(pendant.model("nope"));
+    const json::object first = pendant.model("fake")->at("properties").as_object();
+    EXPECT_EQ(first.at("speed").as_int64(), 0);
+    EXPECT_EQ(first.at("items").as_array().size(), 2u);
+    EXPECT_EQ(first.at("items").as_array()[0].as_object().at("name").as_string(), "one");
+    EXPECT_FALSE(first.contains("objectName"));
+
+    // A call changes the model and the new properties follow; the reply
+    // carries the method's result.
+    pendant.send(R"({"type":"call","model":"fake","method":"setSpeed","args":[12000],"id":1})");
+    ASSERT_TRUE(waitFor([&] { return pendant.model("fake")->at("properties").as_object().at("speed").as_int64() == 12000; }));
+    ASSERT_TRUE(waitFor([&] { return pendant.result(1).has_value(); }));
+    EXPECT_TRUE(pendant.result(1)->at("ok").as_bool());
+    pendant.send(R"({"type":"call","model":"fake","method":"echo","args":["x",2.5],"id":2})");
+    ASSERT_TRUE(waitFor([&] { return pendant.result(2).has_value(); }));
+    EXPECT_EQ(pendant.result(2)->at("value").as_string(), "x2.5");
+    pendant.send(R"({"type":"call","model":"fake","method":"pair","args":[true],"id":3})");
+    ASSERT_TRUE(waitFor([&] { return pendant.result(3).has_value(); }));
+    EXPECT_TRUE(pendant.result(3)->at("value").as_object().at("flag").as_bool());
+
+    // Not on the list, wrong arguments, an unknown model: refused, said so.
+    pendant.send(R"({"type":"call","model":"fake","method":"secret","id":4})");
+    pendant.send(R"({"type":"call","model":"fake","method":"setSpeed","args":["fast"],"id":5})");
+    pendant.send(R"({"type":"call","model":"fake","method":"setSpeed","args":[1,2],"id":6})");
+    pendant.send(R"({"type":"call","model":"other","method":"setSpeed","id":7})");
+    pendant.send(R"({"type":"call","model":"fake","method":"destroyed","id":8})");
+    for (int id = 4; id <= 8; ++id) {
+        ASSERT_TRUE(waitFor([&] { return pendant.result(id).has_value(); })) << id;
+        EXPECT_FALSE(pendant.result(id)->at("ok").as_bool()) << id;
+    }
+    EXPECT_EQ(model->secretCalls_, 0);
+    EXPECT_EQ(model->speed(), 12000);
+
+    // Properties: only the listed ones are writable.
+    pendant.send(R"({"type":"set","model":"fake","property":"locked","value":"hacked"})");
+    pendant.send(R"({"type":"set","model":"fake","property":"search","value":"baud"})");
+    ASSERT_TRUE(waitFor([&] { return pendant.model("fake")->at("properties").as_object().at("search").as_string() == "baud"; }));
+    EXPECT_EQ(model->locked().toStdString(), "fixed");
+
+    // Unsubscribed, a pendant hears no more.
+    pendant.send(R"({"type":"unsubscribe","model":"fake"})");
+    waitFor([] { return false; }, 100);
+    const int heard = pendant.modelMessages("fake");
+    model->setSpeed(5);
+    waitFor([] { return false; }, 200);
+    EXPECT_EQ(pendant.modelMessages("fake"), heard);
+}
+
+TEST_F(RemoteTest, AModelIsPushedOncePerBurstAndOnlyToItsSubscribers) {
+    FakeModel* model = nullptr;
+    remote_->bindModel("fake", {[&] { return model = new FakeModel; }, {}, {}});
+    ASSERT_EQ(remote_->startServer("127.0.0.1", 0), "");
+    Pendant watching(static_cast<std::uint16_t>(remote_->port()));
+    Pendant other(static_cast<std::uint16_t>(remote_->port()));
+    ASSERT_TRUE(waitFor([&] { return remote_->clientCount() == 2; }));
+    watching.send(R"({"type":"subscribe","model":"fake"})");
+    ASSERT_TRUE(waitFor([&] { return watching.modelMessages("fake") == 1; }));
+
+    for (int i = 1; i <= 20; ++i) {
+        model->setSpeed(i);  // a burst: one message, with the last value
+    }
+    ASSERT_TRUE(waitFor([&] { return watching.modelMessages("fake") == 2; }));
+    EXPECT_EQ(watching.model("fake")->at("properties").as_object().at("speed").as_int64(), 20);
+    model->setSpeed(20);  // no change: nothing sent
+    waitFor([] { return false; }, 200);
+    EXPECT_EQ(watching.modelMessages("fake"), 2);
+    EXPECT_EQ(other.modelMessages("fake"), 0);
+}
+
+#include "test_remote.moc"

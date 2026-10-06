@@ -10,8 +10,16 @@
 #include "gs/transport/remote_server.hpp"
 #include "gs/util/units.hpp"
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QMetaMethod>
 #include <QMetaObject>
+#include <QMetaProperty>
+#include <QMetaType>
 #include <QTimer>
+#include <QVariant>
 
 #include <algorithm>
 #include <cctype>
@@ -24,6 +32,38 @@ namespace {
 constexpr int kStateDelayMs = 50;
 // A held jog with no word from its pendant for this long is released.
 constexpr qint64 kJogSilenceMs = 1000;
+
+// Any JSON value as text (QJsonDocument only holds objects and arrays).
+std::string jsonText(const QJsonValue& value) {
+    if (value.isObject()) {
+        return QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact).toStdString();
+    }
+    if (value.isArray()) {
+        return QJsonDocument(value.toArray()).toJson(QJsonDocument::Compact).toStdString();
+    }
+    const std::string wrapped = QJsonDocument(QJsonArray{value}).toJson(QJsonDocument::Compact).toStdString();
+    return wrapped.substr(1, wrapped.size() - 2);  // "[value]"
+}
+
+QJsonValue parseJsonValue(const std::string& text) {
+    const QJsonDocument doc = QJsonDocument::fromJson("[" + QByteArray::fromStdString(text) + "]");
+    return doc.isArray() && doc.array().size() == 1 ? doc.array().at(0) : QJsonValue();
+}
+
+// A model's properties as a JSON object: every Q_PROPERTY it (and its bases)
+// declares, as the QML view reads them.
+std::string propertiesJson(QObject* object) {
+    QJsonObject out;
+    const QMetaObject* meta = object->metaObject();
+    for (int i = 0; i < meta->propertyCount(); ++i) {
+        const QMetaProperty property = meta->property(i);
+        if (!property.isReadable() || qstrcmp(property.name(), "objectName") == 0) {
+            continue;
+        }
+        out.insert(QString::fromLatin1(property.name()), QJsonValue::fromVariant(property.read(object)));
+    }
+    return jsonText(out);
+}
 
 }  // namespace
 
@@ -49,6 +89,7 @@ RemoteService::RemoteService(Machine& machine, Jogger& jogger, QObject* parent)
         if (id == jogClient_) {
             releaseJog();
         }
+        dropClient(id);
         Q_EMIT changed();
     };
     server_->onMessage = [this](transport::RemoteServer::ClientId id, const std::string& text) {
@@ -65,6 +106,10 @@ RemoteService::RemoteService(Machine& machine, Jogger& jogger, QObject* parent)
     connect(stateTimer_, &QTimer::timeout, this, &RemoteService::pushState);
     watchdogTimer_->setInterval(250);
     connect(watchdogTimer_, &QTimer::timeout, this, &RemoteService::checkJogWatchdog);
+    modelTimer_ = new QTimer(this);
+    modelTimer_->setSingleShot(true);
+    modelTimer_->setInterval(kStateDelayMs);
+    connect(modelTimer_, &QTimer::timeout, this, &RemoteService::pushModels);
 
     for (auto signal : {&Machine::stateChanged, &Machine::settingsChanged, &Machine::workflowChanged,
                         &Machine::senderStatusChanged, &Machine::connectionChanged, &Machine::programChanged,
@@ -265,6 +310,20 @@ void RemoteService::handle(const remote::PendantCommand& command, std::uint64_t 
                 controller::stopWithoutJob(*c);
             }
             return;
+        case Kind::Subscribe:
+            subscribe(command.model, client);
+            return;
+        case Kind::Unsubscribe:
+            if (const auto it = models_.find(command.model); it != models_.end()) {
+                it->second.subscribers.erase(client);
+            }
+            return;
+        case Kind::Call:
+            callModel(command, client);
+            return;
+        case Kind::SetProperty:
+            setModelProperty(command);
+            return;
         default:
             break;
     }
@@ -372,6 +431,154 @@ void RemoteService::pushState() {
     }
     lastState_ = message;
     server_->broadcast(std::move(message));
+}
+
+void RemoteService::bindModel(const std::string& name, ModelBinding binding) {
+    BoundModel& model = models_[name];
+    model.binding = std::move(binding);
+}
+
+RemoteService::BoundModel* RemoteService::boundModel(const std::string& name) {
+    const auto it = models_.find(name);
+    if (it == models_.end()) {
+        return nullptr;
+    }
+    BoundModel& model = it->second;
+    if (!model.object && model.binding.create) {
+        model.object = model.binding.create();
+        if (model.object) {
+            // Every property's change signal marks the model for a push.
+            const int slot = staticMetaObject.indexOfSlot("modelChanged()");
+            std::set<int> connected;
+            const QMetaObject* meta = model.object->metaObject();
+            for (int i = 0; i < meta->propertyCount(); ++i) {
+                const QMetaProperty property = meta->property(i);
+                if (property.hasNotifySignal() && connected.insert(property.notifySignalIndex()).second) {
+                    QMetaObject::connect(model.object, property.notifySignalIndex(), this, slot);
+                }
+            }
+        }
+    }
+    return model.object ? &model : nullptr;
+}
+
+std::string RemoteService::modelProperties(const std::string& name) {
+    BoundModel* model = boundModel(name);
+    return model ? propertiesJson(model->object) : std::string();
+}
+
+void RemoteService::subscribe(const std::string& name, std::uint64_t client) {
+    BoundModel* model = boundModel(name);
+    if (!model) {
+        return;
+    }
+    model->subscribers.insert(client);
+    server_->send(client, remote::modelMessage(name, propertiesJson(model->object)));
+}
+
+void RemoteService::dropClient(std::uint64_t client) {
+    for (auto& [name, model] : models_) {
+        model.subscribers.erase(client);
+    }
+}
+
+void RemoteService::modelChanged() {
+    QObject* from = sender();
+    for (auto& [name, model] : models_) {
+        if (model.object == from && !model.subscribers.empty()) {
+            model.dirty = true;
+            if (!modelTimer_->isActive()) {
+                modelTimer_->start();
+            }
+        }
+    }
+}
+
+void RemoteService::pushModels() {
+    for (auto& [name, model] : models_) {
+        if (!model.dirty) {
+            continue;
+        }
+        model.dirty = false;
+        if (!model.object || model.subscribers.empty()) {
+            continue;
+        }
+        const std::string message = remote::modelMessage(name, propertiesJson(model.object));
+        if (message == model.lastSent) {
+            continue;
+        }
+        model.lastSent = message;
+        for (const std::uint64_t client : model.subscribers) {
+            server_->send(client, message);
+        }
+    }
+}
+
+void RemoteService::callModel(const remote::PendantCommand& command, std::uint64_t client) {
+    const auto reply = [&](const std::string& valueJson, const std::string& error = {}) {
+        if (command.callId != 0) {
+            server_->send(client, remote::resultMessage(command.callId, valueJson, error));
+        }
+    };
+    BoundModel* model = boundModel(command.model);
+    if (!model || !model->binding.methods.count(command.member)) {
+        reply("null", "not allowed");
+        return;
+    }
+    const QJsonArray args = parseJsonValue(command.argsJson).toArray();
+    const QMetaObject* meta = model->object->metaObject();
+    QMetaMethod method;
+    for (int i = meta->methodCount() - 1; i >= 0; --i) {
+        const QMetaMethod candidate = meta->method(i);
+        if ((candidate.methodType() == QMetaMethod::Method || candidate.methodType() == QMetaMethod::Slot) &&
+            candidate.name() == QByteArray::fromStdString(command.member) && candidate.parameterCount() == args.size()) {
+            method = candidate;
+            break;
+        }
+    }
+    if (!method.isValid()) {
+        reply("null", "no such method");
+        return;
+    }
+    // What moc's own dispatch takes: the result's storage, then each argument.
+    std::vector<QVariant> values;
+    values.reserve(static_cast<std::size_t>(args.size()));  // argv points into it
+    std::vector<void*> argv(static_cast<std::size_t>(args.size()) + 1, nullptr);
+    for (int i = 0; i < args.size(); ++i) {
+        QVariant value = args.at(i).toVariant();
+        if (!value.convert(method.parameterMetaType(i))) {
+            reply("null", "bad argument " + std::to_string(i + 1));
+            return;
+        }
+        values.push_back(std::move(value));
+        argv[static_cast<std::size_t>(i) + 1] = values.back().data();
+    }
+    const QMetaType returnType = method.returnMetaType();
+    void* result = returnType.isValid() && returnType.id() != QMetaType::Void ? returnType.create() : nullptr;
+    argv[0] = result;
+    QMetaObject::metacall(model->object, QMetaObject::InvokeMetaMethod, method.methodIndex(), argv.data());
+    std::string valueJson = "null";
+    if (result) {
+        valueJson = jsonText(QJsonValue::fromVariant(QVariant(returnType, result)));
+        returnType.destroy(result);
+    }
+    reply(valueJson);
+}
+
+void RemoteService::setModelProperty(const remote::PendantCommand& command) {
+    BoundModel* model = boundModel(command.model);
+    if (!model || !model->binding.writableProperties.count(command.member)) {
+        return;
+    }
+    const QMetaObject* meta = model->object->metaObject();
+    const int index = meta->indexOfProperty(command.member.c_str());
+    if (index < 0 || !meta->property(index).isWritable()) {
+        return;
+    }
+    QVariant value = parseJsonValue(command.argsJson).toVariant();
+    if (value.convert(meta->property(index).metaType())) {
+        meta->property(index).write(model->object, value);
+    }
 }
 
 void RemoteService::releaseJog() {

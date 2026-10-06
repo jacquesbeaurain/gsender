@@ -21,7 +21,10 @@
 #include <QString>
 
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -76,20 +79,56 @@ public:
     // ends that jog.
     void handle(const remote::PendantCommand& command, std::uint64_t client);
 
+    // The tool pages (Tools, Config) are the application's own view models
+    // shown on the phone: a model is bound under a name with the methods and
+    // properties a pendant may use - nothing else is reachable. The model is
+    // made on first use. A pendant that subscribes gets the model's
+    // properties as JSON now and whenever one changes; it calls the allowed
+    // methods (arguments and the result as JSON) and sets the allowed
+    // properties.
+    struct ModelBinding {
+        std::function<QObject*()> create;
+        std::set<std::string> methods;
+        std::set<std::string> writableProperties;
+    };
+    void bindModel(const std::string& name, ModelBinding binding);
+
+    // What a pendant is told about a model now (tests); empty for an unknown one.
+    std::string modelProperties(const std::string& name);
+
 Q_SIGNALS:
     void changed();  // running, clients or error
 
+private Q_SLOTS:
+    void modelChanged();  // any bound model's property notification
+
 private:
+    struct BoundModel {
+        ModelBinding binding;
+        QObject* object = nullptr;
+        std::set<std::uint64_t> subscribers;
+        std::string lastSent;
+        bool dirty = false;
+    };
+
     void scheduleState();
     void pushState();
     void releaseJog();
     void checkJogWatchdog();
+    BoundModel* boundModel(const std::string& name);
+    void subscribe(const std::string& name, std::uint64_t client);
+    void callModel(const remote::PendantCommand& command, std::uint64_t client);
+    void setModelProperty(const remote::PendantCommand& command);
+    void pushModels();
+    void dropClient(std::uint64_t client);
 
     Machine& machine_;
     Jogger& jogger_;
     std::unique_ptr<transport::RemoteServer> server_;
     QTimer* stateTimer_ = nullptr;     // coalesces bursts of changes
     QTimer* watchdogTimer_ = nullptr;  // a held jog's liveness
+    QTimer* modelTimer_ = nullptr;     // coalesces the models' changes
+    std::map<std::string, BoundModel> models_;
     std::string lastState_;
     QString host_;
     QString lastError_;
