@@ -23,25 +23,30 @@ practical knowledge needed to build, test and extend the port.
 ```
 
 **Release is the only working configuration.** The script defaults to
-`-Config release` (`ninja-release`, RelWithDebInfo against the Release
-LibPack); every build and test run while developing uses it. Do not build or
-run tests in Debug - that is reserved for a human investigating a Release
-failure (`-Config debug`, Debug LibPack), and only when asked.
+`-Config release` (`ninja-release`, RelWithDebInfo); every build and test run
+while developing uses it. There is no Debug configuration on Windows: the
+GoogleTest in `D:\repos\libs` is a Release build.
 
 - The script enters the Visual Studio developer shell itself; it works from a
   plain PowerShell. The environment is captured once into
   `build/.vsdevenv.json` and replayed afterwards (`-RefreshVsEnv` redoes it;
   a VS update invalidates it automatically). Presets: `ninja-release`,
-  `ninja-release-nopch`, `ninja-debug` (need the dev shell) and `vs-release`,
-  `vs-debug` (Visual Studio 18 2026 generator).
+  `ninja-release-nopch` (need the dev shell) and `vs-release` (Visual Studio
+  18 2026 generator).
 - Output is brief by default: compiler/linker diagnostics, test failures and a
   `phase: ok (time)` line per step. A failure without recognisable
   diagnostics prints the whole output.
 - Build trees live in `build/<preset>/`; binaries in `build/<preset>/bin/`.
-- LibPack locations come from `GS_LIBPACK_DEBUG` / `GS_LIBPACK_RELEASE`
-  (defaults in `tools/build.ps1`). **Debug builds must use the Debug LibPack**
-  (debug CRT, `Qt6*d.dll`); `cmake/GsLibPack.cmake` warns on a mismatch.
-- Tests use GoogleTest from the LibPack, discovered with
+- No LibPack. Boost, GoogleTest and SDL3 come from `GS_LIBS_DIR`
+  (`D:\repos\libs`: `boost_*`, `googletest-*`, `SDL3-*`), Qt from the official
+  install in `GS_QT_DIR` (`D:\Qt\6.11.1\msvc2022_64`). Both are cache
+  variables or environment variables, defaulted in `tools/build.ps1` and
+  resolved by `cmake/GsWindowsDeps.cmake`. Nothing is downloaded: if a
+  library is missing or does not fit, configure fails, and a new one is a
+  question for Jacques. On a new Windows machine: put those packages in a
+  libs directory (same layout), install Qt 6.11 (MSVC 2022 64-bit) with
+  Qt Quick/Controls/Svg, and set the two variables (or edit the defaults).
+- Tests use GoogleTest from `GS_LIBS_DIR`, discovered with
   `DISCOVERY_MODE PRE_TEST` so discovery runs after the runtime DLLs are
   copied next to the test executable (`gs_copy_runtime_dlls`). CTest starts
   one process per test case (3.6 s for 175 tests and growing); `-Test` runs
@@ -73,7 +78,7 @@ tools/build.sh -Config release-nopch -Test
   catches a lambda parameter named `info` inside GoogleTest's
   `INSTANTIATE_TEST_SUITE_P`. Build on both platforms when you can.
 - Gamepads use SDL3: `setup_linux.sh` installs it with the rest;
-  `build.ps1` fetches the official VC package (see Step 70). Without it the
+  `build.ps1` uses the SDL3 VC package in `GS_LIBS_DIR` (see Step 70). Without it the
   build has no gamepads (the Gamepad tool still edits profiles).
 - Serial ports are listed from sysfs on Linux; power saving is a no-op
   and audio cues beep there.
@@ -164,10 +169,8 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   `Q_EMIT`. Qt's `emit`/`signals`/`slots` macros otherwise break plain C++
   identifiers in included core headers (a method named `emit`, a parameter
   named `signals`).
-- Qt needs `libpng16`, `z` and `zstd` from the LibPack beside the executable;
-  `$<TARGET_RUNTIME_DLLS>` misses them (they are not imported targets).
-  `gs_deploy_qt_plugins()` copies them together with the `platforms/` and
-  `styles/` plugins. A test executable that exits with `0xC0000135` is missing
+- `gs_deploy_qt_plugins()` copies the `platforms/` and `styles/` plugins
+  next to the executable. A test executable that exits with `0xC0000135` is missing
   a DLL: `dumpbin /dependents` (after `tools/build.ps1` has cached the VS
   environment) finds which.
 - The offscreen platform needs `QT_QPA_FONTDIR` on Windows (the app and the
@@ -197,18 +200,18 @@ Most wall-clock time goes to reading and writing text, not to compiling:
 - `GS_TEST_SCREENSHOTS=<dir>` makes the dialog tests save what they render,
   to look at a dialog without a display.
 
-## FreeCAD LibPack facts (26.3.0 / 3.5.5, x64)
+## Windows dependency facts
 
 - Toolset is MSVC v145 (VS 2026, `cl` 14.51); Boost libraries are named
-  `*-vc145-mt[-gd]-x64-1_91`.
-- Qt 6.11.1 with Core, Gui, Widgets, Network, OpenGL, OpenGLWidgets, Svg,
-  Test, Concurrent, Quick... **No QtSerialPort, QtWebSockets, QtHttpServer,
-  QtCharts or Qt3D.** Serial I/O therefore goes through Boost.Asio.
-- Boost 1.91 (Asio, Beast, JSON, Regex, ...). Boost headers are under
-  `include/boost-1_91`; use the `Boost::headers` / `Boost::json` targets.
-- GTest/GMock are shared libraries (`GTEST_LINKED_AS_SHARED_LIBRARY=1` comes
-  with the imported target). The Debug LibPack's debug GTest DLLs have no `d`
-  suffix.
+  `*-vc145-mt[-gd]-x64-1_92`.
+- Qt 6.11.1 (official install) has more modules than the port uses, but the
+  port keeps Boost.Asio for serial I/O (see the walkthrough).
+- Boost 1.92 (Asio, Beast, JSON, Regex, ...); use the `Boost::headers` /
+  `Boost::json` targets.
+- GoogleTest is a build tree: static `lib/gtest.lib`, headers under
+  `googletest/include`. Its exported CMake config points at a missing
+  include directory, so `GsWindowsDeps.cmake` defines `GTest::gtest` and
+  `GTest::gtest_main` itself.
 - `plugins/platforms/qoffscreen.dll` is available for headless UI rendering.
 
 ## Architecture rules

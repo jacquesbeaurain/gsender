@@ -25,7 +25,7 @@ QQuickWindow* loadMainWindow(QQmlApplicationEngine& engine) {
     engine.addImageProvider(QStringLiteral("qr"), new QrProvider);
 #ifdef GS_QT_QML_DIR
     // Run from the build tree, Qt looks for its QML modules beside the copied
-    // DLLs; point it at the Qt installation's (the LibPack's on Windows).
+    // DLLs; point it at the Qt installation's (GS_QT_DIR on Windows).
     if (QDir(QStringLiteral(GS_QT_QML_DIR)).exists()) {
         engine.addImportPath(QStringLiteral(GS_QT_QML_DIR));
     }

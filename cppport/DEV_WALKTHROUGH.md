@@ -60,10 +60,11 @@ decision point worth revisiting if a touch-first UI becomes the priority.
 ## Step 2 — Build system
 
 - `CMakeLists.txt` + `CMakePresets.json` with Ninja and Visual Studio presets
-  for Debug (Debug LibPack) and RelWithDebInfo (Release LibPack).
-- `cmake/GsLibPack.cmake` adds a LibPack to `CMAKE_PREFIX_PATH`, detects a
-  Debug/Release mismatch, and maps RelWithDebInfo onto the LibPack's Release
-  imported configuration.
+  for RelWithDebInfo (originally also Debug, against a FreeCAD LibPack).
+- `cmake/GsWindowsDeps.cmake` (first `GsLibPack.cmake`, replaced by the
+  libs in `D:\repos\libs` and the official Qt) locates Boost, GoogleTest,
+  SDL3 and Qt from `GS_LIBS_DIR` / `GS_QT_DIR` and maps RelWithDebInfo onto
+  the Release imported configuration.
 - `cmake/GsCompilerOptions.cmake`: one interface target with the warning level
   and MSVC conformance flags every first-party target uses.
 - `cmake/GsRuntimeDeps.cmake`: copies imported DLLs (Boost, GTest, Qt) next
@@ -1670,8 +1671,8 @@ prefix of conda-forge packages at the LibPack's versions (Qt 6.11.1,
 Boost 1.91, GoogleTest), which `tools/setup_linux.sh` installs with a
 micromamba fetched from conda-forge; `tools/build.sh` takes build.ps1's
 options and prints the same brief output (the application tests in four
-GoogleTest shards). The CMake files needed no LibPack: without
-`GS_LIBPACK_DIR` the packages come from `CMAKE_PREFIX_PATH`, and the DLL and
+GoogleTest shards). The CMake files need no Windows libs there: without
+`GS_LIBS_DIR` the packages come from `CMAKE_PREFIX_PATH`, and the DLL and
 plugin copying is Windows-only (on Linux RPATH finds the libraries and Qt its
 plugins).
 
@@ -1823,8 +1824,7 @@ updated:
 The Qt must have Qt Quick, Quick Controls 2, Svg and Test (the Linux
 dependencies do; CMake skips the QML UI with a message where they are
 missing). On Windows the executables find Qt's QML modules through
-`GS_QT_QML_DIR` (the Qt installation's `qml` directory) - not yet tried
-against the LibPack.
+`GS_QT_QML_DIR` (the Qt installation's `qml` directory) - built against the official Qt install.
 
 ## Step 62 — QML Phase 1: the Carve page's essentials (`src/ui`)
 
@@ -2100,9 +2100,8 @@ JSON over a WebSocket; everything else keeps upstream's rules.
 Upstream (features/Gamepad, lib/gamepad, JoystickLoop, MPGJogManager) polled
 the browser's `navigator.getGamepads()` every animation frame. The LibPack
 has no Qt Gamepad, so the port reads pads with SDL3 (3.4.16; conda-forge's
-`sdl3` on Linux, the official `SDL3-devel-*-VC` package on Windows, which
-`tools/build.ps1` fetches into `%LOCALAPPDATA%\gs-deps` and checks by
-SHA-256; `GS_SDL3_DIR` points elsewhere, `-DGS_WITH_SDL3=OFF` builds
+`sdl3` on Linux, the official `SDL3-devel-*-VC` package on Windows, taken
+from `SDL3-*` in `GS_LIBS_DIR`, `D:\repos\libs`; `-DGS_WITH_SDL3=OFF` builds
 without). The logic lives in the core and is tested with fake input; the
 Qt side is a thin poller.
 
