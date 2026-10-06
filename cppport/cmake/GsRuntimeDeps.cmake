@@ -18,15 +18,14 @@ function(gs_copy_runtime_dlls target)
 endfunction()
 
 # Qt loads its platform plugin (and styles) from <exe dir>/platforms and
-# <exe dir>/styles when run from the build tree. Debug builds use the Debug
-# LibPack's "d"-suffixed plugins.
+# <exe dir>/styles when run from the build tree.
 # Deploys Qt dependencies for QML applications using windeployqt.
 function(gs_deploy_qml target qmldir)
     if(NOT WIN32 OR NOT GS_DEPLOY_QT)
         return()
     endif()
     find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt
-        HINTS "${GS_LIBPACK_BIN_DIR}" "${GS_LIBPACK_DIR}/bin")
+        HINTS "${GS_QT_BIN_DIR}" "${GS_QT_DIR}/bin")
     if(NOT WINDEPLOYQT_EXECUTABLE)
         message(WARNING "windeployqt not found; Qt dependencies will not be deployed for ${target}")
         return()
@@ -40,20 +39,12 @@ function(gs_deploy_qml target qmldir)
 endfunction()
 
 function(gs_deploy_qt_plugins target)
-    if(NOT WIN32 OR NOT GS_LIBPACK_DIR)
+    if(NOT WIN32 OR NOT GS_QT_DIR)
         return()
     endif()
-    set(plugins "${GS_LIBPACK_DIR}/plugins")
+    set(plugins "${GS_QT_DIR}/plugins")
     set(d "$<$<CONFIG:Debug>:d>")
     set(dir "$<TARGET_FILE_DIR:${target}>")
-    # Qt's own DLL dependencies are not imported targets, so
-    # $<TARGET_RUNTIME_DLLS> misses them (found with dumpbin /dependents).
-    set(bin "${GS_LIBPACK_DIR}/bin")
-    add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${bin}/libpng16${d}.dll" "${bin}/z${d}.dll" "${bin}/zstd.dll"
-            "${dir}"
-        VERBATIM)
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${dir}/platforms" "${dir}/styles"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
