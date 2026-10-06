@@ -178,7 +178,7 @@ public:
     void pause();                                // "gcode:pause"
     void resume(bool ignoreEvents = false);      // "gcode:resume"
     void testProgram();                          // "gcode:test" (check mode)
-    void updateEstimateData(std::vector<double> estimates, double estimatedTime);
+    void updateEstimateData(std::vector<float> lineTime, std::vector<std::uint8_t> lineKind, double estimatedTime);
 
     // ---- command queue ----
     void gcode(const std::vector<std::string>& commands, expr::Value context = expr::Value::object());

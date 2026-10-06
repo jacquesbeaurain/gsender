@@ -215,7 +215,7 @@ TEST_P(ControllerTest, OverridesAreRealtimeBytesSpacedBy25ms) {
     };
     for (const Case& test : cases) {
         make(GetParam());
-        c().sender().setEstimatedTime(112);
+        c().sender().setEstimateData({112}, {}, 112);
         if (test.feed) {
             c().feedOverride(test.value);
         } else {
@@ -230,7 +230,7 @@ TEST_P(ControllerTest, OverridesAreRealtimeBytesSpacedBy25ms) {
         EXPECT_EQ(immediates(), test.expected) << (test.feed ? "feed " : "spindle ") << test.value;
         if (test.feed) {
             EXPECT_EQ(c().sender().status().ovF, test.value);
-            EXPECT_NEAR(c().sender().status().remainingTime, 112 / (test.value / 100.0), 1e-9);
+            EXPECT_NEAR(c().sender().status().remainingTime, 112 / (test.value / 100.0), 0.005);
         }
     }
 }
@@ -386,7 +386,7 @@ TEST_P(ControllerTest, WizardStartWaitsForIdleAndAStepCompletesOnce) {
 }
 
 TEST_P(ControllerTest, EstimateDataReachesTheSender) {
-    c().updateEstimateData({1, 2}, 3);
+    c().updateEstimateData({1, 2}, {1, 2}, 3);
     EXPECT_EQ(c().sender().status().estimatedTime, 3);
     EXPECT_EQ(c().sender().status().remainingTime, 3);
 }

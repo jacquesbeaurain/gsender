@@ -319,13 +319,11 @@ void Controller::wireStreaming() {
         report(WorkflowChanged{workflow_.state(), std::nullopt});
         jogStreamer_->abort("workflow");
         sender_->rewind();
-        sender_->resumeCountdown();
     };
     workflow_.onStop = [this] {
         report(WorkflowChanged{workflow_.state(), std::nullopt});
         feeder_->reset();
         sender_->rewind();
-        sender_->stopCountdown();
     };
     workflow_.onPause = [this](const std::optional<HoldReason>& reason) {
         report(WorkflowChanged{workflow_.state(), std::nullopt});
@@ -342,7 +340,6 @@ void Controller::wireStreaming() {
         }
         feeder_->reset();
         sender_->unhold();
-        sender_->resumeCountdown();
         sender_->next({.timePaused = pauseTime});
     };
 }
@@ -561,6 +558,9 @@ void Controller::onStatus(const protocol::StatusReport& reported, const std::str
     }
 
     actionMask_.queryStatusReport = false;
+
+    // Advance the job's execution playhead / remaining time.
+    sender_->updateProgress(reported);
 
     // The reported position is the truth the streamer's budget estimates.
     jogStreamer_->onStatus(JogStatus{reported.activeState, runner_.state().status.mpos, reported.buf});
@@ -988,12 +988,6 @@ void Controller::queryTick() {
     if (runner_.stateRevision() != reportedStateRevision_) {
         const std::string current = reportedActiveState_;
         const std::string& now = runner_.state().status.activeState;
-        // Pause the countdown once the machine settles; restart it on motion.
-        if (workflow_.isPaused() && (current == "Idle" || current == "Hold") && sender_->isCountdownRunning()) {
-            sender_->pauseCountdown();
-        } else if (current == "Run" && !sender_->isCountdownRunning()) {
-            sender_->resumeCountdown();
-        }
         // grblHAL: a hold released with a physical/macro button resumes the job.
         if (isGrblHal() && workflow_.isPaused() && current == "Hold" && (now == "Idle" || now == "Run")) {
             timers_.clear(programResumeTimer_);
@@ -1060,6 +1054,9 @@ void Controller::queryTick() {
             senderFinishTime_ = now;
         } else if (timespan > 500) {
             senderFinishTime_ = 0;
+            if (std::string accuracy = sender_->estimateAccuracy(); !accuracy.empty()) {
+                report(JobEstimateAccuracy{std::move(accuracy)});
+            }
             stop();
         }
     }
@@ -1641,7 +1638,6 @@ void Controller::stop(bool force) {
     // The program end event fires last - after the reset on a forced stop.
     const auto finish = [this] {
         eventTrigger_.trigger(kProgramEnd);
-        sender_->stopCountdown();
     };
     if (!force) {
         finish();
@@ -1709,10 +1705,10 @@ void Controller::testProgram() {
     gcode(std::vector<std::string>{"%global.state.testWCS=modal.wcs", "$C"});
 }
 
-void Controller::updateEstimateData(std::vector<double> estimates, double estimatedTime) {
+void Controller::updateEstimateData(std::vector<float> lineTime, std::vector<std::uint8_t> lineKind,
+                                    double estimatedTime) {
     beginCommand("updateEstimateData");
-    sender_->setEstimateData(std::move(estimates));
-    sender_->setEstimatedTime(estimatedTime);
+    sender_->setEstimateData(std::move(lineTime), std::move(lineKind), estimatedTime);
 }
 
 void Controller::gcode(const std::vector<std::string>& commands, expr::Value context) {

@@ -9,6 +9,16 @@
 namespace gs::controller {
 namespace {
 
+// Matches gcode::LineKind.
+constexpr std::uint8_t kLineKindNone = 0;
+constexpr std::uint8_t kLineKindFeed = 1;
+constexpr std::uint8_t kLineKindRapid = 2;
+constexpr std::uint8_t kLineKindFixed = 3;
+
+std::size_t remainingIndexForKind(std::uint8_t kind) {
+    return kind == kLineKindRapid ? 1 : kind == kLineKindFixed ? 2 : 0;
+}
+
 // rotary.js: does the program (comments removed) mention an A word at all?
 bool isRotaryProgram(std::string_view gcode) {
     for (std::string_view line : str::splitLines(gcode)) {
@@ -89,10 +99,7 @@ bool Sender::load(std::string name, std::string gcode, expr::Value context) {
     remainingTime_ = 0;
     toolChanges_ = 0;
     estimatedTime_ = 0;
-    estimateData_.clear();
-    countdownQueue_.clear();
-    totalSentToQueue_ = 0;
-    queueDone_ = true;
+    clearEstimateData();
 
     if (onRequestData) {
         onRequestData();
@@ -122,13 +129,8 @@ void Sender::unload() {
     remainingTime_ = 0;
     toolChanges_ = 0;
     estimatedTime_ = 0;
-    estimateData_.clear();
-    countdownQueue_.clear();
-    totalSentToQueue_ = 0;
-    queueDone_ = true;
+    clearEstimateData();
     isRotaryFile_ = false;
-    timers_.clear(countdownTimer_);
-    timers_.clear(checkTimer_);
     markChanged();
 }
 
@@ -213,27 +215,14 @@ bool Sender::next(const NextOptions& options) {
         elapsedTime_ = 0;
         timePaused_ = 0;
         timeRunning_ = 0;
-        remainingTime_ = estimatedTime_ / (ovF_ / 100);
-        countdownQueue_.clear();
-        totalSentToQueue_ = 0;
-        queueDone_ = true;
-        countdownPaused_ = false;
+        lastProgressTick_ = now;
+        jobActive_ = true;
+        resetPlayhead();
+        // Start from line: everything before the start line counts as done.
         if (options.startFromLine) {
-            // Catch the estimate up for the skipped lines.
-            totalSentToQueue_ = received_;
-            for (std::size_t i = 0; i <= received_ && i < estimateData_.size(); ++i) {
-                remainingTime_ -= estimateData_[i] / (ovF_ / 100);
-            }
+            advancePlayheadTo(received_);
         }
-        // Starts the countdown, and restarts it whenever it runs dry while
-        // lines are still being acknowledged.
-        timers_.clear(checkTimer_);
-        checkTimer_ = timers_.interval(100, [this]() {
-            if (!countdownQueue_.empty() && queueDone_) {
-                queueDone_ = false;
-                fakeCountdown();
-            }
-        });
+        updateRemainingTime();
         if (onStart) {
             onStart(startTime_);
         }
@@ -255,13 +244,6 @@ bool Sender::next(const NextOptions& options) {
     process(options.isOk);
     updateElapsedTime();
 
-    if (received_ > 0 && estimatedTime_ > 0 && received_ < estimateData_.size()) {
-        for (std::size_t i = totalSentToQueue_; i <= received_; ++i) {
-            countdownQueue_.push_back(i < estimateData_.size() ? estimateData_[i] : 0.0);
-            ++totalSentToQueue_;
-        }
-    }
-
     if (received_ >= lines_.size() || options.forceEnd) {
         if (finishTime_ == 0) {
             finishTime_ = now;
@@ -272,47 +254,6 @@ bool Sender::next(const NextOptions& options) {
         }
     }
     return true;
-}
-
-void Sender::fakeCountdown() {
-    // Skip lines that take no time.
-    while (timer_ == 0) {
-        if (countdownQueue_.empty()) {
-            stopCountdown();
-            return;
-        }
-        timer_ = countdownQueue_.front() / (ovF_ / 100);
-        countdownQueue_.pop_front();
-    }
-    if (timer_ < 1) {
-        countdownTimer_ = timers_.timeout(static_cast<std::int64_t>(timer_ * 1000), [this]() {
-            countdownTimer_ = 0;
-            if (!countdownPaused_) {
-                remainingTime_ -= timer_;
-                remainingTime_ = js::stringToNumber(js::toFixed(remainingTime_, 4));
-                timer_ = 0;
-                updateElapsedTime();
-                markChanged();
-                fakeCountdown();
-            } else {
-                queueDone_ = true;
-            }
-        });
-    } else {
-        countdownTimer_ = timers_.interval(1000, [this]() {
-            if (countdownPaused_) {
-                return;
-            }
-            timer_ -= 1;
-            remainingTime_ -= 1;
-            updateElapsedTime();
-            if (timer_ < 1) {
-                timers_.clear(countdownTimer_);
-                fakeCountdown();
-            }
-            markChanged();
-        });
-    }
 }
 
 bool Sender::rewind() {
@@ -328,9 +269,10 @@ bool Sender::rewind() {
     sent_ = 0;
     received_ = 0;
     toolChanges_ = 0;
-    countdownQueue_.clear();
-    totalSentToQueue_ = 0;
-    timers_.clear(checkTimer_);
+    // remainingTime is left as-is so a finished job keeps showing 0.
+    jobActive_ = false;
+    execLine_ = 0;
+    execFrac_ = 0;
     markChanged();
     return true;
 }
@@ -365,38 +307,187 @@ int Sender::incrementToolChanges() {
     return toolChanges_;
 }
 
-void Sender::setEstimateData(std::vector<double> estimates) {
-    estimateData_ = std::move(estimates);
+void Sender::setEstimateData(std::vector<float> lineTime, std::vector<std::uint8_t> lineKind,
+                             double estimatedTime) {
+    lineTime_ = std::move(lineTime);
+    lineKind_ = std::move(lineKind);
+    lineKind_.resize(lineTime_.size(), kLineKindNone);
+    double total = 0;
+    for (const float time : lineTime_) {
+        total += time;
+    }
+    estimatedTime_ = std::isfinite(estimatedTime) && estimatedTime != 0 ? estimatedTime : total;
+    resetPlayhead();
+    if (jobActive_) {
+        advancePlayheadTo(received_);
+    }
+    updateRemainingTime();
+    markChanged();
 }
 
-void Sender::setEstimatedTime(double seconds) {
-    remainingTime_ = seconds;
-    estimatedTime_ = seconds;
+void Sender::clearEstimateData() {
+    jobActive_ = false;
+    lineTime_.clear();
+    lineKind_.clear();
+    resetPlayhead();
+    lastProgressTick_ = 0;
+    idleReports_ = 0;
 }
 
 void Sender::setOvF(double ovF) {
-    if (ovF <= 0) {
+    if (ovF > 0) {
+        ovF_ = ovF;
+        updateRemainingTime();
+    }
+}
+
+void Sender::resetPlayhead() {
+    execLine_ = 0;
+    execFrac_ = 0;
+    remaining_ = {};
+    for (std::size_t i = 0; i < lineTime_.size(); ++i) {
+        remaining_[remainingIndexForKind(lineKind_[i])] += lineTime_[i];
+    }
+}
+
+double Sender::lineRate(std::uint8_t kind) const {
+    if (kind == kLineKindFixed) {
+        return 1;
+    }
+    const double ov = kind == kLineKindRapid ? ovR_ : ovF_;
+    return std::max(ov != 0 && std::isfinite(ov) ? ov : 100, 1.0) / 100;
+}
+
+// Marks `fraction` (0..1) of line `line` executed.
+void Sender::consumeLine(std::size_t line, double fraction) {
+    const double time = line < lineTime_.size() ? lineTime_[line] : 0;
+    if (time > 0 && fraction > 0) {
+        double& left = remaining_[remainingIndexForKind(lineKind_[line])];
+        left = std::max(0.0, left - time * fraction);
+    }
+}
+
+// Jumps the playhead forward to the start of `line`.
+void Sender::advancePlayheadTo(std::size_t line) {
+    const std::size_t target = std::min(line, lines_.size());
+    if (target <= execLine_) {
         return;
     }
-    if (ovF_ != 100) {
-        remainingTime_ *= ovF_ / 100;  // back to 100%
+    consumeLine(execLine_, 1 - execFrac_);
+    for (std::size_t i = execLine_ + 1; i < target; ++i) {
+        consumeLine(i, 1);
     }
-    remainingTime_ /= ovF / 100;
-    ovF_ = ovF;
+    execLine_ = target;
+    execFrac_ = 0;
 }
 
-void Sender::resumeCountdown() {
-    countdownPaused_ = false;
+// Runs the playhead for `seconds` of wall time, never past `limit` lines.
+void Sender::advancePlayheadBy(double seconds, std::size_t limit) {
+    double dt = seconds;
+    while (dt > 0 && execLine_ < limit) {
+        const std::size_t i = execLine_;
+        const std::uint8_t kind = i < lineKind_.size() ? lineKind_[i] : kLineKindNone;
+        const double duration = (i < lineTime_.size() ? lineTime_[i] : 0) / lineRate(kind);
+        const double left = duration * (1 - execFrac_);
+        if (dt >= left) {
+            dt -= left;
+            consumeLine(i, 1 - execFrac_);
+            ++execLine_;
+            execFrac_ = 0;
+        } else {
+            const double fraction = dt / duration;
+            consumeLine(i, fraction);
+            execFrac_ += fraction;
+            dt = 0;
+        }
+    }
 }
 
-void Sender::pauseCountdown() {
-    countdownPaused_ = true;
+// The highest line that must have finished executing, from planner
+// occupancy: the last `queuedBlocks` motion lines received may still be in
+// the planner.
+std::size_t Sender::executedLowerBound(int queuedBlocks) const {
+    std::size_t line = received_;
+    int queued = queuedBlocks;
+    while (queued > 0 && line > execLine_) {
+        --line;
+        const std::uint8_t kind = line < lineKind_.size() ? lineKind_[line] : kLineKindNone;
+        if (kind != kLineKindNone && kind != kLineKindFixed) {
+            --queued;
+        }
+    }
+    return line;
 }
 
-void Sender::stopCountdown() {
-    timers_.clear(countdownTimer_);
-    queueDone_ = true;
-    remainingTime_ -= timer_;
+void Sender::updateRemainingTime() {
+    const double remaining =
+        remaining_[0] / lineRate(kLineKindFeed) + remaining_[1] / lineRate(kLineKindRapid) + remaining_[2];
+    remainingTime_ = std::max(0.0, js::toFixedNumber(remaining, 3));
+}
+
+void Sender::updateProgress(const protocol::StatusReport& status, std::int64_t now) {
+    const double dtSeconds =
+        lastProgressTick_ != 0 ? std::max<double>(0, static_cast<double>(now - lastProgressTick_) / 1000) : 0;
+    lastProgressTick_ = now;
+
+    if (status.overrides) {
+        if ((*status.overrides)[0] > 0) {
+            ovF_ = (*status.overrides)[0];
+        }
+        if ((*status.overrides)[1] > 0) {
+            ovR_ = (*status.overrides)[1];
+        }
+    }
+    const std::optional<int> planner = status.buf ? std::optional<int>(status.buf->planner) : std::nullopt;
+    if (planner && *planner > plannerSize_) {
+        plannerSize_ = *planner;
+    }
+
+    if (!jobActive_) {
+        return;
+    }
+
+    const std::size_t prevLine = execLine_;
+    const double prevRemaining = js::mathRound(remainingTime_);
+    const std::int64_t prevElapsed = elapsedTime_ / 1000;
+
+    const std::size_t received = std::min(received_, lines_.size());
+    idleReports_ = status.activeState == "Idle" ? idleReports_ + 1 : 0;
+    if (status.activeState == "Run") {
+        advancePlayheadBy(dtSeconds, received);
+    }
+    if (planner && plannerSize_ > 0) {
+        advancePlayheadTo(executedLowerBound(std::max(0, plannerSize_ - *planner)));
+    } else if (idleReports_ >= 2) {
+        // Without buffer reports, a sustained Idle means everything acked
+        // has run. A single Idle isn't enough: grbl acks lines into the
+        // planner before it starts the cycle.
+        advancePlayheadTo(received);
+    }
+    updateRemainingTime();
+
+    // Runs until the workflow stops, i.e. past the last ack while the
+    // machine finishes the buffered moves.
+    updateElapsedTime();
+
+    if (execLine_ != prevLine || js::mathRound(remainingTime_) != prevRemaining ||
+        elapsedTime_ / 1000 != prevElapsed) {
+        markChanged();
+    }
+}
+
+std::string Sender::estimateAccuracy() {
+    if (estimatedTime_ == 0 || startTime_ == 0) {
+        return {};
+    }
+    updateElapsedTime();
+    const double running = static_cast<double>(timeRunning_) / 1000;
+    const double paused = static_cast<double>(timePaused_) / 1000;
+    const double ratio = running > 0 ? estimatedTime_ / running : 0;
+    return "Job time: estimated=" + js::toFixed(estimatedTime_, 1) + "s actual=" + js::toFixed(running, 1) +
+           "s paused=" + js::toFixed(paused, 1) + "s ratio=" + js::toFixed(ratio, 3) +
+           " ovF=" + js::numberToString(ovF_) + " ovR=" + js::numberToString(ovR_) +
+           " lines=" + std::to_string(lines_.size());
 }
 
 void Sender::updateElapsedTime() {
@@ -406,7 +497,7 @@ void Sender::updateElapsedTime() {
 }
 
 std::int64_t Sender::currentLineRunning() const noexcept {
-    return static_cast<std::int64_t>(totalSentToQueue_) - static_cast<std::int64_t>(countdownQueue_.size());
+    return static_cast<std::int64_t>(execLine_);
 }
 
 SenderStatus Sender::status() const {
@@ -428,6 +519,7 @@ SenderStatus Sender::status() const {
     s.toolChanges = toolChanges_;
     s.estimatedTime = estimatedTime_;
     s.ovF = ovF_;
+    s.ovR = ovR_;
     s.isRotaryFile = isRotaryFile_;
     s.currentLineRunning = currentLineRunning();
     return s;

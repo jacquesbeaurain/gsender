@@ -234,16 +234,15 @@ them on destruction, so no callback can outlive the object that scheduled it.
 program text; the pending line that did not fit is cached and never filtered
 twice (the filter has side effects); only an `ok` frees buffer bytes; a line
 that filters to nothing is acknowledged locally. The remaining-time countdown
-(`fakeCountdown`) is ported with its timers.
+(`fakeCountdown`) was ported with its timers; Step 73 replaced it with
+upstream's execution playhead.
 
 **Feeder** and **Workflow** are straightforward; the feeder shares one context
 object across a batch so `%` assignments carry between a macro's lines, and
 tolerates re-entrant calls from its data filter.
 
-| Behaviour | gSender | Port |
-|---|---|---|
-| `isCountdownRunning()` | returned the *paused* flag, so the countdown never paused | returns `!paused` |
-| Countdown restart interval | leaked one interval per job start | replaced on restart, cleared on unload |
+(The countdown's two fixes, a pause flag read backwards and a leaked
+restart interval, went with it in Step 73.)
 
 ## Step 10 — Continuous jogging (`gs/controller/jog_streamer`, `jog_limits`)
 
@@ -2281,3 +2280,16 @@ renders, fewer spindle events on laser rasters, and the estimator rewrite.
   (upstream compares a settings signature; the port compares
   `EstimatorSettings`). Tests: `tests/core/test_motion_planner.cpp`
   (MotionPlanner.test.ts), `AppTest.TheEstimateFollowsTheMachinesSettings`.
+- **Remaining time** (upstream a440be05b, `server/lib/Sender.js`). The
+  Sender's countdown timers are gone. An execution playhead advances on
+  each status report (`Controller::onStatus` -> `Sender::updateProgress`):
+  wall time passes only in Run, never past the last acknowledged line, and
+  the planner's free blocks (`Bf:`) pull it forward; without them two Idle
+  reports in a row finish what was acknowledged. Remaining time is kept
+  split into feed, rapid and fixed seconds, scaled by the reported feed and
+  rapid overrides (`Ov:`; the UI's feed override applies at once).
+  `currentLineRunning` is the playhead. At a job's end the estimate's
+  accuracy is logged (`JobEstimateAccuracy`, qInfo in the app, where
+  upstream writes its server log). Tests: `SenderProgress.*` in
+  `tests/core/test_streaming.cpp` (SenderProgress.test.js; its Node Buffer
+  case does not apply).

@@ -22,6 +22,7 @@
 #include "gs/transport/port_list.hpp"
 
 #include <QDateTime>
+#include <QDebug>
 #include <QTimeZone>
 #include <QStandardPaths>
 #include <QDir>
@@ -618,6 +619,8 @@ void Machine::handle(const controller::ControllerEvent& event) {
                        Q_EMIT settingsChanged();
                        scheduleReestimate();
                    },
+                   // Real-world data for tuning the estimator (upstream's server log).
+                   [](const JobEstimateAccuracy& e) { qInfo().noquote() << QString::fromStdString(e.text); },
                    [this](const WorkflowChanged& e) {
                        // A job ending: note where it got to before the sender
                        // rewinds (upstream reads its last, up to 250 ms old,
@@ -1066,8 +1069,7 @@ void Machine::attachProgram() {
 void Machine::sendEstimates() {
     controller::Controller* c = controller();
     if (c && hasProgram() && !analyzing_) {
-        c->updateEstimateData(std::vector<double>(analysis_.lineTime.begin(), analysis_.lineTime.end()),
-                              analysis_.estimatedTime);
+        c->updateEstimateData(analysis_.lineTime, analysis_.lineKind, analysis_.estimatedTime);
     }
 }
 

@@ -3,7 +3,8 @@
 // The three components the controllers stream through:
 //
 //   Sender   - streams a loaded program with Grbl's character-counting (or
-//              send-response) protocol and runs the remaining-time countdown.
+//              send-response) protocol and tracks the job's remaining time
+//              with an execution playhead driven by status reports.
 //   Feeder   - one-command-at-a-time queue for console input, macros and
 //              internally generated G-code; holds on M0/M1/M6.
 //   Workflow - idle / running / paused job state.
@@ -12,8 +13,10 @@
 // events are std::function callbacks; unset callbacks are skipped.
 
 #include "gs/expr/value.hpp"
+#include "gs/protocol/types.hpp"
 #include "gs/runtime/event_loop.hpp"
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -53,6 +56,7 @@ struct SenderStatus {
     int toolChanges = 0;
     double estimatedTime = 0;  // seconds
     double ovF = 100;          // feed override used for the estimate
+    double ovR = 100;          // rapid override used for the estimate
     bool isRotaryFile = false;
     std::int64_t currentLineRunning = 0;
     bool operator==(const SenderStatus&) const = default;
@@ -101,13 +105,23 @@ public:
     bool peek();
 
     int incrementToolChanges();
-    void setEstimateData(std::vector<double> estimates);
-    void setEstimatedTime(double seconds);
+    // The estimator's seconds per sender line at 100% overrides and each
+    // line's gcode::LineKind; `estimatedTime` 0 sums the lines.
+    void setEstimateData(std::vector<float> lineTime, std::vector<std::uint8_t> lineKind = {},
+                         double estimatedTime = 0);
+    void clearEstimateData();
+    // The UI's feed override command; status reports (Ov:) take over once
+    // they arrive.
     void setOvF(double ovF);
-    void resumeCountdown();
-    void pauseCountdown();
-    void stopCountdown();
-    bool isCountdownRunning() const noexcept { return !countdownPaused_; }
+    // Advances the execution playhead from a status report: time only
+    // passes while the machine is in Run, the playhead can't pass the last
+    // acknowledged line, and planner occupancy (Bf) pulls it forward if it
+    // falls behind.
+    void updateProgress(const protocol::StatusReport& status, std::int64_t now);
+    void updateProgress(const protocol::StatusReport& status) { updateProgress(status, loop_.nowMs()); }
+    // Real-world data for tuning the estimator, at a job's end; empty
+    // without an estimate.
+    std::string estimateAccuracy();
 
     SenderStatus status() const;
 
@@ -132,7 +146,13 @@ public:
 
 private:
     void process(bool isOk);
-    void fakeCountdown();
+    void resetPlayhead();
+    double lineRate(std::uint8_t kind) const;
+    void consumeLine(std::size_t line, double fraction);
+    void advancePlayheadTo(std::size_t line);
+    void advancePlayheadBy(double seconds, std::size_t limit);
+    std::size_t executedLowerBound(int queuedBlocks) const;
+    void updateRemainingTime();
     void updateElapsedTime();
     void markChanged() noexcept { changed_ = true; }
 
@@ -164,17 +184,27 @@ private:
     double remainingTime_ = 0;
     int toolChanges_ = 0;
     double estimatedTime_ = 0;
-    std::vector<double> estimateData_;
     double ovF_ = 100;
-    std::deque<double> countdownQueue_;
-    std::size_t totalSentToQueue_ = 0;
-    bool queueDone_ = true;
-    double timer_ = 0;
-    bool countdownPaused_ = false;
+    double ovR_ = 100;
     bool isRotaryFile_ = false;
     bool changed_ = false;
-    runtime::TimerId countdownTimer_ = 0;
-    runtime::TimerId checkTimer_ = 0;
+
+    // Per sender line estimated seconds at 100% overrides, and the kind of each.
+    std::vector<float> lineTime_;
+    std::vector<std::uint8_t> lineKind_;
+    // Execution playhead: lines fully executed, plus progress through the next one.
+    std::size_t execLine_ = 0;
+    double execFrac_ = 0;
+    // Unexecuted estimated seconds at 100%, split by how overrides scale them
+    // (feed, rapid, fixed).
+    std::array<double, 3> remaining_{};
+    std::int64_t lastProgressTick_ = 0;
+    // Largest planner "blocks available" seen, i.e. the empty-buffer count.
+    int plannerSize_ = 0;
+    // Consecutive Idle status reports during a job.
+    int idleReports_ = 0;
+    // Between job start and rewind (stop/finish) - progress only tracks then.
+    bool jobActive_ = false;
 };
 
 // ---- Feeder --------------------------------------------------------------------

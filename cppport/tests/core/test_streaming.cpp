@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <optional>
+
 using namespace gs;
 using namespace gs::controller;
 
@@ -154,30 +157,187 @@ TEST(Sender, BufferNeverShrinksBelowInFlightData) {
     EXPECT_EQ(h.sender.bufferSize(), 1016);
 }
 
-TEST(Sender, CountdownFollowsEstimates) {
-    SenderHarness h(Sender::Protocol::CharacterCounting, 128);
-    h.sender.load("job", "G1 X1\nG1 X2\nG1 X3\n");
-    h.sender.setEstimateData({2.0, 3.0, 1.0});
-    h.sender.setEstimatedTime(6.0);
-    h.sender.next();
-    EXPECT_DOUBLE_EQ(h.sender.status().remainingTime, 6.0);
-    h.ok();  // received=1 queues estimates 0..1
-    h.loop.advance(100);   // the check interval starts the countdown
-    h.loop.advance(2000);  // first line's two seconds elapse
-    EXPECT_NEAR(h.sender.status().remainingTime, 4.0, 1e-9);
-    EXPECT_GE(h.sender.currentLineRunning(), 1);
+// ---- the execution playhead (server/lib/__tests__/SenderProgress.test.js) ----
+
+namespace {
+
+constexpr std::uint8_t kFeed = 1;
+constexpr std::uint8_t kRapid = 2;
+constexpr std::uint8_t kFixed = 3;
+
+// Loads a job, gives it estimates and starts streaming.
+struct ProgressHarness : SenderHarness {
+    std::int64_t t0 = 0;
+
+    ProgressHarness(std::string_view gcode, std::vector<float> lineTime, std::vector<std::uint8_t> lineKind)
+        : SenderHarness(Sender::Protocol::CharacterCounting, 128) {
+        sender.load("job.nc", std::string(gcode));
+        sender.setEstimateData(std::move(lineTime), std::move(lineKind));
+        t0 = loop.nowMs();
+        sender.next();
+    }
+
+    void ackAll(std::size_t count) {
+        while (sender.received() < count) {
+            sender.ack();
+        }
+        sender.next({.isOk = true});
+    }
+    void ackAll() { ackAll(sender.sent()); }
+
+    // A status report `seconds` after the start.
+    void report(double seconds, std::string state, std::optional<int> planner = std::nullopt,
+                std::optional<std::array<int, 3>> ov = std::nullopt) {
+        protocol::StatusReport status;
+        status.activeState = std::move(state);
+        if (planner) {
+            status.buf = protocol::BufferState{*planner, 128};
+        }
+        status.overrides = ov;
+        sender.updateProgress(status, t0 + static_cast<std::int64_t>(seconds * 1000));
+    }
+
+    double remaining() const { return sender.status().remainingTime; }
+    std::int64_t running() const { return sender.status().currentLineRunning; }
+};
+
+}  // namespace
+
+TEST(SenderProgress, SmallFilesDontCountDownAsSoonAsTheyAreBuffered) {
+    ProgressHarness h("G1 X1\nG1 X2\nG1 X3", {10, 10, 10}, {kFeed, kFeed, kFeed});
+    h.ackAll();
+    EXPECT_EQ(h.sender.received(), 3u);
+    EXPECT_EQ(h.remaining(), 30);
+    EXPECT_EQ(h.running(), 0);
+
+    h.report(5, "Run");
+    EXPECT_NEAR(h.remaining(), 25, 1e-3);
+    EXPECT_EQ(h.running(), 0);
+
+    h.report(12, "Run");
+    EXPECT_NEAR(h.remaining(), 18, 1e-3);
+    EXPECT_EQ(h.running(), 1);
 }
 
-TEST(Sender, OverrideRescalesRemainingTime) {
-    SenderHarness h;
-    h.sender.load("job", "G1 X1\n");
-    h.sender.setEstimatedTime(100);
-    h.sender.setOvF(200);
-    EXPECT_DOUBLE_EQ(h.sender.status().remainingTime, 50);
+TEST(SenderProgress, TimeDoesntPassWhileHeld) {
+    ProgressHarness h("G1 X1\nG1 X2", {10, 10}, {kFeed, kFeed});
+    h.ackAll();
+    h.report(4, "Run");
+    h.report(60, "Hold:0");
+    EXPECT_NEAR(h.remaining(), 16, 1e-3);
+    h.report(61, "Run");
+    EXPECT_NEAR(h.remaining(), 15, 1e-3);
+}
+
+TEST(SenderProgress, ThePlayheadCantPassTheLastAckedLine) {
+    ProgressHarness h("G1 X1\nG1 X2\nG1 X3", {10, 10, 10}, {kFeed, kFeed, kFeed});
+    h.ackAll(1);
+    h.report(25, "Run");
+    EXPECT_EQ(h.running(), 1);
+    EXPECT_NEAR(h.remaining(), 20, 1e-3);
+}
+
+TEST(SenderProgress, PlannerOccupancyPullsASlowPlayheadForward) {
+    ProgressHarness h("G1 X1\n(comment)\nG1 X2\nG1 X3", {10, 0, 10, 10}, {kFeed, 0, kFeed, kFeed});
+    // Learn the empty planner size (15 blocks available).
+    h.report(0, "Idle", 15);
+    h.ackAll();
+    // One block queued: only the last motion line can still be pending.
+    h.report(1, "Run", 14);
+    EXPECT_EQ(h.running(), 3);
+    EXPECT_NEAR(h.remaining(), 10, 1e-3);
+}
+
+TEST(SenderProgress, CommentLinesDontCountAsQueuedPlannerBlocks) {
+    ProgressHarness h("G1 X1\nG1 X2\n(a)\n(b)\nG1 X3", {10, 10, 0, 0, 10}, {kFeed, kFeed, 0, 0, kFeed});
+    h.report(0, "Idle", 15);
+    h.ackAll();
+    h.report(0.5, "Run", 13);
+    // Lines 1 and 4 may both still be queued, so only line 0 must be done.
+    EXPECT_EQ(h.running(), 1);
+}
+
+TEST(SenderProgress, ASingleIdleReportDoesntFinishTheJobWithoutBufferInfo) {
+    ProgressHarness h("G1 X1\nG1 X2", {10, 10}, {kFeed, kFeed});
+    h.ackAll();
+    h.report(0.2, "Idle");
+    EXPECT_EQ(h.remaining(), 20);
+    h.report(0.4, "Idle");
+    EXPECT_EQ(h.remaining(), 0);
+    EXPECT_EQ(h.running(), 2);
+}
+
+TEST(SenderProgress, FeedAndRapidOverridesScaleTheirOwnLinesOnly) {
+    ProgressHarness h("G1 X1\nG0 X2\nG4 P5", {10, 10, 5}, {kFeed, kRapid, kFixed});
+    h.ackAll();
+    h.report(0, "Run", std::nullopt, std::array<int, 3>{200, 50, 100});
+    // 10/2 + 10/0.5 + 5
+    EXPECT_NEAR(h.remaining(), 30, 1e-3);
+    // the feed line now runs at double speed
+    h.report(4, "Run");
+    EXPECT_NEAR(h.remaining(), 26, 1e-3);
+    EXPECT_EQ(h.running(), 0);
+    h.report(6, "Run");
+    EXPECT_EQ(h.running(), 1);
+}
+
+TEST(SenderProgress, AStoppedJobStopsTheClocks) {
+    ProgressHarness h("G1 X1\nG1 X2", {10, 10}, {kFeed, kFeed});
+    h.ackAll(1);
+    h.report(3, "Run");
+    h.sender.rewind();  // workflow stop
+    const SenderStatus before = h.sender.status();
+    h.report(30, "Run");
+    EXPECT_EQ(h.remaining(), before.remainingTime);
+    EXPECT_EQ(h.sender.status().elapsedTime, before.elapsedTime);
+}
+
+TEST(SenderProgress, TheFeedOverrideCommandAppliesBeforeAStatusReportConfirmsIt) {
+    ProgressHarness h("G1 X1", {10}, {kFeed});
     h.sender.setOvF(50);
-    EXPECT_DOUBLE_EQ(h.sender.status().remainingTime, 200);
+    EXPECT_NEAR(h.remaining(), 20, 1e-3);
 }
 
+TEST(SenderProgress, StartFromLineCountsEarlierLinesAsDone) {
+    SenderHarness h(Sender::Protocol::CharacterCounting, 128);
+    h.sender.load("job.nc", "G1 X1\nG1 X2\nG1 X3");
+    h.sender.setEstimateData({10, 10, 10}, {kFeed, kFeed, kFeed});
+    h.sender.setStartLine(2);
+    h.sender.next({.startFromLine = true});
+    EXPECT_NEAR(h.sender.status().remainingTime, 10, 1e-3);
+    EXPECT_EQ(h.sender.currentLineRunning(), 2);
+}
+
+TEST(SenderProgress, LineIndexesSkipBlankLinesOfAnyLineEndingLikeTheEstimator) {
+    SenderHarness h(Sender::Protocol::CharacterCounting, 128);
+    h.sender.load("job.nc", "G1 X1\r\n\r\n  \rG1 X2\r(c)\n\nG1 X3");
+    ASSERT_EQ(h.sender.total(), 4u);
+    EXPECT_EQ(h.sender.line(0), "G1 X1");
+    EXPECT_EQ(h.sender.line(1), "G1 X2");
+    EXPECT_EQ(h.sender.line(2), "(c)");
+    EXPECT_EQ(h.sender.line(3), "G1 X3");
+}
+
+TEST(SenderProgress, TheGivenEstimatedTimeWinsOverTheLinesSum) {
+    SenderHarness h(Sender::Protocol::CharacterCounting, 128);
+    h.sender.load("job.nc", "G1 X1\nG1 X2");
+    h.sender.setEstimateData({1.5F, 2.5F}, {kFeed, kRapid}, 4.5);
+    EXPECT_EQ(h.sender.status().estimatedTime, 4.5);
+    EXPECT_EQ(h.sender.status().remainingTime, 4);  // the lines' own time
+    h.sender.setEstimateData({1.5F, 2.5F});
+    EXPECT_EQ(h.sender.status().estimatedTime, 4);
+}
+
+TEST(SenderProgress, TheJobsEndReportsTheEstimatesAccuracy) {
+    ProgressHarness h("G1 X1", {10}, {kFeed});
+    h.loop.advance(20000);
+    EXPECT_EQ(h.sender.estimateAccuracy(),
+              "Job time: estimated=10.0s actual=20.0s paused=0.0s ratio=0.500 ovF=100 ovR=100 lines=1");
+    SenderHarness none;
+    none.sender.load("job.nc", "G1 X1");
+    none.sender.next();
+    EXPECT_EQ(none.sender.estimateAccuracy(), "");
+}
 TEST(Sender, PeekReportsChangesOnce) {
     SenderHarness h;
     h.sender.load("job", "G0 X1\n");

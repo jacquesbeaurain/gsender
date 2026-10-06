@@ -122,6 +122,12 @@ struct FileTypeDetected {  // "filetype"
 
 struct EstimateDataRequested {};  // "requestEstimateData"
 
+// Sender.logEstimateAccuracy(): the estimate against the job's real time,
+// at a job's end, for tuning the estimator.
+struct JobEstimateAccuracy {
+    std::string text;
+};
+
 struct WizardNext {  // "wizard:next"
     int step = 0;
     int substep = 0;
@@ -173,7 +179,7 @@ using ControllerEvent =
                  EstimateDataRequested, WizardNext, ControllerClosed, FileUnloaded, SpindleAdded,
                  SettingDescriptionsChanged, SettingAlarmsChanged, SettingGroupsChanged, SdCardFileListed,
                  SdCardJson, AtciMessage, GrblHalInfo, GrblHalAutoconfig, YModemStarted, YModemProgress,
-                 YModemCompleted, YModemFailed>;
+                 YModemCompleted, YModemFailed, JobEstimateAccuracy>;
 
 using ControllerEventSink = std::function<void(const ControllerEvent&)>;
 
