@@ -327,19 +327,26 @@ walkthrough says how each ported piece maps to upstream):
 - **Remote mode** (Step 69): ported as a pendant page rather than the whole
   web app; the Tools tab (probe, macros, spindle, coolant, rotary) and the
   Config page upstream also offered on the phone are not on it yet.
-- **The QML touch UI** (Steps 61-65): Complete. Phases 0-4 are implemented,
-  promoted to the primary `gsender` application, and the legacy widget UI
-  retired.
-
-- **ATC** (features/ATC): the Sienci ATC's wizard (Accessory Installation),
-  its controls and the SD card's ATC macro templates.
+- **ATC** (features/ATC): not started. Missing: the Accessory Installation
+  wizard (skipped in `accessory_model.cpp`), the tool table, the timeline,
+  the load-tool popover, the start validations, the keep-out config and the
+  SD card's ATC macro templates. Needs Sienci ATC hardware to verify.
 - **Plugins** (features/Plugins): upstream's JavaScript plugins do not run
   on the port (decided 2026-09-30); the port has its own QML/Wasm plugin
-  system (PLUGINS.md), unsandboxed for now.
-- **macOS serial port listing** (Windows: SetupAPI, Linux: sysfs).
+  system (PLUGINS.md), unsandboxed for now. The risk write-up is done
+  (PLUGINS.md section 9).
+- **macOS**: no build path at all (`tools/` has only `setup_linux.sh`,
+  `build.sh` and `build.ps1`) and no serial port listing (`port_list.cpp`
+  has Windows (SetupAPI) and Linux (sysfs) branches only). Needs the user's
+  decision on whether to support it.
+- **DataCollection** (PostHog usage-data consent) and **IconUpdater**
+  (update check and badge): upstream features not ported; undecided,
+  needs a skip-or-port decision.
 - **Importing `~/.sender_rc`**: the port keeps its own file (decided
   2026-09-30); a one-time import of gSender's settings is planned, not done.
 - Hardware checks only a person can do: serial connections to real Grbl
   and grblHAL boards (Windows and Linux), FTP and YMODEM uploads to a real
   card, gamepads (Step 70: real pads' ids and layouts through SDL3, stick
   jogging on a machine; the Windows SDL3 fetch).
+- CI builds Ubuntu only, so the Windows code (SetupAPI port listing, UTF-16
+  conversion, the SDL3 fetch) is never built there.
