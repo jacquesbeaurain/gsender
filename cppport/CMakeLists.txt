@@ -32,7 +32,7 @@ option(GS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(GS_USE_PCH "Precompile common standard and third-party headers" ON)
 option(GS_WITH_SDL3 "Read gamepads with SDL3 (built without: no gamepads)" ON)
 
-include(GsLibPack)
+include(GsWindowsDeps)
 include(GsCompilerOptions)
 include(GsRuntimeDeps)
 include(GsEmbed)
@@ -45,24 +45,15 @@ add_subdirectory(src/transport)
 
 if(GS_BUILD_APP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/CMakeLists.txt")
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
-    # Gamepads: SDL3 (the LibPack has no Qt Gamepad). Windows: GS_SDL3_DIR,
-    # the official SDL3-devel-*-VC package (tools/build.ps1 fetches it);
-    # Linux: the conda prefix (tools/setup_linux.sh).
+    # Gamepads: SDL3. Windows: the SDL3 package in GS_LIBS_DIR
+    # (GsWindowsDeps.cmake); Linux: the conda prefix (tools/setup_linux.sh).
     if(GS_WITH_SDL3)
-        set(GS_SDL3_DIR "$ENV{GS_SDL3_DIR}" CACHE PATH "Root of an SDL3 development package")
-        if(NOT GS_SDL3_DIR AND NOT "$ENV{GS_SDL3_DIR}" STREQUAL "")
-            # A tree configured before the package was fetched.
-            set(GS_SDL3_DIR "$ENV{GS_SDL3_DIR}" CACHE PATH "Root of an SDL3 development package" FORCE)
-        endif()
-        if(GS_SDL3_DIR)
-            list(APPEND CMAKE_PREFIX_PATH "${GS_SDL3_DIR}")
-        endif()
         find_package(SDL3 3.2 CONFIG COMPONENTS SDL3-shared)
         if(NOT SDL3_FOUND)
-            message(STATUS "SDL3 not found: built without gamepads (set GS_SDL3_DIR)")
+            message(STATUS "SDL3 not found: built without gamepads (Windows: SDL3-* in GS_LIBS_DIR)")
         elseif(TARGET SDL3::SDL3-shared)
             # The VC package sets only config-less locations, which the
-            # LibPack's config mapping (GsLibPack.cmake: RelWithDebInfo ->
+            # config mapping (GsWindowsDeps.cmake: RelWithDebInfo ->
             # Release) never falls back to: name them for Release too.
             get_target_property(_gs_sdl3_dll SDL3::SDL3-shared IMPORTED_LOCATION)
             get_target_property(_gs_sdl3_lib SDL3::SDL3-shared IMPORTED_IMPLIB)
@@ -87,7 +78,9 @@ endif()
 
 if(GS_BUILD_TESTS)
     enable_testing()
-    find_package(GTest CONFIG REQUIRED)
+    if(NOT TARGET GTest::gtest)
+        find_package(GTest CONFIG REQUIRED)
+    endif()
     include(GoogleTest)
     add_subdirectory(tests)
 endif()

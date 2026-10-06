@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Enters the Visual Studio developer environment (so Ninja finds cl.exe),
-    points the presets at the FreeCAD LibPacks and runs the requested steps.
+    locates the dependencies and runs the requested steps.
 
     Built for a fast edit-build-test loop:
       * The developer environment is captured once into build/.vsdevenv.json
@@ -14,21 +14,19 @@
       * Output is brief by default: build errors/warnings, test failures and a
         one-line summary per phase. -Full shows everything.
 
-    LibPack locations come from GS_LIBPACK_DEBUG / GS_LIBPACK_RELEASE when set,
-    otherwise from the defaults below.
+    Dependency locations come from GS_LIBS_DIR (Boost, GoogleTest, SDL3) and
+    GS_QT_DIR (Qt) when set, otherwise from the defaults below.
 
 .EXAMPLE
     ./tools/build.ps1 -Test                        # release build, run every test
     ./tools/build.ps1 -Filter 'Controller*'        # release build, run matching tests
     ./tools/build.ps1 -Target gs_core              # compile the library only
     ./tools/build.ps1 -Config release-nopch -Test  # without precompiled headers
-    ./tools/build.ps1 -Config debug -Test          # only to investigate a release failure
     ./tools/build.ps1 -CTest -TestRegex Sender     # through CTest
 #>
 param(
-    # release is the working configuration; debug only for investigating a
-    # release failure; release-nopch occasionally (see AGENTS.md).
-    [ValidateSet('release', 'debug', 'release-nopch')]
+    # release is the working configuration; release-nopch occasionally (see AGENTS.md).
+    [ValidateSet('release', 'release-nopch')]
     [string]$Config = 'release',
     [string[]]$Target,
     # Run the test executables directly (fast).
@@ -54,44 +52,11 @@ $root = Split-Path -Parent $PSScriptRoot
 if ($Filter) { $Test = $true }
 if ($TestRegex) { $CTest = $true }
 
-if (-not $env:GS_LIBPACK_DEBUG) {
-    $env:GS_LIBPACK_DEBUG = 'D:\repos\oth\FreeCADLibs\LibPack-26.3.0-v3.5.5-x64-Debug'
-}
-if (-not $env:GS_LIBPACK_RELEASE) {
-    $env:GS_LIBPACK_RELEASE = 'D:\repos\oth\FreeCADLibs\LibPack-26.3.0-v3.5.5-x64-Release'
-}
-
-# Gamepads: SDL3's official development package (the LibPack has no Qt
-# Gamepad), fetched once into %LOCALAPPDATA%\gs-deps and checked against its
-# SHA-256. GS_SDL3_DIR points elsewhere; without it the build has no gamepads.
-$Sdl3Version = '3.4.16'
-$Sdl3Sha256 = '1a784cb2a5c64d56fe7a62090fe9d242d9865f235e4ea9678f1a6ba4e693e7de'
-function Initialize-Sdl3 {
-    if ($env:GS_SDL3_DIR) { return }
-    $deps = Join-Path $env:LOCALAPPDATA 'gs-deps'
-    $dir = Join-Path $deps "SDL3-$Sdl3Version"
-    if (-not (Test-Path (Join-Path $dir 'cmake\SDL3Config.cmake'))) {
-        New-Item -ItemType Directory -Force -Path $deps | Out-Null
-        $zip = Join-Path $deps "SDL3-devel-$Sdl3Version-VC.zip"
-        $url = "https://github.com/libsdl-org/SDL/releases/download/release-$Sdl3Version/SDL3-devel-$Sdl3Version-VC.zip"
-        Write-Host "sdl3: fetching $url"
-        try {
-            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-        } catch {
-            Write-Warning "sdl3: download failed ($($_.Exception.Message)); building without gamepads"
-            return
-        }
-        $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
-        if ($hash -ne $Sdl3Sha256) {
-            Remove-Item $zip
-            throw "sdl3: $zip has SHA-256 $hash, expected $Sdl3Sha256"
-        }
-        Expand-Archive -Path $zip -DestinationPath $deps -Force
-        Remove-Item $zip
-    }
-    $env:GS_SDL3_DIR = $dir
-}
-Initialize-Sdl3
+# Dependencies (no LibPack): Boost, GoogleTest and SDL3 from GS_LIBS_DIR, Qt
+# from the official install in GS_QT_DIR (see cmake/GsWindowsDeps.cmake).
+# Nothing is downloaded.
+if (-not $env:GS_LIBS_DIR) { $env:GS_LIBS_DIR = 'D:\repos\libs' }
+if (-not $env:GS_QT_DIR) { $env:GS_QT_DIR = 'D:\Qt\6.11.1\msvc2022_64' }
 
 function Enter-VsDevEnvironment {
     if ($env:VSCMD_VER -and -not $RefreshVsEnv) { return }
