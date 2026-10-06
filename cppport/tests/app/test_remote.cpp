@@ -246,6 +246,10 @@ TEST_F(RemoteTest, ServesThePendantPage) {
     const std::string page = httpGet(static_cast<std::uint16_t>(remote_->port()), "/");
     EXPECT_NE(page.find("<title>gSender Remote</title>"), std::string::npos);
     EXPECT_NE(page.find("'/ws'"), std::string::npos);
+    // Upstream's remote routes: Control, Workflow, Tools, Info, Config.
+    for (const char* tab : {"page-control", "page-workflow", "page-tools", "page-info", "page-config"}) {
+        EXPECT_NE(page.find(tab), std::string::npos) << tab;
+    }
     EXPECT_EQ(remote_->url().toStdString(), "http://127.0.0.1:" + std::to_string(remote_->port()) + "/#/remote");
 }
 

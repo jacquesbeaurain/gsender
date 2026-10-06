@@ -1,9 +1,12 @@
 <!doctype html>
 <!--
   gSender's wireless pendant (upstream: the React app's /remote routes -
-  Control, Workflow, Info). Served by the application's remote mode; talks
-  JSON over the WebSocket at /ws (gs/remote/pendant.hpp). Self-contained:
-  a phone on a shop network may have no internet.
+  Control, Workflow, Tools, Info, Config). Served by the application's remote
+  mode; talks JSON over the WebSocket at /ws (gs/remote/pendant.hpp).
+  Control, Workflow and Info follow the `state` message; Tools and Config show
+  the application's own view models (macros, spindle, coolant, probe, rotary,
+  config), subscribed to by name and called through the application's
+  allow-list. Self-contained: a phone on a shop network may have no internet.
 -->
 <html lang="en">
 <head>
@@ -69,12 +72,43 @@ select { font: inherit; min-height: 44px; border-radius: 8px; border: 1px solid 
 .progress div { height: 100%; width: 0; background: var(--blue); }
 dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
 dt { color: var(--muted); } dd { margin: 0; font-weight: 600; text-align: right; }
-nav { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; display: grid; grid-template-columns: repeat(3, 1fr);
+nav { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; display: grid; grid-template-columns: repeat(5, 1fr);
   background: var(--card); border-top: 1px solid var(--line); z-index: 5; }
-nav button { border-radius: 0; background: none; min-height: 64px; color: var(--muted); }
+nav button { border-radius: 0; background: none; min-height: 64px; color: var(--muted); padding: 0 2px; font-size: 14px; }
 nav button.active { color: var(--blue); box-shadow: inset 0 3px 0 var(--blue); }
 section { display: flex; flex-direction: column; gap: 12px; }
 [hidden] { display: none !important; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+.card h2 + .muted { margin-top: -4px; margin-bottom: 8px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.wrap > button { flex: 1 1 30%; }
+.macro { display: flex; flex-direction: column; align-items: flex-start; text-align: left; min-height: 52px; width: 100%; }
+.macro small { font-weight: 400; color: var(--muted); }
+input[type=text], input[type=number], textarea, select.wide { font: inherit; width: 100%; min-height: 44px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 8px; user-select: text; -webkit-user-select: text; }
+textarea { font: 13px ui-monospace, Menlo, Consolas, monospace; min-height: 84px; }
+input[type=range] { width: 100%; height: 40px; }
+.switch { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.switch input { width: 24px; height: 24px; }
+.lamp { display: inline-block; min-width: 30px; padding: 4px 8px; border-radius: 6px; background: #6b7280; color: #fff; font-weight: 700; text-align: center; }
+.lamp.on { background: var(--green); }
+.chip { min-height: 36px; border-radius: 18px; padding: 0 12px; background: transparent; border: 1px solid var(--line); }
+.chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.chip:disabled { opacity: 0.4; }
+.note { color: var(--muted); font-size: 13px; }
+.cfg-head { position: sticky; top: var(--hh, 44px); z-index: 4; background: var(--bg); padding-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+.cfg-row { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.cfg-row.changed { border-left: 4px solid #eab308; background: color-mix(in srgb, #eab308 10%, var(--card)); }
+.cfg-label { font-weight: 700; }
+.cfg-title { scroll-margin-top: 150px; font-size: 22px; font-weight: 800; margin-top: 12px; }
+.cfg-sub { font-size: 16px; font-weight: 700; color: var(--muted); margin-top: 6px; }
+.cfg-key { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--btn); border-radius: 4px; padding: 1px 6px; margin-right: 6px; }
+.cfg-line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cfg-line > input { flex: 1 1 70px; min-width: 70px; }
+.cfg-bar { position: fixed; left: 0; right: 0; bottom: 64px; z-index: 5; display: flex; gap: 8px; align-items: center;
+  padding: 8px 12px; background: var(--card); border-top: 1px solid var(--line); }
+.cfg-bar span { flex: 1; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -169,18 +203,146 @@ section { display: flex; flex-direction: column; gap: 12px; }
     </div>
     <button class="danger" data-cmd="reset">Soft Reset</button>
   </section>
+
+  <!-- Tools: upstream's Probe, Macros, Spindle, Coolant and Rotary widgets -->
+  <section id="page-tools" hidden>
+    <div class="card" id="card-probe">
+      <h2>Probe</h2>
+      <div id="probeSetup" class="stack">
+        <div id="probePlateRow" class="stack" hidden>
+          <span class="muted">Touch plate</span>
+          <select class="wide" id="probePlate"></select>
+        </div>
+        <div>
+          <span class="muted">Routine</span>
+          <div class="wrap" id="probeCommands"></div>
+        </div>
+        <div id="probeToolRow" class="stack">
+          <span class="muted">Tool diameter</span>
+          <div class="row">
+            <select class="wide grow" id="probeTool"></select>
+            <button id="probeToolRemove" aria-label="Remove this diameter">Remove</button>
+          </div>
+          <div class="row">
+            <input type="number" inputmode="decimal" step="any" min="0" id="probeToolNew" placeholder="Add a diameter">
+            <button id="probeToolAdd">Add</button>
+          </div>
+        </div>
+        <div class="row">
+          <span class="grow">Plate corner: <b id="probeCorner">-</b></span>
+          <button id="probeNextCorner">Next corner</button>
+        </div>
+        <button class="primary" id="probeBegin">Probe</button>
+      </div>
+      <div id="probeRun" class="stack" hidden>
+        <div class="row"><span class="grow"><b id="probeRunTitle">Probe</b></span><span class="lamp" id="probeLamp">Probe pin</span></div>
+        <div class="note" id="probeInstructions"></div>
+        <div class="row">
+          <button class="grow" id="probeConfirm">Confirm manually</button>
+          <button class="grow go" id="probeStart">Start</button>
+        </div>
+        <button id="probeCancel">Back</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Macros</h2>
+      <div class="stack" id="macroList"></div>
+      <div class="note" id="macroEmpty">No macros yet. Add them in gSender.</div>
+    </div>
+
+    <div class="card" id="card-spindle">
+      <h2 id="spindleTitle">Spindle</h2>
+      <div class="stack">
+        <label class="switch"><input type="checkbox" id="laserMode"> Laser mode</label>
+        <div id="spindleBox" class="stack">
+          <div class="row"><span class="grow">Speed</span><b id="spindleSpeedText">0 RPM</b></div>
+          <input type="range" id="spindleSpeedRange" min="0" max="30000" step="1">
+          <input type="number" inputmode="numeric" id="spindleSpeedNumber" hidden>
+          <div class="big">
+            <button class="go" id="spindleCw">CW</button>
+            <button class="go" id="spindleCcw">CCW</button>
+            <button class="danger" id="spindleStop">Stop</button>
+          </div>
+          <div id="spindleSelectRow" class="stack" hidden>
+            <span class="muted">Spindle</span>
+            <select class="wide" id="spindleSelect"></select>
+          </div>
+        </div>
+        <div id="laserBox" class="stack" hidden>
+          <div class="row"><span class="grow">Power</span><b id="laserPowerText">0 %</b></div>
+          <input type="range" id="laserPowerRange" min="0" max="100" step="1">
+          <div class="row"><span class="grow">Test duration (s)</span><input type="number" inputmode="decimal" step="any" min="0" id="laserDuration" style="max-width:120px"></div>
+          <div class="big">
+            <button class="go" id="laserOn">Laser on</button>
+            <button class="warn" id="laserTest">Test fire</button>
+            <button class="danger" id="laserOff">Off</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Coolant</h2>
+      <div class="big">
+        <button id="coolantMist">Mist</button>
+        <button id="coolantFlood">Flood</button>
+        <button id="coolantOff">Off</button>
+      </div>
+    </div>
+
+    <div class="card" id="card-rotary">
+      <h2>Rotary</h2>
+      <div class="stack">
+        <div class="row"><span class="grow">Rotary mode: <b id="rotaryState">off</b></span><button id="rotaryToggle">Enable</button></div>
+        <button id="rotaryProbeZ" hidden>Probe Rotary Z-Axis</button>
+        <button id="rotaryAlignY" hidden>Y-Axis Alignment</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Config: upstream's Config page, every row the desktop shows -->
+  <section id="page-config" hidden>
+    <div class="cfg-head">
+      <input type="text" id="cfgSearch" placeholder="Search settings" autocomplete="off" autocapitalize="off">
+      <div class="row">
+        <select class="wide grow" id="cfgSection" aria-label="Jump to a section"></select>
+        <label class="switch"><input type="checkbox" id="cfgOnlyModified"> Changed</label>
+      </div>
+    </div>
+    <div class="stack" id="cfgRows"></div>
+    <div class="card stack" id="cfgFooter">
+      <div id="cfgProfileRow" class="stack">
+        <span class="muted">Machine profile</span>
+        <select class="wide" id="cfgProfile"></select>
+      </div>
+      <button id="cfgReload">Reload firmware settings</button>
+      <button class="warn" id="cfgRestoreFirmware">Restore firmware defaults</button>
+      <button class="danger" id="cfgRestoreApp">Restore gSender defaults</button>
+    </div>
+    <div style="height:56px"></div>
+  </section>
 </main>
+
+<div class="cfg-bar" id="cfgBar" hidden>
+  <span id="cfgPending">No changes</span>
+  <button id="cfgRevert">Revert</button>
+  <button class="primary" id="cfgApply">Apply</button>
+</div>
 
 <nav>
   <button data-page="control" class="active">Control</button>
   <button data-page="workflow">Workflow</button>
+  <button data-page="tools">Tools</button>
   <button data-page="info">Info</button>
+  <button data-page="config">Config</button>
 </nav>
 
 <script>
 (function () {
   'use strict';
   var ws = null, state = null, retry = 500, held = null, pingTimer = null;
+  var models = {}, wanted = {}, pending = {}, nextId = 1;
   var $ = function (id) { return document.getElementById(id); };
 
   function send(msg) {
@@ -189,13 +351,22 @@ section { display: flex; flex-direction: column; gap: 12px; }
 
   function connect() {
     ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
-    ws.onopen = function () { retry = 500; $('offline').classList.remove('show'); };
+    ws.onopen = function () {
+      retry = 500; $('offline').classList.remove('show');
+      Object.keys(wanted).forEach(function (name) { send({ type: 'subscribe', model: name }); });
+    };
     ws.onmessage = function (e) {
       var msg; try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (msg.type === 'state') { state = msg; render(); }
+      else if (msg.type === 'model') { models[msg.model] = msg.properties; if (wanted[msg.model]) { renderModel(msg.model); } }
+      else if (msg.type === 'result') {
+        var cb = pending[msg.id]; delete pending[msg.id];
+        if (cb) { cb(msg.ok ? msg.value : undefined, msg.ok ? null : msg.error); }
+      }
     };
     ws.onclose = function () {
       release();
+      pending = {};
       state = null; render();
       $('offline').classList.add('show');
       setTimeout(connect, retry);
@@ -246,14 +417,41 @@ section { display: flex; flex-direction: column; gap: 12px; }
     if (axis) { send({ type: 'zeroAxis', axis: axis }); }
   });
 
-  document.querySelectorAll('nav button').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('nav button').forEach(function (o) { o.classList.toggle('active', o === b); });
-      ['control', 'workflow', 'info'].forEach(function (p) {
-        $('page-' + p).hidden = p !== b.getAttribute('data-page');
-      });
+  // The models each page shows: subscribed while it is up, not otherwise.
+  var PAGE_MODELS = {
+    tools: ['probe', 'macros', 'spindle', 'coolant', 'rotary'],
+    config: ['config']
+  };
+  function showPage(page) {
+    document.querySelectorAll('nav button').forEach(function (o) {
+      o.classList.toggle('active', o.getAttribute('data-page') === page);
     });
+    ['control', 'workflow', 'tools', 'info', 'config'].forEach(function (p) {
+      $('page-' + p).hidden = p !== page;
+    });
+    $('cfgBar').hidden = page !== 'config';
+    var next = {};
+    (PAGE_MODELS[page] || []).forEach(function (name) { next[name] = true; });
+    Object.keys(wanted).forEach(function (name) {
+      if (!next[name]) { send({ type: 'unsubscribe', model: name }); delete wanted[name]; }
+    });
+    Object.keys(next).forEach(function (name) {
+      if (!wanted[name]) { wanted[name] = true; send({ type: 'subscribe', model: name }); }
+      if (models[name]) { renderModel(name); }
+    });
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.addEventListener('click', function () { showPage(b.getAttribute('data-page')); });
   });
+
+  // A call on a model; the callback gets (value, error).
+  function call(model, method, args, cb) {
+    var msg = { type: 'call', model: model, method: method, args: args || [] };
+    if (cb) { msg.id = nextId++; pending[msg.id] = cb; }
+    send(msg);
+  }
+  function setProp(model, property, value) { send({ type: 'set', model: model, property: property, value: value }); }
 
   function fixed(v, n) { return Number(v).toFixed(n); }
   function clock(ms) {
@@ -318,6 +516,492 @@ section { display: flex; flex-direction: column; gap: 12px; }
     $('feed').textContent = live ? s.feedrate + (s.metric ? ' mm/min' : ' in/min') : '-';
     $('spindle').textContent = live ? String(s.spindle) : '-';
   }
+
+  // ---------------------------------------------------------------------
+  // The model pages (Tools, Config): each renderer takes a model's
+  // properties and updates the page in place, never replacing a control the
+  // person is using.
+  // ---------------------------------------------------------------------
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function plain(html) { return new DOMParser().parseFromString(String(html), 'text/html').body.textContent; }
+  function setText(el, t) { if (el.textContent !== t) { el.textContent = t; } }
+  function setValue(el, v) { v = String(v == null ? '' : v); if (document.activeElement !== el && el.value !== v) { el.value = v; } }
+  function setChecked(el, v) { if (el.checked !== !!v) { el.checked = !!v; } }
+  function debounce(fn, ms) { var t = null; return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
+  function fill(select, options, selected) {
+    var key = JSON.stringify(options);
+    if (select.getAttribute('data-key') !== key) {
+      select.setAttribute('data-key', key);
+      select.innerHTML = options.map(function (o) { return '<option value="' + esc(o.value) + '">' + esc(o.label) + '</option>'; }).join('');
+    }
+    if (document.activeElement !== select) { select.value = String(selected); }
+  }
+
+  var renderers = {};
+  function renderModel(name) { if (renderers[name] && models[name]) { renderers[name](models[name]); } }
+
+  // ---- Macros ----
+  var macroKey = '';
+  renderers.macros = function (m) {
+    var list = (m.column1 || []).concat(m.column2 || []);
+    var key = JSON.stringify(list) + m.canRun;
+    if (key !== macroKey) {
+      macroKey = key;
+      var box = $('macroList');
+      box.innerHTML = '';
+      list.forEach(function (macro) {
+        var b = document.createElement('button');
+        b.className = 'macro';
+        b.disabled = !m.canRun;
+        b.innerHTML = '<span>' + esc(macro.name) + '</span>' + (macro.description ? '<small>' + esc(macro.description) + '</small>' : '');
+        b.addEventListener('click', function () { call('macros', 'run', [macro.id]); });
+        box.appendChild(b);
+      });
+    }
+    $('macroEmpty').hidden = list.length > 0;
+  };
+
+  // ---- Spindle and laser ----
+  renderers.spindle = function (m) {
+    var laser = !!m.laserMode, can = !!m.canClick;
+    setChecked($('laserMode'), laser);
+    $('laserMode').disabled = !can;
+    setText($('spindleTitle'), laser ? 'Laser' : 'Spindle');
+    $('spindleBox').hidden = laser;
+    $('laserBox').hidden = !laser;
+    var range = $('spindleSpeedRange'), number = $('spindleSpeedNumber');
+    range.hidden = !m.speedSlider;
+    number.hidden = !!m.speedSlider;
+    range.min = number.min = m.speedMin;
+    range.max = number.max = m.speedMax;
+    setValue(range, m.speed);
+    setValue(number, m.speed);
+    setText($('spindleSpeedText'), Math.round(m.speed) + ' RPM');
+    ['spindleCw', 'spindleCcw', 'spindleStop'].forEach(function (id) { $(id).disabled = !can; });
+    $('spindleCw').classList.toggle('sel', !!m.forward);
+    $('spindleCcw').classList.toggle('sel', !!m.reverse);
+    var several = !!m.grblHal && (m.spindles || []).length > 1;
+    $('spindleSelectRow').hidden = !several;
+    if (several) {
+      fill($('spindleSelect'), m.spindles.map(function (s) { return { value: s.id, label: s.label }; }), m.spindleId);
+      $('spindleSelect').disabled = !can;
+    }
+    setValue($('laserPowerRange'), m.power);
+    setText($('laserPowerText'), Math.round(m.power) + ' %');
+    setValue($('laserDuration'), m.duration);
+    ['laserOn', 'laserTest', 'laserOff'].forEach(function (id) { $(id).disabled = !can; });
+    $('laserOn').classList.toggle('sel', !!m.laserOn);
+  };
+  $('laserMode').addEventListener('change', function () {
+    var want = $('laserMode').checked;
+    $('laserMode').checked = !!(models.spindle && models.spindle.laserMode);
+    if (models.spindle && want !== !!models.spindle.laserMode) { call('spindle', 'toggleMode'); }
+  });
+  var sendSpeed = debounce(function (v) { call('spindle', 'setSpeed', [v]); }, 150);
+  $('spindleSpeedRange').addEventListener('input', function (e) { setText($('spindleSpeedText'), Math.round(e.target.value) + ' RPM'); sendSpeed(Number(e.target.value)); });
+  $('spindleSpeedNumber').addEventListener('change', function (e) { call('spindle', 'setSpeed', [Number(e.target.value)]); });
+  var sendPower = debounce(function (v) { call('spindle', 'setPower', [v]); }, 150);
+  $('laserPowerRange').addEventListener('input', function (e) { setText($('laserPowerText'), Math.round(e.target.value) + ' %'); sendPower(Number(e.target.value)); });
+  $('laserDuration').addEventListener('change', function (e) { call('spindle', 'setDuration', [Number(e.target.value)]); });
+  $('spindleSelect').addEventListener('change', function (e) { call('spindle', 'selectSpindle', [Number(e.target.value)]); });
+  [['spindleCw', 'startClockwise'], ['spindleCcw', 'startCounterClockwise'], ['spindleStop', 'stop'],
+   ['laserOn', 'startClockwise'], ['laserTest', 'startCounterClockwise'], ['laserOff', 'stop']].forEach(function (p) {
+    $(p[0]).addEventListener('click', function () { call('spindle', p[1]); });
+  });
+
+  // ---- Coolant ----
+  renderers.coolant = function (m) {
+    var can = !!m.canClick;
+    ['coolantMist', 'coolantFlood', 'coolantOff'].forEach(function (id) { $(id).disabled = !can; });
+    $('coolantMist').classList.toggle('sel', !!m.mistActive);
+    $('coolantFlood').classList.toggle('sel', !!m.floodActive);
+  };
+  [['coolantMist', 'mist'], ['coolantFlood', 'flood'], ['coolantOff', 'off']].forEach(function (p) {
+    $(p[0]).addEventListener('click', function () { call('coolant', p[1]); });
+  });
+
+  // ---- Rotary ----
+  renderers.rotary = function (m) {
+    setText($('rotaryState'), m.rotaryMode ? 'on' : 'off');
+    setText($('rotaryToggle'), m.rotaryMode ? 'Disable' : 'Enable');
+    $('rotaryToggle').disabled = !m.canSwitch;
+    $('rotaryProbeZ').hidden = !m.probeZAvailable;
+    $('rotaryAlignY').hidden = !m.alignYAvailable;
+    $('rotaryProbeZ').disabled = $('rotaryAlignY').disabled = !m.canClick;
+  };
+  $('rotaryToggle').addEventListener('click', function () {
+    var m = models.rotary;
+    if (!m) { return; }
+    if (m.rotaryMode) {
+      if (confirm('Return to standard (non-rotary) mode?')) { call('rotary', 'setRotaryMode', [false]); }
+    } else {
+      call('rotary', 'enableConfirmation', [], function (text) {
+        if (confirm(plain(text || 'Enter rotary mode?'))) { call('rotary', 'setRotaryMode', [true]); }
+      });
+    }
+  });
+  $('rotaryProbeZ').addEventListener('click', function () { if (confirm('Run the rotary Z probing routine?')) { call('rotary', 'runProbe', [false]); } });
+  $('rotaryAlignY').addEventListener('click', function () { if (confirm('Run the Y-axis alignment routine?')) { call('rotary', 'runProbe', [true]); } });
+
+  // ---- Probe ----
+  var probeRunning = false;
+  renderers.probe = function (m) {
+    $('probePlateRow').hidden = !m.plateSwitcher;
+    if (m.plateSwitcher) {
+      fill($('probePlate'), (m.plateTypes || []).map(function (t) { return { value: t, label: t }; }), m.plateType);
+    }
+    var key = JSON.stringify(m.commands);
+    var box = $('probeCommands');
+    if (box.getAttribute('data-key') !== key) {
+      box.setAttribute('data-key', key);
+      box.innerHTML = '';
+      (m.commands || []).forEach(function (c, i) {
+        var b = document.createElement('button');
+        b.textContent = c.label;
+        b.addEventListener('click', function () { call('probe', 'selectCommand', [i]); });
+        box.appendChild(b);
+      });
+    }
+    Array.prototype.forEach.call(box.children, function (b, i) { b.classList.toggle('sel', i === m.selected); });
+    $('probeToolRow').hidden = !m.needsTool;
+    fill($('probeTool'), (m.tools || []).map(function (t) { return { value: t.value, label: t.label }; }), m.tool);
+    var chosen = (m.tools || []).filter(function (t) { return t.value === m.tool; })[0];
+    $('probeToolRemove').disabled = !(chosen && chosen.removable);
+    setText($('probeCorner'), m.cornerName || '-');
+    var command = (m.commands || [])[m.selected];
+    setText($('probeRunTitle'), 'Probe ' + (command ? command.label : ''));
+    $('probeSetup').hidden = probeRunning;
+    $('probeRun').hidden = !probeRunning;
+    $('probeLamp').classList.toggle('on', !!m.probeTriggered);
+    setText($('probeInstructions'), m.circuitChecked
+      ? 'The circuit works. Press Start to run the probing routine.'
+      : 'Touch the probe plate to the bit to check the circuit. If it cannot be checked, confirm it manually.');
+    $('probeConfirm').hidden = !!m.circuitChecked;
+    $('probeStart').disabled = !m.circuitChecked || !m.canClick;
+    $('probeBegin').disabled = !m.canClick;
+  };
+  $('probePlate').addEventListener('change', function (e) { call('probe', 'setPlateType', [e.target.value]); });
+  $('probeTool').addEventListener('change', function (e) { call('probe', 'selectTool', [e.target.value]); });
+  $('probeToolRemove').addEventListener('click', function () { if (models.probe) { call('probe', 'removeTool', [models.probe.tool]); } });
+  $('probeToolAdd').addEventListener('click', function () {
+    var text = $('probeToolNew').value;
+    call('probe', 'addTool', [text], function (ok) {
+      if (ok) { $('probeToolNew').value = ''; } else { alert('Enter a diameter greater than zero.'); }
+    });
+  });
+  $('probeNextCorner').addEventListener('click', function () { call('probe', 'nextCorner'); });
+  $('probeBegin').addEventListener('click', function () { probeRunning = true; call('probe', 'beginRun'); renderModel('probe'); });
+  $('probeCancel').addEventListener('click', function () { probeRunning = false; renderModel('probe'); });
+  $('probeConfirm').addEventListener('click', function () { call('probe', 'confirmCircuit'); });
+  $('probeStart').addEventListener('click', function () {
+    call('probe', 'start', [], function (ok) {
+      if (ok) { probeRunning = false; renderModel('probe'); } else { alert('The probing routine could not start.'); }
+    });
+  });
+
+  // ---- Config ----
+  var cfg = { order: '', els: {} };
+  var ACTION_NAMES = {
+    jogWizard: 'Test motion', probePin: 'Probe pin', limitPins: 'Limit switches', spindleTest: 'Test spindle',
+    laserTest: 'Test laser', outputsTest: 'Accessory outputs', aJog: 'Test rotary'
+  };
+  var TESTS = {
+    spindleTest: [['For', 'M3 S1000'], ['Rev', 'M4 S1000'], ['Stop', 'M5 S0']],
+    laserTest: [['Laser On', 'G1F1 M3 S1'], ['Laser Off', 'M5 S0']],
+    outputsTest: ['M3', 'M4', 'M5', 'M7', 'M8', 'M9'].map(function (c) { return [c, c]; })
+  };
+  function rowId(e) { return e.kind + '|' + (e.key || '') + '|' + (e.label || ''); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) { e.className = cls; }
+    if (text != null) { e.textContent = text; }
+    return e;
+  }
+  function numInput(onCommit) {
+    var i = el('input');
+    i.type = 'number'; i.step = 'any'; i.setAttribute('inputmode', 'decimal');
+    i.addEventListener('change', function () { onCommit(i.value); });
+    return i;
+  }
+  function labelled(text, input) {
+    var w = el('label', 'cfg-line');
+    w.appendChild(el('span', 'muted', text));
+    w.appendChild(input);
+    return w;
+  }
+
+  // The editor for a setting; returns {node, update(entry, model)}.
+  function settingEditor(entry) {
+    var key = entry.key;
+    var node = el('div', 'stack'), upd = function () {};
+    var type = entry.kind === 'eeprom' ? 'eeprom:' + entry.editor : entry.type;
+    function simple(make, read, write) {
+      var input = make();
+      input.addEventListener('change', function () { write(input); });
+      node.appendChild(input);
+      upd = function (e, m) { read(input, e, m); };
+    }
+    switch (type) {
+      case 'bool': {
+        var box = el('label', 'switch'), cb = el('input');
+        cb.type = 'checkbox';
+        cb.addEventListener('change', function () { call('config', 'setValue', [key, cb.checked]); });
+        box.appendChild(cb); box.appendChild(el('span', null, 'On'));
+        node.appendChild(box);
+        upd = function (e) { setChecked(cb, e.value); };
+        break;
+      }
+      case 'number': case 'length': case 'speed': {
+        var line = el('div', 'cfg-line'), ni = numInput(function (t) { call('config', 'setNumber', [key, t]); });
+        line.appendChild(ni); line.appendChild(el('span', 'muted', entry.unit || ''));
+        node.appendChild(line);
+        upd = function (e) {
+          if (e.max > e.min) { ni.min = e.min; ni.max = e.max; }
+          setValue(ni, Number(e.value));
+        };
+        break;
+      }
+      case 'select':
+        simple(function () { return el('select', 'wide'); },
+          function (s, e) { fill(s, (e.options || []).map(function (o) { return { value: o, label: o }; }), e.value); },
+          function (s) { call('config', 'setValue', [key, s.value]); });
+        break;
+      case 'text': case 'path':
+        simple(function () { var t = el('input'); t.type = 'text'; t.autocomplete = 'off'; return t; },
+          function (t, e) { setValue(t, e.value || ''); },
+          function (t) { call('config', 'setValue', [key, t.value]); });
+        break;
+      case 'textarea':
+        simple(function () { var t = el('textarea'); t.placeholder = '; No commands set'; return t; },
+          function (t, e) { setValue(t, e.value || ''); },
+          function (t) { call('config', 'setValue', [key, t.value]); });
+        break;
+      case 'location': {
+        var line3 = el('div', 'cfg-line'), parts = [];
+        ['X', 'Y', 'Z'].forEach(function (axis, i) {
+          var inp = numInput(function (t) { call('config', 'setPart', [key, i, t]); });
+          parts.push(inp);
+          line3.appendChild(labelled(axis, inp));
+        });
+        node.appendChild(line3);
+        var buttons = el('div', 'row'), useBtn = el('button', 'grow', 'Use current'), goBtn = el('button', 'grow', 'Go to');
+        useBtn.addEventListener('click', function () { call('config', 'useCurrentPosition', [key]); });
+        goBtn.addEventListener('click', function () { call('config', 'goToLocation', [key]); });
+        buttons.appendChild(useBtn);
+        if (key === 'park') { buttons.appendChild(goBtn); }
+        node.appendChild(buttons);
+        upd = function (e, m) {
+          parts.forEach(function (p, i) { setValue(p, e.value ? e.value[i] : 0); });
+          useBtn.disabled = !m.connected; goBtn.disabled = !m.idle;
+        };
+        break;
+      }
+      case 'ip': {
+        var lineIp = el('div', 'cfg-line'), octets = [];
+        for (var i = 0; i < 4; ++i) {
+          (function (n) {
+            var inp = numInput(function (t) { call('config', 'setPart', [key, n, t]); });
+            inp.step = '1'; inp.min = 0; inp.max = 255;
+            octets.push(inp); lineIp.appendChild(inp);
+          })(i);
+        }
+        node.appendChild(lineIp);
+        upd = function (e) { octets.forEach(function (o, n) { setValue(o, e.value ? e.value[n] : 0); }); };
+        break;
+      }
+      case 'jog': {
+        var grid = el('div', 'cfg-line'), fields = [];
+        [['xyStep', 'XY'], ['zStep', 'Z'], ['aStep', 'A (deg)'], ['feedrate', 'Speed']].forEach(function (f) {
+          var inp = numInput(function (t) { call('config', 'setPart', [key, f[0], t]); });
+          fields.push([f[0], inp]);
+          grid.appendChild(labelled(f[1] + (f[0] === 'xyStep' || f[0] === 'zStep' ? ' (' + (entry.unit || '') + ')' : ''), inp));
+        });
+        node.appendChild(grid);
+        upd = function (e) { fields.forEach(function (f) { setValue(f[1], e.value ? e.value[f[0]] : 0); }); };
+        break;
+      }
+      case 'event': {
+        var sw = el('label', 'switch'), enabled = el('input'), commands = el('textarea');
+        enabled.type = 'checkbox'; commands.placeholder = '; No commands set';
+        var sendEvent = function () { call('config', 'setValue', [key, { enabled: enabled.checked, commands: commands.value }]); };
+        enabled.addEventListener('change', sendEvent);
+        commands.addEventListener('change', sendEvent);
+        sw.appendChild(enabled); sw.appendChild(el('span', null, 'Enabled'));
+        node.appendChild(sw); node.appendChild(commands);
+        upd = function (e) { setChecked(enabled, e.value && e.value.enabled); setValue(commands, e.value ? e.value.commands : ''); };
+        break;
+      }
+      case 'eeprom:switch': {
+        var sw2 = el('label', 'switch'), cb2 = el('input');
+        cb2.type = 'checkbox';
+        cb2.addEventListener('change', function () { call('config', 'setEeprom', [key, cb2.checked ? '1' : '0']); });
+        sw2.appendChild(cb2); sw2.appendChild(el('span', null, 'On'));
+        node.appendChild(sw2);
+        upd = function (e, m) { setChecked(cb2, Number(e.value) !== 0); cb2.disabled = !m.idle; };
+        break;
+      }
+      case 'eeprom:select': {
+        var sel = el('select', 'wide');
+        sel.addEventListener('change', function () { call('config', 'setEeprom', [key, String(sel.value)]); });
+        node.appendChild(sel);
+        upd = function (e, m) {
+          fill(sel, (e.bits || []).map(function (b, i) { return { value: i, label: b }; }), Number(e.value));
+          sel.disabled = !m.idle;
+        };
+        break;
+      }
+      case 'eeprom:bits': case 'eeprom:exclusiveBits': {
+        var chips = el('div', 'wrap'), made = '';
+        upd = function (e, m) {
+          var bitsKey = JSON.stringify(e.bits);
+          if (made !== bitsKey) {
+            made = bitsKey; chips.innerHTML = '';
+            (e.bits || []).forEach(function (b, i) {
+              var c = el('button', 'chip', b);
+              c.addEventListener('click', function () { call('config', 'toggleEepromBit', [key, i]); });
+              chips.appendChild(c);
+            });
+          }
+          var value = Number(e.value) || 0;
+          Array.prototype.forEach.call(chips.children, function (c, i) {
+            c.classList.toggle('on', ((value >> i) & 1) === 1);
+            // Exclusive: the other bits only count with the first one set.
+            c.disabled = !m.idle || (entry.editor === 'exclusiveBits' && i > 0 && (value & 1) === 0);
+          });
+        };
+        node.appendChild(chips);
+        break;
+      }
+      default: {  // eeprom text
+        var line2 = el('div', 'cfg-line'), tx = el('input');
+        tx.type = 'text'; tx.autocomplete = 'off';
+        tx.addEventListener('change', function () { call('config', 'setEeprom', [key, tx.value]); });
+        line2.appendChild(tx); line2.appendChild(el('span', 'muted', entry.unit || ''));
+        node.appendChild(line2);
+        upd = function (e, m) { setValue(tx, e.value || ''); tx.disabled = !m.idle; };
+      }
+    }
+    return { node: node, update: function (e, m) { upd(e, m); } };
+  }
+
+  function buildRow(entry) {
+    var root;
+    if (entry.kind === 'section') {
+      root = el('div', 'cfg-title', entry.label);
+      root.setAttribute('data-section', entry.label);
+      root.update = function () {};
+      return root;
+    }
+    if (entry.kind === 'subsection') {
+      root = el('div', 'cfg-sub', entry.label);
+      root.update = function () {};
+      return root;
+    }
+    root = el('div', 'cfg-row');
+    if (entry.kind === 'action') {
+      if (!ACTION_NAMES[entry.key]) { return null; }  // shortcuts and squaring need the desktop
+      root.appendChild(el('div', 'cfg-label', ACTION_NAMES[entry.key]));
+      var pins = [], line = el('div', 'wrap'), buttons = [];
+      (entry.key === 'probePin' ? ['P'] : entry.key === 'limitPins' ? ['X', 'Y', 'Z', 'A'] : []).forEach(function (pin) {
+        var lamp = el('span', 'lamp', pin); lamp.setAttribute('data-pin', pin);
+        pins.push(lamp); line.appendChild(lamp);
+      });
+      (TESTS[entry.key] || []).forEach(function (t) {
+        var b = el('button', null, t[0]);
+        b.addEventListener('click', function () { call('config', 'sendTest', [t[1]]); });
+        buttons.push([b, 'connected']); line.appendChild(b);
+      });
+      var jogs = entry.key === 'jogWizard' ? ['X', 'Y', 'Z'] : entry.key === 'aJog' ? ['A'] : [];
+      jogs.forEach(function (axis) {
+        [-10, 10].forEach(function (d) {
+          var b = el('button', null, 'Jog ' + axis + (d < 0 ? '-' : '+'));
+          b.addEventListener('click', function () { call('config', 'jogAxis', [axis, d]); });
+          buttons.push([b, 'idle']); line.appendChild(b);
+        });
+      });
+      root.appendChild(line);
+      root.update = function (e, m) {
+        pins.forEach(function (p) { p.classList.toggle('on', String(m.pinState || '').indexOf(p.getAttribute('data-pin')) >= 0); });
+        buttons.forEach(function (b) { b[0].disabled = !m[b[1]]; });
+        root.__model = m;
+      };
+      return root;
+    }
+    var head = el('div');
+    if (entry.kind === 'eeprom') { head.appendChild(el('span', 'cfg-key', entry.key)); }
+    head.appendChild(el('span', 'cfg-label', entry.label));
+    root.appendChild(head);
+    if (entry.description) { root.appendChild(el('div', 'note', entry.description)); }
+    var editor = settingEditor(entry);
+    root.appendChild(editor.node);
+    var reset = el('button', null, 'Reset to default');
+    reset.addEventListener('click', function () {
+      call('config', entry.kind === 'eeprom' ? 'resetEeprom' : 'resetValue', [entry.key]);
+    });
+    root.appendChild(reset);
+    root.update = function (e, m) {
+      root.classList.toggle('changed', !!e.changed);
+      reset.hidden = !e.modified;
+      reset.textContent = e.defaultText ? 'Reset to default (' + e.defaultText + ')' : 'Reset to default';
+      editor.update(e, m);
+    };
+    return root;
+  }
+
+  renderers.config = function (m) {
+    setValue($('cfgSearch'), m.search || '');
+    setChecked($('cfgOnlyModified'), m.onlyModified);
+    fill($('cfgSection'), [{ value: '', label: 'Jump to a section...' }].concat((m.sections || []).map(function (s) { return { value: s, label: s }; })), '');
+    $('cfgProfileRow').hidden = !(m.profiles && m.profiles.length);
+    fill($('cfgProfile'), (m.profiles || []).map(function (p) { return { value: p.id, label: p.name }; }), m.profileId);
+    var pending = m.pendingChanges || 0;
+    setText($('cfgPending'), pending ? pending + ' pending change' + (pending === 1 ? '' : 's') : 'No changes');
+    $('cfgApply').disabled = $('cfgRevert').disabled = !pending;
+    $('cfgReload').disabled = !m.connected;
+    $('cfgRestoreFirmware').disabled = !m.canRestoreFirmwareDefaults;
+
+    var rows = m.rows || [], ids = rows.map(rowId), order = ids.join('\n');
+    var box = $('cfgRows');
+    if (order !== cfg.order) {
+      cfg.order = order; cfg.els = {}; box.innerHTML = '';
+      rows.forEach(function (row, i) {
+        var node = buildRow(row);
+        if (node) { cfg.els[ids[i]] = node; box.appendChild(node); }
+      });
+    }
+    rows.forEach(function (row, i) { if (cfg.els[ids[i]]) { cfg.els[ids[i]].update(row, m); } });
+  };
+  var sendSearch = debounce(function (t) { setProp('config', 'search', t); }, 250);
+  $('cfgSearch').addEventListener('input', function (e) { sendSearch(e.target.value); });
+  $('cfgOnlyModified').addEventListener('change', function (e) { setProp('config', 'onlyModified', e.target.checked); });
+  $('cfgSection').addEventListener('change', function (e) {
+    var target = document.querySelector('[data-section="' + e.target.value.replace(/"/g, '') + '"]');
+    if (target) { target.scrollIntoView({ block: 'start' }); }
+    e.target.value = '';
+  });
+  $('cfgProfile').addEventListener('change', function (e) {
+    var id = Number(e.target.value);
+    e.target.value = String(models.config ? models.config.profileId : '');
+    if (confirm('Switch the machine profile? Settings the profile defines change when applied.')) { setProp('config', 'profileId', id); }
+  });
+  $('cfgApply').addEventListener('click', function () { call('config', 'apply'); });
+  $('cfgRevert').addEventListener('click', function () { call('config', 'revert'); });
+  $('cfgReload').addEventListener('click', function () { call('config', 'reloadFirmware'); });
+  $('cfgRestoreFirmware').addEventListener('click', function () {
+    if (confirm('Restore the board\'s settings to its defaults? This cannot be undone.')) { call('config', 'restoreFirmwareDefaults'); }
+  });
+  $('cfgRestoreApp').addEventListener('click', function () {
+    if (confirm('Restore all gSender settings to their defaults?')) { call('config', 'restoreDefaultSettings'); }
+  });
+
+  // The config page's search bar sticks right under the title bar.
+  function sizeHeader() { document.documentElement.style.setProperty('--hh', (document.querySelector('header').offsetHeight - 1) + 'px'); }
+  sizeHeader();
+  window.addEventListener('resize', sizeHeader);
 
   render();
   connect();
