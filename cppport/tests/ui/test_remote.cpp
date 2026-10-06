@@ -31,7 +31,8 @@ protected:
 };
 
 TEST_F(RemoteModelsTest, EveryToolPageHasItsModel) {
-    for (const char* name : {"macros", "spindle", "coolant", "probe", "rotary", "config"}) {
+    for (const char* name : {"macros", "spindle", "coolant", "probe", "rotary", "config", "connection", "dro", "file", "job",
+                             "status", "notifications"}) {
         EXPECT_FALSE(properties(name).isEmpty()) << name;
     }
     EXPECT_TRUE(properties("macros").contains("column1"));
@@ -87,4 +88,53 @@ TEST_F(RemoteModelsTest, TheConfigPageEditsAndAppliesSettings) {
     EXPECT_EQ(properties("config")["pendingChanges"].toInt(), 1);
     send(R"({"type":"call","model":"config","method":"revert"})");
     EXPECT_EQ(properties("config")["pendingChanges"].toInt(), 0);
+}
+
+TEST_F(RemoteModelsTest, ThePhoneLoadsAFileAndRunsTheJobControls) {
+    connectSimulator();
+    // A file chosen on the phone becomes the job (as File > Load does); a job
+    // on its way keeps it from being swapped.
+    send(R"({"type":"loadProgram","name":"phone.nc","content":"G21 G90\nG1 X10 F600\nG1 Y10\n"})");
+    ASSERT_TRUE(waitFor([&] { return machine_->hasProgram() && !machine_->isAnalyzing(); }));
+    EXPECT_EQ(machine_->programName().toStdString(), "phone.nc");
+    ASSERT_TRUE(waitFor([&] { return properties("file")["loaded"].toBool(); }));
+    EXPECT_EQ(properties("file")["lines"].toInt(), 3);
+    EXPECT_TRUE(properties("job")["canStart"].toBool());
+
+    // The overrides, as the job card sets them.
+    send(R"({"type":"call","model":"job","method":"setFeedOverride","args":[150]})");
+    ASSERT_TRUE(waitFor([&] { return properties("job")["feedOverride"].toInt() == 150; }));
+
+    // Closing it, but not loading one named by path.
+    send(R"({"type":"call","model":"file","method":"load","args":["C:/other.nc"],"id":1})");
+    EXPECT_EQ(machine_->programName().toStdString(), "phone.nc");
+    send(R"({"type":"call","model":"file","method":"close"})");
+    ASSERT_TRUE(waitFor([&] { return !machine_->hasProgram(); }));
+}
+
+TEST_F(RemoteModelsTest, ThePhoneSwitchesUnitsAndReadsTheNotifications) {
+    EXPECT_TRUE(machine_->settings().metric);
+    send(R"({"type":"call","model":"dro","method":"toggleUnits"})");
+    EXPECT_FALSE(machine_->settings().metric);
+    send(R"({"type":"call","model":"dro","method":"toggleUnits"})");
+    EXPECT_TRUE(machine_->settings().metric);
+
+    backend_->notify(QStringLiteral("Hello from the shop"), QStringLiteral("warning"));
+    ASSERT_TRUE(waitFor([&] { return !properties("notifications")["notifications"].toArray().isEmpty(); }));
+    EXPECT_EQ(properties("notifications")["notifications"].toArray()[0].toObject()["message"].toString().toStdString(),
+              "Hello from the shop");
+    send(R"({"type":"call","model":"notifications","method":"clear"})");
+    EXPECT_TRUE(properties("notifications")["notifications"].toArray().isEmpty());
+
+    // The connection list and the machine's information are there to read.
+    EXPECT_TRUE(properties("connection").contains("ports"));
+    EXPECT_TRUE(properties("status").contains("modals"));
+}
+
+TEST_F(RemoteModelsTest, ThePhoneConnectsAndDisconnects) {
+    send(R"({"type":"call","model":"connection","method":"connectTo","args":["Simulator"]})");
+    ASSERT_TRUE(waitFor([&] { return machine_->isConnected(); }));
+    ASSERT_TRUE(waitFor([&] { return properties("connection")["state"].toString() == "connected"; }));
+    send(R"({"type":"call","model":"connection","method":"disconnectMachine"})");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isConnected(); }));
 }

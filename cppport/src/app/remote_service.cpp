@@ -324,6 +324,12 @@ void RemoteService::handle(const remote::PendantCommand& command, std::uint64_t 
         case Kind::SetProperty:
             setModelProperty(command);
             return;
+        case Kind::LoadProgram:
+            // FileModel::canLoad: not while a job is on its way.
+            if (!c || c->workflow().isIdle()) {
+                machine_.loadProgram(QString::fromStdString(command.text), command.content);
+            }
+            return;
         default:
             break;
     }
