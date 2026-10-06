@@ -31,6 +31,7 @@ body { padding-bottom: 72px; user-select: none; -webkit-user-select: none; touch
 header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px;
   padding: 10px 12px; background: #1f2937; color: #f9fafb; }
 header .title { font-weight: 700; flex: 1; }
+header .hbtn { min-height: 32px; padding: 0 10px; font-size: 14px; background: #374151; color: #f9fafb; }
 .pill { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 14px; background: #6b7280; color: #fff; }
 .pill.Idle { background: var(--green); } .pill.Run, .pill.Jog, .pill.Home { background: var(--blue); }
 .pill.Hold, .pill.Door, .pill.Tool, .pill.Check { background: var(--yellow); }
@@ -114,11 +115,24 @@ input[type=range] { width: 100%; height: 40px; }
 <body>
 <header>
   <span class="title">gSender Remote</span>
+  <button id="connToggle" class="hbtn" aria-label="Connection">Port</button>
   <span id="status" class="pill">Connecting</span>
 </header>
 
 <main>
   <div id="offline" class="banner off">Reconnecting to gSender...</div>
+  <div id="connPanel" class="card stack" hidden>
+    <h2>Connection</h2>
+    <div id="connDetail" class="note"></div>
+    <div id="connPickRow" class="stack">
+      <select class="wide" id="connPort" aria-label="Port"></select>
+      <div class="row">
+        <button class="grow" id="connRefresh">Refresh</button>
+        <button class="grow go" id="connConnect">Connect</button>
+      </div>
+    </div>
+    <button class="danger" id="connDisconnect" hidden>Disconnect</button>
+  </div>
   <div id="disconnected" class="banner off">gSender is not connected to a machine.</div>
   <div id="alarm" class="banner alarm"><span class="grow" id="alarmText">Alarm</span>
     <button class="danger" data-cmd="unlock">Unlock</button></div>
@@ -131,6 +145,7 @@ input[type=range] { width: 100%; height: 40px; }
           <option>G54</option><option>G55</option><option>G56</option>
           <option>G57</option><option>G58</option><option>G59</option>
         </select>
+        <button id="unitsBtn" aria-label="Switch units">mm</button>
         <span class="grow"></span>
         <button data-cmd="home" id="home">Home</button>
         <button data-cmd="unlock">Unlock</button>
@@ -174,11 +189,19 @@ input[type=range] { width: 100%; height: 40px; }
     </div>
   </section>
 
-  <!-- Workflow: the job -->
+  <!-- Workflow: the file and the job -->
   <section id="page-workflow" hidden>
     <div class="card">
       <div class="muted">File</div>
       <div id="file" style="font-weight:700;word-break:break-all">No file loaded</div>
+      <dl id="fileInfo" hidden style="margin-top:8px"></dl>
+      <div class="row" style="margin-top:8px">
+        <button class="grow" id="fileChoose">Load file...</button>
+        <button id="fileReload" hidden>Reload</button>
+        <button id="fileClose" hidden>Close</button>
+      </div>
+      <input type="file" id="fileInput" accept=".nc,.gcode,.gc,.ngc,.tap,.txt,.cnc,.gco,.text,text/*" hidden>
+      <div class="note" id="fileNote"></div>
       <div class="progress"><div id="bar"></div></div>
       <div class="row muted"><span id="lines" class="grow">0 / 0</span><span id="remaining"></span></div>
     </div>
@@ -186,6 +209,19 @@ input[type=range] { width: 100%; height: 40px; }
       <button class="go" data-cmd="start" id="start">Start</button>
       <button class="warn" data-cmd="pause" id="pause">Pause</button>
       <button class="danger" data-cmd="stop" id="stop">Stop</button>
+    </div>
+    <div class="row">
+      <button class="grow" id="jobOutline">Outline</button>
+      <button class="grow" id="jobFromLine">Start from line...</button>
+    </div>
+    <div class="card stack">
+      <h2>Overrides</h2>
+      <div class="row"><span class="grow">Feed</span><b id="feedOvText">100%</b><button id="feedOvReset">100%</button></div>
+      <input type="range" id="feedOv" min="10" max="200" step="5">
+      <div id="spindleOvBox" class="stack">
+        <div class="row"><span class="grow" id="spindleOvLabel">Spindle</span><b id="spindleOvText">100%</b><button id="spindleOvReset">100%</button></div>
+        <input type="range" id="spindleOv" min="10" max="200" step="5">
+      </div>
     </div>
   </section>
 
@@ -200,6 +236,17 @@ input[type=range] { width: 100%; height: 40px; }
         <dt>Feed rate</dt><dd id="feed">-</dd>
         <dt>Spindle</dt><dd id="spindle">-</dd>
       </dl>
+    </div>
+    <div class="card">
+      <h2>Machine information</h2>
+      <dl id="infoModals"></dl>
+      <div class="wrap" id="infoPins" style="margin-top:8px"></div>
+      <label class="switch" style="margin-top:8px"><input type="checkbox" id="stepperLock"> Lock stepper motors</label>
+    </div>
+    <div class="card stack">
+      <div class="row"><h2 class="grow" style="margin:0">Notifications</h2><button id="notesClear">Clear</button></div>
+      <div id="notesList" class="stack"></div>
+      <div class="note" id="notesEmpty">Nothing to show.</div>
     </div>
     <button class="danger" data-cmd="reset">Soft Reset</button>
   </section>
@@ -419,19 +466,16 @@ input[type=range] { width: 100%; height: 40px; }
 
   // The models each page shows: subscribed while it is up, not otherwise.
   var PAGE_MODELS = {
+    workflow: ['job', 'file'],
     tools: ['probe', 'macros', 'spindle', 'coolant', 'rotary'],
+    info: ['status', 'notifications'],
     config: ['config']
   };
-  function showPage(page) {
-    document.querySelectorAll('nav button').forEach(function (o) {
-      o.classList.toggle('active', o.getAttribute('data-page') === page);
-    });
-    ['control', 'workflow', 'tools', 'info', 'config'].forEach(function (p) {
-      $('page-' + p).hidden = p !== page;
-    });
-    $('cfgBar').hidden = page !== 'config';
+  var currentPage = 'control', connOpen = false;
+  function syncSubscriptions() {
     var next = {};
-    (PAGE_MODELS[page] || []).forEach(function (name) { next[name] = true; });
+    (PAGE_MODELS[currentPage] || []).forEach(function (name) { next[name] = true; });
+    if (connOpen) { next.connection = true; }
     Object.keys(wanted).forEach(function (name) {
       if (!next[name]) { send({ type: 'unsubscribe', model: name }); delete wanted[name]; }
     });
@@ -439,6 +483,17 @@ input[type=range] { width: 100%; height: 40px; }
       if (!wanted[name]) { wanted[name] = true; send({ type: 'subscribe', model: name }); }
       if (models[name]) { renderModel(name); }
     });
+  }
+  function showPage(page) {
+    currentPage = page;
+    document.querySelectorAll('nav button').forEach(function (o) {
+      o.classList.toggle('active', o.getAttribute('data-page') === page);
+    });
+    ['control', 'workflow', 'tools', 'info', 'config'].forEach(function (p) {
+      $('page-' + p).hidden = p !== page;
+    });
+    $('cfgBar').hidden = page !== 'config';
+    syncSubscriptions();
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('nav button').forEach(function (b) {
@@ -482,6 +537,8 @@ input[type=range] { width: 100%; height: 40px; }
     });
     $('dro').innerHTML = html;
     $('aJog').hidden = !(s && s.hasA);
+    $('unitsBtn').textContent = s && !s.metric ? 'in' : 'mm';
+    $('unitsBtn').disabled = !live;
     if (s) {
       if (document.activeElement !== $('wcs')) { $('wcs').value = s.wcs; }
       document.querySelectorAll('[data-preset]').forEach(function (b) {
@@ -997,6 +1054,137 @@ input[type=range] { width: 100%; height: 40px; }
   $('cfgRestoreApp').addEventListener('click', function () {
     if (confirm('Restore all gSender settings to their defaults?')) { call('config', 'restoreDefaultSettings'); }
   });
+
+  // ---- Connection (the top bar's port picker) ----
+  var ETHERNET = '#ethernet';
+  renderers.connection = function (m) {
+    var live = m.state === 'connected', busy = m.state === 'connecting';
+    var port = state && state.port ? state.port : '';
+    setText($('connDetail'), live ? 'Connected' + (port ? ' to ' + port : '')
+      : busy ? 'Connecting...'
+      : m.state === 'error' ? 'Could not connect: ' + (m.error || 'unknown error')
+      : 'Not connected');
+    $('connPickRow').hidden = live || busy;
+    $('connDisconnect').hidden = !live && !busy;
+    var options = [];
+    (m.ports || []).forEach(function (p) { options.push({ value: p.path, label: p.name + (p.detail ? ' - ' + p.detail : '') }); });
+    (m.unrecognizedPorts || []).forEach(function (p) { options.push({ value: p.path, label: p.name + (p.detail ? ' - ' + p.detail : '') + ' (unrecognized)' }); });
+    if (m.ethernetAddress) { options.push({ value: ETHERNET, label: 'Ethernet - ' + m.ethernetAddress + ':' + m.ethernetPort }); }
+    if (!options.length) { options.push({ value: '', label: 'No ports found' }); }
+    fill($('connPort'), options, $('connPort').value || options[0].value);
+    $('connConnect').disabled = !$('connPort').value;
+  };
+  $('connToggle').addEventListener('click', function () {
+    connOpen = $('connPanel').hidden;
+    $('connPanel').hidden = !connOpen;
+    syncSubscriptions();
+    if (connOpen) { call('connection', 'refresh'); }
+  });
+  $('connRefresh').addEventListener('click', function () { call('connection', 'refresh'); });
+  $('connPort').addEventListener('change', function () { renderModel('connection'); });
+  $('connConnect').addEventListener('click', function () {
+    var value = $('connPort').value;
+    if (value === ETHERNET) { call('connection', 'connectEthernet'); } else if (value) { call('connection', 'connectTo', [value]); }
+  });
+  $('connDisconnect').addEventListener('click', function () { call('connection', 'disconnectMachine'); });
+
+  // ---- Units ----
+  $('unitsBtn').addEventListener('click', function () { call('dro', 'toggleUnits'); });
+
+  // ---- The file: chosen on the phone and sent over ----
+  var MAX_UPLOAD = 12 * 1024 * 1024;  // the connection takes messages up to 16 MiB
+  renderers.file = function (m) {
+    var loaded = !!m.loaded;
+    var info = $('fileInfo');
+    info.hidden = !loaded;
+    if (loaded) {
+      var rows = [['Size', m.sizeText], ['Lines', m.lines], ['Estimated time', m.estimatedTime], ['Feed rate', m.feedText],
+                  ['Spindle speed', m.speedText], ['Tools', m.toolsText]];
+      var html = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+      if (info.getAttribute('data-key') !== html) { info.setAttribute('data-key', html); info.innerHTML = html; }
+    }
+    $('fileChoose').disabled = !m.canLoad;
+    $('fileReload').hidden = !m.canReload;
+    $('fileClose').hidden = !(loaded && m.canLoad);
+    setText($('fileNote'), m.analyzing ? 'Analysing the file...' : '');
+  };
+  $('fileChoose').addEventListener('click', function () { $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) { return; }
+    if (file.size > MAX_UPLOAD) { alert('That file is too large to send from the phone (over 12 MB).'); return; }
+    var reader = new FileReader();
+    reader.onload = function () { send({ type: 'loadProgram', name: file.name, content: String(reader.result) }); };
+    reader.onerror = function () { alert('The file could not be read.'); };
+    reader.readAsText(file);
+  });
+  $('fileReload').addEventListener('click', function () { call('file', 'reload'); });
+  $('fileClose').addEventListener('click', function () { if (confirm('Close the loaded file?')) { call('file', 'close'); } });
+
+  // ---- The job: overrides, outline, start from a line ----
+  renderers.job = function (m) {
+    setText($('feedOvText'), m.feedOverride + '%');
+    setValue($('feedOv'), m.feedOverride);
+    $('spindleOvBox').hidden = !m.showSpindleOverride;
+    setText($('spindleOvLabel'), m.spindleLabel || 'Spindle');
+    setText($('spindleOvText'), m.spindleOverride + '%');
+    setValue($('spindleOv'), m.spindleOverride);
+    $('jobOutline').disabled = !m.canPrepare;
+    $('jobFromLine').disabled = !m.canPrepare;
+  };
+  var sendFeed = debounce(function (v) { call('job', 'setFeedOverride', [v]); }, 120);
+  var sendSpindleOv = debounce(function (v) { call('job', 'setSpindleOverride', [v]); }, 120);
+  $('feedOv').addEventListener('input', function (e) { setText($('feedOvText'), e.target.value + '%'); sendFeed(Number(e.target.value)); });
+  $('spindleOv').addEventListener('input', function (e) { setText($('spindleOvText'), e.target.value + '%'); sendSpindleOv(Number(e.target.value)); });
+  $('feedOvReset').addEventListener('click', function () { call('job', 'setFeedOverride', [100]); });
+  $('spindleOvReset').addEventListener('click', function () { call('job', 'setSpindleOverride', [100]); });
+  $('jobOutline').addEventListener('click', function () {
+    call('job', 'outline', [], function (error) { if (error) { alert(error); } });
+  });
+  $('jobFromLine').addEventListener('click', function () {
+    var m = models.job;
+    if (!m) { return; }
+    var lineText = prompt('Start from which line? (1-' + m.totalLines + ')', String(m.suggestedStartLine));
+    if (lineText === null) { return; }
+    call('job', 'startLine', [lineText], function (line) {
+      var heightText = prompt('Raise Z to this safe height first (' + (models.job && state && !state.metric ? 'in' : 'mm') + ')', String(m.defaultSafeHeight));
+      if (heightText === null) { return; }
+      call('job', 'safeHeight', [heightText], function (height) {
+        call('job', 'startFromLine', [line, height], function (ok) { if (!ok) { alert('The job could not start from that line.'); } });
+      });
+    });
+  });
+
+  // ---- Info: the machine and the notifications ----
+  renderers.status = function (m) {
+    var rows = [['Firmware', m.firmwareVersion || '-']].concat((m.modals || []).map(function (x) { return [x.label, x.value]; }));
+    if (m.tool >= 0) { rows.push(['Tool', m.tool]); }
+    var html = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+    var dl = $('infoModals');
+    if (dl.getAttribute('data-key') !== html) { dl.setAttribute('data-key', html); dl.innerHTML = html; }
+    var pins = (m.pins || []).map(function (p) { return '<span class="lamp' + (p.on ? ' on' : '') + '">' + esc(p.label) + '</span>'; }).join('');
+    var box = $('infoPins');
+    if (box.getAttribute('data-key') !== pins) { box.setAttribute('data-key', pins); box.innerHTML = pins; }
+    setChecked($('stepperLock'), m.stepperLocked);
+  };
+  $('stepperLock').addEventListener('change', function () {
+    var want = $('stepperLock').checked;
+    $('stepperLock').checked = !!(models.status && models.status.stepperLocked);
+    call('status', 'setStepperLock', [want]);
+  });
+  renderers.notifications = function (m) {
+    var list = m.notifications || [];
+    var html = list.map(function (n) {
+      return '<div class="cfg-row' + (n.type === 'error' ? ' changed' : '') + '"><div>' + esc(n.message) + '</div><div class="note">' +
+        esc(n.type) + ' - ' + esc(n.ago) + '</div></div>';
+    }).join('');
+    var box = $('notesList');
+    if (box.getAttribute('data-key') !== html) { box.setAttribute('data-key', html); box.innerHTML = html; }
+    $('notesEmpty').hidden = list.length > 0;
+    $('notesClear').disabled = list.length === 0;
+  };
+  $('notesClear').addEventListener('click', function () { call('notifications', 'clear'); });
 
   // The config page's search bar sticks right under the title bar.
   function sizeHeader() { document.documentElement.style.setProperty('--hh', (document.querySelector('header').offsetHeight - 1) + 'px'); }
