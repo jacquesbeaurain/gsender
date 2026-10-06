@@ -85,7 +85,8 @@ struct InterpreterOptions {
     bool autoDetectRotaryDiameter = true;
 };
 
-// Per-line S/T/M/tool-change events for the tool timeline.
+// Per-line S/T/M/tool-change events for the tool timeline. Every T and M
+// line, but only the S lines its readers can use (see recordSpindleEvent).
 struct SpindleToolEvent {
     std::optional<double> S;
     std::optional<double> T;
@@ -184,6 +185,7 @@ private:
     void setTool(std::string_view code);
     void noteUsedAxes(const Args& args);
     void recordEvent(char kind, double value);
+    void recordSpindleEvent(bool lineHasS, double lineSValue);
 
     double translate(double current, double value, bool relative, bool linear) const;
     double translateAxis(double current, const Args& args, char letter) const;
@@ -227,6 +229,11 @@ private:
     std::vector<std::string> invalidLines_;
     std::vector<std::size_t> toolChangeLines_;
     std::map<std::size_t, SpindleToolEvent> events_;
+    // recordSpindleEvent(): the first S of the file or after a tool change is
+    // still to come; the last S line (0: none) since the last kept one.
+    bool pendingFirstS_ = true;
+    std::size_t pendingLastSLine_ = 0;
+    double pendingLastSValue_ = 0;
 };
 
 }  // namespace gs::gcode

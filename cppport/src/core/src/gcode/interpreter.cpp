@@ -132,6 +132,8 @@ void Interpreter::processLine(std::string_view line) {
     }
 
     // Feed and spindle words apply to the whole line.
+    bool lineHasS = false;
+    double lineSValue = 0;
     for (const Token& token : scan_.tokens) {
         if (token.letter == 'F') {
             const double value = js::stringToNumber(token.value);
@@ -142,7 +144,8 @@ void Interpreter::processLine(std::string_view line) {
         } else if (token.letter == 'S') {
             spindleSpeeds_.add("S" + std::string(token.value));
             const double speed = js::stringToNumber(token.value);
-            recordEvent('S', speed);
+            lineHasS = true;
+            lineSValue = speed;
             if (!std::isnan(speed)) {
                 lineSpindle_ = speed;
             }
@@ -161,6 +164,7 @@ void Interpreter::processLine(std::string_view line) {
         }
     }
     dispatchGroup(groupStart, count);
+    recordSpindleEvent(lineHasS, lineSValue);
 
     auto event = events_.find(totalLines_);
     if (event != events_.end() && (event->second.T || event->second.M)) {
@@ -227,8 +231,7 @@ void Interpreter::dispatchGroup(std::size_t begin, std::size_t end) {
             recordEvent('T', code);
             setTool(lead.value);
             return;
-        case 'S':
-            recordEvent('S', code);
+        case 'S':  // recorded once per line by recordSpindleEvent()
             return;
         default:
             break;
@@ -574,6 +577,40 @@ void Interpreter::recordEvent(char kind, double value) {
             break;
         default:
             break;
+    }
+}
+
+// GCodeVirtualizer.recordSpindleEvent() (upstream bf9db3e6b): an event for
+// every S line is one per line on a laser raster. The readers need the T/M
+// lines and "the S nearest a tool change" (step_through's
+// spindleSpeedForTool), which can only be the first S in the file, an S on a
+// T/M line, or the last S before / first S after a tool change line; only
+// those are kept.
+void Interpreter::recordSpindleEvent(bool lineHasS, double lineSValue) {
+    const std::size_t line = totalLines_;
+    auto event = events_.find(line);
+    if (lineHasS) {
+        if (event != events_.end()) {
+            event->second.S = lineSValue;
+            pendingLastSLine_ = 0;
+            pendingFirstS_ = false;
+        } else if (pendingFirstS_) {
+            events_[line].S = lineSValue;
+            pendingLastSLine_ = 0;
+            pendingFirstS_ = false;
+        } else {
+            pendingLastSLine_ = line;
+            pendingLastSValue_ = lineSValue;
+        }
+    }
+    // A tool change line (M and T together, as stepperTools reads it): keep
+    // the last S before it, and record the first S after it.
+    if (event != events_.end() && event->second.M && event->second.T) {
+        if (pendingLastSLine_ > 0 && pendingLastSLine_ < line) {
+            events_[pendingLastSLine_].S = pendingLastSValue_;
+        }
+        pendingLastSLine_ = 0;
+        pendingFirstS_ = true;
     }
 }
 

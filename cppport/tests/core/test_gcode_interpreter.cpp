@@ -183,6 +183,34 @@ TEST(GcodeInterpreter, CollectsToolsFeedsSpindlesAndEvents) {
     EXPECT_EQ(events.at(2).M, 3);
 }
 
+TEST(GcodeInterpreter, KeepsOnlyTheSpindleEventsTheToolTimelineReads) {
+    // A raster's S on every line: the first S, the last S before a tool
+    // change, an S on a T/M line and the first S after a change are kept.
+    Interpreter vm = run(
+        "G1 X1 S100 F500\n"  // 1: the first S
+        "G1 X2 S200\n"
+        "G1 X3 S300\n"       // 3: the last S before the change
+        "M6 T2\n"            // 4
+        "G1 X4 S400\n"       // 5: the first S after it
+        "G1 X5 S500\n"
+        "M3 S600\n"          // 7: on an M line
+        "G1 X6 S700\n");
+    const auto& events = vm.spindleToolEvents();
+    std::vector<std::size_t> lines;
+    for (const auto& [line, event] : events) {
+        lines.push_back(line);
+    }
+    EXPECT_EQ(lines, (std::vector<std::size_t>{1, 3, 4, 5, 7}));
+    EXPECT_EQ(events.at(1).S, 100);
+    EXPECT_EQ(events.at(3).S, 300);
+    EXPECT_FALSE(events.at(4).S);
+    EXPECT_EQ(events.at(5).S, 400);
+    EXPECT_EQ(events.at(7).S, 600);
+    EXPECT_EQ(events.at(7).M, 3);
+    // Every S is still collected for the file's stats.
+    EXPECT_EQ(vm.spindleSpeeds().values().size(), 7u);
+}
+
 TEST(GcodeInterpreter, CoolantAndModalGroups) {
     Interpreter vm = run("M7\nM8\nG55 G18 G93\n");
     EXPECT_EQ(vm.modal().coolant, "M7,M8");
