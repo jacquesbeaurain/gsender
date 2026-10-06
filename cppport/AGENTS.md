@@ -24,15 +24,16 @@ practical knowledge needed to build, test and extend the port.
 
 **Release is the only working configuration.** The script defaults to
 `-Config release` (`ninja-release`, RelWithDebInfo); every build and test run
-while developing uses it. There is no Debug configuration on Windows: the
-GoogleTest in `D:\repos\libs` is a Release build.
+while developing uses it. Do not build or run tests in Debug - that is reserved for a
+human investigating a Release failure (`-Config debug`, Debug libs), and only
+when asked.
 
 - The script enters the Visual Studio developer shell itself; it works from a
   plain PowerShell. The environment is captured once into
   `build/.vsdevenv.json` and replayed afterwards (`-RefreshVsEnv` redoes it;
   a VS update invalidates it automatically). Presets: `ninja-release`,
-  `ninja-release-nopch` (need the dev shell) and `vs-release` (Visual Studio
-  18 2026 generator).
+  `ninja-release-nopch`, `ninja-debug` (need the dev shell) and `vs-release`,
+  `vs-debug` (Visual Studio 18 2026 generator).
 - Output is brief by default: compiler/linker diagnostics, test failures and a
   `phase: ok (time)` line per step. A failure without recognisable
   diagnostics prints the whole output.
@@ -208,7 +209,8 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   port keeps Boost.Asio for serial I/O (see the walkthrough).
 - Boost 1.92 (Asio, Beast, JSON, Regex, ...); use the `Boost::headers` /
   `Boost::json` targets.
-- GoogleTest is a build tree: static `lib/gtest.lib`, headers under
+- GoogleTest is a build tree: static `lib/gtest.lib` (Release; Debug in
+  `build/lib/Debug`), headers under
   `googletest/include`. Its exported CMake config points at a missing
   include directory, so `GsWindowsDeps.cmake` defines `GTest::gtest` and
   `GTest::gtest_main` itself.

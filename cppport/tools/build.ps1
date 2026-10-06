@@ -22,11 +22,13 @@
     ./tools/build.ps1 -Filter 'Controller*'        # release build, run matching tests
     ./tools/build.ps1 -Target gs_core              # compile the library only
     ./tools/build.ps1 -Config release-nopch -Test  # without precompiled headers
+    ./tools/build.ps1 -Config debug -Test          # only to investigate a release failure
     ./tools/build.ps1 -CTest -TestRegex Sender     # through CTest
 #>
 param(
-    # release is the working configuration; release-nopch occasionally (see AGENTS.md).
-    [ValidateSet('release', 'release-nopch')]
+    # release is the working configuration; debug only for investigating a
+    # release failure; release-nopch occasionally (see AGENTS.md).
+    [ValidateSet('release', 'debug', 'release-nopch')]
     [string]$Config = 'release',
     [string[]]$Target,
     # Run the test executables directly (fast).
