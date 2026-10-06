@@ -60,6 +60,17 @@ if(GS_BUILD_APP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/app/CMakeLists.txt")
         find_package(SDL3 3.2 CONFIG COMPONENTS SDL3-shared)
         if(NOT SDL3_FOUND)
             message(STATUS "SDL3 not found: built without gamepads (set GS_SDL3_DIR)")
+        elseif(TARGET SDL3::SDL3-shared)
+            # The VC package sets only config-less locations, which the
+            # LibPack's config mapping (GsLibPack.cmake: RelWithDebInfo ->
+            # Release) never falls back to: name them for Release too.
+            get_target_property(_gs_sdl3_dll SDL3::SDL3-shared IMPORTED_LOCATION)
+            get_target_property(_gs_sdl3_lib SDL3::SDL3-shared IMPORTED_IMPLIB)
+            if(_gs_sdl3_dll AND _gs_sdl3_lib)
+                set_target_properties(SDL3::SDL3-shared PROPERTIES
+                    IMPORTED_LOCATION_RELEASE "${_gs_sdl3_dll}"
+                    IMPORTED_IMPLIB_RELEASE "${_gs_sdl3_lib}")
+            endif()
         endif()
     endif()
     add_subdirectory(src/app)
