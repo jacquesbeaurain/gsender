@@ -63,21 +63,21 @@ Item {
         background: Rectangle {
             radius: 4
             color: button.enabled ? button.fill : (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])
-            border.color: Theme.gray[600]
+            border.color: (Theme.dark ? Theme.gray[400] : Theme.gray[600])
             opacity: button.pressed ? 0.85 : 1
         }
         contentItem: RowLayout {
             spacing: 4
             Icon {
                 name: button.iconName
-                color: button.enabled ? "white" : Theme.gray[600]
+                color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
                 width: 28
                 height: 28
                 Layout.alignment: Qt.AlignVCenter
             }
             Label {
                 text: button.text
-                color: button.enabled ? "white" : Theme.gray[600]
+                color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
                 font.pixelSize: Theme.fontBase
                 Layout.fillWidth: true
             }
