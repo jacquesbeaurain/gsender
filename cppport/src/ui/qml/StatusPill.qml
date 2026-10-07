@@ -114,7 +114,7 @@ Item {
         enabled: pill.model.connected
         Icon {
             anchors.centerIn: parent
-            name: pill.model.lockActive ? "FaUnlock" : "FaLock"
+            name: pill.model.lockActive ? "IoLockOpenOutline" : "IoLockClosedOutline"
             color: pill.model.lockActive ? Theme.yellow600 : Theme.gray[400]
             width: 36
             height: 36
