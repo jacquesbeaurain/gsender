@@ -21,13 +21,13 @@ AbstractButton {
 
     readonly property var variants: ({
         primary: { bg: Theme.primary, border: Theme.primary, fg: "white" },
-        secondary: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : Theme.robin[500],
-                     fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] },
+        secondary: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.robin[500],
+                     fg: Theme.dark ? Theme.contentPrimary : Theme.gray[600] },
         alt: { bg: Theme.robin[500], border: Theme.robin[500], fg: "white" },
         warning: { bg: Qt.rgba(0xbb / 255, 0x6a / 255, 0x0c / 255, 0.9), border: "#c9883d", fg: "white" },
         error: { bg: Theme.red[500], border: Theme.red[700], fg: "white" },
         success: { bg: Theme.green[500], border: Theme.green[700], fg: "white" },
-        outline: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.dark ? Theme.outline : Theme.robin[500],
+        outline: { bg: Theme.dark ? Theme.surfaceRaised : "white", border: Theme.robin[500],
                    fg: Theme.contentPrimary },
         ghost: { bg: "transparent", border: "transparent", fg: Theme.dark ? Theme.contentSecondary : Theme.gray[600] }
     })

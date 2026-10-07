@@ -12,7 +12,7 @@ ComboBox {
 
     background: Rectangle {
         radius: 6
-        color: !select.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceSunken : "white")
+        color: !select.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceRaised : "white")
         border.color: select.visualFocus || select.popup.visible ? Theme.ring : (Theme.dark ? Theme.outline : Theme.gray[300])
         border.width: 1
     }

@@ -98,11 +98,11 @@ ColumnLayout {
                         topPadding: 0
                         bottomPadding: 0
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.robin[500]
-                        background: Rectangle {   // upstream's input: white, no border
+                        color: Theme.dark ? Theme.contentPrimary : Theme.robin[500]
+                        background: Rectangle {   // upstream's input: white (raised, outlined in dark)
                             radius: 4
-                            color: Theme.dark ? Theme.surfaceSunken : "white"
-                            border.color: parent.activeFocus ? Theme.ring : "transparent"
+                            color: Theme.dark ? Theme.surfaceRaised : "white"
+                            border.color: parent.activeFocus ? Theme.ring : (Theme.dark ? Theme.outline : "transparent")
                         }
                         value: input.modelData.field === "xy" ? jog.model.xyStep
                              : input.modelData.field === "z" ? jog.model.zStep

@@ -29,7 +29,6 @@ RowLayout {
         fontSize: Theme.fontSm
         bold: true
         implicitHeight: 32
-        Layout.bottomMargin: 8
         onClicked: header.linkActivated()
     }
 }

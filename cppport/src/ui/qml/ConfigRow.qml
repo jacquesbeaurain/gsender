@@ -72,7 +72,7 @@ Item {
         x: 14
         width: parent.width - 28
         height: 1
-        color: Theme.dark ? Theme.outline : Theme.gray[300]
+        color: Theme.gray[200]
     }
     // upstream's three columns: the label, the editor, what it does.
     readonly property real innerWidth: width - 40
@@ -172,7 +172,8 @@ Item {
     // ---- gSender's settings ----
     Component {
         id: boolEditor
-        RowLayout {
+        RowLayout {   // upstream centres a switch in its column
+            Item { Layout.fillWidth: true }
             GSwitch {
                 objectName: "configValue_" + row.key
                 checked: !!row.entry.value
@@ -185,14 +186,16 @@ Item {
         id: numberEditor
         RowLayout {
             spacing: 8
+            // The unit sits inside the box, at its right (upstream's NumberSettingInput).
             NumberField {
                 objectName: "configValue_" + row.key
                 Layout.preferredWidth: 158
+                horizontalAlignment: TextInput.AlignLeft
+                suffix: row.entry.unit || ""
                 value: Number(row.entry.value)
                 decimals: row.entry.decimals !== undefined ? row.entry.decimals : 3
                 onCommitted: (text) => row.model.setNumber(row.key, text)
             }
-            Label { text: row.entry.unit || ""; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
             Item { Layout.fillWidth: true }
         }
     }
@@ -404,6 +407,7 @@ Item {
     Component {
         id: eepromSwitch
         RowLayout {
+            Item { Layout.fillWidth: true }
             GSwitch {
                 objectName: "configValue_" + row.key
                 checked: Number(row.entry.value) !== 0
@@ -470,15 +474,26 @@ Item {
         RowLayout {
             spacing: 8
             TextField {
+                id: eepromField
                 objectName: "configValue_" + row.key
-                Layout.preferredWidth: 200
+                Layout.preferredWidth: 158
                 implicitHeight: 40
-                horizontalAlignment: TextInput.AlignRight
+                // The unit sits inside the box, at its right.
+                rightPadding: eepromUnit.visible ? eepromUnit.implicitWidth + 16 : 8
                 text: row.entry.value || ""
                 enabled: row.model.idle
                 onEditingFinished: row.model.setEeprom(row.key, text)
+                Label {
+                    id: eepromUnit
+                    visible: text !== ""
+                    text: row.entry.unit || ""
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Theme.contentMuted
+                    font.pixelSize: Theme.fontXs
+                }
             }
-            Label { text: row.entry.unit || ""; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
             Item { Layout.fillWidth: true }
         }
     }

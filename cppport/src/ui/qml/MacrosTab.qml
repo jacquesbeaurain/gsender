@@ -218,7 +218,7 @@ Item {
             clip: true
             contentHeight: columns.height
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: GScrollBar {}
             RowLayout {
                 id: columns
                 width: flick.width

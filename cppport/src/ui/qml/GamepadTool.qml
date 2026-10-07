@@ -273,7 +273,7 @@ ToolPage {
                             boundsBehavior: Flickable.StopAtBounds
                             // By count, so a change keeps the table where it is.
                             model: tool.model.buttons.length
-                            ScrollBar.vertical: ScrollBar {}
+                            ScrollBar.vertical: GScrollBar {}
                             delegate: Item {
                                 id: row
                                 required property int index
@@ -724,7 +724,7 @@ ToolPage {
                         anchors.margins: 8
                         contentHeight: categories.implicitHeight
                         boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar {}
+                        ScrollBar.vertical: GScrollBar {}
                         ColumnLayout {
                             id: categories
                             width: actionList.width - 12

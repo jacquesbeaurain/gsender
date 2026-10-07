@@ -265,7 +265,7 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 37
-                color: Theme.dark ? Theme.surfaceSunken : Theme.gray[100]
+                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
                 Row {
                     anchors.fill: parent
@@ -282,7 +282,7 @@ Item {
                                 visible: tabItem.current
                                 anchors.fill: parent
                                 anchors.margins: 3
-                                color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+                                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
                             }
                             Label {
                                 anchors.centerIn: parent
@@ -310,16 +310,17 @@ Item {
                 objectName: "configList"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.bottomMargin: 117   // the scroll area ends above the profile bar
                 leftMargin: page.compact ? 8 : 40
-                rightMargin: page.compact ? 8 : 40
+                rightMargin: page.compact ? 22 : 54
                 topMargin: 16
-                bottomMargin: 96
+                bottomMargin: 16
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 cacheBuffer: 600
                 // By count: a value changing keeps the list where it is.
                 model: page.rows.length
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 onContentYChanged: page.followScroll()
                 header: Item {
                     width: list.width - list.leftMargin - list.rightMargin
@@ -330,19 +331,19 @@ Item {
                         anchors.fill: parent
                         anchors.bottomMargin: 16
                         radius: 8
-                        color: Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : "#fefce8"
-                        border.color: Theme.dark ? "#a16207" : "#fde047"
+                        color: "#fefce8"   // the notice keeps its light colours in dark mode
+                        border.color: "#fde047"
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
                             anchors.rightMargin: 16
                             spacing: 12
-                            Icon { name: "BsInfoCircleFill"; width: 16; height: 16; color: Theme.dark ? "#facc15" : "#854d0e" }
+                            Icon { name: "BsInfoCircleFill"; width: 16; height: 16; color: "#854d0e" }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.Wrap
                                 font.pixelSize: Theme.fontSm
-                                color: Theme.dark ? "#fde047" : "#854d0e"
+                                color: "#854d0e"
                                 textFormat: Text.StyledText
                                 text: qsTr("<b>Disconnected!</b> Some settings may not appear unless connected to a machine.")
                             }

@@ -22,6 +22,7 @@ Flickable {
     contentHeight: columns.implicitHeight + 112
     clip: true
     boundsBehavior: Flickable.StopAtBounds
+    ScrollBar.vertical: GScrollBar { inset: 16 }
 
     component Heading: Label {
         font.pixelSize: 30
@@ -60,8 +61,8 @@ Flickable {
     GridLayout {
         id: columns
         x: 32
-        y: 12
-        width: page.width - 100   // upstream's fixed-content-area and mr-5
+        y: 14
+        width: page.width - 68   // upstream's fixed-content-area and mr-5
         columns: page.compact ? 1 : 2
         columnSpacing: 64
         rowSpacing: 16

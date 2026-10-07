@@ -123,7 +123,7 @@ Item {
                 onCountChanged: if (following) Qt.callLater(positionViewAtEnd)
                 onHeightChanged: if (following) Qt.callLater(positionViewAtEnd)
                 Component.onCompleted: positionViewAtEnd()
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 delegate: Rectangle {
                     required property string text
                     required property string kind

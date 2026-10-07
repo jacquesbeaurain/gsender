@@ -84,7 +84,7 @@ ToolPage {
                     boundsBehavior: Flickable.StopAtBounds
                     // By count, so a change keeps the table where it is.
                     model: tool.model.rows.length
-                    ScrollBar.vertical: ScrollBar {}
+                    ScrollBar.vertical: GScrollBar {}
                     delegate: Rectangle {
                         id: row
                         required property int index

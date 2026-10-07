@@ -196,7 +196,7 @@ ToolPage {
                     boundsBehavior: Flickable.StopAtBounds
                     // By count, so state changes keep the list where it is.
                     model: tool.model.files.length
-                    ScrollBar.vertical: ScrollBar {}
+                    ScrollBar.vertical: GScrollBar {}
                     delegate: Rectangle {
                         id: fileRow
                         required property int index

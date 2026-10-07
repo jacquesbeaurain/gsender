@@ -40,7 +40,7 @@ Item {
                 clip: true
                 spacing: 6
                 model: page.model.alarms
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 delegate: RowLayout {
                     required property var modelData
                     readonly property color tone: modelData.alarm ? Theme.red[500] : "#f97316"

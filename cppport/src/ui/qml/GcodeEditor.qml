@@ -127,7 +127,7 @@ Rectangle {
                 model: editor.model
                 boundsBehavior: Flickable.StopAtBounds
                 cacheBuffer: 20 * editor.lineHeight  // OVERSCAN
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 // A tap below the lines clears the selection.
                 footer: Item {
                     width: list.width

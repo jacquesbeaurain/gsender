@@ -75,7 +75,7 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 model: page.model.jobs
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 delegate: Rectangle {
                     required property var modelData
                     required property int index

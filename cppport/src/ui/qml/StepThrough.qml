@@ -142,7 +142,7 @@ Popup {
                         clip: true
                         model: dialog.model.source
                         boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar {}
+                        ScrollBar.vertical: GScrollBar {}
                         readonly property int gutter: String(dialog.model.total).length
                         delegate: Rectangle {
                             required property int number

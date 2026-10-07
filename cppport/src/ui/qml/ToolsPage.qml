@@ -65,33 +65,38 @@ Item {
 
     Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceBase : "white" }
 
-    // The cards.
-    Flickable {
-        id: flickable
-        objectName: "toolsFlickable"
+    // The cards: the heading stays, the cards scroll under it (upstream's
+    // py-4 px-8 page, and a scroll area that ends 64 px short of the bottom).
+    ColumnLayout {
+        id: header
         visible: tools.current === ""
         anchors.fill: parent
-        contentHeight: grid.implicitHeight + header.implicitHeight + 64
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        ColumnLayout {
-            id: header
-            x: 64
-            y: 16
-            width: parent.width - 128
-            spacing: 8
-            Label { text: qsTr("Tools"); font.pixelSize: 30; font.bold: true; color: Theme.contentPrimary }
-            Label {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                text: qsTr("Tools are plugins that can be installed and used to extend the functionality of gSender. Some are built in to gSender, some are third party plugins.")
-                font.pixelSize: Theme.fontSm
-                color: Theme.contentMuted
-            }
+        anchors.leftMargin: 32
+        anchors.rightMargin: 32
+        anchors.topMargin: 16
+        anchors.bottomMargin: 63
+        spacing: 0
+        Label { text: qsTr("Tools"); font.pixelSize: 30; font.bold: true; color: Theme.contentPrimary; Layout.bottomMargin: 8 }
+        Label {
+            Layout.fillWidth: true
+            Layout.bottomMargin: 16
+            wrapMode: Text.Wrap
+            text: qsTr("Tools are plugins that can be installed and used to extend the functionality of gSender. Some are built in to gSender, some are third party plugins.")
+            font.pixelSize: Theme.fontSm
+            color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+        }
+        Flickable {
+            id: flickable
+            objectName: "toolsFlickable"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentHeight: grid.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: GScrollBar {}
             GridLayout {
                 id: grid
-                Layout.fillWidth: true
-                Layout.topMargin: 8
+                width: flickable.width - 15 - 5
                 columns: tools.width > 1024 ? 3 : 2
                 rowSpacing: 16
                 columnSpacing: 16
@@ -101,30 +106,39 @@ Item {
                         required property var modelData
                         objectName: "toolCard_" + modelData.key
                         Layout.fillWidth: true
+                        Layout.preferredWidth: 1
                         Layout.preferredHeight: 224
                         radius: Theme.radius
-                        color: cardTap.pressed ? Theme.gray[300] : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
+                        color: cardTap.pressed || cardHover.hovered ? (Theme.dark ? Theme.surfaceHover : Theme.gray[300])
+                                                                    : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
                         border.color: Theme.dark ? Theme.outline : Theme.gray[200]
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 16
-                            spacing: 12
+                            anchors.topMargin: 10
+                            anchors.bottomMargin: 13
+                            spacing: 0
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
                                 text: modelData.title
-                                font.pixelSize: Theme.fontXl
-                                font.weight: Font.DemiBold
-                                color: Theme.contentPrimary
+                                font.pixelSize: 18
+                                font.bold: true
+                                color: Theme.dark ? Theme.contentPrimary : Theme.blue[600]
                             }
-                            Label {
+                            // justify-between: the description halfway.
+                            Item {
                                 Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                wrapMode: Text.Wrap
-                                text: modelData.description
-                                font.pixelSize: Theme.fontSm
-                                color: Theme.contentMuted
+                                Layout.fillHeight: true
+                                Label {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    text: modelData.description
+                                    font.pixelSize: Theme.fontSm
+                                    color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                                }
                             }
-                            Item { Layout.fillHeight: true }
                             Icon {
                                 Layout.alignment: Qt.AlignHCenter
                                 name: modelData.icon
@@ -132,6 +146,7 @@ Item {
                                 width: 56; height: 56
                             }
                         }
+                        HoverHandler { id: cardHover }
                         TapHandler { id: cardTap; onTapped: tools.open(modelData.key) }
                     }
                 }

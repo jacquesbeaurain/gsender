@@ -46,7 +46,7 @@ Item {
                 clip: true
                 spacing: 4
                 model: page.model.tasks
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: GScrollBar {}
                 delegate: Rectangle {
                     required property var modelData
                     width: ListView.view.width

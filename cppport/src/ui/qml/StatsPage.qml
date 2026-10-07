@@ -23,8 +23,12 @@ Item {
 
     Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceBase : Theme.gray[50] }
 
+    // The scroll area ends short of the window's bottom and its scrollbar sits
+    // 32 px in (upstream's fixed-content-area).
     StackLayout {
         anchors.fill: parent
+        anchors.rightMargin: 32
+        anchors.bottomMargin: 80
         currentIndex: stats.pages.indexOf(stats.current)
         StatsOverview {
             model: stats.model
