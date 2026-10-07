@@ -16,8 +16,8 @@ Rectangle {
     property ConnectionModel model: ConnectionModel {}
     readonly property string state: model.state
 
-    implicitWidth: Math.max(250, row.implicitWidth + 32)
-    implicitHeight: 48
+    implicitWidth: 180   // upstream's w-[180px] h-10
+    implicitHeight: 40
     radius: Theme.radius
     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
     border.color: Theme.dark ? Theme.outline : Theme.gray[400]
@@ -65,22 +65,27 @@ Rectangle {
         }
         ColumnLayout {
             visible: button.state === "connected"
-            spacing: 4
+            spacing: 0
             Layout.fillWidth: true
+            // 16 px and 20 px lines, as upstream sets them.
             Label {
                 objectName: "connectionPort"
                 text: Backend.portLabel
                 font.bold: true
                 font.pixelSize: Theme.fontBase
                 color: Theme.contentPrimary
+                padding: 0
                 Layout.alignment: Qt.AlignRight
+                Layout.preferredHeight: 16
             }
             Label {
                 objectName: "connectionFirmware"
                 text: Backend.firmwareLabel
                 font.pixelSize: Theme.fontSm
                 color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                padding: 0
                 Layout.alignment: Qt.AlignRight
+                Layout.preferredHeight: 20
             }
         }
     }

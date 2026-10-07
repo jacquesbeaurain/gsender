@@ -9,8 +9,8 @@ ApplicationWindow {
     id: window
     objectName: "mainWindow"
 
-    width: 1400
-    height: 900
+    width: 1280
+    height: 800
     visible: true
     title: qsTr("gSender")
     color: Theme.dark ? Theme.surfaceBase : "white"
@@ -53,7 +53,7 @@ ApplicationWindow {
             NavRail {
                 id: rail
                 Layout.fillHeight: true
-                Layout.preferredWidth: Math.max(56, Math.min(70, window.width * 0.05))
+                Layout.preferredWidth: 61   // upstream's w-[60px] and its edge
             }
             StackLayout {
                 objectName: "pages"

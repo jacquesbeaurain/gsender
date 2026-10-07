@@ -13,7 +13,7 @@ Item {
     property bool active: false
     signal clicked()
 
-    implicitHeight: 92
+    implicitHeight: 86
 
     Rectangle {
         anchors.fill: parent
@@ -55,15 +55,15 @@ Item {
             visible: link.icon !== ""
             name: link.icon
             color: link.active ? Theme.blue[600] : (Theme.dark ? Theme.contentMuted : Theme.gray[600])
-            width: 26
-            height: 26
+            width: 24
+            height: 24
         }
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: link.image.toString() !== ""
             source: link.image
-            sourceSize.height: 48
-            height: 48
+            sourceSize.height: 76
+            height: 76
             fillMode: Image.PreserveAspectFit
         }
         Label {

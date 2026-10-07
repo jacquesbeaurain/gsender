@@ -79,14 +79,20 @@ Item {
     Rectangle {
         objectName: "machineInfoButton"
         anchors.right: parent.left
-        anchors.rightMargin: 12
+        anchors.rightMargin: 24
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: -6
-        width: Theme.touchTarget
-        height: Theme.touchTarget - 8
+        width: 24
+        height: 24
         radius: Theme.radiusSmall
         color: "transparent"
-        Icon { anchors.centerIn: parent; name: "MdInfoOutline"; color: Theme.contentMuted; width: 26; height: 26 }
+        Image {
+            anchors.fill: parent
+            source: "qrc:/about/minfo.svg"
+            sourceSize.width: 48
+            sourceSize.height: 48
+            opacity: Theme.dark ? 0.8 : 1
+        }
         TapHandler { onTapped: machineInfo.opened ? machineInfo.close() : machineInfo.open() }
         MachineInfoPopup {
             id: machineInfo
@@ -99,19 +105,19 @@ Item {
     Rectangle {
         objectName: "lockButton"
         anchors.left: parent.right
-        anchors.leftMargin: 12
+        anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -6
-        width: Theme.touchTarget
-        height: Theme.touchTarget - 8
+        anchors.verticalCenterOffset: -4
+        width: 36
+        height: 36
         color: "transparent"
         enabled: pill.model.connected
         Icon {
             anchors.centerIn: parent
             name: pill.model.lockActive ? "FaUnlock" : "FaLock"
             color: pill.model.lockActive ? Theme.yellow600 : Theme.gray[400]
-            width: 26
-            height: 26
+            width: 36
+            height: 36
         }
         TapHandler { onTapped: pill.act(pill.model.clickLock()) }
     }

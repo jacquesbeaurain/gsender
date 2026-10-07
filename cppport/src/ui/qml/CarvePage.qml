@@ -12,6 +12,9 @@ Item {
     objectName: "carvePage"
 
     readonly property bool portrait: height > width
+    // Upstream's max-xl: below 1280 px the upper part takes 76% of the height
+    // (75% above), the widgets scale down and the top bar is lower.
+    readonly property bool compact: Window.window && Window.window.width <= 1280
 
     StepThrough { id: stepThrough }
 
@@ -60,8 +63,10 @@ Item {
     GridLayout {
         id: grid
         anchors.fill: parent
-        anchors.margins: 4
+        anchors.margins: 2
         columns: page.portrait ? 1 : 2
+        // Upstream's sections are inset by 2 px (p-0.5); the file and job
+        // buttons (24 px) stand on the cards' top edge, in the bottom row.
         rowSpacing: 4
         columnSpacing: 4
 
@@ -81,19 +86,24 @@ Item {
             }
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: page.portrait ? page.height * 0.45 : page.height * 0.75
+            Layout.preferredHeight: page.portrait ? page.height * 0.45
+                                                  : page.height * (page.compact ? 0.76 : 0.75) - 28
         }
         LocationColumn {
             visible: !page.portrait
-            Layout.preferredWidth: Math.min(page.width * 0.33, 448)
-            Layout.minimumWidth: 400
+            Layout.preferredWidth: Math.min(page.width * 0.33, 448) - 4
+            Layout.minimumWidth: 360
             Layout.fillHeight: true
         }
         RowLayout {
             id: bottomRow
             Layout.columnSpan: page.portrait ? 1 : 2
             Layout.fillWidth: true
-            Layout.preferredHeight: page.portrait ? page.height * 0.55 : Math.max(192, page.height * 0.25)
+            // The button groups stand 34 px above the cards, over the visualizer's
+            // lower edge (upstream's -mt).
+            Layout.topMargin: page.portrait ? 0 : -10
+            Layout.preferredHeight: page.portrait ? page.height * 0.55
+                                                  : page.height * (page.compact ? 0.24 : 0.25) + 30
             spacing: 4
             GridLayout {
                 id: widgets

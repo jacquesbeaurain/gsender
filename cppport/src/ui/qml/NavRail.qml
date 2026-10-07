@@ -10,7 +10,7 @@ Item {
 
     property int currentIndex: 0
 
-    implicitWidth: 70
+    implicitWidth: 61
 
     // The edge above the entries (and the Helper toggle's place).
     Rectangle {
@@ -39,6 +39,8 @@ Item {
                 required property int index
                 objectName: "nav" + modelData.label
                 Layout.fillWidth: true
+                // Upstream: the Carve entry carries its 76 px picture.
+                Layout.preferredHeight: modelData.image !== "" ? 142 : 86
                 label: modelData.label
                 icon: modelData.icon
                 image: modelData.image

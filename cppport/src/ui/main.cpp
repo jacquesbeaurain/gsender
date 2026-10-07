@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     const QCommandLineOption dark("dark", "Dark mode (saved in the configuration).");
     const QCommandLineOption screenshot("screenshot", "Save a screenshot of the window and exit.", "png");
     const QCommandLineOption wait("wait", "Milliseconds before the screenshot (default 1500).", "ms", "1500");
-    const QCommandLineOption size("size", "Window size, e.g. 1400x900.", "WxH", "1400x900");
+    const QCommandLineOption size("size", "Window size, e.g. 1280x800.", "WxH", "1280x800");
     const QCommandLineOption startJob("start", "Start the loaded job once the machine is ready.");
     const QCommandLineOption view("view", "Toolpath view: 3d, top, front, right or left.", "view", "3d");
     parser.addOptions({simulator, simulatorHal, load, config, startJob, dark, screenshot, wait, size, view});
@@ -106,8 +106,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     const QStringList dimensions = parser.value(size).split('x');
-    window->resize(dimensions.value(0).toInt() > 0 ? dimensions.value(0).toInt() : 1400,
-                   dimensions.value(1).toInt() > 0 ? dimensions.value(1).toInt() : 900);
+    window->resize(dimensions.value(0).toInt() > 0 ? dimensions.value(0).toInt() : 1280,
+                   dimensions.value(1).toInt() > 0 ? dimensions.value(1).toInt() : 800);
     window->show();
     backend.announcer().setTarget(window);
     if (QObject* toolpath = window->findChild<QObject*>("toolpath")) {
