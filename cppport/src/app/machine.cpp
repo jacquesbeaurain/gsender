@@ -503,6 +503,15 @@ void Machine::goToLocation(controller::GoToMode mode, double x, double y, double
     jogService_->goToLocation(mode, x, y, z, a);
 }
 
+bool Machine::canMoveToHere() const {
+    const controller::Controller* c = controller();
+    return c && c->state().status.activeState == "Idle";
+}
+
+void Machine::moveToHere(double xMm, double yMm) {
+    jogService_->moveToHere(xMm, yMm);
+}
+
 // ---- status and machine information ------------------------------------------------------
 
 QString Machine::alarmDescription(const std::string& code) const {

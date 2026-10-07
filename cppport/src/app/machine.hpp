@@ -240,6 +240,11 @@ public:
     // Go To Location: the target (or distances) in the workspace units, A in
     // degrees; gcode:safe in the workspace units.
     void goToLocation(controller::GoToMode mode, double x, double y, double z, double a);
+    // Move To Here (the visualizer's hold-to-move): connected and idle, no job.
+    bool canMoveToHere() const;
+    // Retracts to the safe height, then rapids to work X/Y (mm); the spindle
+    // stays up over the target.
+    void moveToHere(double xMm, double yMm);
 
     // ---- status and machine information ----
     // An alarm code's description, as the status area's "?" shows it.

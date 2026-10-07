@@ -207,6 +207,20 @@ TEST(GoToLocation, AbsoluteWithoutARetract) {
     EXPECT_EQ(goToLocationCommands(location)[1], "G0 X10 A90");
 }
 
+TEST(GoToLocation, MoveToHereRetractsThenRapidsToXY) {
+    GoToLocation location;
+    location.x = 12.5;
+    location.y = -3;
+    EXPECT_EQ(safeXYMoveCommands(location), (Lines{"G90", "G0 X12.5 Y-3"}));
+    location.safeRetractHeight = 5;  // no homing: a relative lift
+    EXPECT_EQ(safeXYMoveCommands(location), (Lines{"G91", "G0Z5", "G90", "G0 X12.5 Y-3"}));
+    location.homingEnabled = true;  // retract in machine space, only when below it
+    location.machineZ = -20;  // below the safe height: up to it
+    EXPECT_EQ(safeXYMoveCommands(location), (Lines{"G53 G0 Z-5", "G90", "G0 X12.5 Y-3"}));
+    location.machineZ = -1;  // already above it
+    EXPECT_EQ(safeXYMoveCommands(location), (Lines{"G90", "G0 X12.5 Y-3"}));
+}
+
 TEST(GoToLocation, LiftsByTheSafeHeightWithoutHoming) {
     GoToLocation location;
     location.x = 1;

@@ -2308,3 +2308,25 @@ renders, fewer spindle events on laser rasters, and the estimator rewrite.
   upstream writes its server log). Tests: `SenderProgress.*` in
   `tests/core/test_streaming.cpp` (SenderProgress.test.js; its Node Buffer
   case does not apply).
+
+## Step 74 — Move To Here (`ToolpathItem`, `gs/controller/locations`)
+
+The audit of upstream's changes since early September found one missed
+feature: the crosshair above the lightweight toggle (upstream dfeaefd5c,
+"click to move"). Once connected, the button arms Move To Here: the camera
+goes to the top view, orthographic and orbit-locked, and holding a spot for
+half a second (a ring fills under the pointer) retracts to the safe height
+and rapids there (`getSafeXYMoveCode`: `gs::controller::safeXYMoveCommands`,
+which shares the safe-retract lines with Go To Location). It disarms after
+the move and restores the camera. It refuses on rotary files and unless the
+machine is idle, with the notices upstream shows.
+
+- The hold and its ring reuse the plugins' pick gesture
+  (`ToolpathGestures`, `pickMode` "hold"); the built-in consumer is
+  `ToolpathItem::toggleMoveToHere`/`pickAt`. A plugin arming its own pick
+  replaces Move To Here.
+- Deviation: upstream sends the picked millimetres under G20 in an inch
+  workspace; here they are converted.
+- The plugin overlay buttons (also crosshairs) stack above this one.
+- Tests: `UiTest.MoveToHereArmsTheTopViewAndRapidsToTheHeldSpot`,
+  `GoToLocation.MoveToHereRetractsThenRapidsToXY`.

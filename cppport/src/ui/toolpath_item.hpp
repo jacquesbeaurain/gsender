@@ -37,6 +37,11 @@ class ToolpathItem : public QQuickPaintedItem, public app::PluginViewer {
     // Plugin-driven: orbiting locked, and a pick gesture armed ("", "click" or "hold").
     Q_PROPERTY(bool rotateEnabled READ rotateEnabled NOTIFY rotateEnabledChanged)
     Q_PROPERTY(QString pickMode READ pickMode NOTIFY pickModeChanged)
+    // Move To Here (the crosshair button): armed, the view is the top one,
+    // orthographic and locked, and a half-second hold rapids the spindle to
+    // that spot (GcodeViewer's armPick('hold') and the Visualizer's actions).
+    Q_PROPERTY(bool moveToHere READ moveToHere NOTIFY moveToHereChanged)
+    Q_PROPERTY(bool moveToHereAvailable READ moveToHereAvailable NOTIFY moveToHereChanged)
     // Accessibility's "Visualizer keyboard control": the item takes the
     // focus (Tab) and its keys - arrows orbit, Ctrl+arrows pan, +/- zoom,
     // Home fits.
@@ -65,6 +70,9 @@ public:
     void setPluginHost(bool host);
     bool rotateEnabled() const noexcept { return rotateEnabled_; }
     QString pickMode() const { return pickMode_; }
+    bool moveToHere() const noexcept { return moveToHere_; }
+    bool moveToHereAvailable() const;  // connected: upstream shows the button then
+    Q_INVOKABLE void toggleMoveToHere();
     bool keyboardControl() const noexcept { return keyboardControl_; }
     void setKeyboardControl(bool on);
     // The pick gesture (ToolpathGestures): a click or a completed hold at a
@@ -87,6 +95,7 @@ Q_SIGNALS:
     void pluginHostChanged();
     void rotateEnabledChanged();
     void pickModeChanged();
+    void moveToHereChanged();
     void keyboardControlChanged();
 
 protected:
@@ -104,6 +113,8 @@ private:
     void changed();
     void registerViewer();
     void paintOverlay(QPainter& painter);
+    void armMoveToHere();
+    void disarmMoveToHere();
 
     app::Machine* machine_ = nullptr;
     app::ToolpathCamera camera_;
@@ -112,6 +123,8 @@ private:
     bool rotateEnabled_ = true;
     bool keyboardControl_ = false;
     QString pickMode_;
+    bool moveToHere_ = false;
+    std::optional<app::ToolpathCamera> priorCamera_;  // restored when Move To Here ends
     QMap<QString, QJsonArray> overlays_;  // by plugin
 };
 

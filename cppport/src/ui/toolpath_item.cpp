@@ -11,6 +11,7 @@
 #include <QPainter>
 
 #include <algorithm>
+#include <cmath>
 
 namespace gs::ui {
 namespace {
@@ -46,13 +47,19 @@ void ToolpathItem::componentComplete() {
     connect(machine_, &app::Machine::senderStatusChanged, this, &ToolpathItem::progressChanged);
     connect(machine_, &app::Machine::workflowChanged, this, &ToolpathItem::progressChanged);
     connect(machine_, &app::Machine::stateChanged, this, [this] { update(); });
-    connect(machine_, &app::Machine::connectionChanged, this, [this] { update(); });
+    connect(machine_, &app::Machine::connectionChanged, this, [this] {
+        if (moveToHere_ && !machine_->canMoveToHere()) {
+            disarmMoveToHere();
+        }
+        Q_EMIT moveToHereChanged();
+        update();
+    });
     applySettings();
 }
 
 void ToolpathItem::applySettings() {
     const app::AppSettings& settings = machine_->settings();
-    camera_.setPerspective(settings.perspective);
+    camera_.setPerspective(settings.perspective && !moveToHere_);
     camera_.setFlat(settings.liteMode && settings.liteOption == "Light", contentBounds());
     changed();
 }
@@ -239,6 +246,9 @@ bool ToolpathItem::isRotaryFile() const {
 }
 
 void ToolpathItem::armPick(const QString& mode) {
+    if (moveToHere_) {
+        disarmMoveToHere();  // a plugin's pick replaces ours
+    }
     if (mode != pickMode_) {
         pickMode_ = mode;
         Q_EMIT pickModeChanged();
@@ -249,7 +259,81 @@ void ToolpathItem::disarmPick() {
     armPick(QString());
 }
 
+bool ToolpathItem::moveToHereAvailable() const {
+    return machine_ && machine_->controller() != nullptr;
+}
+
+void ToolpathItem::toggleMoveToHere() {
+    if (moveToHere_) {
+        disarmMoveToHere();
+    } else {
+        armMoveToHere();
+    }
+}
+
+void ToolpathItem::armMoveToHere() {
+    if (!machine_) {
+        return;
+    }
+    // The picked XY is not a work coordinate on the rotary-turned toolpath.
+    if (isRotaryFile()) {
+        Q_EMIT machine_->notice(tr("Move To Here isn't available for rotary files"));
+        return;
+    }
+    if (!machine_->canMoveToHere()) {
+        Q_EMIT machine_->notice(tr("Machine must be connected and idle to move"));
+        return;
+    }
+    if (!pickMode_.isEmpty()) {
+        disarmPick();
+    }
+    priorCamera_ = camera_;
+    moveToHere_ = true;
+    // The top view, orthographic (no foreshortening to skew the picked XY),
+    // orbiting locked.
+    setRotateEnabled(false);
+    camera_.setPerspective(false);
+    setView(QStringLiteral("top"));
+    pickMode_ = QStringLiteral("hold");
+    Q_EMIT pickModeChanged();
+    Q_EMIT moveToHereChanged();
+}
+
+void ToolpathItem::disarmMoveToHere() {
+    if (!moveToHere_) {
+        return;
+    }
+    moveToHere_ = false;
+    setRotateEnabled(true);
+    if (priorCamera_) {
+        camera_ = *priorCamera_;
+        priorCamera_.reset();
+    }
+    camera_.setPerspective(machine_->settings().perspective);
+    pickMode_.clear();
+    Q_EMIT pickModeChanged();
+    Q_EMIT moveToHereChanged();
+    changed();
+}
+
 void ToolpathItem::pickAt(double x, double y) {
+    if (moveToHere_) {
+        const auto world = screenToWorld(x, y);
+        if (!world) {
+            return;
+        }
+        if (!machine_->canMoveToHere()) {
+            Q_EMIT machine_->notice(tr("Machine must be connected and idle to move"));
+            disarmMoveToHere();
+            return;
+        }
+        const double mx = std::round(world->x * 1000) / 1000;
+        const double my = std::round(world->y * 1000) / 1000;
+        machine_->moveToHere(mx, my);
+        Q_EMIT machine_->successNotice(tr("Moving to X%1 Y%2").arg(mx, 0, 'f', 2).arg(my, 0, 'f', 2));
+        disarmMoveToHere();  // after a successful move
+        return;
+    }
     // A pick stays armed: the plugin decides when it has enough.
     if (pickMode_.isEmpty() || !machine_ || isRotaryFile()) {
         return;
@@ -263,7 +347,7 @@ void ToolpathItem::pickAt(double x, double y) {
 }
 
 void ToolpathItem::pickHoldProgress(double t) {
-    if (pickMode_ == u"hold" && machine_) {
+    if (pickMode_ == u"hold" && machine_ && !moveToHere_) {
         machine_->pluginService().bridge().viewerHoldProgress(t);
     }
 }

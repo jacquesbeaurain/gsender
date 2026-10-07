@@ -8,6 +8,10 @@
 #include <array>
 #include <string_view>
 
+namespace gs::controller {
+class Controller;
+}
+
 namespace gs::app {
 
 class Machine;
@@ -33,8 +37,11 @@ public:
     void goToPark();
     void goToMachinePosition(const toolchange::MachinePosition& position);
     void goToLocation(controller::GoToMode mode, double x, double y, double z, double a);
+    // The visualizer's Move To Here: safe retract, then a rapid to work X/Y (mm).
+    void moveToHere(double xMm, double yMm);
 
 private:
+    controller::GoToLocation locationState(controller::Controller& c) const;
     Machine& machine_;
 };
 

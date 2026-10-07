@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import GSender
 
 // A toolpath view's touch and mouse: one finger (or the left button)
@@ -82,6 +83,7 @@ Item {
     }
     // A plugin's hold pick: press still for half a second; moving cancels it.
     TapHandler {
+        id: holdPick
         enabled: gestures.view.pickMode === "hold"
         acceptedButtons: Qt.LeftButton
         longPressThreshold: 0.5
@@ -94,5 +96,56 @@ Item {
                 gestures.view.pickHoldProgress(0)
         }
         onLongPressed: gestures.view.pickAt(point.position.x, point.position.y)
+    }
+    // The crosshair cursor while a pick is armed.
+    HoverHandler {
+        enabled: gestures.view.pickMode !== ""
+        cursorShape: Qt.CrossCursor
+    }
+
+    // The hold's ring under the pointer (GcodeViewer's pick indicator): a
+    // 48 px dark disc with a green arc that fills over the half second.
+    Item {
+        id: ring
+        objectName: "holdRing"
+        readonly property real progress: holdPick.pressed ? Math.min(1, holdPick.timeHeld / holdPick.longPressThreshold) : 0
+        visible: holdPick.enabled && holdPick.pressed
+        x: holdPick.point.position.x - 24
+        y: holdPick.point.position.y - 24
+        width: 48
+        height: 48
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 2.5
+            radius: width / 2
+            color: Qt.rgba(0, 0, 0, 0.35)
+            border.color: Qt.rgba(1, 1, 1, 0.4)
+            border.width: 3
+        }
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeColor: "#4ade80"
+                strokeWidth: 3
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                PathAngleArc {
+                    centerX: 24
+                    centerY: 24
+                    radiusX: 20
+                    radiusY: 20
+                    startAngle: -90
+                    sweepAngle: 360 * ring.progress
+                }
+            }
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: 4
+            height: 4
+            radius: 2
+            color: "#4ade80"
+        }
     }
 }

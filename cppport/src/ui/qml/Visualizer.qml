@@ -198,6 +198,37 @@ Rectangle {
         TapHandler { onTapped: Backend.toggleLiteMode() }
     }
 
+    // Move To Here (upstream's crosshair, shown once connected): press and
+    // hold a spot of the top view to rapid the spindle there.
+    Rectangle {
+        id: btnMoveToHere
+        objectName: "btnMoveToHere"
+        visible: toolpath.moveToHereAvailable
+        anchors.bottom: btnLightweight.top
+        anchors.bottomMargin: 6
+        anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
+        width: 44
+        height: 44
+        radius: 22
+        readonly property bool armed: toolpath.moveToHere
+        color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
+        border.color: armed ? "#0ef6ae" : Qt.rgba(156/255, 163/255, 175/255, 0.4)
+        border.width: armed ? 2.0 : 1.0
+
+        Icon {
+            anchors.centerIn: parent
+            name: "LuCrosshair"
+            color: btnMoveToHere.armed ? "#0ef6ae" : "white"
+            width: 20
+            height: 20
+        }
+
+        HoverHandler { id: moveHover }
+        ToolTip.visible: moveHover.hovered
+        ToolTip.text: qsTr("Move To Here: press and hold a spot to move the spindle there")
+        TapHandler { onTapped: toolpath.toggleMoveToHere() }
+    }
+
     // Plugin Visualizer Overlay floating toggle buttons (stacked above lightweight toggle)
     PluginsModel { id: visualizerPluginsModel }
     Repeater {
@@ -208,7 +239,7 @@ Rectangle {
             required property int index
             objectName: "btnOverlay_" + modelData.pluginId
             anchors.bottom: btnLightweight.top
-            anchors.bottomMargin: 10 + index * 52
+            anchors.bottomMargin: (btnMoveToHere.visible ? 60 : 10) + index * 52
             anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
             width: 44
             height: 44

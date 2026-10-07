@@ -143,22 +143,41 @@ void JogService::goToLocation(controller::GoToMode mode, double x, double y, dou
     if (!c) {
         return;
     }
-    controller::GoToLocation location;
+    controller::GoToLocation location = locationState(*c);
     location.mode = mode;
     location.x = x;
     location.y = y;
     location.z = z;
     location.a = a;
+    c->gcodeSafe(controller::goToLocationCommands(location), machine_.settings().metric ? "G21" : "G20");
+}
+
+void JogService::moveToHere(double xMm, double yMm) {
+    controller::Controller* c = machine_.controller();
+    if (!c) {
+        return;
+    }
+    // Deviation: upstream sends the picked millimetres under G20 in an inch
+    // workspace; here they are converted.
+    const bool metric = machine_.settings().metric;
+    controller::GoToLocation location = locationState(*c);
+    location.x = metric ? xMm : units::convertToImperial(xMm);
+    location.y = metric ? yMm : units::convertToImperial(yMm);
+    c->gcodeSafe(controller::safeXYMoveCommands(location), metric ? "G21" : "G20");
+}
+
+controller::GoToLocation JogService::locationState(controller::Controller& c) const {
+    controller::GoToLocation location;
     location.yAvailable = !machine_.settings().rotary.rotaryMode;
     location.aAvailable =
-        machine_.settings().rotary.rotaryMode || (c->isGrblHal() && c->state().axes.letters.find('A') != std::string::npos);
+        machine_.settings().rotary.rotaryMode || (c.isGrblHal() && c.state().axes.letters.find('A') != std::string::npos);
     location.metric = machine_.settings().metric;
-    location.homingEnabled = js::stringToNumber(c->runner().setting("$22", "0")) != 0;
+    location.homingEnabled = js::stringToNumber(c.runner().setting("$22", "0")) != 0;
     location.safeRetractHeight = machine_.settings().safeRetractHeight;
     location.machineZ = machinePositionMm()[2];
     const double workZ = workPositionMm()[2];
     location.workZ = machine_.settings().metric ? workZ : units::convertToImperial(workZ);
-    c->gcodeSafe(controller::goToLocationCommands(location), machine_.settings().metric ? "G21" : "G20");
+    return location;
 }
 
 }  // namespace gs::app

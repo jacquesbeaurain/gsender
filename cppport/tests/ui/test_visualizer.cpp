@@ -128,6 +128,43 @@ TEST_F(UiTest, TheVisualizerServesPluginViewerRequests) {
     screenshot("ui_visualizer_plugin_overlay");
 }
 
+TEST_F(UiTest, MoveToHereArmsTheTopViewAndRapidsToTheHeldSpot) {
+    QQuickItem* view = item("toolpath");
+    ASSERT_NE(view, nullptr);
+    // Disconnected: the crosshair is hidden and arming refuses.
+    EXPECT_FALSE(view->property("moveToHereAvailable").toBool());
+    QMetaObject::invokeMethod(view, "toggleMoveToHere");
+    EXPECT_FALSE(view->property("moveToHere").toBool());
+
+    connectSimulator();
+    ASSERT_TRUE(waitFor([&] { return text("statusText") == "Idle"; }));
+    ASSERT_TRUE(waitFor([&] { return view->property("moveToHereAvailable").toBool(); }));
+    QMetaObject::invokeMethod(view, "setView", Q_ARG(QString, QStringLiteral("3d")));
+    QMetaObject::invokeMethod(view, "toggleMoveToHere");
+    EXPECT_TRUE(view->property("moveToHere").toBool());
+    EXPECT_EQ(view->property("view").toString(), "top");
+    EXPECT_FALSE(view->property("rotateEnabled").toBool());
+    EXPECT_EQ(view->property("pickMode").toString(), "hold");
+
+    // A completed hold at the viewport's middle moves there and disarms.
+    const QPointF middle(view->width() / 2 + 40, view->height() / 2 - 30);
+    QMetaObject::invokeMethod(view, "pickAt", Q_ARG(double, middle.x()), Q_ARG(double, middle.y()));
+    EXPECT_FALSE(view->property("moveToHere").toBool());
+    EXPECT_TRUE(view->property("rotateEnabled").toBool());
+    EXPECT_EQ(view->property("view").toString(), "3d");  // the camera is back
+    EXPECT_TRUE(waitFor([&] {
+        const auto work = machine_->workPositionMm();
+        return std::abs(work[0]) > 1 && std::abs(work[1]) > 1;
+    }));
+
+    // Arming waits for the move to finish; the button toggles it off again.
+    ASSERT_TRUE(waitFor([&] { return machine_->canMoveToHere(); }));
+    QMetaObject::invokeMethod(view, "toggleMoveToHere");
+    EXPECT_TRUE(view->property("moveToHere").toBool());
+    QMetaObject::invokeMethod(view, "toggleMoveToHere");
+    EXPECT_FALSE(view->property("moveToHere").toBool());
+}
+
 TEST_F(UiTest, TheJobSummaryShowsOverTheVisualizer) {
     app::AppSettings settings = machine_->settings();
     settings.accessibility.gcodeSummary = settings.accessibility.gcodeSummaryVisible = true;

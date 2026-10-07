@@ -108,6 +108,10 @@ struct GoToLocation {
 // work Z to an inch target; here the retract is converted to inches and
 // workZ is taken in the workspace units.
 std::vector<std::string> goToLocationCommands(const GoToLocation& location);
+// getSafeXYMoveCode() (SafeMove.ts, the visualizer's Move To Here): the same
+// safe retract, then G90 and a rapid to work X/Y (in the workspace units).
+// The spindle stays up over the target. Uses x, y and the retract fields.
+std::vector<std::string> safeXYMoveCommands(const GoToLocation& location);
 
 // ---- typed work positions and homing (DRO.ts) ----
 

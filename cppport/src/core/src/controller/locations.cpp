@@ -191,6 +191,38 @@ std::vector<std::string> locationCommands(const MachineLocation& location, const
     };
 }
 
+namespace {
+
+// getSafeRetractCode(): with homing, up to machine Z -|height| when below it;
+// else a relative lift. The retract is in the workspace units (see the
+// header's deviation note).
+void appendSafeRetract(std::vector<std::string>& code, const GoToLocation& location) {
+    const double retractHeight = location.safeRetractHeight;
+    if (retractHeight == 0) {
+        return;
+    }
+    const auto inUnits = [&location](double mm) { return location.metric ? mm : units::convertToImperial(mm); };
+    if (location.homingEnabled) {
+        const double retract = std::fabs(retractHeight) * -1;
+        if (location.machineZ < retract) {
+            code.push_back("G53 G0 Z" + num(inUnits(retract)));
+        }
+    } else {
+        code.emplace_back("G91");
+        code.push_back("G0Z" + num(inUnits(retractHeight)));
+    }
+}
+
+}  // namespace
+
+std::vector<std::string> safeXYMoveCommands(const GoToLocation& location) {
+    std::vector<std::string> code;
+    appendSafeRetract(code, location);
+    code.emplace_back("G90");
+    code.push_back("G0 X" + num(location.x) + " Y" + num(location.y));
+    return code;
+}
+
 std::vector<std::string> goToLocationCommands(const GoToLocation& location) {
     std::string axisValues = "X" + num(location.x);
     if (location.yAvailable) {
@@ -207,19 +239,7 @@ std::vector<std::string> goToLocationCommands(const GoToLocation& location) {
     const bool incremental = location.mode == GoToMode::Incremental;
     const std::string modal = incremental ? "G91" : "G90";
     const double retractHeight = location.safeRetractHeight;
-    // The retract in the workspace units (see the header's deviation note).
-    const auto inUnits = [&location](double mm) { return location.metric ? mm : units::convertToImperial(mm); };
-    if (retractHeight != 0) {
-        if (location.homingEnabled) {
-            const double retract = std::fabs(retractHeight) * -1;
-            if (location.machineZ < retract) {
-                code.push_back("G53 G0 Z" + num(inUnits(retract)));
-            }
-        } else {
-            code.emplace_back("G91");
-            code.push_back("G0Z" + num(inUnits(retractHeight)));
-        }
-    }
+    appendSafeRetract(code, location);
     code.push_back(modal);
     code.push_back("G0 " + axisValues);
     if (retractHeight != 0 && !location.homingEnabled && incremental) {
