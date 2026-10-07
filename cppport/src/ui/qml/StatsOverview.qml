@@ -15,7 +15,11 @@ Flickable {
     signal showPage(string name)
     signal downloadDiagnostics()
 
-    contentHeight: columns.implicitHeight + 96
+    // max-xl: the Your Machine column spans the page and Get Help goes below,
+    // in two columns.
+    readonly property bool compact: Window.window && Window.window.width <= 1280
+
+    contentHeight: columns.implicitHeight + 112
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 
@@ -24,37 +28,43 @@ Flickable {
         font.bold: true
         color: Theme.contentPrimary
     }
-    // ConfigRow: the label, a dotted leader and the value.
+    // ConfigRow: the label, a dotted leader and the value (leading-7, my-3).
     component LeaderRow: RowLayout {
         property string label
         property string value
         Layout.fillWidth: true
+        Layout.preferredHeight: 27
         spacing: 6
-        Label { text: parent.label; color: Theme.contentPrimary; font.pixelSize: Theme.fontSm }
+        Label {
+            text: parent.label
+            color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+            font.pixelSize: Theme.fontBase
+        }
         Item {
             Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
             height: 2
             Row {
                 anchors.fill: parent
-                spacing: 4
+                spacing: 2
                 clip: true
                 Repeater {
-                    model: Math.ceil(parent.width / 6)
-                    Rectangle { width: 2; height: 2; radius: 1; color: Theme.outline }
+                    model: Math.ceil(parent.width / 4)
+                    Rectangle { width: 2; height: 2; color: Theme.dark ? Theme.outline : Theme.gray[300] }
                 }
             }
         }
-        Label { text: parent.value; font.bold: true; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
+        Label { text: parent.value; font.bold: true; font.pixelSize: Theme.fontBase; color: Theme.contentPrimary }
     }
 
     GridLayout {
         id: columns
-        x: 16
-        y: 16
-        width: page.width - 32
-        columns: page.width > 1100 ? 2 : 1
-        columnSpacing: 32
-        rowSpacing: 24
+        x: 32
+        y: 12
+        width: page.width - 100   // upstream's fixed-content-area and mr-5
+        columns: page.compact ? 1 : 2
+        columnSpacing: 64
+        rowSpacing: 16
 
         // Your Machine.
         ColumnLayout {
@@ -67,11 +77,12 @@ Flickable {
                 Layout.fillWidth: true
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 16
+                    spacing: 8
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
                         Layout.alignment: Qt.AlignTop
+                        spacing: 8
                         CardHeader { Layout.fillWidth: true; title: qsTr("Stats") }
                         PieChart {
                             objectName: "jobResultsChart"
@@ -84,20 +95,28 @@ Flickable {
                             colors: ["#659dd2", "#C7813F"]
                             seriesLabel: qsTr("Jobs")
                         }
-                        Label {
+                        Item {   // h-52, the placeholder centred
                             visible: !(page.model.connected && page.model.completeJobs + page.model.incompleteJobs > 0)
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredHeight: 210
-                            verticalAlignment: Text.AlignVCenter
-                            text: qsTr("No data to display")
-                            color: Theme.contentMuted
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 208
+                            StatEmpty {
+                                anchors.centerIn: parent
+                                icon: "FaChartPie"
+                                text: qsTr("No data to display")
+                            }
                         }
-                        Repeater {
-                            model: page.model.statRows
-                            LeaderRow {
-                                required property var modelData
-                                label: modelData.label
-                                value: modelData.value
+                        ColumnLayout {   // px-10
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 40
+                            Layout.rightMargin: 40
+                            spacing: 0
+                            Repeater {
+                                model: page.model.statRows
+                                LeaderRow {
+                                    required property var modelData
+                                    label: modelData.label
+                                    value: modelData.value
+                                }
                             }
                         }
                     }
@@ -112,13 +131,16 @@ Flickable {
                             linkLabel: qsTr("More")
                             onLinkActivated: page.showPage("jobs")
                         }
-                        Label {
+                        Item {
                             visible: page.model.recentJobs.length === 0
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredHeight: 120
-                            verticalAlignment: Text.AlignVCenter
-                            text: qsTr("No Jobs recorded. Get carving!")
-                            color: Theme.contentMuted
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.preferredHeight: 240
+                            StatEmpty {
+                                anchors.centerIn: parent
+                                icon: "FaRegListAlt"
+                                text: qsTr("No Jobs recorded. Get carving!")
+                            }
                         }
                         Repeater {
                             model: page.model.recentJobs
@@ -194,20 +216,33 @@ Flickable {
                         text: page.model.profile
                         font.bold: true
                         color: Theme.contentPrimary
+                        Layout.bottomMargin: 8
                     }
-                    Repeater {
-                        model: page.model.configuration
-                        LeaderRow {
-                            required property var modelData
-                            label: modelData.label
-                            value: modelData.value
+                    ColumnLayout {   // gap-1
+                        Layout.fillWidth: true
+                        spacing: 4
+                        Repeater {
+                            model: page.model.configuration
+                            LeaderRow {
+                                required property var modelData
+                                label: modelData.label
+                                value: modelData.value
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Get Help.
+        // Get Help: below the machine at max-xl, the help and the alarms
+        // side by side.
+        GridLayout {
+            Layout.fillWidth: true
+            Layout.preferredWidth: 1
+            Layout.alignment: Qt.AlignTop
+            columns: page.compact ? 2 : 1
+            columnSpacing: 16
+            rowSpacing: 16
         ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredWidth: 1
@@ -266,8 +301,12 @@ Flickable {
                     TapHandler { onTapped: Qt.openUrlExternally(modelData.link) }
                 }
             }
+        }
             StatCard {
                 Layout.fillWidth: true
+                Layout.preferredWidth: 1
+                Layout.fillHeight: page.compact
+                Layout.alignment: Qt.AlignTop
                 CardHeader {
                     Layout.fillWidth: true
                     title: qsTr("Alarms & Errors")
@@ -277,10 +316,11 @@ Flickable {
                 Label {
                     visible: page.model.alarmPreview.length === 0
                     Layout.alignment: Qt.AlignHCenter
+                    Layout.fillHeight: true
                     Layout.preferredHeight: 160
                     verticalAlignment: Text.AlignVCenter
                     text: qsTr("No Alarms or Errors recorded. Hooray!")
-                    color: Theme.contentMuted
+                    color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
                 }
                 Repeater {
                     model: page.model.alarmPreview

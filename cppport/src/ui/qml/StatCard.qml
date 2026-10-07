@@ -6,12 +6,12 @@ import GSender
 // stack in a padded column (Layout.* attached properties apply).
 Rectangle {
     default property alias content: column.data
-    property int padding: 16
+    property int padding: 8
     property alias spacing: column.spacing
 
-    radius: Theme.radius
+    radius: 4
     color: Theme.dark ? Theme.surfaceRaised : "white"
-    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
     implicitHeight: column.implicitHeight + 2 * padding
     implicitWidth: column.implicitWidth + 2 * padding
 

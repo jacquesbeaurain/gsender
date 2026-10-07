@@ -59,7 +59,8 @@ Item {
         objectName: "statMenu"
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 16
-        anchors.horizontalCenter: parent.horizontalCenter
+        // upstream's left-[55%] -translate-x-[55%], of the whole window (the rail is 61 px)
+        x: 0.55 * (parent.width + 61 - width) - 61
         width: menuRow.implicitWidth + 8
         height: menuRow.implicitHeight + 8
         radius: Theme.radiusSmall
