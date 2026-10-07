@@ -185,6 +185,10 @@ Toolpath traceToolpath(const std::string& program) {
 Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* parent)
     : QObject(parent), loop_(loop), preferences_(std::make_shared<controller::Preferences>()),
       consoleLog_(new ConsoleLog(this)) {
+    // The config file's folder holds the plugins and their storage. (Taken
+    // before the file is moved into config_: an empty path meant the working
+    // directory.)
+    const auto configDir = configFile.empty() ? std::filesystem::current_path() : std::filesystem::absolute(configFile).parent_path();
     config::validateAndRepair(configFile);
     config_.onError = [this](const std::string& message) {
         Q_EMIT errorReported(tr("Configuration"), QString::fromStdString(message));
@@ -197,7 +201,6 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     probeService_ = std::make_unique<ProbeService>(*this);
     toolChangeService_ = std::make_unique<ToolChangeService>(*this);
     firmwareService_ = std::make_unique<FirmwareService>(*this);
-    const auto configDir = configFile.empty() ? std::filesystem::current_path() : std::filesystem::absolute(configFile).parent_path();
     const QString storageDir = QString::fromStdString((configDir / "plugins-data").string());
     pluginService_ = std::make_unique<PluginService>(*this, storageDir);
     pluginService_->addSearchPath(QString::fromStdString((configDir / "plugins").string()));
