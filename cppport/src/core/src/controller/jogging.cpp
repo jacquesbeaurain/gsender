@@ -45,7 +45,8 @@ JogSpeeds defaultJogSpeeds(JogPreset preset) {
     switch (preset) {
         case JogPreset::Rapid: return {20, 10, 20, 5000};
         case JogPreset::Precise: return {0.5, 0.1, 0.5, 1000};
-        case JogPreset::Normal: break;
+        case JogPreset::Normal:
+        case JogPreset::Custom: break;  // the custom values start as Normal's
     }
     return {5, 2, 5, 3000};
 }
@@ -54,7 +55,8 @@ JogPreset nextJogPreset(JogPreset preset) {
     switch (preset) {
         case JogPreset::Rapid: return JogPreset::Normal;
         case JogPreset::Normal: return JogPreset::Precise;
-        case JogPreset::Precise: break;
+        case JogPreset::Precise:
+        case JogPreset::Custom: break;
     }
     return JogPreset::Rapid;
 }

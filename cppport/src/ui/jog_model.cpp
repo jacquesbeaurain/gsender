@@ -22,6 +22,7 @@ QString JogModel::preset() const {
         case controller::JogPreset::Rapid: return QStringLiteral("Rapid");
         case controller::JogPreset::Normal: return QStringLiteral("Normal");
         case controller::JogPreset::Precise: return QStringLiteral("Precise");
+        case controller::JogPreset::Custom: return QStringLiteral("Custom");
     }
     return {};
 }
@@ -61,6 +62,7 @@ bool JogModel::showA() const {
 void JogModel::selectPreset(const QString& preset) {
     jogger_.selectPreset(preset == "Rapid"     ? controller::JogPreset::Rapid
                          : preset == "Precise" ? controller::JogPreset::Precise
+                         : preset == "Custom"  ? controller::JogPreset::Custom
                                                : controller::JogPreset::Normal);
 }
 

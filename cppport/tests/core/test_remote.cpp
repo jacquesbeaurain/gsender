@@ -135,6 +135,7 @@ TEST(RemotePendant, ParsesCommands) {
     EXPECT_FALSE(parseCommand(R"({"type":"workspace","wcs":"G53"})"));
     EXPECT_FALSE(parseCommand(R"({"type":"workspace","wcs":"G54.1"})"));
     EXPECT_EQ(parseCommand(R"({"type":"preset","preset":"Rapid"})")->text, "Rapid");
+    EXPECT_EQ(parseCommand(R"({"type":"preset","preset":"Custom"})")->text, "Custom");
     EXPECT_FALSE(parseCommand(R"({"type":"preset","preset":"Ludicrous"})"));
 
     EXPECT_FALSE(parseCommand("not json"));

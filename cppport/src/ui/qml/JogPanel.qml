@@ -50,8 +50,8 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
-        Layout.topMargin: 43
-        Layout.leftMargin: 53
+        Layout.topMargin: 36
+        Layout.leftMargin: 44
         Layout.rightMargin: 35
         spacing: 8
 
@@ -75,16 +75,15 @@ ColumnLayout {
                     Label {
                         text: input.modelData.label
                         font.pixelSize: Theme.fontSm
-                        color: Theme.contentSecondary
+                        color: Theme.gray[400]
                         horizontalAlignment: Text.AlignRight
                         Layout.preferredWidth: 24
-                        Layout.rightMargin: 4
+                        Layout.rightMargin: 9
                     }
                     GButton {
                         objectName: "jogMinus" + input.modelData.field
-                        variant: "ghost"
-                        text: "−"
-                        fontSize: Theme.fontSm
+                        iconName: "FaMinus"
+                        iconSize: 12
                         implicitWidth: 23
                         implicitHeight: 24
                         onClicked: jog.model.nudge(input.modelData.field, false)
@@ -93,8 +92,18 @@ ColumnLayout {
                         objectName: "jogField" + input.modelData.field
                         Layout.preferredWidth: 65
                         implicitHeight: 24
-                        font.pixelSize: Theme.fontSm
-                        horizontalAlignment: TextInput.AlignHCenter
+                        font.pixelSize: Theme.fontBase
+                        horizontalAlignment: TextInput.AlignLeft
+                        leftPadding: 4
+                        topPadding: 0
+                        bottomPadding: 0
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.robin[500]
+                        background: Rectangle {   // upstream's input: white, no border
+                            radius: 4
+                            color: Theme.dark ? Theme.surfaceSunken : "white"
+                            border.color: parent.activeFocus ? Theme.ring : "transparent"
+                        }
                         value: input.modelData.field === "xy" ? jog.model.xyStep
                              : input.modelData.field === "z" ? jog.model.zStep
                              : input.modelData.field === "a" ? jog.model.aStep : jog.model.feedrate
@@ -102,9 +111,8 @@ ColumnLayout {
                     }
                     GButton {
                         objectName: "jogPlus" + input.modelData.field
-                        variant: "ghost"
-                        text: "+"
-                        fontSize: Theme.fontSm
+                        iconName: "FaPlus"
+                        iconSize: 12
                         implicitWidth: 23
                         implicitHeight: 24
                         onClicked: jog.model.nudge(input.modelData.field, true)
@@ -117,15 +125,15 @@ ColumnLayout {
         Rectangle {
             implicitWidth: 92
             implicitHeight: presets.implicitHeight
-            radius: 4
-            color: "transparent"
+            radius: 8
+            color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.outlineSubtle
             ColumnLayout {
                 id: presets
                 anchors.fill: parent
                 spacing: 0
                 Repeater {
-                    model: ["Precise", "Normal", "Rapid"]
+                    model: ["Precise", "Normal", "Rapid", "Custom"]
                     Rectangle {
                         required property string modelData
                         readonly property bool active: jog.model.preset === modelData
@@ -134,7 +142,6 @@ ColumnLayout {
                         implicitHeight: 26
                         radius: 4
                         color: active ? Qt.rgba(0x52 / 255, 0x91 / 255, 0xcd / 255, 0.3) : "transparent"
-                        border.color: active ? Theme.blue[500] : "transparent"
                         Label {
                             anchors.centerIn: parent
                             text: qsTr(parent.modelData)

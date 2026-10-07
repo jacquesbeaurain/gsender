@@ -419,6 +419,7 @@ const controller::JogSpeeds& JogSettings::speeds(controller::JogPreset preset) c
     switch (preset) {
         case controller::JogPreset::Rapid: return rapid;
         case controller::JogPreset::Precise: return precise;
+        case controller::JogPreset::Custom: return custom;
         case controller::JogPreset::Normal: break;
     }
     return normal;
@@ -486,6 +487,7 @@ AppSettings appSettingsFromJson(const json::object& root) {
         settings.jog.rapid = loadSpeeds(j, "rapid", settings.jog.rapid);
         settings.jog.normal = loadSpeeds(j, "normal", settings.jog.normal);
         settings.jog.precise = loadSpeeds(j, "precise", settings.jog.precise);
+        settings.jog.custom = loadSpeeds(j, "custom", settings.jog.custom);
         readProp(j, "threshold", settings.jog.threshold);
         readProp(j, "preventJoggingPastLimits", settings.jog.preventJoggingPastLimits);
     }
@@ -547,6 +549,7 @@ json::object jogObject(const JogSettings& jog) {
     return {{"rapid", saveSpeeds(jog.rapid)},
             {"normal", saveSpeeds(jog.normal)},
             {"precise", saveSpeeds(jog.precise)},
+            {"custom", saveSpeeds(jog.custom)},
             {"threshold", jog.threshold},
             {"preventJoggingPastLimits", jog.preventJoggingPastLimits}};
 }
@@ -874,6 +877,7 @@ std::optional<GSenderSettings> readGSenderSettings(const json::value& file) {
             s.jog.rapid = loadSpeeds(*jog, "rapid", s.jog.rapid);
             s.jog.normal = loadSpeeds(*jog, "normal", s.jog.normal);
             s.jog.precise = loadSpeeds(*jog, "precise", s.jog.precise);
+            s.jog.custom = loadSpeeds(*jog, "custom", s.jog.custom);
             s.jog.threshold = static_cast<int>(number(*jog, "threshold", s.jog.threshold));
         }
     }

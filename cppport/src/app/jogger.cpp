@@ -10,7 +10,8 @@ namespace gs::app {
 
 Jogger::Jogger(Machine& machine, QObject* parent) : QObject(parent), machine_(machine) {
     metric_ = machine_.settings().metric;
-    presets_ = {machine_.settings().jog.rapid, machine_.settings().jog.normal, machine_.settings().jog.precise};
+    presets_ = {machine_.settings().jog.rapid, machine_.settings().jog.normal, machine_.settings().jog.precise,
+                machine_.settings().jog.custom};
     speeds_ = presetSpeeds(preset_);
     rebuildHelper();
     connect(&machine_, &Machine::appSettingsChanged, this, [this] {
@@ -18,7 +19,7 @@ Jogger::Jogger(Machine& machine, QObject* parent) : QObject(parent), machine_(ma
             rebuildHelper();
         }
         const JogSettings& jog = machine_.settings().jog;
-        const std::array<controller::JogSpeeds, 3> presets{jog.rapid, jog.normal, jog.precise};
+        const std::array<controller::JogSpeeds, 4> presets{jog.rapid, jog.normal, jog.precise, jog.custom};
         if (machine_.settings().metric != metric_ || presets != presets_) {
             metric_ = machine_.settings().metric;
             presets_ = presets;
@@ -72,6 +73,20 @@ void Jogger::cyclePreset() {
 
 void Jogger::setSpeeds(const controller::JogSpeeds& speeds) {
     speeds_ = speeds;
+    if (preset_ == controller::JogPreset::Custom) {
+        // saveCustomValues(): kept in mm; the settings' change reloads the preset.
+        controller::JogSpeeds stored = speeds;
+        if (!metric_) {
+            stored.xyStep = units::convertValue(stored.xyStep, false, true);
+            stored.zStep = units::convertValue(stored.zStep, false, true);
+            stored.feedrate = units::convertValue(stored.feedrate, false, true);
+        }
+        AppSettings settings = machine_.settings();
+        if (!(settings.jog.custom == stored)) {
+            settings.jog.custom = stored;
+            machine_.setSettings(settings);
+        }
+    }
     Q_EMIT changed();
 }
 

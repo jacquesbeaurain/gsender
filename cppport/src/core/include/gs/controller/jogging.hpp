@@ -39,9 +39,11 @@ struct JogSpeeds {
     double feedrate = 3000;
     bool operator==(const JogSpeeds&) const = default;
 };
-enum class JogPreset { Rapid, Normal, Precise };
+// Custom: the values the person typed in (widgets.axes.jog.custom), kept while
+// it is the selected preset; the shortcut cycle skips it.
+enum class JogPreset { Rapid, Normal, Precise, Custom };
 JogSpeeds defaultJogSpeeds(JogPreset preset);
-JogPreset nextJogPreset(JogPreset preset);  // Rapid -> Normal -> Precise -> Rapid
+JogPreset nextJogPreset(JogPreset preset);  // Rapid -> Normal -> Precise -> Rapid (Custom -> Rapid)
 
 // JogInput's - and + buttons: the value one step down or up. The step is a
 // unit of the value's leading digit (0.01 for 0.02, 100 for 234), a digit

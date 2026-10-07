@@ -3,6 +3,8 @@
 
 #include "ui_test.hpp"
 
+#include "jogger.hpp"
+
 #include <string>
 
 TEST_F(UiTest, TheDroZeroesTypesAndGoesTo) {
@@ -249,4 +251,32 @@ TEST_F(UiTest, MacrosAreAddedRunMovedAndDeleted) {
     ASSERT_TRUE(waitFor([&] { return confirm->property("opened").toBool(); }));
     QMetaObject::invokeMethod(confirm, "accepted");
     EXPECT_TRUE(waitFor([&] { return machine_->macros().list().size() == 1u; }));
+}
+
+TEST_F(UiTest, TheCustomJogPresetKeepsTheValuesTypedInIt) {
+    app::Jogger& jogger = backend_->jogger();
+    EXPECT_EQ(jogger.preset(), controller::JogPreset::Normal);
+    tap("presetCustom");
+    ASSERT_TRUE(waitFor([&] { return jogger.preset() == controller::JogPreset::Custom; }));
+    EXPECT_EQ(jogger.speeds(), (controller::JogSpeeds{5, 2, 5, 3000}));
+
+    // Edits made while Custom is chosen are kept, in mm, as its values.
+    QObject* model = item("jogPanel")->property("model").value<QObject*>();
+    QMetaObject::invokeMethod(model, "setField", Q_ARG(QString, "xy"), Q_ARG(double, 7.5));
+    EXPECT_EQ(machine_->settings().jog.custom.xyStep, 7.5);
+    // The other presets are left alone, and their own values come back.
+    tap("presetRapid");
+    ASSERT_TRUE(waitFor([&] { return jogger.preset() == controller::JogPreset::Rapid; }));
+    EXPECT_EQ(jogger.speeds().xyStep, 20);
+    EXPECT_EQ(machine_->settings().jog.rapid.xyStep, 20);
+    tap("presetCustom");
+    ASSERT_TRUE(waitFor([&] { return jogger.preset() == controller::JogPreset::Custom; }));
+    EXPECT_EQ(jogger.speeds().xyStep, 7.5);
+
+    // Edits to a standard preset are not kept.
+    tap("presetNormal");
+    ASSERT_TRUE(waitFor([&] { return jogger.preset() == controller::JogPreset::Normal; }));
+    QMetaObject::invokeMethod(model, "setField", Q_ARG(QString, "xy"), Q_ARG(double, 9));
+    EXPECT_EQ(machine_->settings().jog.normal.xyStep, 5);
+    EXPECT_EQ(machine_->settings().jog.custom.xyStep, 7.5);
 }

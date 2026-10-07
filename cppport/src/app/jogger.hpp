@@ -31,7 +31,8 @@ public:
     // converted (updateCurrentJogValues) and jog with G20.
     const controller::JogSpeeds& speeds() const noexcept { return speeds_; }
     bool metric() const noexcept { return metric_; }
-    // Edited speeds, in use until a preset is selected.
+    // Edited speeds, in use until a preset is selected - and kept, in mm, as
+    // the Custom preset's while that is the selected one (saveCustomValues).
     void setSpeeds(const controller::JogSpeeds& speeds);
 
     // Tap/hold jogging along `directions` (axis letter -> +1 or -1); the
@@ -73,7 +74,7 @@ private:
     int threshold_ = 0;
     bool metric_ = true;
     // Rapid, Normal, Precise as last applied: a change reloads the selected preset.
-    std::array<controller::JogSpeeds, 3> presets_{};
+    std::array<controller::JogSpeeds, 4> presets_{};
     bool rotaryJog_ = false;  // the jog in progress is A (or the rotary)
     std::unique_ptr<controller::JogHelper> helper_;
 };

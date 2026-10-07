@@ -71,7 +71,7 @@ struct PendantCommand {
         ZeroAll,
         GoToZero,     // {"axes":"XY"}
         Workspace,    // {"wcs":"G55"}
-        Preset,       // {"preset":"Rapid" | "Normal" | "Precise"}
+        Preset,       // {"preset":"Rapid" | "Normal" | "Precise" | "Custom"}
         Ping,         // keeps a hold alive; answered with nothing
         // The tool pages (Tools, Config): the application's view models,
         // named, whose properties are pushed to the page that subscribed and
@@ -107,7 +107,7 @@ std::string resultMessage(std::int64_t id, std::string_view valueJson, std::stri
 // Empty for anything malformed or unknown (the page is outside the
 // application's control; nothing it sends may throw or reach the machine
 // unchecked). Axes are upper-cased and limited to X, Y, Z, A; workspaces to
-// G54-G59; presets to the three names.
+// G54-G59; presets to the four names.
 std::optional<PendantCommand> parseCommand(std::string_view json);
 
 }  // namespace gs::remote

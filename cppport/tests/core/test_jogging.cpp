@@ -33,6 +33,9 @@ TEST(JogPresets, DefaultsAndCycleOrder) {
     EXPECT_EQ(defaultJogSpeeds(JogPreset::Rapid), (JogSpeeds{20, 10, 20, 5000}));
     EXPECT_EQ(defaultJogSpeeds(JogPreset::Normal), (JogSpeeds{5, 2, 5, 3000}));
     EXPECT_EQ(defaultJogSpeeds(JogPreset::Precise), (JogSpeeds{0.5, 0.1, 0.5, 1000}));
+    // The custom values start as Normal's; the shortcut cycle never lands on Custom.
+    EXPECT_EQ(defaultJogSpeeds(JogPreset::Custom), (JogSpeeds{5, 2, 5, 3000}));
+    EXPECT_EQ(nextJogPreset(JogPreset::Custom), JogPreset::Rapid);
     EXPECT_EQ(nextJogPreset(JogPreset::Rapid), JogPreset::Normal);
     EXPECT_EQ(nextJogPreset(JogPreset::Precise), JogPreset::Rapid);
 }

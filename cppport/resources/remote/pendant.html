@@ -65,7 +65,7 @@ select { font: inherit; min-height: 44px; border-radius: 8px; border: 1px solid 
 .jog { display: grid; grid-template-columns: repeat(3, 1fr) 16px 1fr; gap: 8px; }
 .jog button { min-height: 64px; font-size: 22px; }
 .jog .stop { background: var(--red); color: #fff; font-size: 16px; }
-.presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .steps { display: flex; justify-content: space-between; margin-top: 6px; }
 .big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .big button { min-height: 72px; font-size: 18px; }
@@ -184,6 +184,7 @@ input[type=range] { width: 100%; height: 40px; }
         <button data-preset="Rapid">Rapid</button>
         <button data-preset="Normal">Normal</button>
         <button data-preset="Precise">Precise</button>
+        <button data-preset="Custom">Custom</button>
       </div>
       <div class="steps muted" id="steps"></div>
     </div>

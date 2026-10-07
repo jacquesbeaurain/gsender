@@ -220,6 +220,7 @@ remote::PendantState RemoteService::state() const {
     switch (jogger_.preset()) {
         case controller::JogPreset::Rapid: s.jogPreset = "Rapid"; break;
         case controller::JogPreset::Precise: s.jogPreset = "Precise"; break;
+        case controller::JogPreset::Custom: s.jogPreset = "Custom"; break;
         default: s.jogPreset = "Normal"; break;
     }
     s.xyStep = jogger_.speeds().xyStep;
@@ -295,6 +296,7 @@ void RemoteService::handle(const remote::PendantCommand& command, std::uint64_t 
         case Kind::Preset:
             jogger_.selectPreset(command.text == "Rapid"     ? controller::JogPreset::Rapid
                                  : command.text == "Precise" ? controller::JogPreset::Precise
+                                 : command.text == "Custom"  ? controller::JogPreset::Custom
                                                              : controller::JogPreset::Normal);
             return;
         case Kind::JogRelease:

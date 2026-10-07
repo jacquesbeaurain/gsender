@@ -31,6 +31,7 @@ struct JogSettings {
     controller::JogSpeeds rapid = controller::defaultJogSpeeds(controller::JogPreset::Rapid);
     controller::JogSpeeds normal = controller::defaultJogSpeeds(controller::JogPreset::Normal);
     controller::JogSpeeds precise = controller::defaultJogSpeeds(controller::JogPreset::Precise);
+    controller::JogSpeeds custom = controller::defaultJogSpeeds(controller::JogPreset::Custom);
     int threshold = 250;  // ms
     bool preventJoggingPastLimits = false;
     const controller::JogSpeeds& speeds(controller::JogPreset preset) const;

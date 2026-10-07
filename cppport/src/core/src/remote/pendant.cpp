@@ -189,7 +189,7 @@ std::optional<PendantCommand> parseCommand(std::string_view text) {
     }
     if (t == "preset") {
         const json::string* preset = stringField(object, "preset");
-        if (!preset || (*preset != "Rapid" && *preset != "Normal" && *preset != "Precise")) {
+        if (!preset || (*preset != "Rapid" && *preset != "Normal" && *preset != "Precise" && *preset != "Custom")) {
             return std::nullopt;
         }
         command.kind = Kind::Preset;
