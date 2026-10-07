@@ -84,8 +84,8 @@ Item {
                             required property var modelData
                             required property int index
                             objectName: "probeRoutine_" + modelData.label
-                            width: Math.max(Theme.touchTarget, label.implicitWidth + 16)
-                            height: Theme.touchTarget
+                            width: 40   // upstream's w-10 h-[35px]
+                            height: 35
                             radius: Theme.radiusSmall
                             color: index === tab.model.selected ? Qt.rgba(0x52 / 255, 0x91 / 255, 0xcd / 255, 0.3)
                                                                 : "transparent"
@@ -93,7 +93,7 @@ Item {
                                 id: label
                                 anchors.centerIn: parent
                                 text: modelData.label
-                                font.pixelSize: Theme.fontSm
+                                font.pixelSize: Theme.fontBase
                                 font.weight: Font.Medium
                                 color: Theme.contentPrimary
                             }
@@ -203,6 +203,7 @@ Item {
                 GButton {
                     objectName: "probeButton"
                     text: qsTr("Probe")
+                    implicitHeight: 40
                     enabled: tab.model.canClick
                     onClicked: tab.openRun()
                 }
@@ -249,7 +250,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 height: 28
                 spacing: 6
-                visible: tab.model.plateType !== "Z Probe"
+                visible: tab.model.plateType !== "Z Probe" && tab.model.commandId !== "Z Touch"
                 // Four dots for the stock's corners, the plate's filled.
                 Grid {
                     anchors.verticalCenter: parent.verticalCenter

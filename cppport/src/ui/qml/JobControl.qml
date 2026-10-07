@@ -22,10 +22,10 @@ Item {
 
     Card {
         anchors.fill: parent
-        anchors.topMargin: 24
+        anchors.topMargin: 34
         ColumnLayout {
             anchors.fill: parent
-            anchors.topMargin: 30
+            anchors.topMargin: 40
             anchors.leftMargin: 8
             anchors.rightMargin: 8
             spacing: 8
@@ -59,7 +59,7 @@ Item {
         property string iconName
         property color fill
         implicitWidth: 96
-        implicitHeight: 48
+        implicitHeight: 44
         background: Rectangle {
             radius: 4
             color: button.enabled ? button.fill : (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])

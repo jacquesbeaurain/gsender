@@ -43,25 +43,29 @@ Item {
 
     Card {
         anchors.fill: parent
-        anchors.topMargin: 24
+        anchors.topMargin: 34
 
         // Without a file: the recent files and the last job.
         RowLayout {
             anchors.fill: parent
-            anchors.topMargin: 28
+            anchors.topMargin: 38
             spacing: 24
             visible: !control.model.loaded
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredWidth: 3
+                Layout.maximumWidth: 16777215   // a layout's maximum is its non-filling children's
+                // Upstream centres the heading over the list, which is only as wide
+                // as it needs (a small empty box without recent files).
                 Label {
                     text: qsTr("Recent Files")
                     color: Theme.contentPrimary
-                    Layout.leftMargin: 16
+                    Layout.alignment: Qt.AlignHCenter
                 }
                 Rectangle {
-                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: control.model.recentFiles.length > 0 ? 320 : 96
                     Layout.fillHeight: true
                     radius: 12
                     color: Theme.dark ? Theme.surfaceRaised : "white"
@@ -147,7 +151,7 @@ Item {
         // A file: its information.
         ColumnLayout {
             anchors.fill: parent
-            anchors.topMargin: 26
+            anchors.topMargin: 36
             spacing: 2
             visible: control.model.loaded
             // The name elides; the extension stays.
@@ -291,7 +295,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: 0
         width: buttons.implicitWidth + 4
-        height: 48
+        height: 42
         radius: Theme.radiusSmall
         color: Theme.dark ? Theme.surfaceRaised : "white"
         border.color: Theme.blue[500]

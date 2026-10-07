@@ -57,7 +57,7 @@ Item {
         id: header
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 40
+        height: 34
         spacing: 0
         Item {
             objectName: "toolsScrollLeft"
@@ -133,7 +133,7 @@ Item {
 
     Card {
         anchors.fill: parent
-        anchors.topMargin: header.height + 2
+        anchors.topMargin: header.height
         padding: 4
 
         Repeater {

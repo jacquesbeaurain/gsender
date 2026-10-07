@@ -32,7 +32,7 @@ ColumnLayout {
     }
     Rectangle {
         Layout.fillWidth: true
-        implicitHeight: Theme.touchTarget + 4
+        implicitHeight: 36
         radius: Theme.radiusSmall
         color: Theme.dark ? Theme.surfaceRaised : Theme.gray[200]
         RowLayout {
@@ -43,6 +43,8 @@ ColumnLayout {
                 objectName: override.objectName + "Reset"
                 iconName: "FaUndo"
                 iconSize: 14
+                implicitWidth: 39
+                implicitHeight: 32
                 enabled: override.enabled
                 onClicked: override.changeRequested(100)
             }
@@ -77,9 +79,9 @@ ColumnLayout {
                 handle: Rectangle {
                     x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
                     y: slider.topPadding + slider.availableHeight / 2 - height / 2
-                    width: 28
-                    height: 28
-                    radius: 14
+                    width: 24   // upstream's 24 px thumb
+                    height: 24
+                    radius: 12
                     color: override.enabled ? "white" : Theme.gray[300]
                     border.color: "#475569"
                     border.width: 2
@@ -89,6 +91,8 @@ ColumnLayout {
                 objectName: override.objectName + "Minus"
                 iconName: "FaMinus"
                 iconSize: 14
+                implicitWidth: 39
+                implicitHeight: 32
                 enabled: override.enabled
                 onClicked: if (override.percent - 10 >= 10) override.changeRequested(override.percent - 10)
             }
@@ -96,6 +100,8 @@ ColumnLayout {
                 objectName: override.objectName + "Plus"
                 iconName: "FaPlus"
                 iconSize: 14
+                implicitWidth: 39
+                implicitHeight: 32
                 enabled: override.enabled
                 onClicked: if (override.percent + 10 <= 200) override.changeRequested(override.percent + 10)
             }
