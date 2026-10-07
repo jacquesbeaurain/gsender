@@ -44,21 +44,23 @@ RowLayout {
             name: "MdKeyboardArrowDown"
             width: 18
             height: 18
-            color: Theme.gray[600]
+            color: Theme.dark ? Theme.gray[300] : Theme.gray[600]
         }
         onActivated: (index) => selector.model.selectWorkspace(selector.workspaces[index].code)
         contentItem: Label {
             leftPadding: 8
             text: selector.workspaces[selector.current].label
-            color: selector.workspaces[selector.current].color
+            color: Theme.dark ? Qt.lighter(selector.workspaces[selector.current].color, 1.4)
+                              : selector.workspaces[selector.current].color
             font.bold: true
             font.pixelSize: Theme.fontSm
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
             radius: 4
-            color: combo.enabled ? "white" : Theme.gray[300]
-            border.color: Theme.gray[300]
+            color: !combo.enabled ? (Theme.dark ? Theme.surfaceDisabled : Theme.gray[300])
+                 : Theme.dark ? Theme.surfaceRaised : "white"
+            border.color: Theme.dark ? selector.workspaces[selector.current].color : Theme.gray[300]
         }
         delegate: ItemDelegate {
             required property var modelData
