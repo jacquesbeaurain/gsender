@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTransform>
 
 #include <algorithm>
 #include <cmath>
@@ -95,7 +96,9 @@ QString NavCubeItem::activeFace() const {
 }
 
 std::vector<NavCubeItem::ProjectedFace> NavCubeItem::projectFaces() const {
-    const double s = std::min(width(), height()) * 0.32;
+    // gviewer's cube: 90 px edges (0.6 of the item, which leaves its corners
+    // room), drawn about the item's middle.
+    const double s = std::min(width(), height()) * 0.3;
     if (s <= 1.0) {
         return {};
     }
@@ -207,7 +210,7 @@ void NavCubeItem::paint(QPainter* painter) {
         // Draw quad face with smoothly rounded corners
         QPainterPath roundPath;
         const int n = 4;
-        const double cornerR = 5.0;
+        const double cornerR = 8.0;
         for (int vi = 0; vi < n; ++vi) {
             const QPointF prev = pf.poly[(vi + n - 1) % n];
             const QPointF curr = pf.poly[vi];
@@ -242,6 +245,18 @@ void NavCubeItem::paint(QPainter* painter) {
         }
         c /= 4.0;
 
+        // The label lies in its face (CSS 3D in gviewer): drawn in the face's
+        // own plane, one local unit a pixel of the cube's edge.
+        const double edge = std::min(width(), height()) * 0.6;
+        const QPointF u = pf.poly[1] - pf.poly[0];
+        QPointF v = pf.poly[3] - pf.poly[0];
+        if (u.x() * v.y() - u.y() * v.x() < 0) {
+            v = -v;  // keep the text upright, not mirrored
+        }
+        painter->save();
+        painter->setTransform(QTransform(u.x() / edge, u.y() / edge, v.x() / edge, v.y() / edge, c.x(), c.y()),
+                              true);
+
         QFont font = painter->font();
         font.setBold(true);
         font.setPixelSize(11);
@@ -249,8 +264,8 @@ void NavCubeItem::paint(QPainter* painter) {
         painter->setFont(font);
 
         painter->setPen(textColor);
-        const QRectF textRect(c.x() - 28, c.y() - 10, 56, 20);
-        painter->drawText(textRect, Qt::AlignCenter, QLatin1String(pf.def->label));
+        painter->drawText(QRectF(-28, -10, 56, 20), Qt::AlignCenter, QLatin1String(pf.def->label));
+        painter->restore();
     }
 }
 

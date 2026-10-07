@@ -53,6 +53,11 @@ QPointF ToolpathCamera::project(const Point3& p) const {
             viewport_.height() / 2.0 + pan_.y() - ry * scale_ * f};
 }
 
+double ToolpathCamera::depth(const Point3& p) const {
+    const double x = p.x - target_.x, y = p.y - target_.y, z = p.z - target_.z;
+    return rotation_[6] * x + rotation_[7] * y + rotation_[8] * z;
+}
+
 std::optional<Point3> ToolpathCamera::unproject(QPointF screen, double planeZ) const {
     // project() inverted on the plane: with the target at the origin, the
     // screen offset (a, b) is (rx, ry) scaled - by f = D / (D - rz) in
@@ -98,7 +103,9 @@ void ToolpathCamera::setView(View view, const std::optional<gcode::BoundingBox>&
     // cos(yaw) y) + sin(pitch) z. Side views look along the machine axes
     // with Z up: front along +Y, right along -X, left along +X.
     switch (view) {
-        case View::Iso: yaw_ = 35 * kDegree; pitch_ = 55 * kDegree; break;
+        // A true isometric view from the front left, as gviewer's 3D preset: +X rises
+        // to the right and +Y to the left, both at 30 degrees.
+        case View::Iso: yaw_ = 45 * kDegree; pitch_ = 54.7356 * kDegree; break;
         case View::Top: yaw_ = 0; pitch_ = 0; break;
         case View::Front: yaw_ = 0; pitch_ = 90 * kDegree; break;
         case View::Right: yaw_ = -90 * kDegree; pitch_ = 90 * kDegree; break;
@@ -163,7 +170,17 @@ double ToolpathCamera::pitchDegrees() const noexcept {
 
 void ToolpathCamera::fit(const std::optional<gcode::BoundingBox>& content) {
     pan_ = {};
-    const gcode::BoundingBox box = content.value_or(gcode::BoundingBox{{0, 0, 0, 0}, {100, 100, 0, 0}});
+    if (!content) {
+        // Nothing to frame: the origin in the middle, as gviewer opens - its
+        // camera 283 mm from the origin (0, -200, 200), a 45 degree field of
+        // view - which draws about 0.00436 pixels per millimetre per pixel of
+        // the view's height.
+        target_ = {0, 0, 0};
+        cameraDistance_ = 283;
+        scale_ = std::max(0.05, viewport_.height() * 0.00436);
+        return;
+    }
+    const gcode::BoundingBox box = *content;
     target_ = {(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2};
     // The perspective camera stands back ~1.35x content size (matching upstream 50 deg FOV).
     cameraDistance_ = 1.35 * std::max({100.0, box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z});
@@ -183,16 +200,47 @@ void ToolpathCamera::fit(const std::optional<gcode::BoundingBox>& content) {
 
 namespace scene {
 
+namespace {
+
+// A segment of the scene, cut where it would pass the perspective camera:
+// nothing of it behind the near limit is drawn.
+void addClipped(QVector<QLineF>& out, const ToolpathCamera& camera, Point3 a, Point3 b) {
+    if (camera.perspective()) {
+        const double limit = 0.85 * camera.cameraDistance();
+        const double da = camera.depth(a), db = camera.depth(b);
+        if (da >= limit && db >= limit) {
+            return;
+        }
+        const auto cut = [&](const Point3& kept, double dKept, const Point3& dropped, double dDropped) {
+            const double t = (limit - dKept) / (dDropped - dKept);
+            return Point3{kept.x + (dropped.x - kept.x) * t, kept.y + (dropped.y - kept.y) * t,
+                          kept.z + (dropped.z - kept.z) * t};
+        };
+        if (da >= limit) {
+            a = cut(b, db, a, da);
+        } else if (db >= limit) {
+            b = cut(a, da, b, db);
+        }
+    }
+    out.append(QLineF(camera.project(a), camera.project(b)));
+}
+
+}  // namespace
+
 void paintBackground(QPainter& painter, const ToolpathCamera& camera, const VisualizerTheme& theme,
                      const std::optional<gcode::BoundingBox>& bounds, const std::optional<QRectF>& gridArea) {
     painter.fillRect(QRectF(QPointF(0, 0), camera.viewport()), theme.background);
 
-    // A 10 mm grid on the XY plane around the program (or the origin), or
-    // over the given area; every fifth line major.
-    double gx0 = std::floor(std::min(0.0, bounds ? bounds->min.x : 0.0) / 10) * 10 - 10;
-    double gy0 = std::floor(std::min(0.0, bounds ? bounds->min.y : 0.0) / 10) * 10 - 10;
-    double gx1 = std::ceil(std::max(100.0, bounds ? bounds->max.x : 100.0) / 10) * 10 + 10;
-    double gy1 = std::ceil(std::max(100.0, bounds ? bounds->max.y : 100.0) / 10) * 10 + 10;
+    // A 10 mm grid on the XY plane, every fifth line major: gviewer's
+    // 1000 x 1000 mm around the origin (more where the program reaches
+    // beyond it), or over the given area.
+    double gx0 = -500, gy0 = -500, gx1 = 500, gy1 = 500;
+    if (bounds) {
+        gx0 = std::min(gx0, std::floor(bounds->min.x / 10) * 10 - 10);
+        gy0 = std::min(gy0, std::floor(bounds->min.y / 10) * 10 - 10);
+        gx1 = std::max(gx1, std::ceil(bounds->max.x / 10) * 10 + 10);
+        gy1 = std::max(gy1, std::ceil(bounds->max.y / 10) * 10 + 10);
+    }
     if (gridArea) {
         gx0 = gridArea->left();
         gy0 = gridArea->top();
@@ -203,30 +251,75 @@ void paintBackground(QPainter& painter, const ToolpathCamera& camera, const Visu
     QVector<QLineF> major;
     const auto isMajor = [](double v) { return std::fabs(std::remainder(v, 50.0)) < 1e-6; };
     for (double x = gx0; x <= gx1 + 1e-9; x += 10) {
-        (isMajor(x) ? major : minor).append(QLineF(camera.project({x, gy0, 0}), camera.project({x, gy1, 0})));
+        addClipped(isMajor(x) ? major : minor, camera, {x, gy0, 0}, {x, gy1, 0});
     }
     for (double y = gy0; y <= gy1 + 1e-9; y += 10) {
-        (isMajor(y) ? major : minor).append(QLineF(camera.project({gx0, y, 0}), camera.project({gx1, y, 0})));
+        addClipped(isMajor(y) ? major : minor, camera, {gx0, y, 0}, {gx1, y, 0});
     }
     QColor minorColor = theme.gridMinor;
-    minorColor.setAlpha(110);
+    minorColor.setAlpha(38);
     painter.setPen(QPen(minorColor, 1));
     painter.drawLines(minor);
     QColor majorColor = theme.gridMajor;
-    majorColor.setAlpha(110);
+    majorColor.setAlpha(62);
     painter.setPen(QPen(majorColor, 1));
     painter.drawLines(major);
 
-    // Work origin axes.
+    // The work origin's axes through the whole grid (Z up 200 mm, dashed), and
+    // gviewer's labels: every 20 mm from +-10, in the axis' colour - X above
+    // its line, Y below.
     painter.setRenderHint(QPainter::Antialiasing, true);
-    const QPointF origin = camera.project({0, 0, 0});
-    const double axis = 15 / std::max(camera.scale() / 4, 0.25);
-    painter.setPen(QPen(theme.axisX, 2));
-    painter.drawLine(origin, camera.project({axis, 0, 0}));
-    painter.setPen(QPen(theme.axisY, 2));
-    painter.drawLine(origin, camera.project({0, axis, 0}));
-    painter.setPen(QPen(theme.axisZ, 2));
-    painter.drawLine(origin, camera.project({0, 0, axis}));
+    const auto axisPen = [](const QColor& color, Qt::PenStyle style = Qt::SolidLine) {
+        QColor c = color;
+        c.setAlpha(120);
+        QPen pen(c, 1.5);
+        pen.setStyle(style);
+        return pen;
+    };
+    QVector<QLineF> line;
+    addClipped(line, camera, {gx0, 0, 0}, {gx1, 0, 0});
+    painter.setPen(axisPen(theme.axisX));
+    painter.drawLines(line);
+    line.clear();
+    addClipped(line, camera, {0, gy0, 0}, {0, gy1, 0});
+    painter.setPen(axisPen(theme.axisY));
+    painter.drawLines(line);
+    line.clear();
+    addClipped(line, camera, {0, 0, 0}, {0, 0, 200});
+    painter.setPen(axisPen(theme.axisZ, Qt::DashLine));
+    painter.drawLines(line);
+
+    const QRectF view(QPointF(-20, -20), camera.viewport() + QSizeF(40, 40));
+    const double limit = camera.perspective() ? 0.85 * camera.cameraDistance() : 1e18;
+    const auto labels = [&](bool alongX, double from, double to, const QColor& color, double lift) {
+        QColor ink = color;
+        ink.setAlpha(190);
+        painter.setPen(ink);
+        QPointF last(-1e9, -1e9);
+        for (double v = std::ceil((from - 10) / 20) * 20 + 10; v <= to; v += 20) {
+            const Point3 at = alongX ? Point3{v, 0, 0} : Point3{0, v, 0};
+            const double depth = camera.depth(at);
+            if (depth >= limit) {
+                continue;
+            }
+            const QPointF p = camera.project(at);
+            // Smaller with distance (they are 3D text upstream), and left out
+            // where they would run into the one before.
+            const double depthScale = camera.perspective() ? camera.cameraDistance() / (camera.cameraDistance() - depth) : 1.0;
+            const double size = std::clamp(11.0 * depthScale, 6.0, 13.0);
+            if (!view.contains(p) || QLineF(p, last).length() < size * 2.6) {
+                continue;
+            }
+            last = p;
+            QFont font = painter.font();
+            font.setPixelSize(static_cast<int>(std::lround(size)));
+            painter.setFont(font);
+            painter.drawText(QRectF(p.x() - 30, p.y() + lift - 8, 60, 16), Qt::AlignCenter,
+                             QString::number(static_cast<int>(v)));
+        }
+    };
+    labels(true, gx0, gx1, theme.axisX, -10);
+    labels(false, gy0, gy1, theme.axisY, 10);
 }
 
 void paintBox(QPainter& painter, const ToolpathCamera& camera, const gcode::BoundingBox& box, const QColor& color) {

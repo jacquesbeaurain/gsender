@@ -45,7 +45,8 @@ public:
     void setViewport(QSizeF size) { viewport_ = size; }
     QSizeF viewport() const noexcept { return viewport_; }
 
-    // `content` frames fit() (nothing: a 100 mm square at the origin).
+    // `content` frames fit() (nothing: the origin in the middle, upstream's
+    // 283 mm camera distance and its picture size).
     void setView(View view, const std::optional<gcode::BoundingBox>& content);
     View view() const noexcept { return view_; }
     // 3D, Top, Front, Right, Left, as upstream's shortcut.
@@ -69,6 +70,11 @@ public:
     double yawDegrees() const noexcept;
     double pitchDegrees() const noexcept;
     double scale() const noexcept { return scale_; }
+    // How far a point is towards the viewer (positive: nearer) and how far
+    // the perspective camera stands from the target; a point at the camera's
+    // distance is level with it, and not drawn.
+    double depth(const Point3& p) const;
+    double cameraDistance() const noexcept { return cameraDistance_; }
 
     QPointF project(const Point3& p) const;
     // The point of the plane Z = `planeZ` that projects to `screen`; nothing

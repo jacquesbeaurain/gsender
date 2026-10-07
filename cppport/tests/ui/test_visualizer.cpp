@@ -210,13 +210,14 @@ TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
     // 3. Test Iso View Button
     tap("view3D");
     EXPECT_EQ(toolpath->property("view").toString(), "3d");
-    EXPECT_NEAR(toolpath->property("yaw").toDouble(), 35.0, 1.0);
-    EXPECT_NEAR(toolpath->property("pitch").toDouble(), 55.0, 1.0);
+    // gviewer's 3D preset: a true isometric view.
+    EXPECT_NEAR(toolpath->property("yaw").toDouble(), 45.0, 1.0);
+    EXPECT_NEAR(toolpath->property("pitch").toDouble(), 54.7, 1.0);
 
     // 4. Test Navigation Cube Properties and View Snapping
     EXPECT_NE(navCube->property("view").value<QObject*>(), nullptr);
-    EXPECT_NEAR(navCube->property("yaw").toDouble(), 35.0, 1.0);
-    EXPECT_NEAR(navCube->property("pitch").toDouble(), 55.0, 1.0);
+    EXPECT_NEAR(navCube->property("yaw").toDouble(), 45.0, 1.0);
+    EXPECT_NEAR(navCube->property("pitch").toDouble(), 54.7, 1.0);
 
     // Test dragging the NavCube to orbit
     const QPoint cubeCentre = centreOf(navCube);

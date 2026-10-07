@@ -26,7 +26,7 @@ RowLayout {
     Label {
         text: qsTr("Workspace:")
         color: "#d1d5db"
-        font.pixelSize: Theme.fontSm
+        font.pixelSize: Theme.fontBase
     }
     ComboBox {
         id: combo
@@ -35,11 +35,20 @@ RowLayout {
         model: selector.workspaces
         textRole: "label"
         currentIndex: selector.current
-        implicitHeight: Theme.touchTarget - 4
-        implicitWidth: 130
+        implicitHeight: 30
+        implicitWidth: 85
+        // Upstream's select: a small chevron at the right.
+        indicator: Icon {
+            x: combo.width - width - 4
+            y: (combo.height - height) / 2
+            name: "MdKeyboardArrowDown"
+            width: 18
+            height: 18
+            color: Theme.gray[600]
+        }
         onActivated: (index) => selector.model.selectWorkspace(selector.workspaces[index].code)
         contentItem: Label {
-            leftPadding: 10
+            leftPadding: 8
             text: selector.workspaces[selector.current].label
             color: selector.workspaces[selector.current].color
             font.bold: true

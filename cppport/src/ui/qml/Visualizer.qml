@@ -54,7 +54,7 @@ Rectangle {
         id: workspaceSelector
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 8
+        anchors.margins: 16
     }
 
     // Accessibility's G-code summary, shown visually (AccessibilityAnnouncer).
@@ -94,11 +94,13 @@ Rectangle {
         objectName: "navCube"
         visible: !Backend.liteMode
         anchors.left: parent.left
-        anchors.leftMargin: 60
+        // gviewer's 90 px cube sits 58 px from the corner; its item is larger, so
+        // the cube's corners are not cut off.
+        anchors.leftMargin: 28
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 60
-        width: 84
-        height: 84
+        anchors.bottomMargin: 28
+        width: 150
+        height: 150
         view: toolpath
     }
 
@@ -106,9 +108,9 @@ Rectangle {
     Row {
         id: cubeUtilityRow
         anchors.bottom: Backend.liteMode ? parent.bottom : navCube.top
-        anchors.bottomMargin: Backend.liteMode ? 60 : 28
+        anchors.bottomMargin: Backend.liteMode ? 58 : 1
         anchors.left: parent.left
-        anchors.leftMargin: 60 + (84 - width) / 2
+        anchors.leftMargin: 28 + (150 - width) / 2
         spacing: 8
 
         // Iso View
@@ -118,14 +120,14 @@ Rectangle {
             width: 36
             height: 36
             radius: 18
-            color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
-            border.color: Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6)
+            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
+            border.color: Qt.rgba(156/255, 163/255, 175/255, 0.4)
             border.width: 1
 
             Icon {
                 anchors.centerIn: parent
                 name: "FaCube"
-                color: isoHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700])
+                color: isoHover.hovered ? "white" : "white"
                 width: 16
                 height: 16
             }
@@ -144,16 +146,16 @@ Rectangle {
             height: 36
             radius: 18
             readonly property bool isOrtho: !Backend.perspective
-            color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
+            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
             border.color: isOrtho ? "#60a5fa"
-                                  : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
+                                  : Qt.rgba(156/255, 163/255, 175/255, 0.4)
             border.width: isOrtho ? 1.5 : 1.0
 
             Icon {
                 anchors.centerIn: parent
                 name: btnProjection.isOrtho ? "LuSquare" : "LuBox"
                 color: btnProjection.isOrtho ? "#60a5fa"
-                                             : (orthoHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
+                                             : (orthoHover.hovered ? "white" : "white")
                 width: 16
                 height: 16
             }
@@ -176,16 +178,16 @@ Rectangle {
         height: 44
         radius: 22
         readonly property bool isLite: Backend.liteMode
-        color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
+        color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
         border.color: isLite ? "#60a5fa"
-                             : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
+                             : Qt.rgba(156/255, 163/255, 175/255, 0.4)
         border.width: isLite ? 2.0 : 1.0
 
         Icon {
             anchors.centerIn: parent
             name: "FaFeatherAlt"
             color: btnLightweight.isLite ? "#60a5fa"
-                                         : (liteHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
+                                         : (liteHover.hovered ? "white" : "white")
             width: 20
             height: 20
         }
@@ -212,16 +214,16 @@ Rectangle {
             height: 44
             radius: 22
             readonly property bool isOpen: frame.activeOverlayPluginId === modelData.pluginId
-            color: Theme.dark ? Qt.rgba(12/255, 16/255, 20/255, 0.75) : Qt.rgba(240/255, 245/255, 252/255, 0.85)
+            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
             border.color: isOpen ? "#0ef6ae"
-                                 : (Theme.dark ? Qt.rgba(156/255, 163/255, 175/255, 0.4) : Qt.rgba(160/255, 175/255, 195/255, 0.6))
+                                 : Qt.rgba(156/255, 163/255, 175/255, 0.4)
             border.width: isOpen ? 2.0 : 1.0
 
             Icon {
                 anchors.centerIn: parent
                 name: "LuCrosshair"
                 color: parent.isOpen ? "#0ef6ae"
-                                     : (overlayBtnHover.hovered ? "white" : (Theme.dark ? Theme.gray[300] : Theme.gray[700]))
+                                     : (overlayBtnHover.hovered ? "white" : "white")
                 width: 20
                 height: 20
             }
