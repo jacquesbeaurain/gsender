@@ -370,13 +370,22 @@ void UiBackend::showHelper(const QString& title, const QString& text, const QStr
     helperTitle_ = title;
     helperText_ = text;
     helperLink_ = link;
-    helperVisible_ = true;
+    helperActive_ = true;
+    helperMinimized_ = false;
     Q_EMIT helperChanged();
 }
 
 void UiBackend::closeHelper() {
-    if (helperVisible_) {
-        helperVisible_ = false;
+    if (helperActive_) {
+        helperActive_ = false;
+        helperMinimized_ = true;
+        Q_EMIT helperChanged();
+    }
+}
+
+void UiBackend::toggleHelper() {
+    if (helperActive_) {
+        helperMinimized_ = !helperMinimized_;
         Q_EMIT helperChanged();
     }
 }

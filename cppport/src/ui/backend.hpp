@@ -69,6 +69,8 @@ class UiBackend final : public QObject {
     // The Helper's info panel (features/Helper): a card over the top left
     // with a title, an explanation and a resource link, until closed.
     Q_PROPERTY(bool helperVisible READ helperVisible NOTIFY helperChanged)
+    // The rail's Helper toggle: a helper is on offer (shown or minimized).
+    Q_PROPERTY(bool helperActive READ helperActive NOTIFY helperChanged)
     Q_PROPERTY(QString helperTitle READ helperTitle NOTIFY helperChanged)
     Q_PROPERTY(QString helperText READ helperText NOTIFY helperChanged)  // rich text
     Q_PROPERTY(QString helperLink READ helperLink NOTIFY helperChanged)
@@ -134,7 +136,8 @@ public:
     void setSimulatorEnabled(bool enabled);
     QVariantList notifications() const;
     int unreadErrors() const;
-    bool helperVisible() const noexcept { return helperVisible_; }
+    bool helperVisible() const noexcept { return helperActive_ && !helperMinimized_; }
+    bool helperActive() const noexcept { return helperActive_; }
     QString helperTitle() const { return helperTitle_; }
     QString helperText() const { return helperText_; }
     QString helperLink() const { return helperLink_; }
@@ -172,6 +175,8 @@ public:
     Q_INVOKABLE void clearNotifications();
     Q_INVOKABLE void showHelper(const QString& title, const QString& text, const QString& link = {});
     Q_INVOKABLE void closeHelper();
+    // HelperToggle: hides or shows the helper on offer (nothing without one).
+    Q_INVOKABLE void toggleHelper();
     // The Maintenance Alert's Reset Timers.
     Q_INVOKABLE void resetMaintenanceTimers(const QVariantList& ids);
     // A tool of the Tools page ("rotarySurfacing", "surfacing", ...): the
@@ -213,7 +218,8 @@ private:
     app::GamepadService* gamepad_;             // a child
     app::AccessibilityAnnouncer* announcer_;   // a child
     QPointer<app::ShortcutManager> shortcuts_;  // the window's
-    bool helperVisible_ = false;
+    bool helperActive_ = false;
+    bool helperMinimized_ = true;
     bool simulatorEnabled_ = false;
     QString helperTitle_;
     QString helperText_;

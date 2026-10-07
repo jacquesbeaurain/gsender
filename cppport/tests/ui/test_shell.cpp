@@ -336,3 +336,26 @@ TEST_F(UiTest, QmlWarningsFailTheTest) {
     EXPECT_TRUE(qmlWarnings().front().contains("ReferenceError")) << qmlWarnings().front().toStdString();
     qmlWarnings().clear();  // expected here
 }
+
+TEST_F(UiTest, TheRailsHelperToggleHidesAndShowsTheHelperOnOffer) {
+    // Nothing on offer: the toggle is there but does nothing.
+    ASSERT_NE(item("helperToggle"), nullptr);
+    EXPECT_FALSE(backend_->helperActive());
+    tap("helperToggle");
+    EXPECT_FALSE(backend_->helperVisible());
+
+    backend_->showHelper("Alarm 1", "<p>Hard limit</p>");
+    EXPECT_TRUE(backend_->helperActive());
+    EXPECT_TRUE(backend_->helperVisible());
+    // A tap minimizes it (the helper stays on offer), another brings it back.
+    tap("helperToggle");
+    EXPECT_TRUE(backend_->helperActive());
+    EXPECT_FALSE(backend_->helperVisible());
+    tap("helperToggle");
+    EXPECT_TRUE(backend_->helperVisible());
+    // Closing it takes the offer away.
+    backend_->closeHelper();
+    EXPECT_FALSE(backend_->helperActive());
+    tap("helperToggle");
+    EXPECT_FALSE(backend_->helperVisible());
+}

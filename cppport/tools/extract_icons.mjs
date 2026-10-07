@@ -42,6 +42,10 @@ const icons = [
     ['lu', 'LuGamepad2'],
     // The machine status (MachineStatus, UnlockButton).
     ['fa', 'FaUnlock'],
+    // The top bar's lock (UnlockButton) and the rail's Helper toggle.
+    ['io5', 'IoLockClosedOutline'],
+    ['io5', 'IoLockOpenOutline'],
+    ['ri', 'RiSpeakLine'],
     ['fa', 'FaHome'],
     ['fa', 'FaLock'],
     // The DRO: Go To, Park, Zero.

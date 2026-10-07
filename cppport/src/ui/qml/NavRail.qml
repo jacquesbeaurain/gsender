@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import GSender
 
@@ -19,6 +20,60 @@ Item {
         anchors.bottom: entries.top
         width: 2
         color: Theme.dark ? Theme.outline : Theme.gray[400]
+    }
+
+    // The Helper toggle (features/Helper/HelperToggle): grey and disabled
+    // without a helper on offer; orange, tinted and bouncing with one, a tap
+    // hides or shows it. It sits 169 px above the entries, as upstream's
+    // flexible top section places it.
+    Item {
+        id: helperToggle
+        objectName: "helperToggle"
+        anchors.left: parent.left
+        anchors.bottom: entries.top
+        anchors.bottomMargin: 169
+        width: 59
+        height: 54
+        property real bounce: 0
+        transform: Translate { y: helperToggle.bounce }
+
+        SequentialAnimation on bounce {
+            running: Backend.helperActive && !Theme.reducedMotion
+            loops: Animation.Infinite
+            NumberAnimation { to: -14; duration: 500; easing.type: Easing.OutQuad }
+            NumberAnimation { to: 0; duration: 500; easing.type: Easing.InQuad }
+            onRunningChanged: if (!running) helperToggle.bounce = 0
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: 12
+            visible: Backend.helperActive
+            color: Qt.rgba(0xe6 / 255, 0xc8 / 255, 0xa5 / 255, 0.3)
+            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+        }
+        Column {
+            anchors.centerIn: parent
+            spacing: 2
+            Icon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                name: "RiSpeakLine"
+                width: 34.6
+                height: 31.5
+                color: Backend.helperActive ? Theme.orange[600] : Theme.gray[400]
+            }
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Backend.helperActive ? Backend.helperTitle : qsTr("Helper")
+                font.pixelSize: Theme.fontXs
+                color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                elide: Text.ElideRight
+                width: Math.min(implicitWidth, helperToggle.width - 4)
+            }
+        }
+        TapHandler {
+            enabled: Backend.helperActive
+            onTapped: Backend.toggleHelper()
+        }
     }
 
     ColumnLayout {
