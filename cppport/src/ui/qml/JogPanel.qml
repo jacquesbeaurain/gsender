@@ -5,25 +5,33 @@ import GSender
 
 // Jogging (features/Jogging): the XY wheel with its stop button, the Z (and
 // A) tabs; the step and speed fields with their - and + buttons; the
-// Rapid / Normal / Precise presets.
+// Precise / Normal / Rapid presets.
+//
+// Sizes follow upstream's page at the 1280 px window (max-xl: the wheel and
+// tabs are scaled to 90%; the fields and presets are not).
 ColumnLayout {
     id: jog
     objectName: "jogPanel"
 
     property JogModel model: JogModel {}
 
-    spacing: 8
+    // Upstream's max-xl:scale-90 on the wheel row, below the xl breakpoint.
+    readonly property real js: Window.window && Window.window.width <= 1280 ? 0.9 : 1
+
+    spacing: 0
 
     RowLayout {
         Layout.alignment: Qt.AlignHCenter
-        spacing: 24
+        spacing: 86 * jog.js
         JogWheel {
             model: jog.model
-            Layout.preferredWidth: 180
-            Layout.preferredHeight: 180
+            Layout.preferredWidth: 180 * jog.js
+            Layout.preferredHeight: 180 * jog.js
         }
         TabJog {
             objectName: "jogZ"
+            Layout.preferredWidth: 45 * jog.js
+            Layout.preferredHeight: 168 * jog.js
             canJog: jog.model.canJog
             onPressedDirection: (direction) => jog.model.press(0, 0, direction)
             onReleased: jog.model.release()
@@ -31,6 +39,8 @@ ColumnLayout {
         TabJog {
             objectName: "jogA"
             visible: jog.model.showA
+            Layout.preferredWidth: 45 * jog.js
+            Layout.preferredHeight: 168 * jog.js
             labels: "JogALabels"
             canJog: jog.model.canJog
             onPressedDirection: (direction) => jog.model.pressA(direction)
@@ -40,11 +50,14 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
+        Layout.topMargin: 43
+        Layout.leftMargin: 53
+        Layout.rightMargin: 35
         spacing: 8
 
         GridLayout {
             columns: jog.model.showA ? 2 : 1
-            rowSpacing: 4
+            rowSpacing: 8.7
             columnSpacing: 8
             Layout.alignment: Qt.AlignVCenter
             Repeater {
@@ -58,26 +71,29 @@ ColumnLayout {
                     id: input
                     required property var modelData
                     visible: modelData.field !== "a" || jog.model.showA
-                    spacing: 4
+                    spacing: 0
                     Label {
                         text: input.modelData.label
                         font.pixelSize: Theme.fontSm
                         color: Theme.contentSecondary
                         horizontalAlignment: Text.AlignRight
-                        Layout.preferredWidth: 22
+                        Layout.preferredWidth: 24
+                        Layout.rightMargin: 4
                     }
                     GButton {
                         objectName: "jogMinus" + input.modelData.field
                         variant: "ghost"
                         text: "−"
-                        implicitWidth: 36
-                        implicitHeight: 38
+                        fontSize: Theme.fontSm
+                        implicitWidth: 23
+                        implicitHeight: 24
                         onClicked: jog.model.nudge(input.modelData.field, false)
                     }
                     NumberField {
                         objectName: "jogField" + input.modelData.field
-                        Layout.preferredWidth: 76
-                        implicitHeight: 38
+                        Layout.preferredWidth: 65
+                        implicitHeight: 24
+                        font.pixelSize: Theme.fontSm
                         horizontalAlignment: TextInput.AlignHCenter
                         value: input.modelData.field === "xy" ? jog.model.xyStep
                              : input.modelData.field === "z" ? jog.model.zStep
@@ -88,8 +104,9 @@ ColumnLayout {
                         objectName: "jogPlus" + input.modelData.field
                         variant: "ghost"
                         text: "+"
-                        implicitWidth: 36
-                        implicitHeight: 38
+                        fontSize: Theme.fontSm
+                        implicitWidth: 23
+                        implicitHeight: 24
                         onClicked: jog.model.nudge(input.modelData.field, true)
                     }
                 }
@@ -98,24 +115,23 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
         // The presets (SpeedSelector).
         Rectangle {
-            implicitWidth: 104
-            implicitHeight: presets.implicitHeight + 8
+            implicitWidth: 92
+            implicitHeight: presets.implicitHeight
             radius: 4
             color: "transparent"
             border.color: Theme.outlineSubtle
             ColumnLayout {
                 id: presets
                 anchors.fill: parent
-                anchors.margins: 4
-                spacing: 2
+                spacing: 0
                 Repeater {
-                    model: ["Rapid", "Normal", "Precise"]
+                    model: ["Precise", "Normal", "Rapid"]
                     Rectangle {
                         required property string modelData
                         readonly property bool active: jog.model.preset === modelData
                         objectName: "preset" + modelData
                         Layout.fillWidth: true
-                        implicitHeight: Theme.touchTarget - 4
+                        implicitHeight: 26
                         radius: 4
                         color: active ? Qt.rgba(0x52 / 255, 0x91 / 255, 0xcd / 255, 0.3) : "transparent"
                         border.color: active ? Theme.blue[500] : "transparent"

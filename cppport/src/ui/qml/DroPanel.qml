@@ -6,11 +6,17 @@ import GSender
 // The DRO (features/DRO): the units badge; Go To, the corner buttons and
 // Park; per axis zero (or home), the work position - tap to type one -, the
 // machine position and go to zero; Zero all, the homing switch and Home, XY.
+//
+// Sizes follow upstream's page at the 1280 px window (max-xl: the axis rows
+// are scaled to 95%): rows 32 px high with 7 px between them.
 Item {
     id: dro
     objectName: "dro"
 
     property DroModel model: DroModel {}
+
+    // Upstream's max-xl:scale-95 on the rows, below the xl breakpoint.
+    readonly property real ds: Window.window && Window.window.width <= 1280 ? 0.95 : 1
 
     implicitHeight: column.implicitHeight
 
@@ -40,18 +46,17 @@ Item {
         id: unitBadge
         objectName: "unitBadge"
         z: 1
-        x: -8
-        y: -8
+        x: 5
+        y: 5
         width: badgeText.implicitWidth + 16
-        height: badgeText.implicitHeight + 12
+        height: 28
         color: Theme.dark ? Theme.surfaceElevated : Theme.gray[300]
         topLeftRadius: Theme.radius
         bottomRightRadius: Theme.radius
         Label {
             id: badgeText
             anchors.centerIn: parent
-            text: qsTr("Units:\n%1").arg(dro.model.units)
-            horizontalAlignment: Text.AlignHCenter
+            text: dro.model.units
             font.pixelSize: Theme.fontXs
             font.weight: Font.DemiBold
             color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
@@ -63,15 +68,21 @@ Item {
         id: column
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: 4
+        spacing: 0
 
-        // Go To, the corners and Park.
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 12
+        // Go To, the corners and Park: the corner grid centred, Go To and Park
+        // 88 px to either side of the centre (upstream's flex row).
+        Item {
+            Layout.fillWidth: true
+            Layout.topMargin: 9
+            implicitHeight: 32
             GButton {
                 objectName: "goToButton"
+                x: parent.width / 2 - 88 - width / 2
                 iconName: "FaPaperPlane"
+                iconSize: 14
+                implicitWidth: 39
+                implicitHeight: 32
                 enabled: dro.model.canClick
                 onClicked: goTo.open()
                 GoToPopup {
@@ -80,11 +91,16 @@ Item {
                     y: parent.height + 4
                 }
             }
-            Grid {
+            // The 64 x 56 grid of the four corners, drawn with perspective.
+            Item {
                 objectName: "corners"
                 visible: dro.model.homingEnabled
-                columns: 2
-                spacing: 4
+                // translateX(-25px) under the 1.4 scale moves the painted pad 35 px
+                // left of the box, and it sits centred between Go To and Park.
+                x: parent.width / 2 + 31 - 32
+                y: parent.height / 2 - 28
+                width: 64
+                height: 56
                 Repeater {
                     model: ["BackLeft", "BackRight", "FrontLeft", "FrontRight"]
                     CornerButton {
@@ -100,9 +116,13 @@ Item {
             GButton {
                 objectName: "parkButton"
                 visible: dro.model.homingEnabled
+                x: parent.width / 2 + 88 - width / 2
                 iconName: "RiParkingFill"
                 iconSize: 16
-                text: qsTr("Park")
+                implicitWidth: 41
+                implicitHeight: 32
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Go to Park Location")
                 enabled: dro.model.canClick && dro.model.homed
                 onClicked: dro.model.park()
             }
@@ -110,18 +130,18 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.leftMargin: 12
-            Layout.rightMargin: 12
+            Layout.leftMargin: 25
+            Layout.rightMargin: 25
             Label {
                 text: dro.model.homingMode ? qsTr("Home") : qsTr("Zero")
                 font.pixelSize: Theme.fontSm
-                color: Theme.contentMuted
+                color: Theme.dark ? Theme.contentMuted : Theme.gray[400]
             }
             Item { Layout.fillWidth: true }
             Label {
                 text: qsTr("Go to")
                 font.pixelSize: Theme.fontSm
-                color: Theme.contentMuted
+                color: Theme.dark ? Theme.contentMuted : Theme.gray[400]
             }
         }
 
@@ -129,20 +149,28 @@ Item {
         // while the positions update.
         Repeater {
             model: dro.model.rows.length
-            Rectangle {
+            Item {
                 id: row
                 required property int index
                 readonly property var modelData: dro.model.rows[index] || ({})
                 objectName: "axisRow" + modelData.label
                 Layout.fillWidth: true
-                implicitHeight: Theme.touchTarget + 4
-                radius: Theme.radiusSmall
-                color: "transparent"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                Layout.leftMargin: 14
+                Layout.rightMargin: 14
+                Layout.topMargin: index === 0 ? -4 : 7 * dro.ds
+                implicitHeight: 32 * dro.ds
+
+                // The row's own line (upstream's bottom border).
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: Theme.dark ? Theme.outline : Theme.gray[200]
+                }
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 2
                     spacing: 4
                     GButton {
                         objectName: "zero" + row.modelData.label
@@ -150,9 +178,10 @@ Item {
                         text: dro.model.homingMode ? "H" + row.modelData.label : row.modelData.label + "0"
                         mono: true
                         bold: true
-                        fontSize: Theme.fontXl
+                        fontSize: 20 * dro.ds
                         enabled: row.modelData.enabled
-                        Layout.preferredWidth: 64
+                        implicitHeight: 32 * dro.ds
+                        Layout.preferredWidth: 47 * dro.ds
                         Layout.fillHeight: true
                         onClicked: dro.zero(row.modelData.axis)
                     }
@@ -163,7 +192,7 @@ Item {
                         horizontalAlignment: TextInput.AlignHCenter
                         display: row.modelData.work
                         enabled: row.modelData.enabled
-                        font.pixelSize: Theme.fontXl
+                        font.pixelSize: 20 * dro.ds
                         font.bold: true
                         font.family: Theme.monoFont
                         color: Theme.primaryText
@@ -178,7 +207,7 @@ Item {
                         objectName: "machine" + row.modelData.label
                         text: row.modelData.machine
                         font.family: Theme.monoFont
-                        font.pixelSize: Theme.fontSm
+                        font.pixelSize: Theme.fontSm * dro.ds
                         color: Theme.gray[400]
                         horizontalAlignment: Text.AlignHCenter
                         Layout.preferredWidth: 80
@@ -188,9 +217,10 @@ Item {
                         variant: "alt"
                         text: row.modelData.label
                         mono: true
-                        fontSize: Theme.fontLg
+                        fontSize: Theme.fontLg * dro.ds
                         enabled: row.modelData.gotoEnabled
-                        Layout.preferredWidth: 52
+                        implicitHeight: 32 * dro.ds
+                        Layout.preferredWidth: 35 * dro.ds
                         Layout.fillHeight: true
                         onClicked: dro.model.goToZero(row.modelData.axis)
                     }
@@ -201,12 +231,17 @@ Item {
         // Zero all, homing, XY.
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 6
+            Layout.leftMargin: 14
+            Layout.rightMargin: 14
+            Layout.topMargin: 7 * dro.ds
             spacing: 8
             GButton {
                 objectName: "zeroAll"
                 text: qsTr("Zero")
                 iconName: "VscTarget"
+                iconSize: 19 * dro.ds
+                fontSize: Theme.fontSm * dro.ds
+                implicitHeight: 32 * dro.ds
                 enabled: dro.model.canClick
                 onClicked: dro.zero("")
             }
@@ -223,6 +258,8 @@ Item {
                 visible: dro.model.homingEnabled
                 variant: "primary"
                 text: qsTr("Home")
+                fontSize: Theme.fontSm * dro.ds
+                implicitHeight: 32 * dro.ds
                 enabled: dro.model.canClick
                 onClicked: dro.model.home()
             }
@@ -232,7 +269,9 @@ Item {
                 variant: "alt"
                 text: dro.model.rotaryMode ? "XA" : "XY"
                 mono: true
-                fontSize: Theme.fontLg
+                fontSize: Theme.fontLg * dro.ds
+                implicitHeight: 32 * dro.ds
+                implicitWidth: 45 * dro.ds
                 enabled: dro.model.canClick
                 onClicked: dro.model.goToZero("XY")  // in rotary mode A is Y
             }

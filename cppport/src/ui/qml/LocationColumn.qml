@@ -3,12 +3,13 @@ import QtQuick.Layouts
 import GSender
 
 // The Carve page's column (workspace/Column, features/Location): the DRO
-// over the jog controls in one widget card. Where the height is short the
-// content scales down to fit, as upstream scales it (max-xl:scale-90).
+// over the jog controls in one widget card. The parts are sized as upstream
+// sizes them at the 1280 px window (the DRO rows at 95%, the wheel at 90%),
+// so they fill the card as its page does.
 Card {
     id: column
     objectName: "locationColumn"
-    padding: 12
+    padding: 0
 
     Item {
         id: area
@@ -16,18 +17,16 @@ Card {
 
         ColumnLayout {
             id: content
-            readonly property real fit: Math.min(1, area.height / implicitHeight)
-            width: area.width / fit
-            height: Math.max(implicitHeight, area.height / fit)
-            scale: fit
-            transformOrigin: Item.TopLeft
-            spacing: 12
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            spacing: 0
             DroPanel {
                 Layout.fillWidth: true
             }
-            Item { Layout.fillHeight: true }
             JogPanel {
                 Layout.fillWidth: true
+                Layout.topMargin: 30
             }
         }
     }

@@ -37,6 +37,8 @@ AbstractButton {
     implicitHeight: Theme.touchTarget
     implicitWidth: Math.max(Theme.touchTarget, contentRow.implicitWidth + 24)
     focusPolicy: Qt.StrongFocus
+    // shadcn's disabled:opacity-50, on top of the disabled colours.
+    opacity: enabled ? 1 : 0.5
 
     background: Rectangle {
         radius: 4
