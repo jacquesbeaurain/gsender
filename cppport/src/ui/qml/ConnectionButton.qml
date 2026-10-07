@@ -6,9 +6,9 @@ import GSender
 // The top bar's connection button (features/Connection): the connection's
 // icon in its state's colour - with a green check once connected - and
 // "Connect to CNC", "Connecting...", "Unable to connect.", or the port and
-// firmware. Disconnected, a tap lists the ports (PortListings); connected,
-// it offers Disconnect (upstream shows that overlay on hover, which a touch
-// screen does not have).
+// firmware. Disconnected, a tap lists the ports (PortListings); connected, a
+// red "Disconnect" overlay fades in over it on hover (DisconnectButton), and
+// a tap shows it for a few seconds where there is no hover.
 Rectangle {
     id: button
     objectName: "connectionButton"
@@ -16,11 +16,29 @@ Rectangle {
     property ConnectionModel model: ConnectionModel {}
     readonly property string state: model.state
 
-    implicitWidth: 180   // upstream's w-[180px] h-10
+    // upstream's min-w-[180px] h-10: it grows to fit "Connect to CNC".
+    implicitWidth: Math.max(180, row.implicitWidth + 32)
     implicitHeight: 40
     radius: Theme.radius
     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
     border.color: Theme.dark ? Theme.outline : Theme.gray[400]
+
+    // The glow behind it until connected (a blue-300 to blue-800 gradient,
+    // upstream blurs it; stronger on hover).
+    Rectangle {
+        visible: button.state !== "connected"
+        z: -1
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: Theme.radius + 2
+        opacity: hoverGlow.hovered ? 1 : 0.7
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0; color: Theme.blue[300] }
+            GradientStop { position: 1; color: Theme.blue[800] }
+        }
+        HoverHandler { id: hoverGlow }
+    }
 
     RowLayout {
         id: row
@@ -100,26 +118,47 @@ Rectangle {
         }
     }
 
+    HoverHandler { id: hover }
+
     TapHandler {
+        enabled: button.state !== "connected"
         onTapped: {
-            if (button.state === "connected") {
-                disconnectMenu.open()
-            } else if (button.state !== "connecting") {
+            if (button.state !== "connecting") {
                 button.model.refresh()
                 ports.open()
             }
         }
     }
 
-    Menu {
-        id: disconnectMenu
-        objectName: "disconnectMenu"
-        y: button.height + 4
-        MenuItem {
-            objectName: "disconnectItem"
+    // Upstream's DisconnectButton: red-600, over the whole button, shown on
+    // hover or focus. Touch has no hover: a tap on the connected button arms
+    // it for four seconds.
+    Rectangle {
+        id: disconnectOverlay
+        objectName: "disconnectButton"
+        property bool armed: false
+        visible: button.state === "connected"
+        anchors.fill: parent
+        radius: Theme.radius
+        color: Theme.red[600]
+        opacity: hover.hovered || armed ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Label {
+            anchors.centerIn: parent
             text: qsTr("Disconnect")
-            height: Theme.touchTarget
-            onTriggered: button.model.disconnectMachine()
+            color: "white"
+            font.pixelSize: Theme.fontBase
+        }
+        Timer { running: disconnectOverlay.armed; interval: 4000; onTriggered: disconnectOverlay.armed = false }
+        TapHandler {
+            onTapped: {
+                if (disconnectOverlay.opacity > 0.5) {
+                    disconnectOverlay.armed = false
+                    button.model.disconnectMachine()
+                } else {
+                    disconnectOverlay.armed = true
+                }
+            }
         }
     }
 

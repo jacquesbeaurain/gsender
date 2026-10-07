@@ -132,6 +132,7 @@ Item {
             Layout.fillWidth: true
             Layout.leftMargin: 25
             Layout.rightMargin: 25
+            Layout.topMargin: -1   // the labels sit clear of the X0 and X buttons
             Label {
                 text: dro.model.homingMode ? qsTr("Home") : qsTr("Zero")
                 font.pixelSize: Theme.fontSm
@@ -157,7 +158,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: 14
                 Layout.rightMargin: 14
-                Layout.topMargin: index === 0 ? -4 : 7 * dro.ds
+                Layout.topMargin: index === 0 ? -2.3 : 7 * dro.ds
                 implicitHeight: 32 * dro.ds
 
                 // The row's own line (upstream's bottom border).
@@ -233,7 +234,7 @@ Item {
             Layout.fillWidth: true
             Layout.leftMargin: 14
             Layout.rightMargin: 14
-            Layout.topMargin: 7 * dro.ds
+            Layout.topMargin: 7 * dro.ds - 0.7
             spacing: 8
             GButton {
                 objectName: "zeroAll"

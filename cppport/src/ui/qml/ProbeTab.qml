@@ -40,18 +40,24 @@ Item {
         anchors.fill: parent
         spacing: 8
 
+        // upstream's grid-cols-[5fr_3fr]
         ColumnLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredWidth: 5
-            spacing: 4
+            Layout.alignment: Qt.AlignTop
+            Layout.preferredWidth: (tab.width - 8) * 5 / 8
+            Layout.maximumWidth: (tab.width - 8) * 5 / 8
+            // Upstream's grid rows (the routines, the tool diameter when the
+            // routine has one, Probe): 56 px each, the contents centred, the
+            // grid starting 7 px under the tab's top.
+            Layout.topMargin: 7
+            spacing: 0
 
-            // Upstream stacks the routines from the top, not the middle.
-            Item { Layout.preferredHeight: 10 }
-            GButton {
-                objectName: "probePlate"
+            Item {
                 visible: tab.model.plateSwitcher
-                Layout.alignment: Qt.AlignHCenter
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
+            GButton {
+                anchors.centerIn: parent
+                objectName: "probePlate"
                 text: tab.model.plateType
                 fontSize: Theme.fontSm
                 onClicked: plateMenu.popup(this, 0, height)
@@ -68,9 +74,14 @@ Item {
                     }
                 }
             }
+            }
             // The routines.
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
             Rectangle {
-                Layout.alignment: Qt.AlignHCenter
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -3
                 implicitWidth: routines.implicitWidth + 4
                 implicitHeight: routines.implicitHeight + 4
                 radius: Theme.radiusSmall
@@ -103,14 +114,18 @@ Item {
                     }
                 }
             }
-            // The tool diameter.
+            }
+            // The tool diameter (upstream's px-6 at this size).
+            Item {
+                visible: tab.model.needsTool
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
             GButton {
                 id: toolButton
                 objectName: "probeTool"
-                visible: tab.model.needsTool
-                Layout.fillWidth: true
-                Layout.maximumWidth: 260
-                Layout.alignment: Qt.AlignHCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.min(parent.width - 48, 260)
                 variant: "outline"
                 fontSize: Theme.fontSm
                 text: tab.model.tool
@@ -198,8 +213,12 @@ Item {
                     }
                 }
             }
+            }
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
             Row {
-                Layout.alignment: Qt.AlignHCenter
+                anchors.centerIn: parent
                 spacing: 8
                 GButton {
                     objectName: "probeButton"
@@ -228,19 +247,20 @@ Item {
                     }
                 }
             }
-            Item { Layout.fillHeight: true }
+            }
         }
 
-        // The picture, and the corner.
+        // The picture, and the corner. The picture is 15vh wide, centred.
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredWidth: 3
             AnimatedImage {
                 objectName: "probeImage"
-                anchors.fill: parent
-                anchors.bottomMargin: cornerRow.height
-                fillMode: Image.PreserveAspectFit
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: (cornerRow.visible ? -cornerRow.height / 2 : 0) + 8
+                width: Window.window ? Window.window.height * 0.15 : 120
+                height: implicitWidth > 0 ? width * implicitHeight / implicitWidth : width
+                fillMode: Image.Stretch
                 source: tab.model.image
                 playing: tab.visible
             }

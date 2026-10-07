@@ -65,12 +65,11 @@ TEST_F(UiTest, TheConnectionButtonListsPortsConnectsAndDisconnects) {
     EXPECT_FALSE(ports->property("opened").toBool());
     EXPECT_TRUE(waitFor([&] { return text("connectionPort") == "Simulator"; }));
 
-    // Connected, a tap offers Disconnect.
+    // Connected, the red Disconnect overlay shows (on hover; a tap arms it
+    // where there is none), and a tap on it disconnects.
     tap("connectionButton");
-    QObject* menu = window_->findChild<QObject*>("disconnectMenu");
-    ASSERT_TRUE(waitFor([&] { return menu->property("opened").toBool(); }));
-    ASSERT_TRUE(waitFor([&] { return item("disconnectItem") && item("disconnectItem")->height() > 0; }));
-    tap("disconnectItem");
+    ASSERT_TRUE(waitFor([&] { return item("disconnectButton")->property("opacity").toDouble() > 0.9; }));
+    tap("disconnectButton");
     EXPECT_TRUE(waitFor([&] { return !machine_->isConnected(); }));
     EXPECT_TRUE(waitFor([&] { return text("connectionText") == "Connect to CNC"; }));
 

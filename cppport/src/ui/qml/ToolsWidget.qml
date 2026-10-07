@@ -57,7 +57,7 @@ Item {
         id: header
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 34
+        height: 33
         spacing: 0
         Item {
             objectName: "toolsScrollLeft"
@@ -97,7 +97,10 @@ Item {
                         height: row.height
                         Label {
                             id: label
-                            anchors.centerIn: parent
+                            // The text sits close above the underline (py-1 and border-b-4).
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.bottom
+                            anchors.verticalCenterOffset: -10
                             text: modelData.label
                             font.pixelSize: Theme.fontSm   // upstream's text-sm
                             font.weight: Font.DemiBold

@@ -25,6 +25,8 @@ TEST_F(UiTest, TheProbeTabZeroesTheCornerOfTheSimulatedStock) {
     ASSERT_TRUE(waitFor([&] { return model->property("commandId").toString() == "XYZ Touch"; }));
     ASSERT_TRUE(waitFor([&] { return item("probeTool")->isVisible(); }));
     EXPECT_EQ(model->property("tool").toString(), "6.35");
+    ASSERT_TRUE(waitFor([&] { return item("probeTool")->width() > 100; }));
+    QTest::qWait(150);  // the layout settles
     tap("probeTool");
     ASSERT_TRUE(waitFor([&] { return item("probeCustomTool") && item("probeCustomTool")->isVisible(); }));
     item("probeCustomTool")->forceActiveFocus();

@@ -209,10 +209,12 @@ Item {
         anchors.fill: parent
         spacing: 8
 
+        Item {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
         Flickable {
             id: flick
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            anchors.fill: parent
             clip: true
             contentHeight: columns.height
             boundsBehavior: Flickable.StopAtBounds
@@ -238,20 +240,23 @@ Item {
                     Repeater { model: tab.model.column2; delegate: macroDelegate }
                 }
             }
-            Label {
-                anchors.centerIn: parent
-                visible: tab.model.count === 0
-                text: qsTr("No Macros...")
-                color: Theme.contentPrimary
-            }
+        }
+        Label {
+            anchors.centerIn: parent
+            visible: tab.model.count === 0
+            text: qsTr("No Macros...")
+            color: Theme.contentPrimary
+        }
         }
 
+        // upstream's h-8 text-sm buttons, centred with gap-2 and mt-2
         RowLayout {
-            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 0
             spacing: 8
             GButton {
                 objectName: "macroAdd"
-                Layout.fillWidth: true
+                implicitHeight: 32
                 text: qsTr("Add")
                 iconName: "FaPlus"
                 iconSize: 14
@@ -260,7 +265,7 @@ Item {
             }
             GButton {
                 objectName: "macroImport"
-                Layout.fillWidth: true
+                implicitHeight: 32
                 text: qsTr("Import")
                 iconName: "FaFileImport"
                 iconSize: 14
@@ -269,7 +274,7 @@ Item {
             }
             GButton {
                 objectName: "macroExport"
-                Layout.fillWidth: true
+                implicitHeight: 32
                 text: qsTr("Export")
                 iconName: "FaFileExport"
                 iconSize: 14

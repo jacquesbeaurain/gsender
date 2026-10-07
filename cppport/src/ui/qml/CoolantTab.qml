@@ -12,11 +12,9 @@ Item {
 
     RowLayout {
         anchors.centerIn: parent
-        width: Math.min(parent.width - 16, 480)
         spacing: 8
         ActiveStateButton {
             objectName: "coolantMist"
-            Layout.fillWidth: true
             Layout.preferredHeight: 68
             text: qsTr("Mist")
             iconName: "FaShower"
@@ -26,7 +24,6 @@ Item {
         }
         ActiveStateButton {
             objectName: "coolantFlood"
-            Layout.fillWidth: true
             Layout.preferredHeight: 68
             text: qsTr("Flood")
             iconName: "FaWater"
@@ -36,7 +33,6 @@ Item {
         }
         ActiveStateButton {
             objectName: "coolantOff"
-            Layout.fillWidth: true
             Layout.preferredHeight: 68
             text: qsTr("Off")
             iconName: "FaBan"

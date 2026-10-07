@@ -66,20 +66,27 @@ Item {
             border.color: (Theme.dark ? Theme.gray[400] : Theme.gray[600])
             opacity: button.pressed ? 0.85 : 1
         }
-        contentItem: RowLayout {
-            spacing: 4
-            Icon {
-                name: button.iconName
-                color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
-                width: 28
-                height: 28
-                Layout.alignment: Qt.AlignVCenter
-            }
-            Label {
-                text: button.text
-                color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
-                font.pixelSize: Theme.fontBase
-                Layout.fillWidth: true
+        // The icon and label sit centred together (upstream's justify-center).
+        contentItem: Item {
+            implicitWidth: content.implicitWidth
+            implicitHeight: content.implicitHeight
+            Row {
+                id: content
+                anchors.centerIn: parent
+                spacing: 8
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: button.iconName
+                    color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
+                    width: 34
+                    height: 34
+                }
+                Label {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: button.text
+                    color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
+                    font.pixelSize: Theme.fontBase
+                }
             }
         }
     }
