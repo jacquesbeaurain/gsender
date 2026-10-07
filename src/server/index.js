@@ -357,6 +357,7 @@ const createServer = (options, callback) => {
 			cncengine.start(
 				server,
 				options.controller || config.get("controller", ""),
+				{ simulator: !!options.simulator },
 			);
 
 			// Dev-only: live-reload plugin iframes when their files change.
