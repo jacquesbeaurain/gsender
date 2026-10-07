@@ -34,7 +34,7 @@ ToolPage {
                 placeholderText: qsTr("Search shortcuts")
                 onTextChanged: tool.model.search = text
             }
-            ComboBox {
+            GSelect {
                 objectName: "shortcutsCategory"
                 Layout.preferredWidth: 200
                 model: tool.model.categories

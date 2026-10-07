@@ -1,0 +1,70 @@
+import QtQuick
+import QtQuick.Controls.Basic
+import GSender
+
+// The app's select (shadcn's Select as upstream's Config and tools use it): a
+// bordered field with the value and a chevron; a popup of options.
+ComboBox {
+    id: select
+
+    implicitHeight: 40
+    font.pixelSize: Theme.fontBase
+
+    background: Rectangle {
+        radius: 6
+        color: !select.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceSunken : "white")
+        border.color: select.visualFocus || select.popup.visible ? Theme.ring : (Theme.dark ? Theme.outline : Theme.gray[300])
+        border.width: 1
+    }
+    indicator: Icon {
+        x: select.width - width - 12
+        y: (select.height - height) / 2
+        name: "LuChevronDown"
+        width: 16
+        height: 16
+        color: Theme.contentMuted
+    }
+    contentItem: Label {
+        leftPadding: 12
+        rightPadding: 36
+        text: select.displayText
+        font: select.font
+        color: select.enabled ? Theme.contentPrimary : Theme.contentDisabled
+        verticalAlignment: Text.AlignVCenter
+        elide: Text.ElideRight
+    }
+    delegate: ItemDelegate {
+        required property int index
+        width: select.width
+        height: 40
+        highlighted: select.highlightedIndex === index
+        contentItem: Label {
+            text: select.textAt(index)
+            font: select.font
+            color: Theme.contentPrimary
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        background: Rectangle {
+            color: parent.highlighted ? (Theme.dark ? Theme.surfaceHover : Theme.blue[100]) : "transparent"
+        }
+    }
+    popup: Popup {
+        y: select.height + 2
+        width: select.width
+        implicitHeight: Math.min(contentItem.implicitHeight + 2, 320)
+        padding: 1
+        contentItem: ListView {
+            clip: true
+            implicitHeight: contentHeight
+            model: select.popup.visible ? select.delegateModel : null
+            currentIndex: select.highlightedIndex
+            ScrollIndicator.vertical: ScrollIndicator {}
+        }
+        background: Rectangle {
+            radius: 6
+            color: Theme.dark ? Theme.surfaceElevated : "white"
+            border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+        }
+    }
+}

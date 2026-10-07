@@ -149,7 +149,7 @@ ToolPage {
                     ToolFormRow {
                         label: qsTr("Spindle RPM")
                         ToolField { model: tool.model; key: "spindleRPM"; decimals: 0 }
-                        ComboBox {
+                        GSelect {
                             objectName: "surfacing_spindle"
                             model: ["M3", "M4"]
                             currentIndex: tool.o.spindle === "M4" ? 1 : 0

@@ -74,7 +74,7 @@ TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     };
     const auto apply = [&] {
         item("toastArea")->setProperty("toasts", QVariantList());
-        ASSERT_TRUE(item("configApply")->isEnabled());
+        ASSERT_TRUE(item("configApply")->property("active").toBool());
         tap("configApply");
     };
 
@@ -83,7 +83,7 @@ TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     ASSERT_TRUE(waitFor([&] { return item("configValue_darkMode") && item("configValue_darkMode")->isVisible(); }));
     tap("configValue_darkMode");
     EXPECT_EQ(model->property("pendingChanges").toInt(), 1);
-    EXPECT_EQ(text("configApply"), "Apply Settings (1)");
+    EXPECT_TRUE(item("configApply")->property("active").toBool());
     EXPECT_FALSE(machine_->settings().darkMode);
     apply();
     EXPECT_TRUE(machine_->settings().darkMode);

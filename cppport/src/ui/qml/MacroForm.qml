@@ -78,7 +78,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             Label { text: qsTr("G-code"); color: Theme.contentPrimary; Layout.fillWidth: true }
-            ComboBox {
+            GSelect {
                 id: variables
                 objectName: "macroVariables"
                 Layout.preferredWidth: 280

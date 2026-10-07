@@ -37,7 +37,7 @@ ToolPage {
                 onTextChanged: tool.model.search = text
             }
 
-            ComboBox {
+            GSelect {
                 id: filterCombo
                 objectName: "pluginsFilter"
                 Layout.preferredWidth: 160

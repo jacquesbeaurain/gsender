@@ -8,7 +8,7 @@ WizardStepPage {
     id: page
     complete: true  // a size is always chosen
     WizardText { text: qsTr("Choose the size of your vacuum table.") }
-    ComboBox {
+    GSelect {
         objectName: "tableSize"
         Layout.preferredWidth: 280
         model: page.model.vacuumSizes

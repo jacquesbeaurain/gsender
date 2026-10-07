@@ -15,6 +15,7 @@
 #include <QFile>
 
 #include <algorithm>
+#include <cstdlib>
 #include <charconv>
 #include <cmath>
 #include <set>
@@ -242,6 +243,29 @@ QVariantList ConfigModel::buildRows() const {
     const Staged saved = savedInStagedUnits();
     std::set<std::string> placed;
     QVariantList list;
+    if (scope_ == u"eeprom") {
+        // Every board setting, in order ($0, $1, ...), with no sections.
+        if (c) {
+            std::vector<std::string> names;
+            for (const auto& [name, value] : c->settings().settings.items()) {
+                (void)value;
+                names.push_back(name);
+            }
+            std::stable_sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+                const auto number = [](const std::string& s) { return s.size() > 1 ? std::atoi(s.c_str() + 1) : 0; };
+                return number(a) < number(b);
+            });
+            for (const std::string& name : names) {
+                if (boardSetting(name)) {
+                    QVariantMap row = eepromRow(name, QString(), QString());
+                    if (matches(row)) {
+                        list.append(row);
+                    }
+                }
+            }
+        }
+        return list;
+    }
     for (const auto& [section, entries] : menu_) {
         QVariantList body;
         QVariantMap subsection;
@@ -366,6 +390,13 @@ int ConfigModel::sectionRow(const QString& section) const {
 void ConfigModel::setSearch(const QString& search) {
     search_ = search.trimmed();
     Q_EMIT changed();
+}
+
+void ConfigModel::setScope(const QString& scope) {
+    if (scope != scope_ && (scope == u"config" || scope == u"eeprom")) {
+        scope_ = scope;
+        Q_EMIT changed();
+    }
 }
 
 void ConfigModel::setOnlyModified(bool only) {

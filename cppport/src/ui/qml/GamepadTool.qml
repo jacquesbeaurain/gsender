@@ -432,7 +432,7 @@ ToolPage {
                             }
                             Repeater {
                                 model: 12
-                                delegate: ComboBox {
+                                delegate: GSelect {
                                     id: axisBox
                                     required property int index
                                     readonly property var row: tool.stickRows[Math.floor(index / 2)]

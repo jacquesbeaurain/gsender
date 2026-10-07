@@ -36,7 +36,7 @@ Item {
                 }
             }
             Label { text: qsTr("Laser"); color: Theme.contentPrimary }
-            ComboBox {
+            GSelect {
                 id: spindleSelect
                 objectName: "spindleSelect"
                 visible: tab.model.grblHal && tab.model.spindles.length > 0

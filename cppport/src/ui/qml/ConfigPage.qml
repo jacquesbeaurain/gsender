@@ -38,48 +38,102 @@ Item {
         confirm.open()
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceBase : Theme.gray[50] }
+    Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceRaised : "white" }
+
+    // upstream's max-xl: the page is in its compact sizes.
+    readonly property bool compact: Window.window && Window.window.width <= 1280
+    // The section icons (SettingsMenu's).
+    readonly property var sectionIcons: ({
+        "Basics": "FaCog", "Customize UI": "MdSettingsApplications", "Motors": "PiEngine", "Probe": "MdTouchApp",
+        "Action Buttons": "RxButton", "Homing/Limits": "FaHome", "Spindle/Laser": "GiTargetLaser",
+        "Accessory Outputs": "CiMapPin", "Rotary": "FaArrowsSpin", "Automations": "FaRobot",
+        "Tool Changing": "IoIosSwap", "Ethernet": "BsEthernet", "Status Lights": "CiLight",
+        "Advanced Motors": "SiCoronaengine", "More Settings": "MdOutlineReadMore", "Accessibility": "MdAccessibility"
+    })
+
+    // upstream's ActionButton: an icon over a label, in a bordered group.
+    component ActionButton: Item {
+        id: action
+        property string label
+        property string iconName
+        property bool dividerBefore: true
+        signal clicked()
+        implicitWidth: Math.max(64, actionLabel.implicitWidth + 40)
+        implicitHeight: 48
+        Rectangle { visible: action.dividerBefore; width: 1; height: parent.height; color: Theme.dark ? Theme.outline : Theme.gray[200] }
+        Rectangle {
+            anchors.fill: parent
+            color: actionTap.pressed || actionHover.hovered ? (Theme.dark ? Theme.surfaceHover : Theme.gray[50]) : "transparent"
+            opacity: action.enabled ? 1 : 0.5
+        }
+        Column {
+            anchors.centerIn: parent
+            spacing: 0
+            Icon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                name: action.iconName
+                width: 20
+                height: 20
+                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])) : Theme.gray[400]
+            }
+            Label {
+                id: actionLabel
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: action.label
+                font.pixelSize: Theme.fontSm
+                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])) : Theme.gray[400]
+            }
+        }
+        HoverHandler { id: actionHover }
+        TapHandler { id: actionTap; enabled: action.enabled; onTapped: action.clicked() }
+    }
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // The sections.
+        // The sections (Menu): an icon and the name, spread over the height;
+        // the EEPROM tab has none.
         Rectangle {
-            Layout.preferredWidth: 220
+            Layout.preferredWidth: 203
             Layout.fillHeight: true
             color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            Flickable {
+            Column {
+                id: menu
                 anchors.fill: parent
-                anchors.margins: 8
-                contentHeight: menu.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                Column {
-                    id: menu
-                    width: parent.width
-                    spacing: 2
-                    Repeater {
-                        model: page.shownSections
-                        Rectangle {
-                            required property string modelData
-                            readonly property bool current: page.currentSection === modelData
-                            objectName: "configSection_" + modelData
-                            width: menu.width
-                            height: 44
-                            radius: Theme.radiusSmall
-                            color: current ? Theme.primary : sectionTap.pressed ? Theme.gray[200] : "transparent"
+                anchors.margins: 1
+                visible: page.model.scope === "config"
+                Repeater {
+                    model: page.shownSections
+                    Item {
+                        id: sectionItem
+                        required property string modelData
+                        readonly property bool current: page.currentSection === modelData
+                        objectName: "configSection_" + modelData
+                        width: menu.width
+                        height: menu.height / Math.max(1, page.shownSections.length)
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: page.compact ? 4 : 16
+                            spacing: 8
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: page.sectionIcons[sectionItem.modelData] || "FaCog"
+                                width: page.compact ? 20 : 24
+                                height: width
+                                color: sectionItem.current ? Theme.primaryText : (sectionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600]))
+                            }
                             Label {
                                 anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                text: parent.modelData
-                                font.bold: parent.current
-                                color: parent.current ? "white" : Theme.contentPrimary
+                                text: sectionItem.modelData
+                                font.pixelSize: page.compact ? Theme.fontSm : Theme.fontBase
+                                                                color: sectionItem.current ? Theme.primaryText : (sectionHover.hovered ? Theme.blue[600] : Theme.contentPrimary)
                             }
-                            TapHandler { id: sectionTap; onTapped: page.showSection(parent.modelData) }
                         }
+                        HoverHandler { id: sectionHover }
+                        TapHandler { onTapped: page.showSection(sectionItem.modelData) }
                     }
                 }
             }
@@ -90,34 +144,176 @@ Item {
             Layout.fillHeight: true
             spacing: 0
 
-            // Search and filter.
-            RowLayout {
+            // Search, the modified filter, the application's preferences.
+            Rectangle {
                 Layout.fillWidth: true
-                Layout.margins: 16
-                spacing: 16
-                TextField {
-                    objectName: "configSearch"
-                    Layout.fillWidth: true
-                    implicitHeight: 44
-                    placeholderText: qsTr("Search settings...")
-                    onTextChanged: page.model.search = text
+                implicitHeight: 73
+                color: Theme.dark ? Theme.surfaceRaised : "white"
+                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: page.compact ? 20 : 96
+                    anchors.rightMargin: 16
+                    spacing: 8
+                    // Search.
+                    Item {
+                        Layout.preferredWidth: 213
+                        Layout.preferredHeight: 41
+                        TextField {
+                            id: searchField
+                            objectName: "configSearch"
+                            anchors.fill: parent
+                            leftPadding: 40
+                            font.pixelSize: Theme.fontSm
+                            placeholderText: qsTr("Search Config")
+                            color: Theme.contentPrimary
+                            onTextChanged: page.model.search = text
+                            background: Rectangle {
+                                radius: 8
+                                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[50]
+                                border.color: searchField.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                            }
+                        }
+                        Icon {
+                            x: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "LuSearch"
+                            width: 16
+                            height: 16
+                            color: Theme.contentMuted
+                        }
+                    }
+                    Rectangle {
+                        objectName: "configSearchClear"
+                        Layout.preferredWidth: clearLabel.implicitWidth + 20
+                        Layout.preferredHeight: 41
+                        radius: 8
+                        color: Theme.robin[400]
+                        border.color: Theme.blue[400]
+                        Label { id: clearLabel; anchors.centerIn: parent; text: qsTr("Clear"); color: "white"; font.pixelSize: Theme.fontSm; font.weight: Font.Medium }
+                        TapHandler { onTapped: searchField.text = "" }
+                    }
+                    // FilterDefaultToggle.
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 32
+                        spacing: 16
+                        Label {
+                            text: page.compact ? qsTr("Modified") : qsTr("View Modified")
+                            font.pixelSize: page.compact ? Theme.fontXs : Theme.fontBase
+                            color: Theme.contentMuted
+                        }
+                        GSwitch {
+                            objectName: "configOnlyModified"
+                            checked: page.model.onlyModified
+                            onToggled: page.model.onlyModified = checked
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                    // ApplicationPreferences.
+                    Item {
+                        Layout.preferredWidth: prefs.implicitWidth + 2
+                        Layout.preferredHeight: 66
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.topMargin: 9
+                            radius: 4
+                            color: "transparent"
+                            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                        }
+                        Rectangle {   // the legend interrupts the border
+                            x: 10
+                            width: legend.implicitWidth + 8
+                            height: legend.implicitHeight
+                            color: Theme.dark ? Theme.surfaceRaised : "white"
+                            Label { id: legend; anchors.centerIn: parent; text: qsTr("gSender Preferences"); color: Theme.dark ? Theme.contentPrimary : Theme.gray[600] }
+                        }
+                        Row {
+                            id: prefs
+                            anchors.bottom: parent.bottom
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            ActionButton {
+                                objectName: "configPrefsReset"
+                                dividerBefore: false
+                                label: qsTr("Reset")
+                                iconName: "GrPowerReset"
+                                onClicked: page.ask(qsTr("Restore Settings"),
+                                                    qsTr("All your current settings will be removed. Are you sure you want to restore default settings?"),
+                                                    qsTr("Restore"), () => page.model.restoreDefaultSettings())
+                            }
+                            ActionButton {
+                                objectName: "configPrefsImport"
+                                label: qsTr("Import")
+                                iconName: "PiDownloadSimple"
+                                onClicked: settingsImport.open()
+                            }
+                            ActionButton {
+                                objectName: "configPrefsExport"
+                                label: qsTr("Export")
+                                iconName: "PiUploadSimple"
+                                onClicked: {
+                                    settingsExport.currentFile = "file:///" + page.model.settingsFileName()
+                                    settingsExport.open()
+                                }
+                            }
+                        }
+                    }
                 }
-                GSwitch {
-                    objectName: "configOnlyModified"
-                    checked: page.model.onlyModified
-                    onToggled: page.model.onlyModified = checked
-                }
-                Label { text: qsTr("Only show changed settings"); color: Theme.contentPrimary }
             }
 
+            // All Config | EEPROM.
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 37
+                color: Theme.dark ? Theme.surfaceSunken : Theme.gray[100]
+                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                Row {
+                    anchors.fill: parent
+                    Repeater {
+                        model: [{ scope: "config", label: qsTr("All Config") }, { scope: "eeprom", label: qsTr("EEPROM") }]
+                        Item {
+                            id: tabItem
+                            required property var modelData
+                            readonly property bool current: page.model.scope === modelData.scope
+                            objectName: "configTab_" + modelData.scope
+                            width: parent.width / 2
+                            height: parent.height
+                            Rectangle {
+                                visible: tabItem.current
+                                anchors.fill: parent
+                                anchors.margins: 3
+                                color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+                            }
+                            Label {
+                                anchors.centerIn: parent
+                                text: tabItem.modelData.label
+                                font.pixelSize: Theme.fontSm
+                                font.weight: Font.Medium
+                                color: tabItem.current ? Theme.blue[500] : Theme.contentPrimary
+                            }
+                            Rectangle {
+                                visible: tabItem.current
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: 3
+                                color: Theme.blue[500]
+                            }
+                            TapHandler { onTapped: page.model.scope = tabItem.modelData.scope }
+                        }
+                    }
+                }
+            }
+
+            // The disconnected notice (EEPROMNotConnectedWarning), then the settings.
             ListView {
                 id: list
                 objectName: "configList"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                leftMargin: 16
-                rightMargin: 16
-                bottomMargin: 16
+                leftMargin: page.compact ? 8 : 40
+                rightMargin: page.compact ? 8 : 40
+                topMargin: 16
+                bottomMargin: 96
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 cacheBuffer: 600
@@ -125,11 +321,41 @@ Item {
                 model: page.rows.length
                 ScrollBar.vertical: ScrollBar {}
                 onContentYChanged: page.followScroll()
+                header: Item {
+                    width: list.width - list.leftMargin - list.rightMargin
+                    height: page.model.connected ? 0 : 68
+                    visible: !page.model.connected
+                    Rectangle {
+                        objectName: "configNotConnected"
+                        anchors.fill: parent
+                        anchors.bottomMargin: 16
+                        radius: 8
+                        color: Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : "#fefce8"
+                        border.color: Theme.dark ? "#a16207" : "#fde047"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
+                            spacing: 12
+                            Icon { name: "BsInfoCircleFill"; width: 16; height: 16; color: Theme.dark ? "#facc15" : "#854d0e" }
+                            Label {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: Theme.fontSm
+                                color: Theme.dark ? "#fde047" : "#854d0e"
+                                textFormat: Text.StyledText
+                                text: qsTr("<b>Disconnected!</b> Some settings may not appear unless connected to a machine.")
+                            }
+                        }
+                    }
+                }
                 delegate: ConfigRow {
                     required property int index
-                    width: list.width - 32
+                    width: list.width - list.leftMargin - list.rightMargin
                     entry: page.rows[index] || ({})
                     model: page.model
+                    first: index === 0 || (page.rows[index - 1] || ({})).kind === "section" || (page.rows[index - 1] || ({})).kind === "subsection"
+                    last: index === page.rows.length - 1 || ["section", "subsection"].includes((page.rows[index + 1] || ({})).kind || "")
                     onOpenTool: (name) => {
                         Backend.openPage("tools")
                         Backend.openTool(name)
@@ -142,108 +368,106 @@ Item {
                     color: Theme.contentMuted
                 }
             }
+        }
+    }
 
-            // The profile, the files, Apply Settings.
+    // The profile bar (ProfileBar): floating over the bottom right.
+    Rectangle {
+        id: profileBar
+        anchors.right: parent.right
+        anchors.rightMargin: page.compact ? 0 : 56
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: page.compact ? 16 : 32
+        width: barRow.implicitWidth + 32
+        height: 64
+        color: Theme.dark ? Theme.surfaceRaised : "white"
+        RowLayout {
+            id: barRow
+            anchors.centerIn: parent
+            spacing: 16
             Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: bar.implicitHeight + 24
-                color: Theme.dark ? Theme.surfaceRaised : "white"
+                implicitHeight: 48
+                implicitWidth: profileRow.implicitWidth + 2
+                radius: 8
+                color: "transparent"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
                 RowLayout {
-                    id: bar
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 10
-                    Label { text: qsTr("Machine"); color: Theme.contentSecondary }
-                    ComboBox {
-                        objectName: "configProfile"
-                        Layout.preferredWidth: 240
-                        model: page.model.profiles
-                        textRole: "name"
-                        valueRole: "id"
-                        currentIndex: count > 0 ? indexOfValue(page.model.profileId) : -1
-                        onActivated: page.model.profileId = currentValue
-                    }
-                    GButton {
-                        objectName: "configFirmwareMenu"
-                        text: qsTr("Firmware")
-                        iconName: "MdKeyboardArrowDown"
-                        onClicked: firmwareMenu.open()
-                        Menu {
-                            id: firmwareMenu
-                            y: -implicitHeight
-                            MenuItem {
-                                objectName: "configRestoreFirmware"
-                                text: qsTr("Restore Defaults")
-                                enabled: page.model.canRestoreFirmwareDefaults
-                                onTriggered: page.ask(qsTr("Restore Defaults"),
-                                                      qsTr("Are you sure you want to restore your %1 back to its default state?").arg(page.model.profileName),
-                                                      qsTr("Restore"), () => page.model.restoreFirmwareDefaults())
-                            }
-                            MenuItem {
-                                text: qsTr("Import EEPROM Settings...")
-                                enabled: page.model.idle
-                                onTriggered: eepromImport.open()
-                            }
-                            MenuItem {
-                                text: qsTr("Export EEPROM Settings...")
-                                enabled: page.model.connected
-                                onTriggered: {
-                                    eepromExport.currentFile = "file:///" + page.model.eepromFileName()
-                                    eepromExport.open()
-                                }
-                            }
-                            MenuItem {
-                                text: qsTr("Reload ($$)")
-                                enabled: page.model.idle
-                                onTriggered: page.model.reloadFirmware()
-                            }
+                    id: profileRow
+                    anchors.centerIn: parent
+                    spacing: 0
+                    Item {
+                        Layout.preferredWidth: 256
+                        Layout.preferredHeight: 48
+                        GSelect {
+                            objectName: "configProfile"
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            font.pixelSize: Theme.fontSm
+                            model: page.model.profiles
+                            textRole: "name"
+                            valueRole: "id"
+                            currentIndex: count > 0 ? indexOfValue(page.model.profileId) : -1
+                            onActivated: page.model.profileId = currentValue
                         }
                     }
-                    GButton {
-                        objectName: "configSettingsMenu"
-                        text: qsTr("Settings")
-                        iconName: "MdKeyboardArrowDown"
-                        onClicked: settingsMenu.open()
-                        Menu {
-                            id: settingsMenu
-                            y: -implicitHeight
-                            MenuItem {
-                                text: qsTr("Export Settings...")
-                                onTriggered: {
-                                    settingsExport.currentFile = "file:///" + page.model.settingsFileName()
-                                    settingsExport.open()
-                                }
-                            }
-                            MenuItem {
-                                text: qsTr("Import Settings...")
-                                onTriggered: settingsImport.open()
-                            }
-                            MenuItem {
-                                objectName: "configRestoreSettings"
-                                text: qsTr("Restore Defaults")
-                                onTriggered: page.ask(qsTr("Restore Settings"),
-                                                      qsTr("All your current settings will be removed. Are you sure you want to restore default settings?"),
-                                                      qsTr("Restore"), () => page.model.restoreDefaultSettings())
-                            }
+                    ActionButton {
+                        objectName: "configRestoreFirmware"
+                        label: qsTr("Defaults")
+                        iconName: "GrRevert"
+                        enabled: page.model.canRestoreFirmwareDefaults
+                        onClicked: page.ask(qsTr("Restore Defaults"),
+                                            qsTr("Are you sure you want to restore your %1 back to its default state?").arg(page.model.profileName),
+                                            qsTr("Restore"), () => page.model.restoreFirmwareDefaults())
+                    }
+                    ActionButton {
+                        objectName: "configFlash"
+                        label: qsTr("Flash")
+                        iconName: "PiLightning"
+                        enabled: false   // firmware flashing is not in this port
+                    }
+                    ActionButton {
+                        objectName: "configEepromImport"
+                        label: qsTr("Import")
+                        iconName: "PiDownloadSimpleBold"
+                        enabled: page.model.idle
+                        onClicked: eepromImport.open()
+                    }
+                    ActionButton {
+                        objectName: "configEepromExport"
+                        label: qsTr("Export")
+                        iconName: "PiUploadSimpleBold"
+                        enabled: page.model.connected
+                        onClicked: {
+                            eepromExport.currentFile = "file:///" + page.model.eepromFileName()
+                            eepromExport.open()
                         }
-                    }
-                    Item { Layout.fillWidth: true }
-                    GButton {
-                        objectName: "configRevert"
-                        visible: page.model.pendingChanges > 0
-                        variant: "outline"
-                        text: qsTr("Discard")
-                        onClicked: page.model.revert()
-                    }
-                    GButton {
-                        objectName: "configApply"
-                        variant: "primary"
-                        text: page.model.pendingChanges > 0 ? qsTr("Apply Settings (%1)").arg(page.model.pendingChanges) : qsTr("Apply Settings")
-                        enabled: page.model.pendingChanges > 0
-                        onClicked: page.model.apply()
                     }
                 }
+            }
+            Rectangle {
+                id: applyButton
+                objectName: "configApply"
+                readonly property bool active: page.model.pendingChanges > 0
+                implicitHeight: 52
+                implicitWidth: applyLabel.implicitWidth + 24
+                radius: 6
+                color: "transparent"
+                border.width: 3
+                border.color: active ? Theme.green[600] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    radius: 3
+                    color: applyButton.active ? Theme.green[600] : (Theme.dark ? Theme.surfaceElevated : Theme.gray[300])
+                }
+                Label {
+                    id: applyLabel
+                    anchors.centerIn: parent
+                    text: page.compact ? qsTr("Apply") : qsTr("Apply Settings")
+                    font.pixelSize: Theme.fontLg
+                    color: applyButton.active ? "white" : (Theme.dark ? Theme.contentSecondary : Theme.gray[600])
+                }
+                TapHandler { enabled: applyButton.active; onTapped: page.model.apply() }
             }
         }
     }

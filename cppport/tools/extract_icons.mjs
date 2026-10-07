@@ -147,6 +147,16 @@ const icons = [
     ['io', 'IoIosWarning'],
     ['pi', 'PiMaskHappyBold'],
     ['fa', 'FaCircle'],
+    ['fa', 'FaChartPie'],
+    ['bs', 'BsInfoCircleFill'],
+    ['fa', 'FaRegListAlt'],
+    // The Config page's menu and bars (features/Config).
+    ['fa', 'FaCog'], ['md', 'MdSettingsApplications'], ['pi', 'PiEngine'], ['md', 'MdTouchApp'],
+    ['rx', 'RxButton'], ['fa', 'FaHome'], ['gi', 'GiTargetLaser'], ['ci', 'CiMapPin'],
+    ['fa6', 'FaArrowsSpin'], ['fa', 'FaRobot'], ['io', 'IoIosSwap'], ['ci', 'CiLight'],
+    ['si', 'SiCoronaengine'], ['md', 'MdOutlineReadMore'], ['md', 'MdAccessibility'],
+    ['gr', 'GrPowerReset'], ['gr', 'GrRevert'], ['pi', 'PiDownloadSimple'], ['pi', 'PiUploadSimple'],
+    ['pi', 'PiDownloadSimpleBold'], ['pi', 'PiUploadSimpleBold'], ['pi', 'PiLightning'],
     // The Tools page.
     ['gi', 'GiFlatPlatform'],
     ['bi', 'BiSolidCylinder'],

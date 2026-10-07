@@ -13,28 +13,33 @@ Item {
 
     property var entry: ({})
     property ConfigModel model
+    // The first and last setting of a section's panel (its corners round).
+    property bool first: false
+    property bool last: false
     signal openTool(string name)
 
     readonly property string kind: entry.kind || ""
     readonly property string key: entry.key || ""
     readonly property bool isSetting: kind === "setting" || kind === "eeprom"
 
-    implicitHeight: kind === "section" ? 64 : kind === "subsection" ? 44 : content.implicitHeight + 20
+    clip: true
+    implicitHeight: kind === "section" ? 80 : kind === "subsection" ? 48 : Math.max(65, content.implicitHeight + 24)
 
     // ---- headings ----
     Label {
         visible: row.kind === "section"
         anchors.left: parent.left
+        anchors.leftMargin: 18
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 8
+        anchors.bottomMargin: 12
         text: row.entry.label || ""
-        font.pixelSize: 26
-        font.bold: true
+        font.pixelSize: 30
         color: Theme.contentPrimary
     }
     Label {
         visible: row.kind === "subsection"
         anchors.left: parent.left
+        anchors.leftMargin: 18
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 6
         text: row.entry.label || ""
@@ -44,77 +49,78 @@ Item {
     }
 
     // ---- settings and wizards ----
+    // The section's panel (gray-100), the row's divider, a change's mark.
     Rectangle {
         visible: row.isSetting || row.kind === "action"
         anchors.fill: parent
-        anchors.topMargin: 2
-        anchors.bottomMargin: 2
-        radius: Theme.radius
+        anchors.topMargin: row.first ? 0 : -8
+        anchors.bottomMargin: row.last ? 0 : -8
+        radius: 8
         color: row.entry.changed ? (Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : "#fefce8")
-                                : (Theme.dark ? Theme.surfaceRaised : "white")
-        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                                : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
         Rectangle {
             visible: !!row.entry.changed
-            width: 4; height: parent.height
+            y: 8
+            width: 4; height: parent.height - 16
             radius: 2
             color: "#eab308"
         }
     }
+    Rectangle {
+        visible: (row.isSetting || row.kind === "action") && !row.last
+        anchors.bottom: parent.bottom
+        x: 14
+        width: parent.width - 28
+        height: 1
+        color: Theme.dark ? Theme.outline : Theme.gray[300]
+    }
+    // upstream's three columns: the label, the editor, what it does.
+    readonly property real innerWidth: width - 40
     RowLayout {
         id: content
         visible: row.isSetting || row.kind === "action"
-        x: 16
-        width: parent.width - 32
+        x: 20
+        width: row.innerWidth
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 16
+        spacing: 0
 
-        // The label and what it does.
-        ColumnLayout {
+        // The label.
+        RowLayout {
             visible: row.isSetting
-            Layout.preferredWidth: 1
-            Layout.fillWidth: true
+            Layout.preferredWidth: row.innerWidth * 0.215
+            Layout.maximumWidth: row.innerWidth * 0.215
             Layout.alignment: Qt.AlignVCenter
-            spacing: 2
-            RowLayout {
-                spacing: 8
-                Rectangle {
-                    visible: row.kind === "eeprom"
-                    implicitWidth: keyLabel.implicitWidth + 10
-                    implicitHeight: 20
-                    radius: 4
-                    color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
-                    Label {
-                        id: keyLabel
-                        anchors.centerIn: parent
-                        text: row.key
-                        font.family: "monospace"
-                        font.pixelSize: Theme.fontXs
-                        color: Theme.contentSecondary
-                    }
-                }
+            spacing: 8
+            Rectangle {
+                visible: row.kind === "eeprom"
+                implicitWidth: keyLabel.implicitWidth + 10
+                implicitHeight: 20
+                radius: 4
+                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[200]
                 Label {
-                    Layout.fillWidth: true
-                    text: row.entry.label || ""
-                    font.bold: true
-                    wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
+                    id: keyLabel
+                    anchors.centerIn: parent
+                    text: row.key
+                    font.family: "monospace"
+                    font.pixelSize: Theme.fontXs
+                    color: Theme.contentSecondary
                 }
             }
             Label {
-                visible: text !== ""
                 Layout.fillWidth: true
-                text: row.entry.description || ""
+                text: row.entry.label || ""
                 wrapMode: Text.Wrap
-                font.pixelSize: Theme.fontSm
-                color: Theme.contentMuted
+                font.pixelSize: Theme.fontBase
+                color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
             }
         }
 
         // The editor.
         Loader {
             visible: row.isSetting
-            Layout.preferredWidth: 1
-            Layout.fillWidth: true
+            Layout.preferredWidth: row.innerWidth * 0.385 - 48
+            Layout.maximumWidth: row.innerWidth * 0.385 - 48
+            Layout.rightMargin: 8
             Layout.alignment: Qt.AlignVCenter
             sourceComponent: !row.isSetting ? null
                              : row.kind === "eeprom" ? ({ switch: eepromSwitch, bits: eepromBits, exclusiveBits: eepromBits,
@@ -140,6 +146,19 @@ Item {
                 ToolTip.text: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
                 onClicked: row.kind === "eeprom" ? row.model.resetEeprom(row.key) : row.model.resetValue(row.key)
             }
+        }
+
+        // What it does.
+        Label {
+            visible: row.isSetting
+            Layout.fillWidth: true
+            Layout.preferredWidth: row.innerWidth * 0.4
+            Layout.minimumWidth: 0
+            Layout.alignment: Qt.AlignVCenter
+            text: row.entry.description || ""
+            wrapMode: Text.Wrap
+            font.pixelSize: Theme.fontSm
+            color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
         }
 
         // A section's wizard.
@@ -168,7 +187,7 @@ Item {
             spacing: 8
             NumberField {
                 objectName: "configValue_" + row.key
-                Layout.preferredWidth: 160
+                Layout.preferredWidth: 158
                 value: Number(row.entry.value)
                 decimals: row.entry.decimals !== undefined ? row.entry.decimals : 3
                 onCommitted: (text) => row.model.setNumber(row.key, text)
@@ -180,9 +199,9 @@ Item {
     Component {
         id: selectEditor
         RowLayout {
-            ComboBox {
+            GSelect {
                 objectName: "configValue_" + row.key
-                Layout.preferredWidth: 240
+                Layout.preferredWidth: 160
                 model: row.entry.options || []
                 currentIndex: (row.entry.options || []).indexOf(row.entry.value)
                 onActivated: (index) => row.model.setValue(row.key, row.entry.options[index])
@@ -397,7 +416,7 @@ Item {
     Component {
         id: eepromSelect
         RowLayout {
-            ComboBox {
+            GSelect {
                 objectName: "configValue_" + row.key
                 Layout.preferredWidth: 260
                 model: row.entry.bits || []

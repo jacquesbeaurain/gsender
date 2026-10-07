@@ -97,7 +97,7 @@ Popup {
                 RowLayout {
                     spacing: 12
                     Label { text: qsTr("Addr:"); color: Theme.contentPrimary; Layout.preferredWidth: 48 }
-                    ComboBox {
+                    GSelect {
                         id: addressCombo
                         objectName: "remoteAddress"
                         Layout.fillWidth: true

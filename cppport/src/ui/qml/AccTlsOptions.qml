@@ -9,7 +9,7 @@ WizardStepPage {
     id: page
     WizardText { text: qsTr("Configure how gSender should handle tool changes with your Tool Length Sensor (TLS).") }
     WizardText { text: "<b>" + qsTr("First tool behaviour") + "</b>" }
-    ComboBox {
+    GSelect {
         id: first
         objectName: "firstToolBehaviour"
         Layout.preferredWidth: 300

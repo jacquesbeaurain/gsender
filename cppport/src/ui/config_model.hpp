@@ -50,6 +50,9 @@ class ConfigModel : public QObject {
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
     Q_PROPERTY(bool onlyModified READ onlyModified WRITE setOnlyModified NOTIFY changed)
+    // "config" (upstream's All Config tab: the sections) or "eeprom" (its
+    // EEPROM tab: every board setting in order, with no sections).
+    Q_PROPERTY(QString scope READ scope WRITE setScope NOTIFY changed)
     Q_PROPERTY(int pendingChanges READ pendingChanges NOTIFY changed)
     Q_PROPERTY(bool connected READ connected NOTIFY liveChanged)
     Q_PROPERTY(bool idle READ idle NOTIFY liveChanged)
@@ -70,6 +73,8 @@ public:
     QString search() const { return search_; }
     void setSearch(const QString& search);
     bool onlyModified() const { return onlyModified_; }
+    QString scope() const { return scope_; }
+    void setScope(const QString& scope);
     void setOnlyModified(bool only);
     int pendingChanges() const;
     bool connected() const;
@@ -184,6 +189,7 @@ private:
     std::map<std::string, std::string> eepromEdits_;
     QString search_;
     bool onlyModified_ = false;
+    QString scope_ = QStringLiteral("config");
     bool importOk_ = false;
     bool applying_ = false;
     mutable QVariantList rows_;

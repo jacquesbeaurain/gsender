@@ -72,6 +72,8 @@ qt_add_qml_module(gs_ui
         qml/PieChart.qml
         qml/StatCard.qml
         qml/CardHeader.qml
+        qml/StatEmpty.qml
+        qml/GSelect.qml
         qml/MaintenanceReminder.qml
         qml/DiagnosticCard.qml
         qml/StatsOverview.qml

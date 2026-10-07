@@ -17,6 +17,29 @@ ApplicationWindow {
 
     font.pixelSize: Theme.fontBase
 
+    // The Basic style's controls take their colours from the palette, which
+    // would otherwise follow the operating system's light or dark setting:
+    // set them from the app's own theme.
+    palette {
+        window: Theme.dark ? Theme.surfaceBase : "white"
+        windowText: Theme.contentPrimary
+        base: Theme.dark ? Theme.surfaceSunken : "white"
+        alternateBase: Theme.surfaceRaised
+        text: Theme.contentPrimary
+        placeholderText: Theme.contentMuted
+        button: Theme.dark ? Theme.surfaceRaised : "white"
+        buttonText: Theme.contentPrimary
+        highlight: Theme.blue[500]
+        highlightedText: "white"
+        mid: Theme.outline
+        midlight: Theme.outlineSubtle
+        light: Theme.dark ? Theme.surfaceHover : "white"
+        dark: Theme.outlineStrong
+        shadow: Theme.dark ? "#000000" : Theme.gray[400]
+        toolTipBase: Theme.dark ? Theme.surfaceElevated : Theme.gray[900]
+        toolTipText: Theme.dark ? Theme.contentPrimary : "white"
+    }
+
     // Basics' "Prompt on exit": closing asks first.
     property bool exitConfirmed: false
     onClosing: (close) => {
