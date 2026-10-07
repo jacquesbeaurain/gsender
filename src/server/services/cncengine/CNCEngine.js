@@ -36,6 +36,7 @@ import { GRBL } from "../../controllers/Grbl/constants";
 import { GRBLHAL } from "../../controllers/Grblhal/constants";
 import Connection from "../../lib/Connection";
 import delay from "../../lib/delay";
+import { SIMULATOR_HAL_PORT, SIMULATOR_PORT } from "../../lib/Simulator/SimulatedPort";
 import EventTrigger from "../../lib/EventTrigger";
 import DFUFlasher from "../../lib/Firmware/Flashing/DFUFlasher";
 import FlashingFirmware from "../../lib/Firmware/Flashing/firmwareflashing";
@@ -501,6 +502,15 @@ class CNCEngine {
 
 						recognizedPorts = recognizedPorts.map(portInfoMapFn);
 						unrecognizedPorts = unrecognizedPorts.map(portInfoMapFn);
+						// The built-in simulated boards (Grbl and grblHAL) are always on offer.
+						recognizedPorts = recognizedPorts.concat(
+							[SIMULATOR_PORT, SIMULATOR_HAL_PORT].map((simulated) =>
+								portInfoMapFn({
+									path: simulated,
+									manufacturer: "gSender simulator",
+								}),
+							),
+						);
 						//unrecognizedPorts = recognizedPorts;
 
 						const networkPorts = this.networkDevices.map((port) => {
