@@ -25,6 +25,7 @@ import { ReadlineParser } from "@serialport/parser-readline";
 import { EventEmitter } from "events";
 import net from "net";
 import { SerialPort } from "serialport";
+import SimulatedPort, { isSimulatorPath } from "./Simulator/SimulatedPort";
 
 // Validation
 
@@ -226,6 +227,11 @@ class SerialConnection extends EventEmitter {
 			});
 
 			this.port.connect(ethernetPort, path);
+		} else if (isSimulatorPath(path)) {
+			// The built-in simulated board stands in for a serial port.
+			this.port = new SimulatedPort(path);
+			this.addPortListeners();
+			this.port.open(callback);
 		} else {
 			this.port = new SerialPort({
 				path,
