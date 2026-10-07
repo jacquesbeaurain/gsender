@@ -283,6 +283,26 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
 - Screens follow upstream's React components: layout, Tailwind classes
   mapped to `Theme` tokens (never raw colours in QML; add a token), touch
   targets of at least `Theme.touchTarget`, no behaviour that needs hover.
+- Style lives in `Theme.qml` and a few base types:
+  - A colour that differs in dark mode is a token, not a
+    `Theme.dark ? A : B` at the use site. Prefer upstream's semantic names
+    (`surface*`, `content*`, `outline*`, and shadcn's `border`, `secondary`,
+    `muted`). Name a recurring pair of its own for where it is used (`field`,
+    `surfaceBar`, `contentSoft`...).
+  - Tailwind shades upstream keeps unchanged are `Theme.tw.<family>[n]`.
+    The overridden ones are `Theme.blue`, `green`, `red`, `orange`,
+    `purple` and `robin`; Tailwind's gray is `Theme.gray`.
+  - A bordered box is a `Panel`. It draws the one-device-pixel hairline;
+    set only what differs from its radius, fill and border.
+  - A centred modal popup is a `ModalDialog` (set `preferredWidth`).
+  - Don't restate what the window's palette already gives: a Label's or a
+    text field's `Theme.contentPrimary` text, a placeholder's
+    `contentMuted`. An `Icon` is `size` square and `contentPrimary` by
+    default.
+  - The UI tests' screenshots are the check that a style refactor changes
+    nothing: `GS_TEST_SCREENSHOTS=<dir>` saves them, and `GS_TEST_DARK=1`
+    switches the theme. Two of the tests fail by design in dark mode,
+    because they assert the default light theme.
 - Logic stays in C++: a screen's decisions go into a view model (QObject,
   Qt Core only, beside the services) exposed to QML; QML binds and calls.
   That includes parsing and clamping what a field takes, searching and
