@@ -36,6 +36,11 @@ import { GRBL } from "../../controllers/Grbl/constants";
 import { GRBLHAL } from "../../controllers/Grblhal/constants";
 import Connection from "../../lib/Connection";
 import delay from "../../lib/delay";
+import {
+	isSimulatorPath,
+	SIMULATOR_HAL_PORT,
+	SIMULATOR_PORT,
+} from "../../lib/Simulator/SimulatedPort";
 import EventTrigger from "../../lib/EventTrigger";
 import DFUFlasher from "../../lib/Firmware/Flashing/DFUFlasher";
 import FlashingFirmware from "../../lib/Firmware/Flashing/firmwareflashing";
@@ -125,7 +130,10 @@ class CNCEngine {
 
 	// @param {object} server The HTTP server instance.
 	// @param {string} controller Specify CNC controller.
-	start(server, controller = "") {
+	// @param {object} options { simulator }: offer the built-in simulated boards
+	// (the --simulator command line option).
+	start(server, controller = "", { simulator = false } = {}) {
+		this.simulator = !!simulator;
 		// Fallback to an empty string if the controller is not valid
 		log.debug(controller);
 		if (!isValidController(controller)) {
@@ -501,6 +509,18 @@ class CNCEngine {
 
 						recognizedPorts = recognizedPorts.map(portInfoMapFn);
 						unrecognizedPorts = unrecognizedPorts.map(portInfoMapFn);
+						// The built-in simulated boards (Grbl and grblHAL) are offered with
+						// the --simulator command line option.
+						if (this.simulator) {
+							recognizedPorts = recognizedPorts.concat(
+								[SIMULATOR_PORT, SIMULATOR_HAL_PORT].map((simulated) =>
+									portInfoMapFn({
+										path: simulated,
+										manufacturer: "gSender simulator",
+									}),
+								),
+							);
+						}
 						//unrecognizedPorts = recognizedPorts;
 
 						const networkPorts = this.networkDevices.map((port) => {
@@ -550,6 +570,15 @@ class CNCEngine {
 				log.debug(
 					`socket.open("${port}", ${JSON.stringify(options)}): id=${socket.id}`,
 				);
+
+				if (isSimulatorPath(port) && !this.simulator) {
+					callback(
+						new Error(
+							"The simulator is off: start gSender with the --simulator option",
+						),
+					);
+					return;
+				}
 
 				// Remove old listeners from the existing connection before potentially replacing it
 				if (this.connection) {

@@ -133,6 +133,11 @@ program
         '--kiosk',
         'Enable Kiosk mode, only allowing this application to be run',
         false,
+    )
+    .option(
+        '--simulator',
+        'Offer the built-in simulated Grbl and grblHAL boards in the connection list',
+        false,
     );
 
 // Commander assumes that the first two values in argv are 'node' and appname, and then followed by the args.
@@ -166,6 +171,7 @@ module.exports = () =>
                 allowRemoteAccess: !!options.allowRemoteAccess,
                 controller: options.controller,
                 kiosk,
+                simulator: !!options.simulator,
             },
             (err, data = {}) => {
                 if (err) {

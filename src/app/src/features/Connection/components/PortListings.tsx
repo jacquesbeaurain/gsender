@@ -15,6 +15,10 @@ export interface PortListingsProps {
 }
 
 function truncatePortName(port: string = ''): string {
+    // The built-in simulated boards ("Simulator", "Simulator grblHAL").
+    if (port.startsWith('Simulator')) {
+        return port;
+    }
     const portName = port.split('/').pop();
     return portName.substring(portName.length - 10, portName.length);
 }
