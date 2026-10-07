@@ -136,6 +136,7 @@ Item {
             radius: height / 2
             color: unlock.pressed ? Theme.red[700] : Theme.red[500]
             border.color: Theme.red[800]
+            border.width: Theme.hairline
         }
         contentItem: Item {
             RowLayout {

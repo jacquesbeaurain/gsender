@@ -36,6 +36,13 @@ Item {
             }
         }
     }
+    // The line between the halves (upstream's #CECECE at y 93.5).
+    Rectangle {
+        y: tab.height * 93.5 / 187
+        width: tab.width * 49 / 50
+        height: Math.max(1, tab.width / 50)
+        color: "#CECECE"
+    }
     Icon {
         anchors.fill: parent
         name: tab.labels

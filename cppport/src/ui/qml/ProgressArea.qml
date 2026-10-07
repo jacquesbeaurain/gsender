@@ -18,6 +18,7 @@ Rectangle {
     radius: 2
     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
     border.color: Theme.dark ? Theme.outline : Theme.gray[500]
+    border.width: Theme.hairline
 
     ColumnLayout {
         id: content

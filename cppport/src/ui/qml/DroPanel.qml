@@ -201,6 +201,7 @@ Item {
                             radius: 4
                             color: parent.activeFocus ? (Theme.dark ? Theme.surfaceSunken : "white") : "transparent"
                             border.color: parent.activeFocus ? Theme.ring : "transparent"
+                            border.width: Theme.hairline
                         }
                         onCommitted: (value) => dro.model.setWorkPosition(row.modelData.axis, value)
                     }

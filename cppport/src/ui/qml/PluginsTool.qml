@@ -33,6 +33,7 @@ ToolPage {
                     radius: Theme.radius
                     color: Theme.dark ? Theme.surfaceRaised : "white"
                     border.color: searchInput.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                    border.width: Theme.hairline
                 }
                 onTextChanged: tool.model.search = text
             }
@@ -75,6 +76,7 @@ ToolPage {
             radius: Theme.radius
             color: "transparent"
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+            border.width: Theme.hairline
             clip: true
 
             // Empty state when no plugins are discovered
@@ -134,6 +136,7 @@ ToolPage {
                     radius: Theme.radius
                     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
                     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    border.width: Theme.hairline
 
                     ColumnLayout {
                         id: cardContent

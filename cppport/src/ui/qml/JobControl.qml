@@ -64,6 +64,7 @@ Item {
             radius: 4
             color: button.enabled ? button.fill : (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])
             border.color: (Theme.dark ? Theme.gray[400] : Theme.gray[600])
+            border.width: Theme.hairline
             opacity: button.pressed ? 0.85 : 1
         }
         // The icon and label sit centred together (upstream's justify-center).

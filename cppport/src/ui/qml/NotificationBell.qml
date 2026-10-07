@@ -56,6 +56,7 @@ Item {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.outline
+            border.width: Theme.hairline
         }
         contentItem: ColumnLayout {
             spacing: 8
@@ -102,6 +103,7 @@ Item {
                     radius: Theme.radiusSmall
                     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
                     border.color: Theme.outlineSubtle
+                    border.width: Theme.hairline
                     ColumnLayout {
                         id: column
                         anchors.fill: parent

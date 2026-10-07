@@ -36,6 +36,7 @@ Popup {
         radius: Theme.radius
         color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
         border.color: Theme.outlineSubtle
+        border.width: Theme.hairline
     }
 
     readonly property bool canStart: probe && probe.circuitChecked && model.canClick && !model.running
@@ -137,6 +138,7 @@ Popup {
                 radius: Theme.radiusSmall
                 color: Theme.dark ? Theme.surfaceRaised : "white"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                border.width: Theme.hairline
                 Row {
                     id: modes
                     anchors.centerIn: parent

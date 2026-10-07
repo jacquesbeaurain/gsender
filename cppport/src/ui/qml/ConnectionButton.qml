@@ -22,6 +22,7 @@ Rectangle {
     radius: Theme.radius
     color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
     border.color: Theme.dark ? Theme.outline : Theme.gray[400]
+    border.width: Theme.hairline
 
     // The glow behind it until connected (a blue-300 to blue-800 gradient,
     // upstream blurs it; stronger on hover).
@@ -223,6 +224,7 @@ Rectangle {
             radius: Theme.radiusSmall
             color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.outline
+            border.width: Theme.hairline
         }
 
         contentItem: ColumnLayout {

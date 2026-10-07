@@ -160,6 +160,7 @@ ToolPage {
                 radius: 8
                 color: "#fef9c3"
                 border.color: "#fde68a"
+                border.width: Theme.hairline
                 Label {
                     id: banner
                     objectName: "wizardChecks"

@@ -8,7 +8,7 @@ Rectangle {
 
     color: Theme.widget
     border.color: Theme.widgetBorder
-    border.width: 1
+    border.width: Theme.hairline
     radius: Theme.radius
 
     Item {

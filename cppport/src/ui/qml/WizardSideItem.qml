@@ -60,6 +60,7 @@ ColumnLayout {
             radius: 6
             color: Theme.dark ? Theme.surfaceSunken : Theme.gray[50]
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+            border.width: Theme.hairline
             Column {
                 id: code
                 objectName: "commandPreview"

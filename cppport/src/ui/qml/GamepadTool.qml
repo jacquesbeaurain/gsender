@@ -76,6 +76,7 @@ ToolPage {
                             radius: Theme.radius
                             color: cardTap.pressed ? Theme.gray[300] : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
                             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                            border.width: Theme.hairline
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 16
@@ -245,6 +246,7 @@ ToolPage {
                     radius: Theme.radius
                     color: Theme.dark ? Theme.surfaceRaised : "white"
                     border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                    border.width: Theme.hairline
                     clip: true
                     ColumnLayout {
                         anchors.fill: parent
@@ -297,6 +299,7 @@ ToolPage {
                                             radius: Theme.radiusSmall
                                             color: row.down ? Theme.green[500] : (Theme.dark ? Theme.surfaceSunken : "white")
                                             border.color: row.down ? Theme.green[500] : Theme.outline
+                                            border.width: Theme.hairline
                                         }
                                         onEditingFinished: tool.model.setLabel(row.button.value, text)
                                     }
@@ -377,6 +380,7 @@ ToolPage {
                     radius: Theme.radius
                     color: "transparent"
                     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    border.width: Theme.hairline
                     Flickable {
                         anchors.fill: parent
                         anchors.margins: 8
@@ -457,6 +461,7 @@ ToolPage {
                                         radius: Theme.radiusSmall
                                         color: axisBox.active ? Theme.green[500] : (!axisBox.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceSunken : "white"))
                                         border.color: axisBox.active ? Theme.green[500] : Theme.outline
+                                        border.width: Theme.hairline
                                     }
                                     contentItem: Label {
                                         leftPadding: 8
@@ -589,6 +594,7 @@ ToolPage {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.outlineSubtle
+            border.width: Theme.hairline
         }
         onAboutToShow: {
             tool.model.resetDetection()
@@ -700,6 +706,7 @@ ToolPage {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.outlineSubtle
+            border.width: Theme.hairline
         }
 
         contentItem: ColumnLayout {
@@ -716,6 +723,7 @@ ToolPage {
                     radius: Theme.radiusSmall
                     color: "transparent"
                     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    border.width: Theme.hairline
                     clip: true
                     Flickable {
                         id: actionList

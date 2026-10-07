@@ -108,6 +108,7 @@ Item {
             radius: 4
             color: Theme.consoleColors.surface
             border.color: Theme.consoleColors.border
+            border.width: Theme.hairline
             clip: true
 
             ListView {
@@ -210,6 +211,7 @@ Item {
                     radius: Theme.radiusSmall
                     color: Theme.dark ? Theme.surfaceSunken : "white"
                     border.color: input.activeFocus ? Theme.ring : Theme.outline
+                    border.width: Theme.hairline
                 }
                 function execute() {
                     if (tab.model.submit(text))

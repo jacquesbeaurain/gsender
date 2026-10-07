@@ -34,6 +34,7 @@ Popup {
         radius: Theme.radius
         color: Theme.dark ? Theme.surfaceElevated : "white"
         border.color: Theme.outlineSubtle
+        border.width: Theme.hairline
     }
 
     component SectionTitle: Label {
@@ -45,6 +46,7 @@ Popup {
         radius: Theme.radius
         color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
         border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+        border.width: Theme.hairline
     }
 
     contentItem: ColumnLayout {
@@ -252,6 +254,7 @@ Popup {
                     opacity: idle ? 1 : 0.5
                     color: Theme.dark ? Theme.surfaceSunken : "white"
                     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    border.width: Theme.hairline
                     function refresh() {
                         if (idle) {
                             number = dialog.model.line
@@ -372,6 +375,7 @@ Popup {
                                     width: Theme.touchTarget; height: 32; radius: 4
                                     color: card.tool.hidden ? "transparent" : (card.tool.color || "transparent")
                                     border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                                    border.width: Theme.hairline
                                     Icon {
                                         anchors.centerIn: parent
                                         name: card.tool.hidden ? "LuEyeOff" : "LuEye"
@@ -463,6 +467,7 @@ Popup {
                         radius: Theme.radius
                         color: "transparent"
                         border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                        border.width: Theme.hairline
                         RowLayout {
                             id: speedRow
                             anchors.fill: parent
@@ -529,6 +534,7 @@ Popup {
                             radius: 3
                             color: modal.changed ? Qt.rgba(0x3b / 255, 0x82 / 255, 0xf6 / 255, 0.2) : "transparent"
                             border.color: modal.changed ? "#3b82f6" : (Theme.dark ? Theme.outline : Theme.gray[300])
+                            border.width: Theme.hairline
                             Column {
                                 id: modalColumn
                                 anchors.centerIn: parent

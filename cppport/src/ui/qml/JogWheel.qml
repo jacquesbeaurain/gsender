@@ -91,6 +91,15 @@ Item {
         }
     }
 
+    // The hub (upstream's last circle: #F4F4F4, r 38.5 of 200) behind the stop button.
+    Rectangle {
+        anchors.centerIn: parent
+        width: parent.width * 77 / 200
+        height: width
+        radius: width / 2
+        color: "#F4F4F4"
+    }
+
     // The stop button (StopButton): cancels a jog.
     Item {
         id: stopButton

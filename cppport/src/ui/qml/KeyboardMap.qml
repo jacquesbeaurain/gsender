@@ -26,6 +26,7 @@ Rectangle {
     radius: 12
     color: Qt.rgba(0, 0, 0, 0.9)
     border.color: Qt.rgba(1, 1, 1, 0.2)
+    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent
@@ -94,6 +95,7 @@ Rectangle {
                                     radius: 4
                                     color: Qt.rgba(1, 1, 1, 0.1)
                                     border.color: Qt.rgba(1, 1, 1, 0.2)
+                                    border.width: Theme.hairline
                                     Label {
                                         id: keysLabel
                                         anchors.centerIn: parent

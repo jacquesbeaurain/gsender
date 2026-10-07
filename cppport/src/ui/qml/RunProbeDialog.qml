@@ -23,6 +23,7 @@ Popup {
         radius: Theme.radius
         color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
         border.color: Theme.outlineSubtle
+        border.width: Theme.hairline
     }
 
     contentItem: ColumnLayout {

@@ -69,6 +69,7 @@ Item {
         radius: 4
         color: "transparent"
         border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+        border.width: Theme.hairline
         Icon { anchors.centerIn: parent; name: parent.iconName; color: Theme.contentMuted; width: 14; height: 14 }
         TapHandler { onTapped: parent.tapped() }
     }
@@ -84,6 +85,7 @@ Item {
         radius: height / 2
         color: Theme.dark ? Theme.surfaceElevated : Qt.rgba(1, 1, 1, 0.9)
         border.color: Theme.outline
+        border.width: Theme.hairline
         RowLayout {
             id: pillRow
             anchors.centerIn: parent
@@ -108,6 +110,7 @@ Item {
         clip: true
         color: Theme.dark ? Theme.surfaceRaised : "white"
         border.color: Theme.outline
+        border.width: Theme.hairline
 
         // Blocks what is beneath it.
         TapHandler {}
@@ -279,6 +282,7 @@ Item {
                             radius: 8
                             color: Theme.dark ? "#0d2518" : "#ecfdf5"
                             border.color: "#6ee7b7"
+                            border.width: Theme.hairline
                             Column {
                                 id: bannerColumn
                                 anchors.centerIn: parent

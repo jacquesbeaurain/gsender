@@ -16,6 +16,10 @@ Item {
     // The first and last setting of a section's panel (its corners round).
     property bool first: false
     property bool last: false
+    // In a subsection's fieldset (upstream draws one: a border round its
+    // settings with the title in the top edge), and its last setting.
+    property bool inSub: false
+    property bool subLast: false
     signal openTool(string name)
 
     readonly property string kind: entry.kind || ""
@@ -23,7 +27,8 @@ Item {
     readonly property bool isSetting: kind === "setting" || kind === "eeprom"
 
     clip: true
-    implicitHeight: kind === "section" ? 80 : kind === "subsection" ? 48 : Math.max(65, content.implicitHeight + 24)
+    implicitHeight: kind === "section" ? 80 : kind === "subsection" ? 56
+                  : Math.max(65, content.implicitHeight + 24) + (subLast ? 16 : 0)
 
     // ---- headings ----
     Label {
@@ -36,16 +41,33 @@ Item {
         font.pixelSize: 30
         color: Theme.contentPrimary
     }
+    // A subsection: the fieldset's legend on its top edge.
+    Rectangle {
+        visible: row.kind === "subsection"
+        anchors.fill: parent
+        anchors.topMargin: row.first ? 0 : -8
+        anchors.bottomMargin: -8
+        radius: 8
+        color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+    }
+    Rectangle {
+        visible: row.kind === "subsection"
+        x: 20
+        y: 30
+        width: parent.width - 40
+        height: Theme.hairline
+        color: Theme.gray[200]
+    }
     Label {
         visible: row.kind === "subsection"
-        anchors.left: parent.left
-        anchors.leftMargin: 18
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 6
+        x: 28
+        y: 30 - height / 2
+        leftPadding: 4
+        rightPadding: 4
         text: row.entry.label || ""
-        font.pixelSize: Theme.fontLg
-        font.bold: true
-        color: Theme.contentSecondary
+        font.pixelSize: 24
+        color: Theme.primaryText
+        background: Rectangle { color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100] }
     }
 
     // ---- settings and wizards ----
@@ -66,20 +88,33 @@ Item {
             color: "#eab308"
         }
     }
+    // The fieldset's edges.
+    Rectangle { visible: row.inSub; x: 20; width: Theme.hairline; height: parent.height - (row.subLast ? 16 : 0); color: Theme.gray[200] }
+    Rectangle { visible: row.inSub; x: parent.width - 20; width: Theme.hairline; height: parent.height - (row.subLast ? 16 : 0); color: Theme.gray[200] }
+    Rectangle { visible: row.kind === "subsection"; x: 20; y: 30; width: Theme.hairline; height: parent.height - 30; color: Theme.gray[200] }
+    Rectangle { visible: row.kind === "subsection"; x: parent.width - 20; y: 30; width: Theme.hairline; height: parent.height - 30; color: Theme.gray[200] }
     Rectangle {
-        visible: (row.isSetting || row.kind === "action") && !row.last
+        visible: row.inSub && row.subLast
+        x: 20
+        y: parent.height - 16 - Theme.hairline
+        width: parent.width - 40
+        height: Theme.hairline
+        color: Theme.gray[200]
+    }
+    Rectangle {
+        visible: (row.isSetting || row.kind === "action") && !row.last && !row.subLast
         anchors.bottom: parent.bottom
-        x: 14
-        width: parent.width - 28
-        height: 1
+        x: row.inSub ? 20 : 14
+        width: parent.width - (row.inSub ? 40 : 28)
+        height: Theme.hairline
         color: Theme.gray[200]
     }
     // upstream's three columns: the label, the editor, what it does.
-    readonly property real innerWidth: width - 40
+    readonly property real innerWidth: width - (inSub ? 64 : 40)
     RowLayout {
         id: content
         visible: row.isSetting || row.kind === "action"
-        x: 20
+        x: row.inSub ? 32 : 20
         width: row.innerWidth
         anchors.verticalCenter: parent.verticalCenter
         spacing: 0
@@ -118,8 +153,8 @@ Item {
         // The editor.
         Loader {
             visible: row.isSetting
-            Layout.preferredWidth: row.innerWidth * 0.385 - 48
-            Layout.maximumWidth: row.innerWidth * 0.385 - 48
+            Layout.preferredWidth: row.innerWidth * 0.305 - 28
+            Layout.maximumWidth: row.innerWidth * 0.305 - 28
             Layout.rightMargin: 8
             Layout.alignment: Qt.AlignVCenter
             sourceComponent: !row.isSetting ? null
@@ -130,21 +165,23 @@ Item {
                                   location: locationEditor, ip: ipEditor, jog: jogEditor, event: eventEditor })[row.entry.type] || null
         }
 
-        // Back to the default.
+        // Back to the default (upstream's BiReset, at the right of the control column).
         Item {
             visible: row.isSetting
             Layout.preferredWidth: 40
             Layout.preferredHeight: 40
-            GButton {
+            Icon {
                 objectName: "configReset_" + row.key
                 visible: !!row.entry.modified
                 anchors.centerIn: parent
-                variant: "ghost"
-                iconName: "FaRedo"
-                iconSize: 14
-                ToolTip.visible: hovered
+                name: "BiReset"
+                width: 28
+                height: 28
+                color: resetHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[700])
+                HoverHandler { id: resetHover }
+                ToolTip.visible: resetHover.hovered
                 ToolTip.text: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
-                onClicked: row.kind === "eeprom" ? row.model.resetEeprom(row.key) : row.model.resetValue(row.key)
+                TapHandler { onTapped: row.kind === "eeprom" ? row.model.resetEeprom(row.key) : row.model.resetValue(row.key) }
             }
         }
 
@@ -153,6 +190,7 @@ Item {
             visible: row.isSetting
             Layout.fillWidth: true
             Layout.preferredWidth: row.innerWidth * 0.4
+            Layout.leftMargin: row.innerWidth * 0.08 - 20   // it starts 60% along
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignVCenter
             text: row.entry.description || ""
@@ -172,12 +210,17 @@ Item {
     // ---- gSender's settings ----
     Component {
         id: boolEditor
-        RowLayout {   // upstream centres a switch in its column
-            Item { Layout.fillWidth: true }
-            GSwitch {
-                objectName: "configValue_" + row.key
-                checked: !!row.entry.value
-                onToggled: row.model.setValue(row.key, checked)
+        RowLayout {   // upstream's switch ends where the selects and boxes do
+            Item {
+                Layout.preferredWidth: 158
+                Layout.preferredHeight: 40
+                GSwitch {
+                    objectName: "configValue_" + row.key
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: !!row.entry.value
+                    onToggled: row.model.setValue(row.key, checked)
+                }
             }
             Item { Layout.fillWidth: true }
         }
@@ -217,7 +260,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         color: option.on ? Theme.robin[500] : (Theme.dark ? Theme.surfaceRaised : "white")
                         border.color: option.on ? Theme.robin[500] : Theme.blue[500]
-                        border.width: 1
+                        border.width: Theme.hairline
                         Rectangle {
                             visible: option.on
                             anchors.centerIn: parent
@@ -289,6 +332,7 @@ Item {
             radius: Theme.radiusSmall
             color: Theme.dark ? Theme.surfaceSunken : "white"
             border.color: area.activeFocus ? Theme.ring : Theme.outline
+            border.width: Theme.hairline
             ScrollView {
                 anchors.fill: parent
                 anchors.margins: 4
@@ -420,6 +464,7 @@ Item {
                 radius: Theme.radiusSmall
                 color: Theme.dark ? Theme.surfaceSunken : "white"
                 border.color: commands.activeFocus ? Theme.ring : Theme.outline
+                border.width: Theme.hairline
                 ScrollView {
                     anchors.fill: parent
                     anchors.margins: 4
@@ -444,12 +489,17 @@ Item {
     Component {
         id: eepromSwitch
         RowLayout {
-            Item { Layout.fillWidth: true }
-            GSwitch {
-                objectName: "configValue_" + row.key
-                checked: Number(row.entry.value) !== 0
-                enabled: row.model.idle
-                onToggled: row.model.setEeprom(row.key, checked ? "1" : "0")
+            Item {
+                Layout.preferredWidth: 158
+                Layout.preferredHeight: 40
+                GSwitch {
+                    objectName: "configValue_" + row.key
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: Number(row.entry.value) !== 0
+                    enabled: row.model.idle
+                    onToggled: row.model.setEeprom(row.key, checked ? "1" : "0")
+                }
             }
             Item { Layout.fillWidth: true }
         }
@@ -491,6 +541,7 @@ Item {
                     opacity: usable && row.model.idle ? 1 : 0.5
                     color: on ? Theme.blue[500] : "transparent"
                     border.color: on ? Theme.blue[500] : Theme.outline
+                    border.width: Theme.hairline
                     Label {
                         id: bitLabel
                         anchors.centerIn: parent

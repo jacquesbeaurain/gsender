@@ -50,6 +50,7 @@ Item {
             visible: Backend.helperActive
             color: Qt.rgba(0xe6 / 255, 0xc8 / 255, 0xa5 / 255, 0.3)
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+            border.width: Theme.hairline
         }
         Column {
             anchors.centerIn: parent

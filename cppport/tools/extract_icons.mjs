@@ -149,6 +149,7 @@ const icons = [
     ['fa', 'FaCircle'],
     ['fa', 'FaChartPie'],
     ['bs', 'BsInfoCircleFill'],
+    ['bi', 'BiReset'],
     ['fa', 'FaRegListAlt'],
     // The Config page's menu and bars (features/Config).
     ['fa', 'FaCog'], ['md', 'MdSettingsApplications'], ['pi', 'PiEngine'], ['md', 'MdTouchApp'],

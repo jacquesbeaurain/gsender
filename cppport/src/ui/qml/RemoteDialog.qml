@@ -39,6 +39,7 @@ Popup {
         radius: Theme.radius
         color: Theme.dark ? Theme.surfaceElevated : "white"
         border.color: Theme.outline
+        border.width: Theme.hairline
     }
 
     // For "Copy": QML has no clipboard of its own.

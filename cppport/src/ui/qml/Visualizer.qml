@@ -69,6 +69,7 @@ Rectangle {
         radius: Theme.radiusSmall
         color: Theme.surfaceRaised
         border.color: Theme.outlineSubtle
+        border.width: Theme.hairline
         Rectangle { width: 4; height: parent.height; radius: 2; color: Theme.primary }
         ColumnLayout {
             id: summaryColumn
@@ -122,7 +123,7 @@ Rectangle {
             radius: 18
             color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
             border.color: Qt.rgba(156/255, 163/255, 175/255, 0.4)
-            border.width: 1
+            border.width: Theme.hairline
 
             Icon {
                 anchors.centerIn: parent
@@ -285,6 +286,7 @@ Rectangle {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+            border.width: Theme.hairline
             clip: true
             z: 20
 

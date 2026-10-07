@@ -23,7 +23,7 @@ Rectangle {
     radius: Theme.radiusSmall
     color: highlighted ? Theme.green[500] : "transparent"
     border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-    border.width: 1
+    border.width: Theme.hairline
 
     // None yet: the +.
     Item {

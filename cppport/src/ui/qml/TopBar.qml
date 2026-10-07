@@ -13,6 +13,7 @@ Rectangle {
     implicitHeight: Window.window && Window.window.width <= 1280 ? 48 : 56
     color: Theme.topBar
     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+    border.width: Theme.hairline
 
     // The gSender logo (40 px) and the connection button after it.
     Image {

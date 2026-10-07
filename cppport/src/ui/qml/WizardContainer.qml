@@ -24,6 +24,7 @@ Rectangle {
     radius: Theme.radius
     color: Theme.dark ? Theme.surfaceRaised : "white"
     border.color: Theme.outline
+    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent

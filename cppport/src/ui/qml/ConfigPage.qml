@@ -30,6 +30,17 @@ Item {
         if (index >= 0 && rows[index])
             currentSection = rows[index].section
     }
+    // Whether the row belongs to a subsection (its fieldset).
+    function inSubsection(index) {
+        for (let i = index; i >= 0; --i) {
+            const kind = (rows[i] || ({})).kind
+            if (i !== index && kind === "subsection")
+                return rows[index].kind !== "section" && rows[index].kind !== "subsection"
+            if (kind === "section")
+                return false
+        }
+        return false
+    }
     function ask(title, message, action, then) {
         confirm.title = title
         confirm.message = message
@@ -99,6 +110,7 @@ Item {
             Layout.fillHeight: true
             color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+            border.width: Theme.hairline
             Column {
                 id: menu
                 anchors.fill: parent
@@ -150,6 +162,7 @@ Item {
                 implicitHeight: 73
                 color: Theme.dark ? Theme.surfaceRaised : "white"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: page.compact ? 20 : 96
@@ -172,6 +185,7 @@ Item {
                                 radius: 8
                                 color: Theme.dark ? Theme.surfaceElevated : Theme.gray[50]
                                 border.color: searchField.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                                border.width: Theme.hairline
                             }
                         }
                         Icon {
@@ -190,7 +204,8 @@ Item {
                         radius: 8
                         color: Theme.robin[400]
                         border.color: Theme.blue[400]
-                        Label { id: clearLabel; anchors.centerIn: parent; text: qsTr("Clear"); color: "white"; font.pixelSize: Theme.fontSm; font.weight: Font.Medium }
+                        border.width: Theme.hairline
+                        Label { id: clearLabel; anchors.centerIn: parent; text: qsTr("Clear"); color: "white"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold }
                         TapHandler { onTapped: searchField.text = "" }
                     }
                     // FilterDefaultToggle.
@@ -220,6 +235,7 @@ Item {
                             radius: 4
                             color: "transparent"
                             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                            border.width: Theme.hairline
                         }
                         Rectangle {   // the legend interrupts the border
                             x: 10
@@ -267,6 +283,7 @@ Item {
                 implicitHeight: 37
                 color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                border.width: Theme.hairline
                 Row {
                     anchors.fill: parent
                     Repeater {
@@ -288,7 +305,7 @@ Item {
                                 anchors.centerIn: parent
                                 text: tabItem.modelData.label
                                 font.pixelSize: Theme.fontSm
-                                font.weight: Font.Medium
+                                font.weight: Font.DemiBold
                                 color: tabItem.current ? Theme.blue[500] : Theme.contentPrimary
                             }
                             Rectangle {
@@ -333,6 +350,7 @@ Item {
                         radius: 8
                         color: "#fefce8"   // the notice keeps its light colours in dark mode
                         border.color: "#fde047"
+                        border.width: Theme.hairline
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
@@ -355,8 +373,10 @@ Item {
                     width: list.width - list.leftMargin - list.rightMargin
                     entry: page.rows[index] || ({})
                     model: page.model
-                    first: index === 0 || (page.rows[index - 1] || ({})).kind === "section" || (page.rows[index - 1] || ({})).kind === "subsection"
-                    last: index === page.rows.length - 1 || ["section", "subsection"].includes((page.rows[index + 1] || ({})).kind || "")
+                    inSub: page.inSubsection(index)
+                    subLast: inSub && (index === page.rows.length - 1 || ["section", "subsection"].includes((page.rows[index + 1] || ({})).kind || ""))
+                    first: index === 0 || (page.rows[index - 1] || ({})).kind === "section"
+                    last: index === page.rows.length - 1 || (page.rows[index + 1] || ({})).kind === "section"
                     onOpenTool: (name) => {
                         Backend.openPage("tools")
                         Backend.openTool(name)
@@ -392,6 +412,7 @@ Item {
                 radius: 8
                 color: "transparent"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                border.width: Theme.hairline
                 RowLayout {
                     id: profileRow
                     anchors.centerIn: parent

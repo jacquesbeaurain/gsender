@@ -14,7 +14,7 @@ ComboBox {
         radius: 6
         color: !select.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceRaised : "white")
         border.color: select.visualFocus || select.popup.visible ? Theme.ring : (Theme.dark ? Theme.outline : Theme.gray[300])
-        border.width: 1
+        border.width: Theme.hairline
     }
     indicator: Icon {
         x: select.width - width - 12
@@ -65,6 +65,7 @@ ComboBox {
             radius: 6
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+            border.width: Theme.hairline
         }
     }
 }

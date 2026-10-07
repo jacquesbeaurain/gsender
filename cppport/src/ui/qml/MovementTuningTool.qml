@@ -72,6 +72,7 @@ ToolPage {
                     radius: 6
                     color: "#fef9c3"
                     border.color: "#fde68a"
+                    border.width: Theme.hairline
                     Label {
                         id: note
                         anchors.fill: parent
@@ -102,6 +103,7 @@ ToolPage {
                     radius: 6
                     color: Theme.dark ? Theme.surfaceRaised : "#eff6ff"
                     border.color: Theme.dark ? Theme.outline : "#bfdbfe"
+                    border.width: Theme.hairline
                     Label {
                         id: instruction
                         objectName: "tuningInstruction"

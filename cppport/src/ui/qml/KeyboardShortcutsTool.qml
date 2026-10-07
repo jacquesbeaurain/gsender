@@ -55,6 +55,7 @@ ToolPage {
             radius: Theme.radius
             color: "transparent"
             border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+            border.width: Theme.hairline
             clip: true
             ColumnLayout {
                 anchors.fill: parent
@@ -115,6 +116,7 @@ ToolPage {
                                     radius: 4
                                     color: keysTap.pressed ? Theme.gray[300] : (Theme.dark ? Theme.surfaceElevated : "white")
                                     border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                                    border.width: Theme.hairline
                                     Label {
                                         id: keysLabel
                                         anchors.centerIn: parent
@@ -184,6 +186,7 @@ ToolPage {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.outlineSubtle
+            border.width: Theme.hairline
         }
 
         contentItem: ColumnLayout {

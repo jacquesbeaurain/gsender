@@ -112,6 +112,7 @@ Item {
                         color: cardTap.pressed || cardHover.hovered ? (Theme.dark ? Theme.surfaceHover : Theme.gray[300])
                                                                     : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
                         border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                        border.width: Theme.hairline
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 16

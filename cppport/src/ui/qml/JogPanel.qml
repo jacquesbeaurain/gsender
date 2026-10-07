@@ -103,6 +103,7 @@ ColumnLayout {
                             radius: 4
                             color: Theme.dark ? Theme.surfaceRaised : "white"
                             border.color: parent.activeFocus ? Theme.ring : (Theme.dark ? Theme.outline : "transparent")
+                            border.width: Theme.hairline
                         }
                         value: input.modelData.field === "xy" ? jog.model.xyStep
                              : input.modelData.field === "z" ? jog.model.zStep
@@ -128,6 +129,7 @@ ColumnLayout {
             radius: 8
             color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.outlineSubtle
+            border.width: Theme.hairline
             ColumnLayout {
                 id: presets
                 anchors.fill: parent

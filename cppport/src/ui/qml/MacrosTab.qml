@@ -88,6 +88,7 @@ Item {
             color: !tab.model.canRun ? (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])
                                      : (Theme.dark ? Theme.surfaceRaised : "white")
             border.color: !tab.model.canRun ? Theme.gray[400] : (Theme.dark ? Theme.outline : Theme.gray[200])
+            border.width: Theme.hairline
 
             Timer { id: runTimer; interval: 4000; onTriggered: macroItem.running = false }
 
@@ -302,6 +303,7 @@ Item {
         radius: Theme.radiusSmall
         color: Theme.dark ? Theme.surfaceElevated : "white"
         border.color: Theme.robin[500]
+        border.width: Theme.hairline
         Label {
             anchors.fill: parent
             anchors.leftMargin: 10

@@ -32,6 +32,7 @@ ToolPage {
                 radius: Theme.radius
                 color: Theme.dark ? Theme.surfaceRaised : "white"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 16
@@ -63,6 +64,7 @@ ToolPage {
                 radius: Theme.radius
                 color: Theme.dark ? Theme.surfaceRaised : "white"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 12
@@ -311,6 +313,7 @@ ToolPage {
             radius: Theme.radius
             color: Theme.dark ? Theme.surfaceElevated : "white"
             border.color: Theme.outlineSubtle
+            border.width: Theme.hairline
         }
         contentItem: ColumnLayout {
             spacing: 12

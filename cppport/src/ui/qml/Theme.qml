@@ -18,6 +18,11 @@ QtObject {
     // Accessibility: animations off (upstream's body.reduced-motion).
     readonly property bool reducedMotion: Backend.reducedMotion
 
+    // A 1 CSS px border is one device pixel in Chromium; Qt would draw it
+    // 1.5 px wide and blurred at a 150% scale: borders use one device pixel.
+    readonly property real hairline: 1 / Math.max(1, Qt.application.screens.length > 0
+                                                  ? Qt.application.screens[0].devicePixelRatio : 1)
+
     // Tailwind's gray (upstream keeps the default scale).
     readonly property var gray: ({
         50: "#f9fafb", 100: "#f3f4f6", 200: "#e5e7eb", 300: "#d1d5db", 400: "#9ca3af",

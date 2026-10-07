@@ -70,6 +70,7 @@ Item {
         radius: Theme.radiusSmall
         color: Theme.dark ? Theme.surfaceElevated : "white"
         border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+        border.width: Theme.hairline
         Row {
             id: menuRow
             anchors.centerIn: parent
@@ -95,7 +96,7 @@ Item {
                         anchors.centerIn: parent
                         text: modelData.label
                         font.pixelSize: Theme.fontSm
-                        font.weight: Font.Medium
+                        font.weight: Font.DemiBold
                         color: parent.active ? Theme.primaryText : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])
                     }
                     TapHandler { onTapped: stats.current = modelData.key }

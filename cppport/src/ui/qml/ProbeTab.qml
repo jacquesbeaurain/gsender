@@ -87,6 +87,7 @@ Item {
                 radius: Theme.radiusSmall
                 color: Theme.dark ? Theme.surfaceRaised : "white"
                 border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                border.width: Theme.hairline
                 Row {
                     id: routines
                     anchors.centerIn: parent
@@ -143,6 +144,7 @@ Item {
                         radius: Theme.radiusSmall
                         color: Theme.dark ? Theme.surfaceElevated : "white"
                         border.color: Theme.outline
+                        border.width: Theme.hairline
                     }
                     contentItem: ColumnLayout {
                         spacing: 4
@@ -285,6 +287,7 @@ Item {
                             width: 8; height: 8; radius: 4
                             color: modelData === tab.model.corner ? Theme.blue[500] : "transparent"
                             border.color: Theme.contentMuted
+                            border.width: Theme.hairline
                         }
                     }
                 }

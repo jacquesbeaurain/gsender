@@ -40,6 +40,7 @@ Rectangle {
     radius: Theme.radiusSmall
     color: Theme.dark ? Theme.surfaceRaised : "white"
     border.color: Theme.dark ? Theme.outline : "transparent"
+    border.width: Theme.hairline
 
     component Chip: Rectangle {
         property alias text: chipLabel.text
@@ -258,6 +259,7 @@ Rectangle {
                 radius: 4
                 color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
                 border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                border.width: Theme.hairline
                 RowLayout {
                     id: searchRow
                     anchors.centerIn: parent
@@ -296,6 +298,7 @@ Rectangle {
                 radius: 4
                 color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
                 border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                border.width: Theme.hairline
                 function jump() {
                     const row = editor.model.jumpRow(jumpField.text)
                     if (row >= 0) {

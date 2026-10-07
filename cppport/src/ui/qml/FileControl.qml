@@ -257,6 +257,7 @@ Item {
                             height: 22
                             color: "transparent"
                             border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+                            border.width: Theme.hairline
                             Label {
                                 anchors.centerIn: parent
                                 text: parent.modelData.text

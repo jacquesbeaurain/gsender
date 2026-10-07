@@ -17,6 +17,7 @@ Rectangle {
     radius: Theme.radiusSmall
     color: "transparent"
     border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent

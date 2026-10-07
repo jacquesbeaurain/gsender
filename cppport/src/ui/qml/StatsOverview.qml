@@ -170,6 +170,7 @@ Flickable {
                                     radius: 11
                                     color: Qt.rgba(tone.r, tone.g, tone.b, 0.2)
                                     border.color: tone
+                                    border.width: Theme.hairline
                                     Label {
                                         id: status
                                         anchors.centerIn: parent

@@ -12,6 +12,7 @@ Rectangle {
     radius: 4
     color: Theme.dark ? Theme.surfaceRaised : "white"
     border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+    border.width: Theme.hairline
     implicitHeight: column.implicitHeight + 2 * padding
     implicitWidth: column.implicitWidth + 2 * padding
 
