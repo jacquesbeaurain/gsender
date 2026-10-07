@@ -126,7 +126,7 @@ Item {
                              : row.kind === "eeprom" ? ({ switch: eepromSwitch, bits: eepromBits, exclusiveBits: eepromBits,
                                                           select: eepromSelect })[row.entry.editor] || eepromText
                              : ({ bool: boolEditor, number: numberEditor, length: numberEditor, speed: numberEditor,
-                                  select: selectEditor, text: textEditor, path: pathEditor, textarea: textareaEditor,
+                                  select: selectEditor, radio: radioEditor, text: textEditor, path: pathEditor, textarea: textareaEditor,
                                   location: locationEditor, ip: ipEditor, jog: jogEditor, event: eventEditor })[row.entry.type] || null
         }
 
@@ -197,6 +197,43 @@ Item {
                 onCommitted: (text) => row.model.setNumber(row.key, text)
             }
             Item { Layout.fillWidth: true }
+        }
+    }
+    // upstream's RadioSettingInput: a radio button per option, stacked.
+    Component {
+        id: radioEditor
+        Column {
+            spacing: 4
+            Repeater {
+                model: row.entry.options || []
+                Row {
+                    id: option
+                    required property string modelData
+                    readonly property bool on: row.entry.value === modelData
+                    objectName: "configValue_" + row.key + "_" + modelData
+                    spacing: 8
+                    Rectangle {
+                        width: 24; height: 24; radius: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: option.on ? Theme.robin[500] : (Theme.dark ? Theme.surfaceRaised : "white")
+                        border.color: option.on ? Theme.robin[500] : Theme.blue[500]
+                        border.width: 1
+                        Rectangle {
+                            visible: option.on
+                            anchors.centerIn: parent
+                            width: 10; height: 10; radius: 5
+                            color: "white"
+                        }
+                    }
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: option.modelData
+                        font.bold: true
+                        color: Theme.contentPrimary
+                    }
+                    TapHandler { onTapped: row.model.setValue(row.key, option.modelData) }
+                }
+            }
         }
     }
     Component {

@@ -263,9 +263,16 @@ void ConfigModel::buildMenu() {
 
     // ---- Basics ----
     std::vector<Entry> basics;
-    basics.push_back(add(selectPref("units", tr("Carve screen units"),
-                                    tr("What units would you like gSender to show you?"), {"mm", "in"},
-                                    GETTER(QString(s.metric ? "mm" : "in")), SETTER(s.metric = v.toString() == "mm"))));
+    {
+        // upstream's radio buttons, not a select.
+        Pref units = selectPref("units", tr("Carve screen units"),
+                                tr("What units would you prefer to see on the carve screen? Config will always be metric "
+                                   "since all common CNC firmware requires metric values as input."),
+                                {"mm", "in"}, GETTER(QString(s.metric ? "mm" : "in")),
+                                SETTER(s.metric = v.toString() == "mm"));
+        units.type = "radio";
+        basics.push_back(add(std::move(units)));
+    }
     basics.push_back(add(bindBool("autoReconnect", tr("Reconnect automatically"),
                                   tr("Automatically reconnect to the last machine you used when you open gSender."),
                                   &app::AppSettings::autoReconnect)));
