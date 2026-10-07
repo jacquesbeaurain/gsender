@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Shapes
 import GSender
 
@@ -16,18 +17,20 @@ Item {
     id: button
 
     property int corner: 0
+    // Not `enabled`: a disabled item gets no hover, and the tooltip shows
+    // either way.
+    property bool available: true
     signal clicked()
 
     readonly property bool atLeft: corner === 0 || corner === 2
     readonly property bool atBack: corner === 0 || corner === 1
-    readonly property color ink: enabled ? Theme.robin[500] : Theme.gray[400]
+    readonly property color ink: available ? Theme.robin[500] : Theme.gray[400]
 
-    // The grid and a cell (32 x 28), the stroke's thickness and the gap the
-    // strokes leave between the two columns.
+    // The grid's cell (32 x 28).
     readonly property real cellW: 32
     readonly property real cellH: 28
-    readonly property real stroke: 8.2
-    readonly property real gap: 5.6
+    readonly property var tips: [qsTr("Go to Back Left Corner"), qsTr("Go to Back Right Corner"),
+                                 qsTr("Go to Front Left Corner"), qsTr("Go to Front Right Corner")]
     readonly property real ox: atLeft ? 0 : cellW
     readonly property real oy: atBack ? 0 : cellH
 
@@ -55,18 +58,29 @@ Item {
     width: maxX - minX
     height: maxY - minY
 
-    // The L: a bar along the back or front edge and one up the outer edge,
-    // as rectangles of the cell, projected.
-    function rectPoints(x, y, w, h) {
-        return [project(ox + x, oy + y), project(ox + x + w, oy + y),
-                project(ox + x + w, oy + y + h), project(ox + x, oy + y + h)]
+    // The L as upstream's SVG draws it: a 20-unit stroke (butt ends, a mitre
+    // corner) in the corner's own viewBox, fitted into the cell (the default
+    // xMidYMid meet) and clipped to it. These rectangles are the stroke's
+    // outline in viewBox units; the back corners' ends stop short of the
+    // cell's bottom, which parts the back from the front.
+    readonly property var svg: [
+        { vw: 37, vh: 34, rects: [[-10, -10, 42, 20], [-10, -10, 20, 42]] },  // M 32 0 H 0 V 32
+        { vw: 27, vh: 34, rects: [[0, -10, 42, 20], [22, -10, 20, 42]] },     // M 32 32 V 0 L 0 0
+        { vw: 37, vh: 33, rects: [[-10, 0, 20, 42], [-10, 22, 42, 20]] },     // M 0 0 L 0 32 L 32 32
+        { vw: 27, vh: 33, rects: [[0, 22, 42, 20], [22, 0, 20, 42]] }         // M 0 32 H 32 V 0
+    ][corner]
+    function bar(r) {
+        const k = Math.min(cellW / svg.vw, cellH / svg.vh)
+        const offX = (cellW - svg.vw * k) / 2, offY = (cellH - svg.vh * k) / 2
+        const x0 = Math.max(0, offX + r[0] * k), x1 = Math.min(cellW, offX + (r[0] + r[2]) * k)
+        const y0 = Math.max(0, offY + r[1] * k), y1 = Math.min(cellH, offY + (r[1] + r[3]) * k)
+        return [project(ox + x0, oy + y0), project(ox + x1, oy + y0),
+                project(ox + x1, oy + y1), project(ox + x0, oy + y1)]
             .map(p => Qt.point(p.x - button.minX, p.y - button.minY))
     }
-    readonly property var edgeBar: rectPoints(atLeft ? 0 : gap, atBack ? 0 : cellH - stroke, cellW - gap, stroke)
-    readonly property var sideBar: rectPoints(atLeft ? 0 : cellW - stroke, 0, stroke, cellH)
 
     Repeater {
-        model: [button.edgeBar, button.sideBar]
+        model: button.svg.rects.map(r => button.bar(r))
         Shape {
             required property var modelData
             anchors.fill: parent
@@ -78,8 +92,11 @@ Item {
             }
         }
     }
+    HoverHandler { id: hover }
+    ToolTip.visible: hover.hovered
+    ToolTip.text: tips[corner]
     TapHandler {
-        enabled: button.enabled
+        enabled: button.available
         onTapped: button.clicked()
     }
 }

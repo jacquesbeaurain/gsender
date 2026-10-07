@@ -190,6 +190,8 @@ qt_add_qml_module(gs_ui
         remote_model.hpp
         remote_models.cpp
         remote_models.hpp
+        animated_picture_item.cpp
+        animated_picture_item.hpp
         nav_cube_item.cpp
         nav_cube_item.hpp
         toolpath_item.cpp

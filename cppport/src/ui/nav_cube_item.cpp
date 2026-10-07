@@ -143,21 +143,21 @@ std::vector<NavCubeItem::ProjectedFace> NavCubeItem::projectFaces() const {
     std::vector<ProjectedFace> faces;
     faces.reserve(6);
 
+    // All six: gviewer's faces are translucent CSS planes, so the far ones
+    // show through the near ones. Back to front.
     for (int i = 0; i < 6; ++i) {
         const FaceDef& def = kFaces[i];
         const double n_screen_z = R[6] * def.nx + R[7] * def.ny + R[8] * def.nz;
-        if (n_screen_z > 0.01) {
-            ProjectedFace pf;
-            pf.index = i;
-            pf.def = &def;
-            pf.depth = n_screen_z;
-            pf.visible = true;
-            pf.poly << proj[def.vertices[0]]
-                    << proj[def.vertices[1]]
-                    << proj[def.vertices[2]]
-                    << proj[def.vertices[3]];
-            faces.push_back(std::move(pf));
-        }
+        ProjectedFace pf;
+        pf.index = i;
+        pf.def = &def;
+        pf.depth = n_screen_z;
+        pf.visible = n_screen_z > 0.01;
+        pf.poly << proj[def.vertices[0]]
+                << proj[def.vertices[1]]
+                << proj[def.vertices[2]]
+                << proj[def.vertices[3]];
+        faces.push_back(std::move(pf));
     }
 
     std::sort(faces.begin(), faces.end(), [](const auto& a, const auto& b) {
@@ -171,7 +171,7 @@ int NavCubeItem::hitTestFace(const QPointF& pos) const {
     const auto faces = projectFaces();
     // Test in front-to-back order
     for (auto it = faces.rbegin(); it != faces.rend(); ++it) {
-        if (it->poly.containsPoint(pos, Qt::OddEvenFill)) {
+        if (it->visible && it->poly.containsPoint(pos, Qt::OddEvenFill)) {
             return it->index;
         }
     }
@@ -185,32 +185,22 @@ void NavCubeItem::paint(QPainter* painter) {
     const auto faces = projectFaces();
     const QString curView = view_ ? view_->view() : QString();
 
+    // gviewer's viewcube.css: an 84 px face rounded 14 px, its colours.
+    const double edge = std::min(width(), height()) * 0.6;
+    const double cornerR = edge * 14.0 / 84.0;
     for (const auto& pf : faces) {
-        const bool hovered = (hoveredFace_ == pf.index);
-        const bool active = (curView == QLatin1String(pf.def->viewName)) || (pf.depth > 0.97);
+        const bool hovered = pf.visible && hoveredFace_ == pf.index;
+        const bool active = pf.visible && (curView == QLatin1String(pf.def->viewName) || pf.depth > 0.97);
 
-        QColor fillColor;
-        QColor borderColor;
-        QColor textColor;
-
-        if (active) {
-            fillColor = QColor(22, 42, 68, 235);
-            borderColor = QColor(96, 165, 250, 245);
-            textColor = QColor(96, 165, 250, 255);
-        } else if (hovered) {
-            fillColor = QColor(32, 46, 64, 245);
-            borderColor = QColor(160, 195, 230, 220);
-            textColor = QColor(255, 255, 255, 255);
-        } else {
-            fillColor = QColor(14, 20, 28, 225);
-            borderColor = QColor(120, 142, 165, 90);
-            textColor = QColor(225, 235, 245, 215);
-        }
+        QColor fillColor(12, 16, 20, hovered ? 219 : 235);  // 0.86 hovered, 0.92
+        QColor borderColor = active ? QColor(96, 165, 250, 242)
+                             : hovered ? QColor(160, 190, 220, 140)
+                                       : QColor(120, 140, 160, 89);
+        QColor textColor = active ? QColor(96, 165, 250, 242) : QColor(240, 245, 252, 224);
 
         // Draw quad face with smoothly rounded corners
         QPainterPath roundPath;
         const int n = 4;
-        const double cornerR = 8.0;
         for (int vi = 0; vi < n; ++vi) {
             const QPointF prev = pf.poly[(vi + n - 1) % n];
             const QPointF curr = pf.poly[vi];
@@ -234,7 +224,14 @@ void NavCubeItem::paint(QPainter* painter) {
         }
         roundPath.closeSubpath();
 
-        painter->setPen(QPen(borderColor, active ? 1.6 : 1.0));
+        if (active) {
+            // The active face's ring (box-shadow 0 0 0 1px rgba(96,165,250,0.35)),
+            // under the face, which covers its inner half.
+            painter->setPen(QPen(QColor(96, 165, 250, 89), 3.0));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawPath(roundPath);
+        }
+        painter->setPen(QPen(borderColor, 1.0));
         painter->setBrush(fillColor);
         painter->drawPath(roundPath);
 
@@ -246,12 +243,12 @@ void NavCubeItem::paint(QPainter* painter) {
         c /= 4.0;
 
         // The label lies in its face (CSS 3D in gviewer): drawn in the face's
-        // own plane, one local unit a pixel of the cube's edge.
-        const double edge = std::min(width(), height()) * 0.6;
+        // own plane, one local unit a pixel of the cube's edge. Upright and
+        // readable from the front; a far face's shows through mirrored.
         const QPointF u = pf.poly[1] - pf.poly[0];
         QPointF v = pf.poly[3] - pf.poly[0];
-        if (u.x() * v.y() - u.y() * v.x() < 0) {
-            v = -v;  // keep the text upright, not mirrored
+        if ((u.x() * v.y() - u.y() * v.x() < 0) == pf.visible) {
+            v = -v;
         }
         painter->save();
         painter->setTransform(QTransform(u.x() / edge, u.y() / edge, v.x() / edge, v.y() / edge, c.x(), c.y()),

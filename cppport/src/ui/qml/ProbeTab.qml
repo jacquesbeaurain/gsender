@@ -250,15 +250,16 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            AnimatedImage {
+            // dark:invert, as upstream's picture.
+            AnimatedPictureItem {
                 objectName: "probeImage"
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: (cornerRow.visible ? -cornerRow.height / 2 : 0) + 8
                 width: Window.window ? Window.window.height * 0.15 : 120
                 height: implicitWidth > 0 ? width * implicitHeight / implicitWidth : width
-                fillMode: Image.Stretch
                 source: tab.model.image
                 playing: tab.visible
+                inverted: Theme.dark
             }
             Row {
                 id: cornerRow

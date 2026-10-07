@@ -108,7 +108,7 @@ Item {
                         required property int index
                         objectName: "corner" + modelData
                         corner: index
-                        enabled: dro.model.canClick && dro.model.homed
+                        available: dro.model.canClick && dro.model.homed
                         onClicked: dro.model.goToCorner(modelData)
                     }
                 }
