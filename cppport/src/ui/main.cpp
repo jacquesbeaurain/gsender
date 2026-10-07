@@ -69,8 +69,10 @@ int main(int argc, char** argv) {
     parser.setApplicationDescription("CNC control for Grbl and grblHAL - touch UI");
     parser.addHelpOption();
     parser.addVersionOption();
-    const QCommandLineOption simulator("simulator", "Connect to the built-in simulated Grbl board.");
-    const QCommandLineOption simulatorHal("simulator-hal", "Connect to the built-in simulated grblHAL board.");
+    const QCommandLineOption simulator("simulator",
+                                       "Offer the built-in simulated boards in the connection menu, and connect to the Grbl one.");
+    const QCommandLineOption simulatorHal("simulator-hal",
+                                          "Like --simulator, but connect to the simulated grblHAL board.");
     const QCommandLineOption load("load", "Load a G-code file.", "file");
     const QCommandLineOption config("config", "Configuration file (default ~/.gsender-cpp_rc).", "file");
     const QCommandLineOption dark("dark", "Dark mode (saved in the configuration).");
@@ -128,6 +130,7 @@ int main(int argc, char** argv) {
         }
     }
     if (parser.isSet(simulator) || parser.isSet(simulatorHal)) {
+        backend.setSimulatorEnabled(true);
         backend.connectSimulator(parser.isSet(simulatorHal));
     } else if (!parser.isSet(screenshot)) {
         machine.reconnectAutomatically();

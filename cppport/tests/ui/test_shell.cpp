@@ -31,7 +31,23 @@ TEST_F(UiTest, TheTopBarShowsTheConnectionAndTheMachineState) {
     EXPECT_TRUE(waitFor([&] { return text("statusText") == "Alarm (3)"; }));
 }
 
+TEST_F(UiTest, TheSimulatedBoardsAreOnlyOfferedWithTheOption) {
+    tap("connectionButton");
+    QObject* ports = window_->findChild<QObject*>("portListings");
+    ASSERT_NE(ports, nullptr);
+    ASSERT_TRUE(waitFor([&] { return ports->property("opened").toBool(); }));
+    ASSERT_NE(item("portEthernet"), nullptr);
+    ASSERT_NE(item("portSimulator"), nullptr);
+    EXPECT_FALSE(backend_->simulatorEnabled());
+    EXPECT_FALSE(item("portSimulator")->isVisible());
+    EXPECT_FALSE(item("portSimulatorHal")->isVisible());
+    // --simulator turns them on.
+    backend_->setSimulatorEnabled(true);
+    EXPECT_TRUE(waitFor([&] { return item("portSimulator")->isVisible() && item("portSimulatorHal")->isVisible(); }));
+}
+
 TEST_F(UiTest, TheConnectionButtonListsPortsConnectsAndDisconnects) {
+    backend_->setSimulatorEnabled(true);  // as --simulator does
     tap("connectionButton");
     QObject* ports = window_->findChild<QObject*>("portListings");
     ASSERT_NE(ports, nullptr);
@@ -41,8 +57,9 @@ TEST_F(UiTest, TheConnectionButtonListsPortsConnectsAndDisconnects) {
     ASSERT_NE(ethernet, nullptr);
     EXPECT_EQ(ethernet->property("name").toString(), "192.168.5.1");
     EXPECT_EQ(ethernet->property("detail").toString(), "Ethernet (port 23)");
-    // The simulated Grbl board.
+    // The simulated Grbl board (offered because of --simulator).
     ASSERT_TRUE(waitFor([&] { return item("portSimulator") && item("portSimulator")->height() > 0; }));
+    EXPECT_TRUE(item("portSimulatorHal")->isVisible());
     tap("portSimulator");
     ASSERT_TRUE(waitFor([&] { return machine_->isConnected(); }));
     EXPECT_FALSE(ports->property("opened").toBool());

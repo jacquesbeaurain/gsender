@@ -321,6 +321,13 @@ void UiBackend::setDarkMode(bool dark) {
     }
 }
 
+void UiBackend::setSimulatorEnabled(bool enabled) {
+    if (simulatorEnabled_ != enabled) {
+        simulatorEnabled_ = enabled;
+        Q_EMIT simulatorEnabledChanged();
+    }
+}
+
 void UiBackend::connectSimulator(bool grblHal) {
     machine_.connectTo(grblHal ? app::Machine::kSimulatorHalPort : app::Machine::kSimulatorPort);
 }

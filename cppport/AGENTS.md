@@ -185,6 +185,10 @@ Most wall-clock time goes to reading and writing text, not to compiling:
   `app` object to screenshot other settings. `--simulator-hal` connects to
   the simulator's grblHAL personality instead (SD card, YMODEM, complete
   reports) - the way to exercise grblHAL-only features without hardware.
+  The simulated boards exist only with `--simulator` (or `--simulator-hal`):
+  without it the connection menu does not offer them. The option also
+  connects to the Grbl board (the HAL one with `--simulator-hal`); the
+  Electron app takes the same `--simulator` option, which only offers them.
 - The Machine/app tests run in real time against the simulator; keep them
   short (wait for a condition, never for a fixed long delay) and speed the
   simulated motion up where the timing is not the point

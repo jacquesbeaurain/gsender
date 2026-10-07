@@ -56,6 +56,8 @@ class UiBackend final : public QObject {
     Q_PROPERTY(QString programName READ programName NOTIFY programChanged)
     // workspace.enableDarkMode: the Workshop dark theme.
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY appSettingsChanged)
+    // The --simulator option: the connection menu offers the simulated boards.
+    Q_PROPERTY(bool simulatorEnabled READ simulatorEnabled WRITE setSimulatorEnabled NOTIFY simulatorEnabledChanged)
     // The tool area's optional tabs: Spindle/Laser, Coolant, Rotary.
     Q_PROPERTY(bool spindleFunctions READ spindleFunctions NOTIFY appSettingsChanged)
     Q_PROPERTY(bool coolantFunctions READ coolantFunctions NOTIFY appSettingsChanged)
@@ -128,6 +130,8 @@ public:
     bool coolantFunctions() const;
     bool rotaryTab() const;
     void setDarkMode(bool dark);
+    bool simulatorEnabled() const noexcept { return simulatorEnabled_; }
+    void setSimulatorEnabled(bool enabled);
     QVariantList notifications() const;
     int unreadErrors() const;
     bool helperVisible() const noexcept { return helperVisible_; }
@@ -197,6 +201,7 @@ Q_SIGNALS:
     void stateChanged();
     void programChanged();
     void appSettingsChanged();
+    void simulatorEnabledChanged();
     void gamepadsChanged();
     void jobSummaryChanged();
 
@@ -209,6 +214,7 @@ private:
     app::AccessibilityAnnouncer* announcer_;   // a child
     QPointer<app::ShortcutManager> shortcuts_;  // the window's
     bool helperVisible_ = false;
+    bool simulatorEnabled_ = false;
     QString helperTitle_;
     QString helperText_;
     QString helperLink_;

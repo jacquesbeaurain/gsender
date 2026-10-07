@@ -208,9 +208,11 @@ Rectangle {
                 detail: qsTr("Ethernet (port %1)").arg(button.model.ethernetPort)
                 onChosen: button.model.connectEthernet()
             }
-            // The built-in simulated boards (the port's own).
+            // The built-in simulated boards (the port's own), offered with the
+            // --simulator option.
             PortEntry {
                 objectName: "portSimulator"
+                visible: Backend.simulatorEnabled
                 icon: "GrSatellite"
                 name: qsTr("Simulator")
                 detail: qsTr("Grbl, no hardware")
@@ -218,6 +220,7 @@ Rectangle {
             }
             PortEntry {
                 objectName: "portSimulatorHal"
+                visible: Backend.simulatorEnabled
                 icon: "GrSatellite"
                 name: qsTr("Simulator")
                 detail: qsTr("grblHAL with an SD card, no hardware")
