@@ -7,6 +7,7 @@
 
 #include <QCoreApplication>
 #include <QFont>
+#include <QLinearGradient>
 #include <QPainter>
 
 #include <algorithm>
@@ -257,11 +258,11 @@ void paintBackground(QPainter& painter, const ToolpathCamera& camera, const Visu
         addClipped(isMajor(y) ? major : minor, camera, {gx0, y, 0}, {gx1, y, 0});
     }
     QColor minorColor = theme.gridMinor;
-    minorColor.setAlpha(38);
+    minorColor.setAlpha(110);
     painter.setPen(QPen(minorColor, 1));
     painter.drawLines(minor);
     QColor majorColor = theme.gridMajor;
-    majorColor.setAlpha(62);
+    majorColor.setAlpha(110);
     painter.setPen(QPen(majorColor, 1));
     painter.drawLines(major);
 
@@ -411,14 +412,44 @@ void paintSegments(QPainter& painter, const ToolpathCamera& camera, const std::v
 
 void paintTool(QPainter& painter, const ToolpathCamera& camera, const VisualizerTheme& theme, const Point3& position) {
     painter.setRenderHint(QPainter::Antialiasing, true);
-    const QPointF tool = camera.project(position);
-    QColor fill = theme.tool;
-    fill.setAlpha(70);
-    painter.setPen(QPen(theme.tool, 2));
-    painter.setBrush(fill);
-    painter.drawEllipse(tool, 7, 7);
-    painter.drawLine(tool + QPointF(-11, 0), tool + QPointF(11, 0));
-    painter.drawLine(tool + QPointF(0, -11), tool + QPointF(0, 11));
+    // gviewer's bit: a cylinder 4.05 mm across, standing on the tool position,
+    // drawn as the camera sees it - nearer is bigger, and it leans with the
+    // view. Seen from straight above there is nothing to stand up: a marker.
+    constexpr double kBitDiameter = 4.05;
+    constexpr double kBitLength = 38;
+    const QPointF tip = camera.project(position);
+    const QPointF top = camera.project({position.x, position.y, position.z + kBitLength});
+    const QPointF axis = top - tip;
+    const double length = std::hypot(axis.x(), axis.y());
+    const double distance = camera.cameraDistance();
+    const double perspective = camera.perspective() ? distance / std::max(distance - camera.depth(position), 0.05 * distance) : 1.0;
+    const double width = std::max(4.0, kBitDiameter * camera.scale() * perspective);
+    if (length < width * 1.5) {
+        QColor fill = theme.tool;
+        fill.setAlpha(70);
+        painter.setPen(QPen(theme.tool, 2));
+        painter.setBrush(fill);
+        painter.drawEllipse(tip, 7, 7);
+        painter.drawLine(tip + QPointF(-11, 0), tip + QPointF(11, 0));
+        painter.drawLine(tip + QPointF(0, -11), tip + QPointF(0, 11));
+        painter.setBrush(Qt::NoBrush);
+        return;
+    }
+    painter.save();
+    painter.translate(tip);
+    painter.rotate(std::atan2(axis.x(), -axis.y()) / kDegree);
+    QLinearGradient shading(-width / 2, 0, width / 2, 0);
+    QColor dark = theme.tool.darker(150);
+    QColor light = theme.tool.lighter(135);
+    dark.setAlpha(235);
+    light.setAlpha(235);
+    shading.setColorAt(0.0, dark);
+    shading.setColorAt(0.4, light);
+    shading.setColorAt(1.0, dark);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(shading);
+    painter.drawRoundedRect(QRectF(-width / 2, -length, width, length), width / 2.5, width / 2.5);
+    painter.restore();
     painter.setBrush(Qt::NoBrush);
 }
 
