@@ -99,8 +99,8 @@ Item {
                             id: label
                             anchors.centerIn: parent
                             text: modelData.label
-                            font.pixelSize: Theme.fontBase
-                            font.weight: Font.Medium
+                            font.pixelSize: Theme.fontSm   // upstream's text-sm
+                            font.weight: Font.DemiBold
                             color: parent.selected ? (Theme.dark ? Theme.blue[400] : Theme.blue[600])
                                                    : (Theme.dark ? Theme.contentSecondary : Theme.gray[600])
                         }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Shapes
 import GSender
 
 // An override (components/RangeSlider in FeedOverride): the title, what it
@@ -69,6 +70,35 @@ ColumnLayout {
                     height: 16
                     radius: 8
                     color: Theme.dark ? Theme.surfaceElevated : Theme.gray[400]
+                    // The track's diagonal stripes (upstream's repeating-linear-gradient:
+                    // 20 px of lightgrey in every 40 px across, at -45 degrees).
+                    Item {
+                        anchors.fill: parent
+                        clip: true
+                        readonly property real period: 40 * Math.SQRT2
+                        Repeater {
+                            model: Math.ceil((parent.width + parent.height) / parent.period) + 1
+                            Shape {
+                                id: stripe
+                                required property int index
+                                readonly property real t0: index * parent.period + 20 * Math.SQRT2
+                                readonly property real t1: index * parent.period + 40 * Math.SQRT2
+                                width: parent.width
+                                height: parent.height
+                                preferredRendererType: Shape.CurveRenderer
+                                ShapePath {
+                                    strokeWidth: -1
+                                    fillColor: "lightgrey"
+                                    // Slanting up to the right: the top edge is further right.
+                                    PathPolyline {
+                                        path: [Qt.point(t0, 0), Qt.point(t1, 0),
+                                               Qt.point(t1 - stripe.height, stripe.height),
+                                               Qt.point(t0 - stripe.height, stripe.height), Qt.point(t0, 0)]
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Rectangle {
                         width: slider.visualPosition * parent.width
                         height: parent.height

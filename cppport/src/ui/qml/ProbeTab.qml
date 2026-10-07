@@ -46,7 +46,8 @@ Item {
             Layout.preferredWidth: 5
             spacing: 4
 
-            Item { Layout.fillHeight: true }
+            // Upstream stacks the routines from the top, not the middle.
+            Item { Layout.preferredHeight: 10 }
             GButton {
                 objectName: "probePlate"
                 visible: tab.model.plateSwitcher
@@ -94,7 +95,7 @@ Item {
                                 anchors.centerIn: parent
                                 text: modelData.label
                                 font.pixelSize: Theme.fontBase
-                                font.weight: Font.Medium
+                                font.weight: Font.DemiBold
                                 color: Theme.contentPrimary
                             }
                             TapHandler { onTapped: tab.model.selectCommand(index) }
