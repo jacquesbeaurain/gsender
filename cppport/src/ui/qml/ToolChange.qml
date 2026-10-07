@@ -70,7 +70,7 @@ Item {
         color: "transparent"
         border.color: Theme.outline
         border.width: Theme.hairline
-        Icon { anchors.centerIn: parent; name: parent.iconName; color: Theme.contentMuted; width: 14; height: 14 }
+        Icon { anchors.centerIn: parent; name: parent.iconName; color: Theme.contentMuted; size: 14 }
         TapHandler { onTapped: parent.tapped() }
     }
 
@@ -89,8 +89,8 @@ Item {
             id: pillRow
             anchors.centerIn: parent
             spacing: 8
-            Icon { name: "LuWrench"; color: Theme.contentMuted; width: 14; height: 14 }
-            Label { text: root.model.title; font.pixelSize: Theme.fontXs; font.weight: Font.Medium; color: Theme.contentPrimary }
+            Icon { name: "LuWrench"; color: Theme.contentMuted; size: 14 }
+            Label { text: root.model.title; font.pixelSize: Theme.fontXs; font.weight: Font.Medium }
             TitleButton { objectName: "toolChangeRestore"; iconName: "LuChevronDown"; onTapped: root.minimized = false }
             TitleButton { iconName: "LuX"; onTapped: confirmCancel.open() }
         }
@@ -126,12 +126,11 @@ Item {
                     anchors.leftMargin: 12
                     anchors.rightMargin: 8
                     spacing: 8
-                    Icon { name: "LuWrench"; color: Theme.contentMuted; width: 14; height: 14 }
+                    Icon { name: "LuWrench"; color: Theme.contentMuted; size: 14 }
                     Label {
                         text: root.model.title
                         font.pixelSize: Theme.fontBase
                         font.weight: Font.DemiBold
-                        color: Theme.contentPrimary
                         Layout.fillWidth: true
                     }
                     TitleButton { objectName: "toolChangeMinimize"; iconName: "FaMinus"; onTapped: root.minimized = true }
@@ -172,7 +171,7 @@ Item {
                                         spacing: 6
                                         Rectangle {
                                             width: 18; height: 18; radius: 9
-                                            color: stepItem.done ? "#d1fae5" : stepItem.current ? "#dbeafe" : Theme.gray[200]
+                                            color: stepItem.done ? Theme.tw.emerald[100] : stepItem.current ? Theme.tw.blue[100] : Theme.gray[200]
                                             Label {
                                                 anchors.centerIn: parent
                                                 visible: !stepItem.done
@@ -183,7 +182,7 @@ Item {
                                             Icon {
                                                 anchors.centerIn: parent
                                                 visible: stepItem.done
-                                                name: "FaCheck"; color: "#047857"; width: 9; height: 9
+                                                name: "FaCheck"; color: Theme.tw.emerald[700]; width: 9; height: 9
                                             }
                                         }
                                         Label {
@@ -192,7 +191,7 @@ Item {
                                             text: stepItem.step.title
                                             font.pixelSize: Theme.fontXs
                                             font.weight: Font.Medium
-                                            color: stepItem.done ? "#059669" : stepItem.current ? Theme.blue[700] : Theme.gray[400]
+                                            color: stepItem.done ? Theme.tw.emerald[600] : stepItem.current ? Theme.blue[700] : Theme.gray[400]
                                         }
                                     }
                                     // Substeps, when there are several.
@@ -205,7 +204,7 @@ Item {
                                             readonly property bool done: stepItem.done || (stepItem.current && index < root.model.substep)
                                             width: stepColumn.width
                                             height: 30
-                                            color: active ? (Theme.dark ? Theme.surfaceHover : "#eff6ff") : "transparent"
+                                            color: active ? (Theme.dark ? Theme.surfaceHover : Theme.tw.blue[50]) : "transparent"
                                             Rectangle {
                                                 width: 2; height: parent.height
                                                 color: parent.active ? Theme.blue[500] : "transparent"
@@ -213,7 +212,7 @@ Item {
                                             Rectangle {
                                                 x: 18; anchors.verticalCenter: parent.verticalCenter
                                                 width: 6; height: 6; radius: 3
-                                                color: parent.done ? "#10b981" : parent.active ? Theme.blue[500] : Theme.gray[300]
+                                                color: parent.done ? Theme.tw.emerald[500] : parent.active ? Theme.blue[500] : Theme.gray[300]
                                             }
                                             Label {
                                                 x: 32; anchors.verticalCenter: parent.verticalCenter
@@ -257,7 +256,7 @@ Item {
                             Layout.fillWidth: true
                             implicitHeight: introText.implicitHeight + 16
                             radius: 4
-                            color: Theme.dark ? "#052e16" : "#ecfdf5"
+                            color: Theme.dark ? Theme.tw.green[950] : Theme.tw.emerald[50]
                             Label {
                                 id: introText
                                 anchors.fill: parent
@@ -265,7 +264,7 @@ Item {
                                 wrapMode: Text.Wrap
                                 text: root.model.intro
                                 font.pixelSize: Theme.fontSm
-                                color: Theme.dark ? "#6ee7b7" : "#065f46"
+                                color: Theme.dark ? Theme.tw.emerald[300] : Theme.tw.emerald[800]
                             }
                         }
                         // Install New Tool.
@@ -275,8 +274,8 @@ Item {
                             Layout.alignment: Qt.AlignHCenter
                             Layout.preferredWidth: 320
                             implicitHeight: bannerColumn.implicitHeight + 24
-                            color: Theme.dark ? "#0d2518" : "#ecfdf5"
-                            border.color: "#6ee7b7"
+                            color: Theme.dark ? "#0d2518" : Theme.tw.emerald[50]
+                            border.color: Theme.tw.emerald[300]
                             Column {
                                 id: bannerColumn
                                 anchors.centerIn: parent
@@ -287,7 +286,7 @@ Item {
                                     font.pixelSize: 11
                                     font.weight: Font.DemiBold
                                     font.letterSpacing: 2
-                                    color: "#047857"
+                                    color: Theme.tw.emerald[700]
                                 }
                                 Label {
                                     objectName: "toolBannerTool"
@@ -295,7 +294,6 @@ Item {
                                     text: root.model.toolLabel
                                     font.pixelSize: 28
                                     font.bold: true
-                                    color: Theme.contentPrimary
                                 }
                                 Label {
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -311,7 +309,7 @@ Item {
                             font.pixelSize: Theme.fontXs
                             font.weight: Font.DemiBold
                             font.letterSpacing: 1.5
-                            color: Theme.dark ? "#fbbf24" : Theme.gray[600]
+                            color: Theme.dark ? Theme.tw.amber[400] : Theme.gray[600]
                         }
                         Label {
                             objectName: "toolChangeDescription"

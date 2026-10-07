@@ -93,7 +93,7 @@ ToolPage {
                                         readonly property bool chosen: tool.o.pattern === modelData.key
                                         objectName: "surfacingPattern_" + modelData.key
                                         width: 64; height: 64; radius: 8
-                                        color: chosen ? "#eff6ff" : "transparent"
+                                        color: chosen ? Theme.tw.blue[50] : "transparent"
                                         border.width: 2
                                         border.color: chosen ? Theme.blue[500] : Theme.contentPrimary
                                         Icon {

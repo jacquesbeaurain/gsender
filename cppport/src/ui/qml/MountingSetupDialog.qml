@@ -40,7 +40,6 @@ ModalDialog {
         spacing: 8
         Label {
             text: choice.question
-            color: Theme.contentPrimary
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
@@ -64,7 +63,6 @@ ModalDialog {
             text: qsTr("Rotary Mounting Setup")
             font.pixelSize: Theme.fontLg
             font.bold: true
-            color: Theme.contentPrimary
         }
         Label {
             Layout.fillWidth: true

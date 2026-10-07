@@ -83,8 +83,7 @@ Item {
             Icon {
                 anchors.horizontalCenter: parent.horizontalCenter
                 name: action.iconName
-                width: 20
-                height: 20
+                size: 20
                 color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : Theme.contentSoft) : Theme.gray[400]
             }
             Label {
@@ -131,8 +130,7 @@ Item {
                             Icon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: page.sectionIcons[sectionItem.modelData] || "FaCog"
-                                width: page.compact ? 20 : 24
-                                height: width
+                                size: page.compact ? 20 : 24
                                 color: sectionItem.current ? Theme.primaryText : (sectionHover.hovered ? Theme.blue[600] : Theme.contentSoft)
                             }
                             Label {
@@ -175,7 +173,6 @@ Item {
                             leftPadding: 40
                             font.pixelSize: Theme.fontSm
                             placeholderText: qsTr("Search Config")
-                            color: Theme.contentPrimary
                             onTextChanged: page.model.search = text
                             background: Panel {
                                 color: Theme.dark ? Theme.surfaceElevated : Theme.gray[50]
@@ -186,8 +183,7 @@ Item {
                             x: 12
                             anchors.verticalCenter: parent.verticalCenter
                             name: "LuSearch"
-                            width: 16
-                            height: 16
+                            size: 16
                             color: Theme.contentMuted
                         }
                     }
@@ -336,19 +332,19 @@ Item {
                         objectName: "configNotConnected"
                         anchors.fill: parent
                         anchors.bottomMargin: 16
-                        color: "#fefce8"   // the notice keeps its light colours in dark mode
-                        border.color: "#fde047"
+                        color: Theme.tw.yellow[50]   // the notice keeps its light colours in dark mode
+                        border.color: Theme.tw.yellow[300]
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
                             anchors.rightMargin: 16
                             spacing: 12
-                            Icon { name: "BsInfoCircleFill"; width: 16; height: 16; color: "#854d0e" }
+                            Icon { name: "BsInfoCircleFill"; size: 16; color: Theme.tw.yellow[800] }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.Wrap
                                 font.pixelSize: Theme.fontSm
-                                color: "#854d0e"
+                                color: Theme.tw.yellow[800]
                                 textFormat: Text.StyledText
                                 text: qsTr("<b>Disconnected!</b> Some settings may not appear unless connected to a machine.")
                             }

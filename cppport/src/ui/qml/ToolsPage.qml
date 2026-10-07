@@ -76,7 +76,7 @@ Item {
         anchors.topMargin: 16
         anchors.bottomMargin: 63
         spacing: 0
-        Label { text: qsTr("Tools"); font.pixelSize: 30; font.bold: true; color: Theme.contentPrimary; Layout.bottomMargin: 8 }
+        Label { text: qsTr("Tools"); font.pixelSize: 30; font.bold: true; Layout.bottomMargin: 8 }
         Label {
             Layout.fillWidth: true
             Layout.bottomMargin: 16
@@ -140,7 +140,6 @@ Item {
                             Icon {
                                 Layout.alignment: Qt.AlignHCenter
                                 name: modelData.icon
-                                color: Theme.contentPrimary
                                 width: 56; height: 56
                             }
                         }

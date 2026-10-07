@@ -115,9 +115,8 @@ Item {
         Icon {
             anchors.centerIn: parent
             name: pill.model.lockActive ? "IoLockOpenOutline" : "IoLockClosedOutline"
-            color: pill.model.lockActive ? Theme.yellow600 : Theme.gray[400]
-            width: 36
-            height: 36
+            color: pill.model.lockActive ? Theme.tw.yellow[600] : Theme.gray[400]
+            size: 36
         }
         TapHandler { onTapped: pill.act(pill.model.clickLock()) }
     }
@@ -145,8 +144,7 @@ Item {
                 Icon {
                     name: pill.model.alarmButtonHomes ? "FaHome" : "FaUnlock"
                     color: "white"
-                    width: 22
-                    height: 22
+                    size: 22
                 }
                 Label {
                     text: pill.model.alarmButtonHomes ? qsTr("Click to Run Homing") : qsTr("Click to Unlock Machine")
@@ -170,7 +168,6 @@ Item {
                 text: qsTr("Homing Not Complete")
                 font.pixelSize: Theme.fontLg
                 font.bold: true
-                color: Theme.contentPrimary
             }
             Label {
                 text: pill.model.homingFailureText()

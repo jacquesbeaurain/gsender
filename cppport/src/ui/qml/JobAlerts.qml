@@ -45,21 +45,21 @@ Item {
         property var errors: []
         contentItem: ColumnLayout {
             spacing: 10
-            Label { text: qsTr("Job End"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Job End"); font.pixelSize: Theme.fontLg; font.bold: true }
             RowLayout {
-                Label { text: qsTr("Status:"); font.bold: true; color: Theme.contentPrimary }
+                Label { text: qsTr("Status:"); font.bold: true }
                 Label {
                     objectName: "jobEndStatus"
                     text: jobEnd.completed ? qsTr("COMPLETE") : qsTr("STOPPED")
-                    color: jobEnd.completed ? "#22c55e" : "#ef4444"
+                    color: jobEnd.completed ? Theme.tw.green[500] : Theme.tw.red[500]
                     font.bold: true
                 }
             }
             RowLayout {
-                Label { text: qsTr("Time:"); font.bold: true; color: Theme.contentPrimary }
-                Label { text: jobEnd.time; color: Theme.contentPrimary }
+                Label { text: qsTr("Time:"); font.bold: true }
+                Label { text: jobEnd.time }
             }
-            Label { text: qsTr("Errors:"); font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Errors:"); font.bold: true }
             Label {
                 text: jobEnd.errors.length ? jobEnd.errors.join("\n") : qsTr("None")
                 color: jobEnd.errors.length ? Theme.red[500] : Theme.contentMuted
@@ -83,7 +83,7 @@ Item {
         property real line
         contentItem: ColumnLayout {
             spacing: 10
-            Label { text: qsTr("Job interrupted"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Job interrupted"); font.pixelSize: Theme.fontLg; font.bold: true }
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
@@ -106,7 +106,7 @@ Item {
         property var tasks: []
         contentItem: ColumnLayout {
             spacing: 10
-            Label { text: qsTr("Maintenance Alert"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Maintenance Alert"); font.pixelSize: Theme.fontLg; font.bold: true }
             Label {
                 text: qsTr("The following maintenance tasks are due:")
                 color: Theme.contentSecondary
@@ -120,7 +120,6 @@ Item {
                     text: "• <b>" + modelData.name + "</b>" + (modelData.description ? " - " + modelData.description : "")
                     textFormat: Text.StyledText
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     Layout.fillWidth: true
                 }
             }

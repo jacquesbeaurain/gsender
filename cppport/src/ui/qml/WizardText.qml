@@ -8,5 +8,4 @@ Label {
     Layout.fillWidth: true
     wrapMode: Text.Wrap
     textFormat: Text.StyledText
-    color: Theme.contentPrimary
 }

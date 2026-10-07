@@ -55,7 +55,7 @@ Flickable {
                 }
             }
         }
-        Label { text: parent.value; font.bold: true; font.pixelSize: Theme.fontBase; color: Theme.contentPrimary }
+        Label { text: parent.value; font.bold: true; font.pixelSize: Theme.fontBase }
     }
 
     GridLayout {
@@ -159,7 +159,6 @@ Flickable {
                                     text: modelData.file
                                     font.bold: true
                                     elide: Text.ElideRight
-                                    color: Theme.contentPrimary
                                     Layout.fillWidth: true
                                 }
                                 Label { text: modelData.duration; color: Theme.contentSecondary; font.pixelSize: Theme.fontSm }
@@ -216,7 +215,6 @@ Flickable {
                         objectName: "machineProfileName"
                         text: page.model.profile
                         font.bold: true
-                        color: Theme.contentPrimary
                         Layout.bottomMargin: 8
                     }
                     ColumnLayout {   // gap-1
@@ -283,12 +281,12 @@ Flickable {
                                 GradientStop { position: 0; color: Theme.blue[500] }
                                 GradientStop { position: 1; color: Theme.robin[300] }
                             }
-                            Icon { anchors.centerIn: parent; name: modelData.icon; color: "white"; width: 22; height: 22 }
+                            Icon { anchors.centerIn: parent; name: modelData.icon; color: "white"; size: 22 }
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
-                            Label { text: modelData.title; font.bold: true; color: Theme.contentPrimary }
+                            Label { text: modelData.title; font.bold: true }
                             Label {
                                 text: modelData.text
                                 wrapMode: Text.Wrap
@@ -297,7 +295,7 @@ Flickable {
                                 Layout.fillWidth: true
                             }
                         }
-                        Icon { name: "GoArrowUpRight"; color: Theme.primaryText; width: 20; height: 20 }
+                        Icon { name: "GoArrowUpRight"; color: Theme.primaryText; size: 20 }
                     }
                     TapHandler { onTapped: Qt.openUrlExternally(modelData.link) }
                 }
@@ -327,7 +325,7 @@ Flickable {
                     model: page.model.alarmPreview
                     Rectangle {
                         required property var modelData
-                        readonly property color tone: modelData.alarm ? Theme.red[500] : "#eab308"
+                        readonly property color tone: modelData.alarm ? Theme.red[500] : Theme.tw.yellow[500]
                         Layout.fillWidth: true
                         implicitHeight: 36
                         radius: 3

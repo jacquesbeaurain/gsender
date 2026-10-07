@@ -79,20 +79,19 @@ Panel {
                 text: qsTr("G-code Editor")
                 font.pixelSize: Theme.fontLg
                 font.weight: Font.DemiBold
-                color: Theme.contentPrimary
             }
             Chip {
                 objectName: "editorJobState"
                 visible: editor.model.jobRunning
                 text: editor.model.jobState === "Paused" ? qsTr("Paused") : qsTr("Running")
-                color: editor.model.jobState === "Paused" ? "#fef9c3" : "#dcfce7"
-                fg: editor.model.jobState === "Paused" ? "#a16207" : "#15803d"
+                color: editor.model.jobState === "Paused" ? Theme.tw.yellow[100] : Theme.tw.green[100]
+                fg: editor.model.jobState === "Paused" ? Theme.tw.yellow[700] : Theme.tw.green[700]
             }
             Chip {
                 objectName: "editorSelected"
                 visible: editor.model.selectedCount > 0
                 text: qsTr("%1 selected").arg(editor.model.selectedCount)
-                color: "#dbeafe"
+                color: Theme.tw.blue[100]
                 fg: Theme.blue[700]
             }
             Label {
@@ -146,21 +145,21 @@ Panel {
                     objectName: "editorLine_" + index
                     width: ListView.view.width
                     height: editor.lineHeight
-                    color: currentMatch ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.4) : "#fef08a")
-                         : matched ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.2) : "#fefce8")
-                         : selected ? (Theme.dark ? Qt.rgba(0.12, 0.23, 0.54, 0.3) : "#dbeafe")
-                         : status === "processed" ? (Theme.dark ? Qt.rgba(0.08, 0.33, 0.18, 0.2) : "#f0fdf4")
-                         : status === "current" ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.3) : "#fef9c3")
-                         : status === "upcoming" ? (Theme.dark ? Qt.rgba(0.12, 0.23, 0.54, 0.1) : "#eff6ff")
+                    color: currentMatch ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.4) : Theme.tw.yellow[200])
+                         : matched ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.2) : Theme.tw.yellow[50])
+                         : selected ? (Theme.dark ? Qt.rgba(0.12, 0.23, 0.54, 0.3) : Theme.tw.blue[100])
+                         : status === "processed" ? (Theme.dark ? Qt.rgba(0.08, 0.33, 0.18, 0.2) : Theme.tw.green[50])
+                         : status === "current" ? (Theme.dark ? Qt.rgba(0.44, 0.26, 0.03, 0.3) : Theme.tw.yellow[100])
+                         : status === "upcoming" ? (Theme.dark ? Qt.rgba(0.12, 0.23, 0.54, 0.1) : Theme.tw.blue[50])
                          : index % 2 === 0 ? (Theme.dark ? Theme.surfaceElevated : Theme.gray[200]) : "transparent"
                     border.width: currentMatch ? 2 : 0
-                    border.color: "#eab308"
+                    border.color: Theme.tw.yellow[500]
                     // The job's progress down the left edge.
                     Rectangle {
                         visible: row.status !== "none"
                         width: row.status === "current" ? 4 : 2
                         height: parent.height
-                        color: row.status === "processed" ? "#22c55e" : row.status === "current" ? "#eab308" : "#93c5fd"
+                        color: row.status === "processed" ? Theme.tw.green[500] : row.status === "current" ? Theme.tw.yellow[500] : Theme.tw.blue[300]
                     }
                     RowLayout {
                         anchors.fill: parent
@@ -179,7 +178,7 @@ Panel {
                                 color: row.selected ? Theme.blue[500] : "transparent"
                                 border.width: row.selected ? 0 : 2
                                 border.color: Theme.dark ? Theme.outline : Theme.gray[400]
-                                Icon { anchors.centerIn: parent; visible: row.selected; name: "LuCheck"; color: "white"; width: 12; height: 12 }
+                                Icon { anchors.centerIn: parent; visible: row.selected; name: "LuCheck"; color: "white"; size: 12 }
                             }
                             TapHandler {
                                 acceptedModifiers: Qt.NoModifier
@@ -197,8 +196,8 @@ Panel {
                             font.family: Theme.monoFont
                             font.pixelSize: Theme.fontSm
                             font.weight: row.selected || row.status === "current" ? Font.Medium : Font.Normal
-                            color: row.selected ? Theme.blue[700] : row.status === "current" ? "#713f12"
-                                 : row.status === "processed" ? "#15803d" : Theme.contentMuted
+                            color: row.selected ? Theme.blue[700] : row.status === "current" ? Theme.tw.yellow[900]
+                                 : row.status === "processed" ? Theme.tw.green[700] : Theme.contentMuted
                         }
                         Item {
                             Layout.fillWidth: true
@@ -212,7 +211,6 @@ Panel {
                                 textFormat: Text.StyledText
                                 font.family: Theme.monoFont
                                 font.pixelSize: Theme.fontSm
-                                color: Theme.contentPrimary
                             }
                             TapHandler {
                                 enabled: !row.running
@@ -226,7 +224,6 @@ Panel {
                                 text: row.text
                                 font.family: Theme.monoFont
                                 font.pixelSize: Theme.fontSm
-                                color: Theme.contentPrimary
                                 background: Rectangle {
                                     color: "transparent"
                                     radius: 4
@@ -267,7 +264,6 @@ Panel {
                         Layout.preferredWidth: 180
                         implicitHeight: 36
                         placeholderText: qsTr("Search...")
-                        color: Theme.contentPrimary
                         onTextChanged: editor.model.setSearch(text)
                         Keys.onReturnPressed: (event) => (event.modifiers & Qt.ShiftModifier) ? editor.model.previousMatch() : editor.model.nextMatch()
                     }
@@ -315,7 +311,6 @@ Panel {
                         implicitHeight: 36
                         inputMethodHints: Qt.ImhDigitsOnly
                         validator: IntValidator { bottom: 1 }
-                        color: Theme.contentPrimary
                         onAccepted: jumpBox.jump()
                     }
                     Label {

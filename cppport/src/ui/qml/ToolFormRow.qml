@@ -13,7 +13,6 @@ RowLayout {
     Label {
         text: parent.label
         font.pixelSize: Theme.fontSm
-        color: Theme.contentPrimary
         wrapMode: Text.Wrap
         Layout.preferredWidth: 150
     }

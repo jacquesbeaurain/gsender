@@ -78,8 +78,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     name: button.iconName
                     color: button.enabled ? "white" : (Theme.dark ? Theme.gray[400] : Theme.gray[600])
-                    width: 34
-                    height: 34
+                    size: 34
                 }
                 Label {
                     anchors.verticalCenter: parent.verticalCenter
@@ -106,7 +105,7 @@ Item {
             objectName: "pauseJob"
             text: qsTr("Pause")
             iconName: "PiPause"
-            fill: Theme.dark ? Theme.orange[700] : "#c27924"
+            fill: Theme.dark ? Theme.orange[700] : Theme.orange[400]
             enabled: control.model.canPause
             onClicked: control.model.pause()
         }

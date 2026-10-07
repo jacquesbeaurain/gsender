@@ -44,7 +44,7 @@ Panel {
                 Layout.alignment: Qt.AlignTop
                 implicitWidth: Theme.touchTarget
                 implicitHeight: Theme.touchTarget
-                Icon { anchors.centerIn: parent; name: "MdClose"; color: Qt.rgba(1, 1, 1, 0.7); width: 22; height: 22 }
+                Icon { anchors.centerIn: parent; name: "MdClose"; color: Qt.rgba(1, 1, 1, 0.7); size: 22 }
                 TapHandler { onTapped: Backend.keyboardMap = false }
             }
         }
@@ -73,7 +73,7 @@ Panel {
                             text: modelData.category.toUpperCase()
                             font.pixelSize: Theme.fontXs
                             font.bold: true
-                            color: "#60a5fa"
+                            color: Theme.tw.blue[400]
                         }
                         Repeater {
                             model: modelData.shortcuts
@@ -100,7 +100,7 @@ Panel {
                                         text: modelData.keys
                                         font.family: "monospace"
                                         font.pixelSize: Theme.fontSm
-                                        color: "#bfdbfe"
+                                        color: Theme.tw.blue[200]
                                     }
                                 }
                             }

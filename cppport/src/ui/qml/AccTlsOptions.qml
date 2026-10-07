@@ -31,7 +31,7 @@ WizardStepPage {
             objectName: "customLocation"
             checked: true
         }
-        Label { text: qsTr("Set manual tool change location"); color: Theme.contentPrimary }
+        Label { text: qsTr("Set manual tool change location") }
     }
     WizardText {
         color: Theme.contentSecondary

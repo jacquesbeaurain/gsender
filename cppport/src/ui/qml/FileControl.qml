@@ -60,7 +60,6 @@ Item {
                 // as it needs (a small empty box without recent files).
                 Label {
                     text: qsTr("Recent Files")
-                    color: Theme.contentPrimary
                     Layout.alignment: Qt.AlignHCenter
                 }
                 Rectangle {
@@ -85,11 +84,10 @@ Item {
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
                                 spacing: 6
-                                Icon { name: "LiaFileUploadSolid"; color: Theme.contentPrimary; width: 24; height: 24 }
+                                Icon { name: "LiaFileUploadSolid"; size: 24 }
                                 Label {
                                     text: parent.parent.modelData.name
                                     elide: Text.ElideRight
-                                    color: Theme.contentPrimary
                                     Layout.fillWidth: true
                                 }
                             }
@@ -116,7 +114,7 @@ Item {
                 }
                 RowLayout {
                     spacing: 8
-                    Icon { name: "LuFileCode2"; color: Theme.contentMuted; width: 18; height: 18 }
+                    Icon { name: "LuFileCode2"; color: Theme.contentMuted; size: 18 }
                     Label {
                         text: control.model.lastJob.file || ""
                         font.bold: true
@@ -127,17 +125,17 @@ Item {
                 }
                 RowLayout {
                     spacing: 8
-                    Icon { name: "MdInfoOutline"; color: Theme.contentMuted; width: 18; height: 18 }
+                    Icon { name: "MdInfoOutline"; color: Theme.contentMuted; size: 18 }
                     Label {
                         objectName: "lastJobStatus"
                         text: control.model.lastJob.status || ""
                         font.bold: true
-                        color: control.model.lastJob.status === "COMPLETE" ? "#22c55e" : Theme.red[500]
+                        color: control.model.lastJob.status === "COMPLETE" ? Theme.tw.green[500] : Theme.red[500]
                     }
                 }
                 RowLayout {
                     spacing: 8
-                    Icon { name: "FiClock"; color: Theme.contentMuted; width: 18; height: 18 }
+                    Icon { name: "FiClock"; color: Theme.contentMuted; size: 18 }
                     Label {
                         text: control.model.lastJob.duration || ""
                         font.bold: true
@@ -162,7 +160,6 @@ Item {
                     text: control.model.baseName
                     font.pixelSize: Theme.fontLg
                     font.bold: true
-                    color: Theme.contentPrimary
                     elide: Text.ElideRight
                     width: Math.min(implicitWidth, control.width - 80)
                 }
@@ -170,7 +167,6 @@ Item {
                     text: control.model.extension ? "." + control.model.extension : ""
                     font.pixelSize: Theme.fontLg
                     font.bold: true
-                    color: Theme.contentPrimary
                 }
             }
             Label {
@@ -227,14 +223,14 @@ Item {
                     columns: 2
                     rowSpacing: 0
                     columnSpacing: 6
-                    Label { text: qsTr("Estimated Time"); font.bold: true; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { objectName: "estimatedTime"; text: control.model.estimatedTime; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: qsTr("Feed"); font.bold: true; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: control.model.feedText; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: qsTr("Speed"); font.bold: true; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: control.model.speedText; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: qsTr("Tools"); font.bold: true; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
-                    Label { text: control.model.toolsText; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
+                    Label { text: qsTr("Estimated Time"); font.bold: true; font.pixelSize: Theme.fontSm }
+                    Label { objectName: "estimatedTime"; text: control.model.estimatedTime; font.pixelSize: Theme.fontSm }
+                    Label { text: qsTr("Feed"); font.bold: true; font.pixelSize: Theme.fontSm }
+                    Label { text: control.model.feedText; font.pixelSize: Theme.fontSm }
+                    Label { text: qsTr("Speed"); font.bold: true; font.pixelSize: Theme.fontSm }
+                    Label { text: control.model.speedText; font.pixelSize: Theme.fontSm }
+                    Label { text: qsTr("Tools"); font.bold: true; font.pixelSize: Theme.fontSm }
+                    Label { text: control.model.toolsText; font.pixelSize: Theme.fontSm }
                 }
                 // The extent (Size): a bordered table.
                 Grid {
@@ -263,7 +259,6 @@ Item {
                                 text: parent.modelData.text
                                 font.pixelSize: Theme.fontSm
                                 font.bold: parent.modelData.bold
-                                color: Theme.contentPrimary
                             }
                         }
                     }

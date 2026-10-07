@@ -17,8 +17,7 @@ Item {
         anchors.centerIn: parent
         name: "LuBell"
         color: Theme.contentMuted
-        width: 26
-        height: 26
+        size: 26
     }
     Rectangle {
         objectName: "unreadErrors"
@@ -59,7 +58,7 @@ Item {
         contentItem: ColumnLayout {
             spacing: 8
             RowLayout {
-                Label { text: qsTr("Notifications"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
+                Label { text: qsTr("Notifications"); font.bold: true; Layout.fillWidth: true }
                 GButton {
                     objectName: "clearNotifications"
                     variant: "ghost"

@@ -29,7 +29,6 @@ TextField {
     implicitHeight: 40
     horizontalAlignment: TextInput.AlignRight
     inputMethodHints: Qt.ImhFormattedNumbersOnly
-    color: Theme.contentPrimary
     selectByMouse: true
     rightPadding: suffixLabel.visible ? suffixLabel.implicitWidth + 12 : 8
     leftPadding: 8

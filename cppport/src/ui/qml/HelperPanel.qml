@@ -13,7 +13,7 @@ Rectangle {
     visible: Backend.helperVisible
     radius: Theme.radius
     color: Theme.surfaceElevated
-    border.color: "#c27924"
+    border.color: Theme.orange[400]
     border.width: 2
 
     ColumnLayout {
@@ -26,7 +26,6 @@ Rectangle {
                 text: Backend.helperTitle
                 font.pixelSize: Theme.fontLg
                 font.bold: true
-                color: Theme.contentPrimary
                 Layout.fillWidth: true
             }
             GButton {

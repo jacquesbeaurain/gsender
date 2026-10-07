@@ -56,8 +56,8 @@ Item {
             ShapePath {
                 strokeWidth: -1
                 fillColor: !wheel.sectorEnabled(index) ? Theme.gray[400]
-                         : wheel.pressedSector === index ? (modelData.axis ? Theme.blue[700] : "#3c74a9")
-                         : modelData.axis ? Theme.blue[500] : "#689AC9"
+                         : wheel.pressedSector === index ? (modelData.axis ? Theme.blue[700] : Theme.robin[700])
+                         : modelData.axis ? Theme.blue[500] : Theme.robin[500]
                 scale: Qt.size(wheel.width / 200, wheel.height / 200)
                 PathSvg { path: modelData.path }
             }

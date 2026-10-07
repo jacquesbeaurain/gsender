@@ -53,7 +53,6 @@ ModalDialog {
                 text: qsTr("Wireless CNC Control")
                 font.pixelSize: Theme.fontLg
                 font.bold: true
-                color: Theme.contentPrimary
             }
             GButton {
                 objectName: "remoteClose"
@@ -75,7 +74,6 @@ ModalDialog {
                     Label {
                         text: qsTr("Enable Wireless Control")
                         font.bold: true
-                        color: Theme.contentPrimary
                     }
                     GSwitch {
                         objectName: "remoteSwitch"
@@ -94,7 +92,7 @@ ModalDialog {
                 }
                 RowLayout {
                     spacing: 12
-                    Label { text: qsTr("Addr:"); color: Theme.contentPrimary; Layout.preferredWidth: 48 }
+                    Label { text: qsTr("Addr:"); Layout.preferredWidth: 48 }
                     GSelect {
                         id: addressCombo
                         objectName: "remoteAddress"
@@ -156,7 +154,7 @@ ModalDialog {
                 }
                 RowLayout {
                     spacing: 12
-                    Label { text: qsTr("Port:"); color: Theme.contentPrimary; Layout.preferredWidth: 48 }
+                    Label { text: qsTr("Port:"); Layout.preferredWidth: 48 }
                     TextField {
                         objectName: "remotePort"
                         Layout.fillWidth: true

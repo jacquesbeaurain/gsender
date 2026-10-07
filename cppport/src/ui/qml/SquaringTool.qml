@@ -37,7 +37,6 @@ ToolPage {
                         text: tool.model.title
                         font.pixelSize: Theme.fontXl
                         font.bold: true
-                        color: Theme.contentPrimary
                     }
                     Label {
                         visible: text !== ""
@@ -51,8 +50,8 @@ ToolPage {
                         Layout.fillWidth: true
                         implicitHeight: instruction.implicitHeight + 24
                         radius: 6
-                        color: Theme.dark ? Theme.surfaceRaised : "#eff6ff"
-                        border.color: Theme.dark ? Theme.outline : "#bfdbfe"
+                        color: Theme.dark ? Theme.surfaceRaised : Theme.tw.blue[50]
+                        border.color: Theme.dark ? Theme.outline : Theme.tw.blue[200]
                         Label {
                             id: instruction
                             objectName: "squaringInstruction"
@@ -60,7 +59,6 @@ ToolPage {
                             anchors.margins: 12
                             wrapMode: Text.Wrap
                             text: tool.model.instruction
-                            color: Theme.contentPrimary
                         }
                     }
                     Repeater {
@@ -97,7 +95,6 @@ ToolPage {
                         wrapMode: Text.Wrap
                         textFormat: Text.StyledText
                         text: tool.model.resultText
-                        color: Theme.contentPrimary
                     }
                     GButton {
                         objectName: "squaringUpdate"

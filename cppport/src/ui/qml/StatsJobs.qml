@@ -40,7 +40,6 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: 40
                 placeholderText: qsTr("Search past jobs...")
-                color: Theme.contentPrimary
                 onTextChanged: page.model.jobSearch = text
             }
             // The header: tap to sort.
@@ -64,7 +63,6 @@ Item {
                         text: modelData.label + (page.model.jobSort === modelData.key ? (page.model.jobsAscending ? " ▲" : " ▼") : "")
                         font.bold: true
                         font.pixelSize: Theme.fontSm
-                        color: Theme.contentPrimary
                         TapHandler { onTapped: page.model.sortJobs(modelData.key) }
                     }
                 }
@@ -85,10 +83,10 @@ Item {
                     RowLayout {
                         anchors.fill: parent
                         spacing: 8
-                        Label { text: modelData.file; elide: Text.ElideRight; color: Theme.contentPrimary; Layout.fillWidth: true; Layout.preferredWidth: 3 }
-                        Label { text: modelData.duration; color: Theme.contentPrimary; Layout.fillWidth: true; Layout.preferredWidth: 1 }
-                        Label { text: modelData.lines; color: Theme.contentPrimary; Layout.fillWidth: true; Layout.preferredWidth: 1 }
-                        Label { text: modelData.start; color: Theme.contentPrimary; font.pixelSize: Theme.fontSm; Layout.fillWidth: true; Layout.preferredWidth: 2 }
+                        Label { text: modelData.file; elide: Text.ElideRight; Layout.fillWidth: true; Layout.preferredWidth: 3 }
+                        Label { text: modelData.duration; Layout.fillWidth: true; Layout.preferredWidth: 1 }
+                        Label { text: modelData.lines; Layout.fillWidth: true; Layout.preferredWidth: 1 }
+                        Label { text: modelData.start; font.pixelSize: Theme.fontSm; Layout.fillWidth: true; Layout.preferredWidth: 2 }
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
@@ -119,7 +117,7 @@ Item {
                     Layout.fillHeight: true
                     labels: page.model.jobsPerCnc.labels || []
                     values: page.model.jobsPerCnc.values || []
-                    colors: ["#7ca7d0", "#22415e", "#dc2626", "#bb6a0c", "#3F85C7", "#059669"]
+                    colors: [Theme.robin[400], "#22415e", Theme.tw.red[600], Theme.orange[500], Theme.blue[500], Theme.tw.emerald[600]]
                     seriesLabel: qsTr("Jobs")
                 }
             }
@@ -134,7 +132,7 @@ Item {
                     doughnut: true
                     labels: page.model.runTimePerCnc.labels || []
                     values: page.model.runTimePerCnc.values || []
-                    colors: ["#7ca7d0", "#dc2626", "#bb6a0c", "#3F85C7", "#059669", "#22415e"]
+                    colors: [Theme.robin[400], Theme.tw.red[600], Theme.orange[500], Theme.blue[500], Theme.tw.emerald[600], "#22415e"]
                     // Upstream's tooltip says hours of what are milliseconds.
                     valueText: (ms) => qsTr("%1 hours").arg((ms / 3600000).toFixed(2))
                 }

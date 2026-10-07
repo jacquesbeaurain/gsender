@@ -42,33 +42,30 @@ ModalDialog {
             text: dialog.taskId >= 0 ? qsTr("Edit Task") : qsTr("Add New Task")
             font.pixelSize: Theme.fontLg
             font.bold: true
-            color: Theme.contentPrimary
         }
-        Label { text: qsTr("Task Name"); color: Theme.contentPrimary }
+        Label { text: qsTr("Task Name") }
         TextField {
             id: name
             objectName: "taskName"
             Layout.fillWidth: true
             implicitHeight: 40
-            color: Theme.contentPrimary
         }
         Label { id: nameError; visible: text !== ""; color: Theme.red[500]; font.pixelSize: Theme.fontSm }
-        Label { text: qsTr("Maintenance Range (hours)"); color: Theme.contentPrimary }
+        Label { text: qsTr("Maintenance Range (hours)") }
         RowLayout {
             Layout.fillWidth: true
-            TextField { id: start; objectName: "taskRangeStart"; Layout.fillWidth: true; implicitHeight: 40; inputMethodHints: Qt.ImhFormattedNumbersOnly; color: Theme.contentPrimary }
+            TextField { id: start; objectName: "taskRangeStart"; Layout.fillWidth: true; implicitHeight: 40; inputMethodHints: Qt.ImhFormattedNumbersOnly }
             Label { text: qsTr("to"); color: Theme.contentMuted }
-            TextField { id: end; objectName: "taskRangeEnd"; Layout.fillWidth: true; implicitHeight: 40; inputMethodHints: Qt.ImhFormattedNumbersOnly; color: Theme.contentPrimary }
+            TextField { id: end; objectName: "taskRangeEnd"; Layout.fillWidth: true; implicitHeight: 40; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         }
         Label { id: rangeError; visible: text !== ""; color: Theme.red[500]; font.pixelSize: Theme.fontSm }
-        Label { text: qsTr("Description"); color: Theme.contentPrimary }
+        Label { text: qsTr("Description") }
         TextArea {
             id: description
             objectName: "taskDescription"
             Layout.fillWidth: true
             Layout.preferredHeight: 100
             wrapMode: TextEdit.Wrap
-            color: Theme.contentPrimary
             background: Rectangle { radius: Theme.radiusSmall; color: Theme.field; border.color: Theme.outline }
         }
         RowLayout {

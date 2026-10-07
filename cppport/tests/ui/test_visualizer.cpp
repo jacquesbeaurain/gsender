@@ -220,29 +220,29 @@ TEST_F(UiTest, VisualizerModernControlsLightweightOrthoAndNavCube) {
 
     // 1. Test Lightweight Mode Toggle
     EXPECT_FALSE(machine_->settings().liteMode);
-    EXPECT_FALSE(btnLightweight->property("isLite").toBool());
+    EXPECT_FALSE(btnLightweight->property("active").toBool());
 
     tap("btnLightweight");
     EXPECT_TRUE(machine_->settings().liteMode);
-    EXPECT_TRUE(btnLightweight->property("isLite").toBool());
+    EXPECT_TRUE(btnLightweight->property("active").toBool());
     EXPECT_TRUE(toolpath->property("flat").toBool());
 
     tap("btnLightweight");
     EXPECT_FALSE(machine_->settings().liteMode);
-    EXPECT_FALSE(btnLightweight->property("isLite").toBool());
+    EXPECT_FALSE(btnLightweight->property("active").toBool());
     EXPECT_FALSE(toolpath->property("flat").toBool());
 
     // 2. Test Ortho / Perspective Toggle
     EXPECT_TRUE(machine_->settings().perspective);
-    EXPECT_FALSE(btnOrtho->property("isOrtho").toBool());
+    EXPECT_FALSE(btnOrtho->property("active").toBool());
 
     tap("viewOrtho");
     EXPECT_FALSE(machine_->settings().perspective);
-    EXPECT_TRUE(btnOrtho->property("isOrtho").toBool());
+    EXPECT_TRUE(btnOrtho->property("active").toBool());
 
     tap("viewOrtho");
     EXPECT_TRUE(machine_->settings().perspective);
-    EXPECT_FALSE(btnOrtho->property("isOrtho").toBool());
+    EXPECT_FALSE(btnOrtho->property("active").toBool());
 
     // 3. Test Iso View Button
     tap("view3D");

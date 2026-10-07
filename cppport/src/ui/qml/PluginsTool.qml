@@ -28,7 +28,6 @@ ToolPage {
                 Layout.preferredWidth: 260
                 implicitHeight: 40
                 placeholderText: qsTr("Search plugins...")
-                color: Theme.contentPrimary
                 background: Panel {
                     border.color: searchInput.activeFocus ? Theme.blue[500] : Theme.outline
                 }
@@ -92,7 +91,6 @@ ToolPage {
                         text: qsTr("No Plugins Found")
                         font.pixelSize: Theme.fontXl
                         font.bold: true
-                        color: Theme.contentPrimary
                     }
                     Label {
                         Layout.alignment: Qt.AlignHCenter
@@ -154,7 +152,6 @@ ToolPage {
                                         text: model.name
                                         font.bold: true
                                         font.pixelSize: Theme.fontBase
-                                        color: Theme.contentPrimary
                                     }
                                     Rectangle {
                                         implicitHeight: 18
@@ -166,21 +163,20 @@ ToolPage {
                                             anchors.centerIn: parent
                                             text: "v" + model.version
                                             font.pixelSize: Theme.fontXs
-                                            color: Theme.contentPrimary
                                         }
                                     }
                                     Rectangle {
                                         implicitHeight: 18
                                         implicitWidth: badgeLabel.implicitWidth + 8
                                         radius: 4
-                                        color: model.official ? (Theme.dark ? "#1a3b2b" : "#d1fae5") : (Theme.dark ? Theme.gray[700] : Theme.gray[200])
+                                        color: model.official ? (Theme.dark ? "#1a3b2b" : Theme.tw.emerald[100]) : (Theme.dark ? Theme.gray[700] : Theme.gray[200])
                                         Label {
                                             id: badgeLabel
                                             anchors.centerIn: parent
                                             text: model.official ? qsTr("Official") : qsTr("Community")
                                             font.pixelSize: Theme.fontXs
                                             font.weight: Font.DemiBold
-                                            color: model.official ? (Theme.dark ? "#34d399" : "#065f46") : Theme.contentMuted
+                                            color: model.official ? (Theme.dark ? Theme.tw.emerald[400] : Theme.tw.emerald[800]) : Theme.contentMuted
                                         }
                                     }
                                 }
@@ -206,7 +202,6 @@ ToolPage {
                             wrapMode: Text.Wrap
                             text: model.description
                             font.pixelSize: Theme.fontSm
-                            color: Theme.contentPrimary
                         }
 
                         // Capabilities / Permissions Pills

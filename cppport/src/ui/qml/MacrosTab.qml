@@ -101,7 +101,7 @@ Item {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0; color: Theme.green[500] }
                     GradientStop { position: 0.5; color: Theme.green[500] }
-                    GradientStop { position: 1; color: "#dcfce7" }
+                    GradientStop { position: 1; color: Theme.tw.green[100] }
                 }
                 SequentialAnimation on opacity {
                     running: macroItem.running && !Theme.reducedMotion
@@ -125,7 +125,6 @@ Item {
                     elide: Text.ElideRight
                     text: macroItem.running ? qsTr("Running...") : macroItem.modelData.name
                     font.pixelSize: Theme.fontBase
-                    color: Theme.contentPrimary
                 }
                 MouseArea {
                     id: area
@@ -178,7 +177,7 @@ Item {
                 anchors.right: parent.right
                 width: Theme.touchTarget
                 height: parent.height
-                Icon { anchors.centerIn: parent; name: "FaEllipsisH"; color: Theme.contentSecondary; width: 20; height: 20 }
+                Icon { anchors.centerIn: parent; name: "FaEllipsisH"; color: Theme.contentSecondary; size: 20 }
                 TapHandler { onTapped: menu.popup(menuButton, 0, menuButton.height) }
                 Menu {
                     id: menu
@@ -245,7 +244,6 @@ Item {
             anchors.centerIn: parent
             visible: tab.model.count === 0
             text: qsTr("No Macros...")
-            color: Theme.contentPrimary
         }
         }
 
@@ -308,7 +306,6 @@ Item {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
             text: tab.dragName
-            color: Theme.contentPrimary
         }
     }
 }

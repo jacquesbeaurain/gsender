@@ -34,7 +34,6 @@ WizardStepPage {
             Layout.alignment: Qt.AlignHCenter
             text: ({ checking: qsTr("Checking continuity…"), waiting: qsTr("Waiting for probe contact…"),
                      success: qsTr("Continuity confirmed"), stuckOn: qsTr("Sensor triggered immediately") })[page.phase]
-            color: Theme.contentPrimary
             font.pixelSize: Theme.fontLg
         }
     }
@@ -48,12 +47,12 @@ WizardStepPage {
         Layout.fillWidth: true
         implicitHeight: result.implicitHeight + 16
         radius: 8
-        color: page.phase === "success" ? "#dcfce7" : "#fee2e2"
+        color: page.phase === "success" ? Theme.tw.green[100] : Theme.tw.red[100]
         WizardText {
             id: result
             anchors.fill: parent
             anchors.margins: 8
-            color: page.phase === "success" ? "#166534" : "#991b1b"
+            color: page.phase === "success" ? Theme.tw.green[800] : Theme.tw.red[800]
             text: page.phase === "success"
                   ? "<b>" + qsTr("Success") + "</b><br>" + qsTr("Continuity check passed. Your TLS is working correctly.")
                   : "<b>" + qsTr("Error") + "</b><br>" + qsTr("Probe pin immediately asserted. Check your wiring or probe for a short and confirm $6 (Invert Probe Pin) is set correctly.")

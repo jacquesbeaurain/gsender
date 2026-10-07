@@ -20,14 +20,13 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
-        Label { text: override.title; color: Theme.contentPrimary; font.pixelSize: Theme.fontBase }
+        Label { text: override.title; font.pixelSize: Theme.fontBase }
         Item { Layout.fillWidth: true }
         Label { text: override.valueText; color: Theme.primaryText; font.pixelSize: Theme.fontBase }
         Item { Layout.fillWidth: true }
         Label {
             objectName: override.objectName + "Percent"
             text: (slider.pressed ? slider.value : override.percent) + "%"
-            color: Theme.contentPrimary
             font.pixelSize: Theme.fontBase
         }
     }
@@ -113,7 +112,7 @@ ColumnLayout {
                     height: 24
                     radius: 12
                     color: override.enabled ? "white" : Theme.gray[300]
-                    border.color: "#475569"
+                    border.color: Theme.tw.slate[600]
                     border.width: 2
                 }
             }

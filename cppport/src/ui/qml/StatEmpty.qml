@@ -12,8 +12,7 @@ ColumnLayout {
     Icon {
         Layout.alignment: Qt.AlignHCenter
         name: parent.icon
-        width: 60
-        height: 60
+        size: 60
         color: Theme.contentBody
     }
     Label {

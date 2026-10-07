@@ -142,8 +142,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         name: tab.icons[kind].name
                         color: tab.icons[kind].color
-                        width: 14
-                        height: 14
+                        size: 14
                     }
                     Label {
                         id: line
@@ -181,7 +180,7 @@ Item {
                 height: Theme.touchTarget
                 radius: width / 2
                 color: Theme.primary
-                Icon { anchors.centerIn: parent; name: "LuArrowDown"; color: "white"; width: 16; height: 16 }
+                Icon { anchors.centerIn: parent; name: "LuArrowDown"; color: "white"; size: 16 }
                 TapHandler {
                     onTapped: {
                         list.following = true
@@ -203,8 +202,6 @@ Item {
                 placeholderText: qsTr("Enter G-code here...")
                 font.family: Theme.monoFont
                 font.pixelSize: Theme.fontSm
-                color: Theme.contentPrimary
-                placeholderTextColor: Theme.contentMuted
                 enabled: tab.model.connected
                 background: Panel {
                     radius: Theme.radiusSmall
@@ -258,8 +255,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 name: "LuUnplug"
                 color: Theme.contentMuted
-                width: 48
-                height: 48
+                size: 48
             }
             Label {
                 text: qsTr("Not connected to a device")

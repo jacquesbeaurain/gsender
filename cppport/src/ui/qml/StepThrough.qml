@@ -49,14 +49,13 @@ ModalDialog {
                 text: qsTr("G-code Step Through")
                 font.pixelSize: Theme.fontLg
                 font.bold: true
-                color: Theme.contentPrimary
                 Layout.fillWidth: true
             }
             Item {
                 objectName: "stepThroughClose"
                 width: Theme.touchTarget
                 height: Theme.touchTarget
-                Icon { anchors.centerIn: parent; name: "LuX"; color: Theme.contentMuted; width: 24; height: 24 }
+                Icon { anchors.centerIn: parent; name: "LuX"; color: Theme.contentMuted; size: 24 }
                 TapHandler { onTapped: dialog.close() }
             }
         }
@@ -90,7 +89,7 @@ ModalDialog {
                         Item {
                             objectName: "stepSearchToggle"
                             width: 36; height: 36
-                            Icon { anchors.centerIn: parent; name: "LuSearch"; color: searchRow.visible ? Theme.blue[500] : Theme.contentMuted; width: 16; height: 16 }
+                            Icon { anchors.centerIn: parent; name: "LuSearch"; color: searchRow.visible ? Theme.blue[500] : Theme.contentMuted; size: 16 }
                             TapHandler {
                                 onTapped: {
                                     searchRow.visible = !searchRow.visible
@@ -114,7 +113,6 @@ ModalDialog {
                             Layout.fillWidth: true
                             implicitHeight: 36
                             placeholderText: qsTr("Search...")
-                            color: Theme.contentPrimary
                             font.pixelSize: Theme.fontSm
                             onTextChanged: dialog.model.setSearch(text)
                             onAccepted: dialog.model.goToNextMatch()
@@ -154,7 +152,7 @@ ModalDialog {
                                     font.family: Theme.monoFont
                                     font.pixelSize: Theme.fontXs
                                     font.bold: parent.parent.current
-                                    color: parent.parent.current ? (Theme.dark ? "#bfdbfe" : "#1d4ed8") : Theme.gray[400]
+                                    color: parent.parent.current ? (Theme.dark ? Theme.tw.blue[200] : Theme.tw.blue[700]) : Theme.gray[400]
                                 }
                                 Label {
                                     text: parent.parent.code
@@ -339,7 +337,6 @@ ModalDialog {
                                         text: "<b>T" + card.tool.number + "</b>"
                                               + (card.tool.comment ? " <font color=\"#8b95a1\">· " + card.tool.comment + "</font>" : "")
                                         font.pixelSize: Theme.fontSm
-                                        color: Theme.contentPrimary
                                     }
                                     Label {
                                         visible: !!card.tool.details
@@ -417,7 +414,6 @@ ModalDialog {
                 textFormat: Text.StyledText
                 text: "<b>" + dialog.model.line.toLocaleString(Qt.locale(), "f", 0) + "</b> / "
                       + dialog.model.total.toLocaleString(Qt.locale(), "f", 0)
-                color: Theme.contentPrimary
             }
         }
 
@@ -499,7 +495,6 @@ ModalDialog {
                     text: dialog.model.positionText
                     font.family: Theme.monoFont
                     font.pixelSize: Theme.fontSm
-                    color: Theme.contentPrimary
                 }
                 SectionTitle { text: qsTr("Modals").toUpperCase() }
                 GridLayout {
@@ -516,7 +511,7 @@ ModalDialog {
                             implicitHeight: modalColumn.implicitHeight + 6
                             radius: 3
                             color: modal.changed ? Qt.rgba(0x3b / 255, 0x82 / 255, 0xf6 / 255, 0.2) : "transparent"
-                            border.color: modal.changed ? "#3b82f6" : Theme.outline
+                            border.color: modal.changed ? Theme.tw.blue[500] : Theme.outline
                             Column {
                                 id: modalColumn
                                 anchors.centerIn: parent
@@ -527,7 +522,6 @@ ModalDialog {
                                     font.family: Theme.monoFont
                                     font.pixelSize: Theme.fontXs
                                     font.bold: !!parent.parent.modal.changed
-                                    color: Theme.contentPrimary
                                 }
                             }
                         }

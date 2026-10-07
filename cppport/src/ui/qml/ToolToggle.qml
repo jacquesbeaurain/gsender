@@ -10,7 +10,7 @@ RowLayout {
     property string label
 
     spacing: 6
-    Label { text: parent.label; font.pixelSize: Theme.fontSm; color: Theme.contentPrimary }
+    Label { text: parent.label; font.pixelSize: Theme.fontSm }
     GSwitch {
         objectName: (parent.model ? parent.model.objectName : "") + "_" + parent.key
         checked: parent.model ? !!parent.model.options[parent.key] : false

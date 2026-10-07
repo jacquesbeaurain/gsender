@@ -66,7 +66,7 @@ Item {
                     radius: 2
                     color: modelData.type === "error" ? Theme.red[500]
                          : modelData.type === "success" ? Theme.green[500]
-                         : modelData.type === "warning" ? Theme.yellow600 : Theme.blue[500]
+                         : modelData.type === "warning" ? Theme.tw.yellow[600] : Theme.blue[500]
                 }
                 RowLayout {
                     id: row
@@ -77,7 +77,6 @@ Item {
                         objectName: "toastText"
                         text: modelData.text
                         wrapMode: Text.Wrap
-                        color: Theme.contentPrimary
                         Layout.fillWidth: true
                     }
                     GButton {

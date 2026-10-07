@@ -68,8 +68,7 @@ Item {
                 anchors.centerIn: parent
                 name: "MdKeyboardArrowLeft"
                 color: parent.can ? Theme.gray[400] : (Theme.dark ? Theme.contentMuted : Theme.gray[200])
-                width: 24
-                height: 24
+                size: 24
             }
             TapHandler { enabled: parent.can; onTapped: strip.contentX = Math.max(0, strip.contentX - 100) }
         }
@@ -127,8 +126,7 @@ Item {
                 anchors.centerIn: parent
                 name: "MdKeyboardArrowRight"
                 color: parent.can ? Theme.gray[400] : (Theme.dark ? Theme.contentMuted : Theme.gray[200])
-                width: 24
-                height: 24
+                size: 24
             }
             TapHandler { enabled: parent.can; onTapped: strip.contentX = Math.min(strip.contentWidth - strip.width, strip.contentX + 100) }
         }

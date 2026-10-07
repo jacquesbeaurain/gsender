@@ -39,7 +39,6 @@ Item {
         anchors.bottomMargin: 12
         text: row.entry.label || ""
         font.pixelSize: 30
-        color: Theme.contentPrimary
     }
     // A subsection: the fieldset's legend on its top edge.
     Rectangle {
@@ -78,14 +77,14 @@ Item {
         anchors.topMargin: row.first ? 0 : -8
         anchors.bottomMargin: row.last ? 0 : -8
         radius: 8
-        color: row.entry.changed ? (Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : "#fefce8")
+        color: row.entry.changed ? (Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : Theme.tw.yellow[50])
                                 : Theme.secondary
         Rectangle {
             visible: !!row.entry.changed
             y: 8
             width: 4; height: parent.height - 16
             radius: 2
-            color: "#eab308"
+            color: Theme.tw.yellow[500]
         }
     }
     // The fieldset's edges.
@@ -175,8 +174,7 @@ Item {
                 visible: !!row.entry.modified
                 anchors.centerIn: parent
                 name: "BiReset"
-                width: 28
-                height: 28
+                size: 28
                 color: resetHover.hovered ? Theme.blue[600] : Theme.contentBody
                 HoverHandler { id: resetHover }
                 ToolTip.visible: resetHover.hovered
@@ -271,7 +269,6 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text: option.modelData
                         font.bold: true
-                        color: Theme.contentPrimary
                     }
                     TapHandler { onTapped: row.model.setValue(row.key, option.modelData) }
                 }
@@ -340,7 +337,6 @@ Item {
                     text: row.entry.value || ""
                     font.family: "monospace"
                     font.pixelSize: Theme.fontSm
-                    color: Theme.contentPrimary
                     placeholderText: qsTr("; No commands set")
                     background: null
                     onActiveFocusChanged: if (!activeFocus) row.model.setValue(row.key, text)
@@ -454,7 +450,7 @@ Item {
                     checked: !!(row.entry.value && row.entry.value.enabled)
                     onToggled: row.model.setValue(row.key, { enabled: checked, commands: row.entry.value.commands })
                 }
-                Label { text: qsTr("Enabled"); color: Theme.contentPrimary }
+                Label { text: qsTr("Enabled") }
             }
             Panel {
                 Layout.fillWidth: true
@@ -471,7 +467,6 @@ Item {
                         text: row.entry.value ? row.entry.value.commands : ""
                         font.family: "monospace"
                         font.pixelSize: Theme.fontSm
-                        color: Theme.contentPrimary
                         placeholderText: qsTr("; No commands set")
                         background: null
                         onActiveFocusChanged: if (!activeFocus)
@@ -593,7 +588,6 @@ Item {
                          spindleTest: qsTr("Test spindle"), laserTest: qsTr("Test laser"),
                          outputsTest: qsTr("Accessory outputs"), aJog: qsTr("Test rotary") })[row.key] || ""
                 font.bold: true
-                color: Theme.contentPrimary
                 Layout.preferredWidth: 200
             }
             // Pins lit while the status report lists them.

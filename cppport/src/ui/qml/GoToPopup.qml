@@ -38,7 +38,6 @@ Popup {
         Label {
             text: qsTr("Go To Location")
             font.pixelSize: Theme.fontBase
-            color: Theme.contentPrimary
         }
         // The mode switch.
         Panel {
@@ -89,7 +88,6 @@ Popup {
                     text: parent.modelData
                     font.family: Theme.monoFont
                     font.bold: true
-                    color: Theme.contentPrimary
                     Layout.preferredWidth: 20
                 }
                 NumberField {

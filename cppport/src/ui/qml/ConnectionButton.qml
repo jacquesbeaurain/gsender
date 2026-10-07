@@ -56,7 +56,7 @@ Panel {
                     : Backend.connectionKind === "ethernet" ? "BsEthernet" : "BsUsbPlug"
                 // ConnectionStateIndicator's colours.
                 color: button.state === "connected" ? Theme.green[700]
-                     : button.state === "connecting" ? Theme.yellow600
+                     : button.state === "connecting" ? Theme.tw.yellow[600]
                      : button.state === "error" ? Theme.red[600] : Theme.blue[700]
             }
             Icon {
@@ -64,10 +64,9 @@ Panel {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: -2
-                width: 16
-                height: 16
+                size: 16
                 name: "BsCheckCircleFill"
-                color: "#22c55e"   // green-500 (Tailwind's: the check is not overridden)
+                color: Theme.tw.green[500]   // green-500 (Tailwind's: the check is not overridden)
             }
         }
         Label {
@@ -77,7 +76,6 @@ Panel {
                 : button.state === "error" ? qsTr("Unable to connect.") : qsTr("Connect to CNC")
             font.bold: true
             font.pixelSize: Theme.fontBase
-            color: Theme.contentPrimary
             Layout.fillWidth: true
         }
         ColumnLayout {
@@ -90,7 +88,6 @@ Panel {
                 text: Backend.portLabel
                 font.bold: true
                 font.pixelSize: Theme.fontBase
-                color: Theme.contentPrimary
                 padding: 0
                 Layout.alignment: Qt.AlignRight
                 Layout.preferredHeight: 16
@@ -183,14 +180,13 @@ Panel {
                 anchors.fill: parent
                 anchors.leftMargin: 12
                 anchors.rightMargin: 12
-                Icon { name: entry.icon; color: Theme.contentPrimary; width: 36; height: 36 }
+                Icon { name: entry.icon; size: 36 }
                 Item { Layout.fillWidth: true }
                 ColumnLayout {
                     spacing: 2
                     Label {
                         text: entry.name
                         font.bold: true
-                        color: Theme.contentPrimary
                         Layout.alignment: Qt.AlignRight
                     }
                     Label {
@@ -228,7 +224,6 @@ Panel {
             Label {
                 visible: button.model.ports.length === 0
                 text: qsTr("No USB devices found")
-                color: Theme.contentPrimary
                 Layout.alignment: Qt.AlignHCenter
                 Layout.margins: 12
             }
@@ -285,8 +280,7 @@ Panel {
                         name: "FaArrowAltCircleRight"
                         color: Theme.contentSecondary
                         rotation: unrecognized.visible ? 90 : 0
-                        width: 20
-                        height: 20
+                        size: 20
                     }
                     TapHandler { onTapped: unrecognized.visible = !unrecognized.visible }
                 }

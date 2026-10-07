@@ -20,7 +20,7 @@ Item {
 
     readonly property bool atLeft: corner === 0 || corner === 2
     readonly property bool atBack: corner === 0 || corner === 1
-    readonly property color ink: enabled ? "#689AC9" : Theme.gray[400]
+    readonly property color ink: enabled ? Theme.robin[500] : Theme.gray[400]
 
     // The grid and a cell (32 x 28), the stroke's thickness and the gap the
     // strokes leave between the two columns.

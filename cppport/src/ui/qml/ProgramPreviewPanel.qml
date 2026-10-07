@@ -72,7 +72,6 @@ Panel {
                     text: panel.program
                     font.family: Theme.monoFont
                     font.pixelSize: Theme.fontXs
-                    color: Theme.contentPrimary
                 }
             }
         }

@@ -57,7 +57,6 @@ Item {
             text: diagram.model.sides[index] + " " + diagram.model.units
             x: (from.x + to.x) / 2 + offset.x - width / 2
             y: (from.y + to.y) / 2 + offset.y - height / 2
-            color: Theme.contentPrimary
             font.pixelSize: Theme.fontSm
         }
     }

@@ -12,12 +12,12 @@ RowLayout {
 
     property DroModel model: DroModel {}
     readonly property var workspaces: [
-        { code: "G54", label: "G54 (P1)", color: "#2563eb" },
-        { code: "G55", label: "G55 (P2)", color: "#059669" },
-        { code: "G56", label: "G56 (P3)", color: "#d97706" },
-        { code: "G57", label: "G57 (P4)", color: "#7c3aed" },
-        { code: "G58", label: "G58 (P5)", color: "#e11d48" },
-        { code: "G59", label: "G59 (P6)", color: "#0891b2" }
+        { code: "G54", label: "G54 (P1)", color: Theme.tw.blue[600] },
+        { code: "G55", label: "G55 (P2)", color: Theme.tw.emerald[600] },
+        { code: "G56", label: "G56 (P3)", color: Theme.tw.amber[600] },
+        { code: "G57", label: "G57 (P4)", color: Theme.tw.violet[600] },
+        { code: "G58", label: "G58 (P5)", color: Theme.tw.rose[600] },
+        { code: "G59", label: "G59 (P6)", color: Theme.tw.cyan[600] }
     ]
     readonly property int current: Math.max(0, workspaces.findIndex(w => w.code === model.workspace))
 
@@ -25,7 +25,7 @@ RowLayout {
 
     Label {
         text: qsTr("Workspace:")
-        color: "#d1d5db"
+        color: Theme.gray[300]
         font.pixelSize: Theme.fontBase
     }
     ComboBox {
@@ -42,8 +42,7 @@ RowLayout {
             x: combo.width - width - 4
             y: (combo.height - height) / 2
             name: "MdKeyboardArrowDown"
-            width: 18
-            height: 18
+            size: 18
             color: Theme.dark ? Theme.gray[300] : Theme.gray[600]
         }
         onActivated: (index) => selector.model.selectWorkspace(selector.workspaces[index].code)

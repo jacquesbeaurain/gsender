@@ -57,7 +57,7 @@ Item {
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
             spacing: 8
-            Label { visible: tab.model.grblHal; text: qsTr("4-Axis"); color: Theme.contentPrimary }
+            Label { visible: tab.model.grblHal; text: qsTr("4-Axis") }
             GSwitch {
                 objectName: "rotaryModeSwitch"
                 checked: tab.model.rotaryMode
@@ -68,7 +68,7 @@ Item {
                     tab.toggleMode()
                 }
             }
-            Label { text: qsTr("Rotary"); color: Theme.contentPrimary }
+            Label { text: qsTr("Rotary") }
         }
         GridLayout {
             columns: 2

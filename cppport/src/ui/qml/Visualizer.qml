@@ -75,7 +75,7 @@ Rectangle {
             anchors.margins: 12
             anchors.leftMargin: 16
             spacing: 4
-            Label { text: qsTr("Job Summary"); font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Job Summary"); font.bold: true }
             Label {
                 Layout.fillWidth: true
                 text: Backend.jobSummary
@@ -112,119 +112,84 @@ Rectangle {
         anchors.leftMargin: 28 + (150 - width) / 2
         spacing: 8
 
-        // Iso View
-        Panel {
-            id: btnIso
+        OverlayButton {
             objectName: "view3D"
-            width: 36
-            height: 36
-            radius: 18
-            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
-            border.color: Qt.rgba(156/255, 163/255, 175/255, 0.4)
-
-            Icon {
-                anchors.centerIn: parent
-                name: "FaCube"
-                color: isoHover.hovered ? "white" : "white"
-                width: 16
-                height: 16
-            }
-
-            HoverHandler { id: isoHover }
-            ToolTip.visible: isoHover.hovered
-            ToolTip.text: qsTr("Go to iso view")
-            TapHandler { onTapped: toolpath.setView("3d") }
+            size: 36
+            icon: "FaCube"
+            tip: qsTr("Go to iso view")
+            onTapped: toolpath.setView("3d")
         }
-
-        // Ortho / Perspective Toggle
-        Rectangle {
+        OverlayButton {
             id: btnProjection
             objectName: "viewOrtho"
-            width: 36
-            height: 36
-            radius: 18
-            readonly property bool isOrtho: !Backend.perspective
-            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
-            border.color: isOrtho ? "#60a5fa"
-                                  : Qt.rgba(156/255, 163/255, 175/255, 0.4)
-            border.width: isOrtho ? 1.5 : 1.0
-
-            Icon {
-                anchors.centerIn: parent
-                name: btnProjection.isOrtho ? "LuSquare" : "LuBox"
-                color: btnProjection.isOrtho ? "#60a5fa"
-                                             : (orthoHover.hovered ? "white" : "white")
-                width: 16
-                height: 16
-            }
-
-            HoverHandler { id: orthoHover }
-            ToolTip.visible: orthoHover.hovered
-            ToolTip.text: isOrtho ? qsTr("Switch to perspective view") : qsTr("Switch to orthographic view")
-            TapHandler { onTapped: Backend.togglePerspective() }
+            size: 36
+            active: !Backend.perspective
+            activeBorder: 1.5
+            icon: active ? "LuSquare" : "LuBox"
+            tip: active ? qsTr("Switch to perspective view") : qsTr("Switch to orthographic view")
+            onTapped: Backend.togglePerspective()
         }
     }
 
+    // The visualizer's round buttons (bg-dark-darker/70, a faint border; the
+    // accent's border and icon while `active`).
+    component OverlayButton: Rectangle {
+        id: overlayButton
+        property real size: 44
+        property string icon
+        property string tip
+        property bool active: false
+        property color accent: Theme.tw.blue[400]
+        property real activeBorder: 2
+        signal tapped()
+
+        width: size
+        height: size
+        radius: size / 2
+        color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
+        border.color: active ? accent : Qt.rgba(156/255, 163/255, 175/255, 0.4)
+        border.width: active ? activeBorder : Theme.hairline
+        Icon {
+            anchors.centerIn: parent
+            name: overlayButton.icon
+            color: overlayButton.active ? overlayButton.accent : "white"
+            size: overlayButton.size < 44 ? 16 : 20
+        }
+        HoverHandler { id: hover }
+        ToolTip.visible: hover.hovered
+        ToolTip.text: tip
+        TapHandler { onTapped: overlayButton.tapped() }
+    }
+    // Move To Here's and the plugin overlays' accent (rgba(14, 246, 174)).
+    readonly property color armedAccent: "#0ef6ae"
+
     // Lightweight Mode Toggle (floating circular button above utility row)
-    Rectangle {
+    OverlayButton {
         id: btnLightweight
         objectName: "btnLightweight"
         anchors.bottom: cubeUtilityRow.top
         anchors.bottomMargin: 6
         anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
-        width: 44
-        height: 44
-        radius: 22
-        readonly property bool isLite: Backend.liteMode
-        color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
-        border.color: isLite ? "#60a5fa"
-                             : Qt.rgba(156/255, 163/255, 175/255, 0.4)
-        border.width: isLite ? 2.0 : 1.0
-
-        Icon {
-            anchors.centerIn: parent
-            name: "FaFeatherAlt"
-            color: btnLightweight.isLite ? "#60a5fa"
-                                         : (liteHover.hovered ? "white" : "white")
-            width: 20
-            height: 20
-        }
-
-        HoverHandler { id: liteHover }
-        ToolTip.visible: liteHover.hovered
-        ToolTip.text: isLite ? qsTr("Disable lightweight mode") : qsTr("Enable lightweight mode")
-        TapHandler { onTapped: Backend.toggleLiteMode() }
+        active: Backend.liteMode
+        icon: "FaFeatherAlt"
+        tip: active ? qsTr("Disable lightweight mode") : qsTr("Enable lightweight mode")
+        onTapped: Backend.toggleLiteMode()
     }
 
     // Move To Here (upstream's crosshair, shown once connected): press and
     // hold a spot of the top view to rapid the spindle there.
-    Rectangle {
+    OverlayButton {
         id: btnMoveToHere
         objectName: "btnMoveToHere"
         visible: toolpath.moveToHereAvailable
         anchors.bottom: btnLightweight.top
         anchors.bottomMargin: 6
         anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
-        width: 44
-        height: 44
-        radius: 22
-        readonly property bool armed: toolpath.moveToHere
-        color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
-        border.color: armed ? "#0ef6ae" : Qt.rgba(156/255, 163/255, 175/255, 0.4)
-        border.width: armed ? 2.0 : 1.0
-
-        Icon {
-            anchors.centerIn: parent
-            name: "LuCrosshair"
-            color: btnMoveToHere.armed ? "#0ef6ae" : "white"
-            width: 20
-            height: 20
-        }
-
-        HoverHandler { id: moveHover }
-        ToolTip.visible: moveHover.hovered
-        ToolTip.text: qsTr("Move To Here: press and hold a spot to move the spindle there")
-        TapHandler { onTapped: toolpath.toggleMoveToHere() }
+        active: toolpath.moveToHere
+        accent: frame.armedAccent
+        icon: "LuCrosshair"
+        tip: qsTr("Move To Here: press and hold a spot to move the spindle there")
+        onTapped: toolpath.toggleMoveToHere()
     }
 
     // Plugin Visualizer Overlay floating toggle buttons (stacked above lightweight toggle)
@@ -232,39 +197,18 @@ Rectangle {
     Repeater {
         id: overlayToggleButtons
         model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
-        Rectangle {
+        OverlayButton {
             required property var modelData
             required property int index
             objectName: "btnOverlay_" + modelData.pluginId
             anchors.bottom: btnLightweight.top
             anchors.bottomMargin: (btnMoveToHere.visible ? 60 : 10) + index * 52
             anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
-            width: 44
-            height: 44
-            radius: 22
-            readonly property bool isOpen: frame.activeOverlayPluginId === modelData.pluginId
-            color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
-            border.color: isOpen ? "#0ef6ae"
-                                 : Qt.rgba(156/255, 163/255, 175/255, 0.4)
-            border.width: isOpen ? 2.0 : 1.0
-
-            Icon {
-                anchors.centerIn: parent
-                name: "LuCrosshair"
-                color: parent.isOpen ? "#0ef6ae"
-                                     : (overlayBtnHover.hovered ? "white" : "white")
-                width: 20
-                height: 20
-            }
-
-            HoverHandler { id: overlayBtnHover }
-            ToolTip.visible: overlayBtnHover.hovered
-            ToolTip.text: modelData.label || modelData.pluginName
-            TapHandler {
-                onTapped: {
-                    frame.activeOverlayPluginId = (frame.activeOverlayPluginId === parent.modelData.pluginId) ? "" : parent.modelData.pluginId
-                }
-            }
+            active: frame.activeOverlayPluginId === modelData.pluginId
+            accent: frame.armedAccent
+            icon: "LuCrosshair"
+            tip: modelData.label || modelData.pluginName
+            onTapped: frame.activeOverlayPluginId = active ? "" : modelData.pluginId
         }
     }
 
@@ -297,7 +241,6 @@ Rectangle {
                         text: modelData.label || modelData.pluginName
                         font.bold: true
                         font.pixelSize: Theme.fontBase
-                        color: Theme.contentPrimary
                     }
                     Rectangle {
                         width: 28
@@ -307,9 +250,7 @@ Rectangle {
                         Icon {
                             anchors.centerIn: parent
                             name: "LuX"
-                            width: 16
-                            height: 16
-                            color: Theme.contentPrimary
+                            size: 16
                         }
                         HoverHandler { id: closeHover }
                         TapHandler { onTapped: frame.activeOverlayPluginId = "" }

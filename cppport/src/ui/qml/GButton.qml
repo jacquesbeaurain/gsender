@@ -77,8 +77,7 @@ AbstractButton {
                 visible: button.iconName !== ""
                 name: button.iconName
                 color: button.iconColor
-                width: button.iconSize
-                height: button.iconSize
+                size: button.iconSize
                 anchors.verticalCenter: parent.verticalCenter
             }
             Label {

@@ -19,8 +19,7 @@ ComboBox {
         x: select.width - width - 12
         y: (select.height - height) / 2
         name: "LuChevronDown"
-        width: 16
-        height: 16
+        size: 16
         color: Theme.contentMuted
     }
     contentItem: Label {
@@ -40,7 +39,6 @@ ComboBox {
         contentItem: Label {
             text: select.textAt(index)
             font: select.font
-            color: Theme.contentPrimary
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }

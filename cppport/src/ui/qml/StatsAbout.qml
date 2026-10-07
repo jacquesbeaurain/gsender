@@ -27,7 +27,7 @@ Flickable {
             Image { source: "qrc:/about/icon-square.png"; sourceSize.width: 125; sourceSize.height: 125 }
             ColumnLayout {
                 spacing: 2
-                Label { text: qsTr("gSender"); font.pixelSize: 32; font.bold: true; color: Theme.contentPrimary }
+                Label { text: qsTr("gSender"); font.pixelSize: 32; font.bold: true }
                 Label { text: qsTr("By Sienci Labs"); color: Theme.contentMuted }
                 Label { objectName: "aboutVersion"; text: page.model.version; color: Theme.contentMuted }
             }
@@ -53,7 +53,6 @@ Flickable {
             Layout.fillWidth: true
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontLg
-            color: Theme.contentPrimary
             text: qsTr("gSender is a free and feature-packed CNC control software, designed to be clean and easy to learn while retaining a depth of capabilities for advanced users. Many thousands of people trust gSender to control their grbl and grblHAL-based CNCs every day, and they keep coming back for its ease of use, engaged community, and reliability.")
         }
         CardHeader { Layout.fillWidth: true; title: qsTr("gSender Team") }
@@ -62,7 +61,6 @@ Flickable {
             wrapMode: Text.Wrap
             textFormat: Text.StyledText
             font.pixelSize: Theme.fontLg
-            color: Theme.contentPrimary
             text: "<b>Chris T.</b> (Project Lead), <b>Kevin G.</b> (Lead Dev), <b>Walid K.</b> (Dev Manager), <b>Sophia B.</b> (Dev), <b>Shilpa G</b> (QA), <b>Stephen C.</b> (Docs), <b>Kelly Z.</b> (Icon Design)"
         }
         CardHeader {
@@ -83,7 +81,7 @@ Flickable {
                 objectName: "release"
                 Layout.fillWidth: true
                 spacing: 4
-                Label { text: modelData.heading; font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+                Label { text: modelData.heading; font.pixelSize: Theme.fontLg; font.bold: true }
                 Repeater {
                     model: modelData.notes
                     Label {

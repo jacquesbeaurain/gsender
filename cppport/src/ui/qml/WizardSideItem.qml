@@ -18,7 +18,6 @@ ColumnLayout {
         visible: !!side.item.title && side.item.kind !== "link"
         text: side.item.title || ""
         font.bold: true
-        color: Theme.contentPrimary
     }
     Image {
         visible: side.item.kind === "image"
@@ -45,13 +44,13 @@ ColumnLayout {
             implicitWidth: previewLabel.implicitWidth + 16
             implicitHeight: 24
             radius: 6
-            color: "#dbeafe"
+            color: Theme.tw.blue[100]
             Label {
                 id: previewLabel
                 anchors.centerIn: parent
                 text: commands.preview.label || ""
                 font.bold: true
-                color: "#1e40af"
+                color: Theme.tw.blue[800]
             }
         }
         Panel {
@@ -82,7 +81,6 @@ ColumnLayout {
                             text: modelData
                             font.family: "monospace"
                             font.pixelSize: Theme.fontSm
-                            color: Theme.contentPrimary
                         }
                     }
                 }
@@ -95,7 +93,6 @@ ColumnLayout {
         visible: side.item.kind === "tlsSettings" || side.item.kind === "tlsInput"
         text: side.item.kind === "tlsInput" ? qsTr("TLS Input") : qsTr("Related Settings")
         font.bold: true
-        color: Theme.contentPrimary
     }
     Repeater {
         model: side.item.kind === "tlsSettings" ? side.model.tlsSettings : side.item.kind === "tlsInput" ? side.model.tlsInput : []
@@ -104,18 +101,18 @@ ColumnLayout {
             objectName: "tlsSetting"
             Layout.fillWidth: true
             spacing: 8
-            Label { text: modelData.label + ": " + modelData.value; color: Theme.contentPrimary; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { text: modelData.label + ": " + modelData.value; Layout.fillWidth: true; wrapMode: Text.Wrap }
             Rectangle {
                 implicitWidth: verdict.implicitWidth + 12
                 implicitHeight: 20
                 radius: 4
-                color: modelData.ok ? "#dcfce7" : "#fee2e2"
+                color: modelData.ok ? Theme.tw.green[100] : Theme.tw.red[100]
                 Label {
                     id: verdict
                     anchors.centerIn: parent
                     text: modelData.verdict
                     font.pixelSize: Theme.fontXs
-                    color: modelData.ok ? "#15803d" : "#b91c1c"
+                    color: modelData.ok ? Theme.tw.green[700] : Theme.tw.red[700]
                 }
             }
         }
@@ -155,7 +152,6 @@ ColumnLayout {
             textFormat: Text.StyledText
             text: "<b>" + (side.item.title || "") + "</b> " + (side.item.text || "")
                   + " <a href=\"" + (side.item.url || "") + "\">" + qsTr("online resources") + "</a>"
-            color: Theme.contentPrimary
             linkColor: Theme.primaryText
             onLinkActivated: (url) => Qt.openUrlExternally(url)
         }

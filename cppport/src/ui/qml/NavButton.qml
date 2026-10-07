@@ -55,8 +55,7 @@ Item {
             visible: link.icon !== ""
             name: link.icon
             color: link.active ? Theme.blue[600] : Theme.contentMuted
-            width: 24
-            height: 24
+            size: 24
         }
         Image {
             anchors.horizontalCenter: parent.horizontalCenter

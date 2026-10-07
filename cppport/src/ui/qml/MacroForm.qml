@@ -53,21 +53,19 @@ ModalDialog {
             text: form.macroId ? qsTr("Edit Macro") : qsTr("Add Macro")
             font.pixelSize: Theme.fontLg
             font.bold: true
-            color: Theme.contentPrimary
         }
-        Label { text: qsTr("Name"); color: Theme.contentPrimary }
+        Label { text: qsTr("Name") }
         TextField {
             id: nameField
             objectName: "macroName"
             Layout.fillWidth: true
             implicitHeight: 40
             maximumLength: 128
-            color: Theme.contentPrimary
             background: FieldBox { field: nameField }
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { text: qsTr("G-code"); color: Theme.contentPrimary; Layout.fillWidth: true }
+            Label { text: qsTr("G-code"); Layout.fillWidth: true }
             GSelect {
                 id: variables
                 objectName: "macroVariables"
@@ -90,7 +88,6 @@ ModalDialog {
                             text: modelData.text.trim()
                             font.family: Theme.monoFont
                             font.pixelSize: Theme.fontSm
-                            color: Theme.contentPrimary
                         }
                     }
                 }
@@ -114,19 +111,17 @@ ModalDialog {
                 objectName: "macroContent"
                 font.family: Theme.monoFont
                 font.pixelSize: Theme.fontSm
-                color: Theme.contentPrimary
                 wrapMode: TextEdit.NoWrap
                 background: FieldBox { field: contentField }
             }
         }
-        Label { text: qsTr("Macro Description"); color: Theme.contentPrimary }
+        Label { text: qsTr("Macro Description") }
         TextArea {
             id: descriptionField
             objectName: "macroDescription"
             Layout.fillWidth: true
             Layout.preferredHeight: 80
             wrapMode: TextEdit.Wrap
-            color: Theme.contentPrimary
             background: FieldBox { field: descriptionField }
             onTextChanged: if (length > 128) remove(128, length)
         }

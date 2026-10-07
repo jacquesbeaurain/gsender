@@ -42,14 +42,14 @@ ColumnLayout {
         Layout.fillWidth: true
         implicitHeight: messageLabel.implicitHeight + 16
         radius: 8
-        color: action.error !== "" ? "#fee2e2" : "#dcfce7"
+        color: action.error !== "" ? Theme.tw.red[100] : Theme.tw.green[100]
         Label {
             id: messageLabel
             anchors.fill: parent
             anchors.margins: 8
             wrapMode: Text.Wrap
             text: parent.message
-            color: action.error !== "" ? "#991b1b" : "#166534"
+            color: action.error !== "" ? Theme.tw.red[800] : Theme.tw.green[800]
         }
     }
 }

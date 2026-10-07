@@ -24,7 +24,6 @@ ModalDialog {
             text: dialog.title
             font.pixelSize: Theme.fontLg
             font.bold: true
-            color: Theme.contentPrimary
             Layout.fillWidth: true
             wrapMode: Text.Wrap
         }

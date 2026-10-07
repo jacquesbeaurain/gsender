@@ -37,13 +37,11 @@ ModalDialog {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("1. Check the tool is positioned correctly (pictured).")
                 }
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: dialog.model && dialog.model.probe3D
                           ? qsTr("2. Gently push the probe needle to check the circuit is triggered properly (indicated by a green light).")
                           : qsTr("2. Lift your touch plate to the tool to check the circuit is good (indicated by a green light), then put it back where it was.")
@@ -52,7 +50,6 @@ ModalDialog {
                     visible: dialog.model && !dialog.model.probe3D
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("3. In some cases, holding the touch plate still while probing will give a more consistent measurement.")
                 }
                 Label {
@@ -108,7 +105,7 @@ ModalDialog {
                         objectName: "probeLight"
                         Layout.alignment: Qt.AlignHCenter
                         width: 32; height: 32; radius: 16
-                        color: dialog.model && dialog.model.circuitChecked ? "#22c55e" : "#ef4444"
+                        color: dialog.model && dialog.model.circuitChecked ? Theme.tw.green[500] : Theme.tw.red[500]
                         Icon {
                             anchors.centerIn: parent
                             name: dialog.model && dialog.model.circuitChecked ? "FaCheck" : "FaTimes"
@@ -119,14 +116,12 @@ ModalDialog {
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         text: dialog.model && dialog.model.circuitChecked ? qsTr("Touch detected") : qsTr("No Touch")
-                        color: Theme.contentPrimary
                     }
                 }
                 Label {
                     visible: dialog.model && !dialog.model.connected
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("No device connected")
-                    color: Theme.contentPrimary
                 }
             }
         }

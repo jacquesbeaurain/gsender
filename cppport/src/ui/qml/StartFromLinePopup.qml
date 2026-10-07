@@ -30,7 +30,6 @@ ModalDialog {
             text: qsTr("Start From Line")
             font.pixelSize: Theme.fontLg
             font.bold: true
-            color: Theme.contentPrimary
         }
         Label {
             Layout.fillWidth: true
@@ -48,7 +47,7 @@ ModalDialog {
         GridLayout {
             columns: 2
             columnSpacing: 12
-            Label { text: qsTr("Resume job at line:"); color: Theme.contentPrimary }
+            Label { text: qsTr("Resume job at line:") }
             NumberField {
                 id: line
                 objectName: "startFromLineLine"
@@ -57,7 +56,7 @@ ModalDialog {
                 Layout.fillWidth: true
                 onCommitted: (text) => value = popup.model.startLine(text)
             }
-            Label { text: qsTr("With safe height:"); color: Theme.contentPrimary }
+            Label { text: qsTr("With safe height:") }
             NumberField {
                 id: height_
                 objectName: "startFromLineHeight"

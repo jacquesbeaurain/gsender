@@ -25,7 +25,7 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
-                Label { text: page.title; font.pixelSize: 30; font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
+                Label { text: page.title; font.pixelSize: 30; font.bold: true; Layout.fillWidth: true }
                 Label { visible: page.description !== ""; text: page.description; color: Theme.contentMuted }
             }
             GButton {

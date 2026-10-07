@@ -106,7 +106,6 @@ Item {
                                 text: modelData.label
                                 font.pixelSize: Theme.fontBase
                                 font.weight: Font.DemiBold
-                                color: Theme.contentPrimary
                             }
                             TapHandler { onTapped: tab.model.selectCommand(index) }
                         }
@@ -163,7 +162,6 @@ Item {
                                     anchors.leftMargin: 8
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.label
-                                    color: Theme.contentPrimary
                                 }
                                 TapHandler {
                                     onTapped: {
@@ -176,7 +174,7 @@ Item {
                                     anchors.right: parent.right
                                     width: Theme.touchTarget
                                     height: parent.height
-                                    Icon { anchors.centerIn: parent; name: "LuX"; color: Theme.contentMuted; width: 20; height: 20 }
+                                    Icon { anchors.centerIn: parent; name: "LuX"; color: Theme.contentMuted; size: 20 }
                                     TapHandler { onTapped: tab.model.removeTool(modelData.value) }
                                 }
                             }
@@ -191,7 +189,6 @@ Item {
                                 implicitHeight: 40
                                 placeholderText: qsTr("Custom diameter (%1)").arg(tab.model.units)
                                 inputMethodHints: Qt.ImhFormattedNumbersOnly
-                                color: Theme.contentPrimary
                                 onAccepted: addButton.clicked()
                             }
                             GButton {

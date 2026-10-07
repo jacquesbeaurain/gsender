@@ -23,7 +23,6 @@ Popup {
         Label {
             textFormat: Text.StyledText
             text: qsTr("<b>Firmware version:</b> %1").arg(popup.model.firmwareVersion)
-            color: Theme.contentPrimary
         }
         RowLayout {
             spacing: 16
@@ -32,7 +31,7 @@ Popup {
                 columns: 2
                 rowSpacing: 4
                 Layout.alignment: Qt.AlignTop
-                Label { text: qsTr("CNC Modals"); font.bold: true; color: Theme.contentPrimary; Layout.columnSpan: 2 }
+                Label { text: qsTr("CNC Modals"); font.bold: true; Layout.columnSpan: 2 }
                 Repeater {
                     model: popup.model.modals.length * 2
                     Label {
@@ -49,7 +48,7 @@ Popup {
                 columns: 2
                 rowSpacing: 4
                 Layout.alignment: Qt.AlignTop
-                Label { text: qsTr("Pins"); font.bold: true; color: Theme.contentPrimary; Layout.columnSpan: 2 }
+                Label { text: qsTr("Pins"); font.bold: true; Layout.columnSpan: 2 }
                 Repeater {
                     model: popup.model.pins.length * 2
                     Item {
@@ -68,7 +67,7 @@ Popup {
                             visible: parent.index % 2 === 1
                             anchors.fill: parent
                             radius: 4
-                            color: parent.pin.on ? "#22c55e" : "#ef4444"
+                            color: parent.pin.on ? Theme.tw.green[500] : Theme.tw.red[500]
                             Label {
                                 anchors.centerIn: parent
                                 text: parent.parent.pin.on ? qsTr("On") : qsTr("Off")
@@ -83,7 +82,6 @@ Popup {
         Label {
             visible: popup.model.tool >= 0
             text: qsTr("Current tool: T%1").arg(popup.model.tool)
-            color: Theme.contentPrimary
         }
         RowLayout {
             GSwitch {
@@ -92,7 +90,7 @@ Popup {
                 enabled: popup.model.connected
                 onToggled: popup.model.setStepperLock(checked)
             }
-            Label { text: qsTr("Lock stepper motors"); color: Theme.contentPrimary }
+            Label { text: qsTr("Lock stepper motors") }
         }
     }
 }

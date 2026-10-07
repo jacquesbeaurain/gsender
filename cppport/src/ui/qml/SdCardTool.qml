@@ -32,7 +32,7 @@ ToolPage {
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 16
-                    Label { text: qsTr("SD Card Status:"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
+                    Label { text: qsTr("SD Card Status:"); font.bold: true; Layout.fillWidth: true }
                     Rectangle {
                         readonly property string state: tool.model.status === qsTr("Mounted") ? "mounted"
                                                         : tool.model.status === qsTr("Unmounted") ? "unmounted" : "none"
@@ -41,14 +41,14 @@ ToolPage {
                         radius: 15
                         color: "transparent"
                         border.width: 2
-                        border.color: state === "mounted" ? "#bbf7d0" : state === "unmounted" ? "#fecaca" : Theme.gray[300]
+                        border.color: state === "mounted" ? Theme.tw.green[200] : state === "unmounted" ? Theme.tw.red[200] : Theme.gray[300]
                         Label {
                             id: statusLabel
                             objectName: "sdStatus"
                             anchors.centerIn: parent
                             text: tool.model.status
                             font.bold: true
-                            color: parent.state === "mounted" ? "#15803d" : parent.state === "unmounted" ? "#b91c1c" : Theme.contentSecondary
+                            color: parent.state === "mounted" ? Theme.tw.green[700] : parent.state === "unmounted" ? Theme.tw.red[700] : Theme.contentSecondary
                         }
                     }
                 }
@@ -144,7 +144,6 @@ ToolPage {
                     text: tool.model.message
                     font.bold: tool.model.available
                     font.pixelSize: Theme.fontLg
-                    color: Theme.contentPrimary
                 }
                 Label {
                     visible: tool.model.available
@@ -166,7 +165,6 @@ ToolPage {
                     text: qsTr("Files (%1)").arg(tool.model.files.length)
                     font.bold: true
                     font.pixelSize: Theme.fontLg
-                    color: Theme.contentPrimary
                 }
                 Rectangle {
                     Layout.fillWidth: true
@@ -177,9 +175,9 @@ ToolPage {
                         anchors.leftMargin: 16
                         anchors.rightMargin: 16
                         spacing: 12
-                        Label { text: qsTr("File Name"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
-                        Label { text: qsTr("Size"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 90 }
-                        Label { text: qsTr("Actions"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 220 }
+                        Label { text: qsTr("File Name"); font.bold: true; Layout.fillWidth: true }
+                        Label { text: qsTr("Size"); font.bold: true; Layout.preferredWidth: 90 }
+                        Label { text: qsTr("Actions"); font.bold: true; Layout.preferredWidth: 220 }
                     }
                 }
                 ListView {
@@ -198,7 +196,7 @@ ToolPage {
                         objectName: "sdFile_" + (file.name || "")
                         width: fileList.width
                         implicitHeight: 56
-                        color: file.atci ? "#fefce8" : index % 2 ? (Theme.dark ? Theme.surfaceElevated : Theme.gray[50]) : "transparent"
+                        color: file.atci ? Theme.tw.yellow[50] : index % 2 ? (Theme.dark ? Theme.surfaceElevated : Theme.gray[50]) : "transparent"
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
@@ -206,7 +204,7 @@ ToolPage {
                             spacing: 12
                             Label {
                                 text: fileRow.file.name || ""
-                                color: fileRow.file.atci ? "#374151" : Theme.contentPrimary
+                                color: fileRow.file.atci ? Theme.gray[700] : Theme.contentPrimary
                                 elide: Text.ElideMiddle
                                 Layout.fillWidth: true
                             }
@@ -215,14 +213,14 @@ ToolPage {
                                 text: qsTr("ATC Macro")
                                 font.italic: true
                                 font.pixelSize: Theme.fontSm
-                                color: "#374151"
+                                color: Theme.gray[700]
                             }
                             Rectangle {
                                 visible: !!fileRow.file.unusable
                                 implicitWidth: unusableLabel.implicitWidth + 12
                                 implicitHeight: 20
                                 radius: 4
-                                color: "#fef2f2"
+                                color: Theme.tw.red[50]
                                 Label {
                                     id: unusableLabel
                                     anchors.centerIn: parent
@@ -298,18 +296,18 @@ ToolPage {
         onClosed: tool.model.clearPending()
         contentItem: ColumnLayout {
             spacing: 12
-            Label { text: qsTr("Upload Files"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Upload Files"); font.pixelSize: Theme.fontLg; font.bold: true }
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 120
                 radius: 8
-                color: modalDrop.containsDrag ? "#eff6ff" : "transparent"
+                color: modalDrop.containsDrag ? Theme.tw.blue[50] : "transparent"
                 border.color: modalDrop.containsDrag ? Theme.blue[500] : Theme.gray[300]
                 border.width: 2
                 ColumnLayout {
                     anchors.centerIn: parent
                     spacing: 8
-                    Icon { Layout.alignment: Qt.AlignHCenter; name: "LuUpload"; color: Theme.gray[400]; width: 28; height: 28 }
+                    Icon { Layout.alignment: Qt.AlignHCenter; name: "LuUpload"; color: Theme.gray[400]; size: 28 }
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Drop files here, or")
@@ -332,7 +330,6 @@ ToolPage {
                 visible: tool.model.pending.length > 0
                 text: qsTr("Selected Files (%1)").arg(tool.model.pending.length)
                 font.bold: true
-                color: Theme.contentPrimary
             }
             Repeater {
                 model: tool.model.pending
@@ -341,7 +338,7 @@ ToolPage {
                     required property int index
                     Layout.fillWidth: true
                     spacing: 8
-                    Label { text: modelData.name; color: Theme.contentPrimary; elide: Text.ElideMiddle; Layout.fillWidth: true }
+                    Label { text: modelData.name; elide: Text.ElideMiddle; Layout.fillWidth: true }
                     Label { text: modelData.size; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
                     GButton {
                         objectName: "sdPendingRemove_" + index

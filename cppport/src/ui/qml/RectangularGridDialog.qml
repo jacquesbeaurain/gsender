@@ -75,7 +75,6 @@ ModalDialog {
             anchors.centerIn: parent
             font.pixelSize: Theme.fontSm
             font.weight: Font.Medium
-            color: Theme.contentPrimary
         }
         TapHandler {
             enabled: !dialog.model.running
@@ -101,7 +100,6 @@ ModalDialog {
             enabled: !dialog.model.running
             inputMethodHints: Qt.ImhFormattedNumbersOnly
             selectByMouse: true
-            color: Theme.contentPrimary
             font.pixelSize: Theme.fontSm
             rightPadding: suffixLabel.text ? suffixLabel.implicitWidth + 12 : 8
             Label {
@@ -152,19 +150,16 @@ ModalDialog {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("1. Jog the probe over the first point of the grid, at a height it can safely travel across the work at.")
                 }
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("2. Gently push the probe needle to check the circuit is triggered properly (indicated by a green light).")
                 }
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("3. The grid runs from there in +X and +Y, and the probe returns to this height between points.")
                 }
                 GridLayout {
@@ -206,7 +201,6 @@ ModalDialog {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    color: Theme.contentPrimary
                     text: qsTr("Jog the probe over a point, at a height it can safely travel at, then Capture Point: it probes straight down, returns to that height and adds the point to the CSV.")
                 }
                 JogPanel {
@@ -253,7 +247,7 @@ ModalDialog {
                         objectName: "gridProbeLight"
                         Layout.alignment: Qt.AlignHCenter
                         width: 32; height: 32; radius: 16
-                        color: dialog.probe && dialog.probe.circuitChecked ? "#22c55e" : "#ef4444"
+                        color: dialog.probe && dialog.probe.circuitChecked ? Theme.tw.green[500] : Theme.tw.red[500]
                         Icon {
                             anchors.centerIn: parent
                             name: dialog.probe && dialog.probe.circuitChecked ? "FaCheck" : "FaTimes"
@@ -264,14 +258,12 @@ ModalDialog {
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         text: dialog.probe && dialog.probe.circuitChecked ? qsTr("Touch detected") : qsTr("No Touch")
-                        color: Theme.contentPrimary
                     }
                 }
                 Label {
                     visible: !dialog.model.connected
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("No device connected")
-                    color: Theme.contentPrimary
                 }
                 GButton {
                     objectName: "gridConfirmProbe"

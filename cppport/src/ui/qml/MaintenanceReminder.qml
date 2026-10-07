@@ -33,7 +33,7 @@ Rectangle {
         Row {
             spacing: 32
             Label { text: task.word || ""; font.pixelSize: compact ? 20 : 30; color: parent.parent.parent.tone }
-            Icon { name: "FaCircle"; width: 16; height: 16; color: parent.parent.parent.tone; anchors.verticalCenter: parent.verticalCenter }
+            Icon { name: "FaCircle"; size: 16; color: parent.parent.parent.tone; anchors.verticalCenter: parent.verticalCenter }
         }
     }
 }

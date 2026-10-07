@@ -25,7 +25,7 @@ ToolPage {
                 checked: tool.model.enabled
                 onToggled: tool.model.enabled = checked
             }
-            Label { text: qsTr("Enable keyboard shortcuts"); color: Theme.contentPrimary }
+            Label { text: qsTr("Enable keyboard shortcuts") }
             Item { Layout.fillWidth: true }
             TextField {
                 objectName: "shortcutsSearch"
@@ -67,10 +67,10 @@ ToolPage {
                         anchors.leftMargin: 16
                         anchors.rightMargin: 16
                         spacing: 12
-                        Label { text: qsTr("Action"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true }
-                        Label { text: qsTr("Shortcut"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 200 }
-                        Label { text: qsTr("Category"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 160 }
-                        Label { text: qsTr("Active"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 60 }
+                        Label { text: qsTr("Action"); font.bold: true; Layout.fillWidth: true }
+                        Label { text: qsTr("Shortcut"); font.bold: true; Layout.preferredWidth: 200 }
+                        Label { text: qsTr("Category"); font.bold: true; Layout.preferredWidth: 160 }
+                        Label { text: qsTr("Active"); font.bold: true; Layout.preferredWidth: 60 }
                     }
                 }
                 ListView {
@@ -98,7 +98,6 @@ ToolPage {
                             spacing: 12
                             Label {
                                 text: row.action.title || ""
-                                color: Theme.contentPrimary
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
@@ -179,7 +178,6 @@ ToolPage {
                 text: keyEditor.actionTitle
                 font.pixelSize: Theme.fontLg
                 font.bold: true
-                color: Theme.contentPrimary
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
             }
@@ -202,7 +200,6 @@ ToolPage {
                     text: keyEditor.keys ? tool.model.nativeKeys(keyEditor.keys) : qsTr("None")
                     font.family: "monospace"
                     font.pixelSize: Theme.fontLg
-                    color: Theme.contentPrimary
                 }
                 TapHandler { onTapped: capture.forceActiveFocus() }
                 Keys.onPressed: (event) => {

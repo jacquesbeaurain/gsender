@@ -30,15 +30,14 @@ Panel {
                 text: Math.min(100, Math.floor(area.model.percent))
                 font.pixelSize: 24
                 font.bold: true
-                color: Theme.contentPrimary
             }
-            Label { text: "%"; color: Theme.contentPrimary; Layout.alignment: Qt.AlignBottom; bottomPadding: 3 }
+            Label { text: "%"; Layout.alignment: Qt.AlignBottom; bottomPadding: 3 }
             Item { Layout.fillWidth: true }
             Label {
                 visible: area.model.paused
                 text: qsTr("Paused")
                 font.bold: true
-                color: "#c27924"
+                color: Theme.orange[400]
             }
         }
         Rectangle {

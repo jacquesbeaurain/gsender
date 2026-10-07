@@ -28,7 +28,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Item { Layout.fillHeight: true }
-                Icon { Layout.alignment: Qt.AlignHCenter; name: "PiMaskHappyBold"; color: Theme.contentMuted; width: 64; height: 64 }
+                Icon { Layout.alignment: Qt.AlignHCenter; name: "PiMaskHappyBold"; color: Theme.contentMuted; size: 64 }
                 Label { Layout.alignment: Qt.AlignHCenter; text: qsTr("No Alarms or Errors recorded. Hooray!"); color: Theme.contentMuted; font.pixelSize: Theme.fontLg }
                 Item { Layout.fillHeight: true }
             }
@@ -43,7 +43,7 @@ Item {
                 ScrollBar.vertical: GScrollBar {}
                 delegate: RowLayout {
                     required property var modelData
-                    readonly property color tone: modelData.alarm ? Theme.red[500] : "#f97316"
+                    readonly property color tone: modelData.alarm ? Theme.red[500] : Theme.tw.orange[500]
                     width: ListView.view.width
                     spacing: 12
                     Icon {
@@ -57,11 +57,10 @@ Item {
                         spacing: 2
                         Label { text: modelData.title; font.pixelSize: Theme.fontLg; font.weight: Font.DemiBold; color: parent.parent.tone }
                         Label { text: modelData.time; color: Theme.contentMuted; font.pixelSize: Theme.fontSm }
-                        Label { text: modelData.message; wrapMode: Text.Wrap; color: Theme.contentPrimary; Layout.fillWidth: true }
+                        Label { text: modelData.message; wrapMode: Text.Wrap; Layout.fillWidth: true }
                         Label {
                             textFormat: Text.StyledText
                             text: qsTr("Line:") + " <b>" + modelData.line + "</b>"
-                            color: Theme.contentPrimary
                         }
                     }
                 }

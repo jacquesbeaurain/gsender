@@ -33,7 +33,6 @@ Item {
                     Layout.fillWidth: true
                     implicitHeight: 40
                     placeholderText: qsTr("Search Tasks...")
-                    color: Theme.contentPrimary
                     onTextChanged: page.model.taskSearch = text
                 }
                 GButton { objectName: "addTask"; text: qsTr("Add New Task"); fontSize: Theme.fontSm; onClicked: page.editRequested(-1) }
@@ -79,7 +78,7 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
-                            Label { text: modelData.name; font.bold: true; font.pixelSize: Theme.fontBase; color: Theme.contentPrimary }
+                            Label { text: modelData.name; font.bold: true; font.pixelSize: Theme.fontBase }
                             Label {
                                 visible: modelData.description !== ""
                                 text: modelData.description

@@ -98,7 +98,7 @@ ToolPage {
                             x: 16; y: 16
                             width: parent.width - 32
                             spacing: 8
-                            Label { text: modelData.title; font.pixelSize: Theme.fontXl; font.bold: true; color: Theme.contentPrimary }
+                            Label { text: modelData.title; font.pixelSize: Theme.fontXl; font.bold: true }
                             Label {
                                 text: (modelData.subWizards.length === 1 ? qsTr("1 configuration") : qsTr("%1 configurations").arg(modelData.subWizards.length))
                                       + "\n" + qsTr("%1 total steps").arg(parent.parent.stepCount)
@@ -142,7 +142,6 @@ ToolPage {
                 text: tool.wizard ? tool.wizard.title : ""
                 font.pixelSize: 26
                 font.bold: true
-                color: Theme.contentPrimary
             }
             WizardText {
                 readonly property var first: tool.wizard && tool.wizard.subWizards.length ? tool.wizard.subWizards[0] : null
@@ -157,8 +156,8 @@ ToolPage {
                 visible: tool.failed.length > 0
                 Layout.fillWidth: true
                 implicitHeight: banner.implicitHeight + 20
-                color: "#fef9c3"
-                border.color: "#fde68a"
+                color: Theme.tw.yellow[100]
+                border.color: Theme.tw.amber[200]
                 Label {
                     id: banner
                     objectName: "wizardChecks"
@@ -166,7 +165,7 @@ ToolPage {
                     anchors.margins: 10
                     wrapMode: Text.Wrap
                     text: tool.failed.length > 0 ? tool.failed[0] : ""
-                    color: "#854d0e"
+                    color: Theme.tw.yellow[800]
                 }
             }
             Repeater {
@@ -226,7 +225,6 @@ ToolPage {
                       : parent.parent.single ? (tool.steps[tool.step] ? tool.steps[tool.step].title : "")
                       : qsTr("Step %1 of %2").arg(tool.step + 1).arg(tool.steps.length)
                 font.bold: true
-                color: Theme.contentPrimary
             }
             // ProgressBar: the steps behind, all at the end.
             Rectangle {
@@ -266,7 +264,6 @@ ToolPage {
                         text: tool.steps[tool.step] ? tool.steps[tool.step].title : ""
                         font.pixelSize: Theme.fontXl
                         font.bold: true
-                        color: Theme.contentPrimary
                     }
                     Label {
                         visible: !tool.atCompletion && !!tool.sub && !!tool.sub.configVersion
@@ -312,7 +309,7 @@ ToolPage {
                             Layout.fillWidth: true
                             implicitHeight: nextSteps.implicitHeight + 24
                             radius: 8
-                            color: Theme.dark ? Theme.surfaceRaised : "#eff6ff"
+                            color: Theme.dark ? Theme.surfaceRaised : Theme.tw.blue[50]
                             WizardText {
                                 id: nextSteps
                                 anchors.fill: parent
@@ -325,12 +322,12 @@ ToolPage {
                             Layout.fillWidth: true
                             implicitHeight: warning.implicitHeight + 24
                             radius: 8
-                            color: "#fef9c3"
+                            color: Theme.tw.yellow[100]
                             WizardText {
                                 id: warning
                                 anchors.fill: parent
                                 anchors.margins: 12
-                                color: "#854d0e"
+                                color: Theme.tw.yellow[800]
                                 text: "⚠ " + parent.parent.content.warning
                             }
                         }

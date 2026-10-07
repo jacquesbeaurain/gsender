@@ -31,7 +31,6 @@ ToolPage {
                 Layout.alignment: Qt.AlignHCenter
                 text: qsTr("No Profiles, Click the Button Below to Add One")
                 font.pixelSize: 24
-                color: Theme.contentPrimary
             }
             Loader {
                 Layout.alignment: Qt.AlignHCenter
@@ -86,7 +85,6 @@ ToolPage {
                                     elide: Text.ElideRight
                                     font.pixelSize: Theme.fontXl
                                     font.weight: Font.DemiBold
-                                    color: Theme.contentPrimary
                                 }
                                 Item { Layout.fillHeight: true }
                                 Icon {
@@ -166,7 +164,6 @@ ToolPage {
                 horizontalAlignment: TextInput.AlignHCenter
                 font.pixelSize: Theme.fontXl
                 font.bold: true
-                color: Theme.contentPrimary
                 text: tool.model.name
                 // A long name shows its start.
                 onTextChanged: if (!activeFocus) cursorPosition = 0
@@ -230,12 +227,11 @@ ToolPage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 8
-                Label { text: qsTr("Button Actions"); font.pixelSize: Theme.fontXl; font.bold: true; color: Theme.contentPrimary }
+                Label { text: qsTr("Button Actions"); font.pixelSize: Theme.fontXl; font.bold: true }
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     text: qsTr("Assign a \"Lockout\" button for gamepad safety, or a \"2nd Action\" button to use like a Function key and give your gamepad double the functions!")
-                    color: Theme.contentPrimary
                 }
                 Panel {
                     Layout.fillWidth: true
@@ -255,9 +251,9 @@ ToolPage {
                                 anchors.leftMargin: 8
                                 anchors.rightMargin: 8
                                 spacing: 8
-                                Label { text: qsTr("Button"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 100 }
-                                Label { text: qsTr("Action"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true; Layout.preferredWidth: 1 }
-                                Label { text: qsTr("2nd Action"); font.bold: true; color: Theme.contentPrimary; Layout.fillWidth: true; Layout.preferredWidth: 1 }
+                                Label { text: qsTr("Button"); font.bold: true; Layout.preferredWidth: 100 }
+                                Label { text: qsTr("Action"); font.bold: true; Layout.fillWidth: true; Layout.preferredWidth: 1 }
+                                Label { text: qsTr("2nd Action"); font.bold: true; Layout.fillWidth: true; Layout.preferredWidth: 1 }
                             }
                         }
                         ListView {
@@ -366,7 +362,7 @@ ToolPage {
                 Layout.maximumWidth: Math.max(420, tool.width * 0.4)
                 Layout.fillHeight: true
                 spacing: 8
-                Label { text: qsTr("Joystick Options"); font.pixelSize: Theme.fontXl; font.bold: true; color: Theme.contentPrimary }
+                Label { text: qsTr("Joystick Options"); font.pixelSize: Theme.fontXl; font.bold: true }
                 Panel {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -399,9 +395,9 @@ ToolPage {
                             }
 
                             Item { Layout.row: 0; Layout.column: 0; Layout.preferredWidth: 1; Layout.fillWidth: true; implicitHeight: 1 }
-                            Label { Layout.row: 0; Layout.column: 1; text: qsTr("Action"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 1; Layout.fillWidth: true }
-                            Label { Layout.row: 0; Layout.column: 2; text: qsTr("2nd Action"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 1; Layout.fillWidth: true }
-                            Label { Layout.row: 0; Layout.column: 3; text: qsTr("Invert"); font.bold: true; color: Theme.contentPrimary; Layout.preferredWidth: 60 }
+                            Label { Layout.row: 0; Layout.column: 1; text: qsTr("Action"); font.bold: true; Layout.preferredWidth: 1; Layout.fillWidth: true }
+                            Label { Layout.row: 0; Layout.column: 2; text: qsTr("2nd Action"); font.bold: true; Layout.preferredWidth: 1; Layout.fillWidth: true }
+                            Label { Layout.row: 0; Layout.column: 3; text: qsTr("Invert"); font.bold: true; Layout.preferredWidth: 60 }
 
                             Repeater {
                                 model: [
@@ -421,7 +417,6 @@ ToolPage {
                                     required property int index
                                     text: modelData.label
                                     wrapMode: Text.Wrap
-                                    color: Theme.contentPrimary
                                 }
                             }
                             Repeater {
@@ -485,7 +480,6 @@ ToolPage {
                                 Layout.row: 7
                                 Layout.column: 0
                                 text: qsTr("Zero threshold")
-                                color: Theme.contentPrimary
                             }
                             NumberField {
                                 objectName: "gamepadZeroThreshold"
@@ -502,7 +496,6 @@ ToolPage {
                                 Layout.row: 8
                                 Layout.column: 0
                                 text: qsTr("Movement override")
-                                color: Theme.contentPrimary
                             }
                             NumberField {
                                 objectName: "gamepadMovementOverride"
@@ -518,7 +511,6 @@ ToolPage {
                                 Layout.row: 9
                                 Layout.column: 0
                                 text: qsTr("Fixed speed mode")
-                                color: Theme.contentPrimary
                             }
                             RowLayout {
                                 Layout.row: 9
@@ -590,7 +582,7 @@ ToolPage {
 
         contentItem: ColumnLayout {
             spacing: 16
-            Label { text: qsTr("Add Gamepad Profile"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Add Gamepad Profile"); font.pixelSize: Theme.fontLg; font.bold: true }
             ColumnLayout {
                 objectName: "gamepadAvailability"
                 Layout.fillWidth: true
@@ -677,7 +669,7 @@ ToolPage {
 
         contentItem: ColumnLayout {
             spacing: 12
-            Label { text: qsTr("Set Gamepad Profile Shortcut"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }
+            Label { text: qsTr("Set Gamepad Profile Shortcut"); font.pixelSize: Theme.fontLg; font.bold: true }
             Label { text: qsTr("Use the gamepad to set the shortcut for the current button."); color: Theme.contentMuted }
             RowLayout {
                 Layout.fillWidth: true
@@ -719,7 +711,6 @@ ToolPage {
                                             anchors.centerIn: parent
                                             text: category.entry.category
                                             font.pixelSize: Theme.fontSm
-                                            color: Theme.contentPrimary
                                         }
                                     }
                                     Flow {
@@ -759,7 +750,7 @@ ToolPage {
                     Layout.preferredWidth: 200
                     Layout.alignment: Qt.AlignTop
                     spacing: 8
-                    Label { text: qsTr("Use as Lockout button"); color: Theme.contentPrimary }
+                    Label { text: qsTr("Use as Lockout button") }
                     GSwitch {
                         objectName: "gamepadLockoutSwitch"
                         checked: actionPopup.mapping.role === "lockout"
@@ -768,7 +759,7 @@ ToolPage {
                             actionPopup.changed = true
                         }
                     }
-                    Label { text: qsTr("Use as 2nd Action button"); color: Theme.contentPrimary; Layout.topMargin: 24 }
+                    Label { text: qsTr("Use as 2nd Action button"); Layout.topMargin: 24 }
                     GSwitch {
                         objectName: "gamepadModifierSwitch"
                         checked: actionPopup.mapping.role === "modifier"
@@ -782,14 +773,13 @@ ToolPage {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 12
-                Label { text: qsTr("Shortcut:"); color: Theme.contentPrimary }
+                Label { text: qsTr("Shortcut:") }
                 Label {
                     text: actionPopup.mapping.label !== undefined ? actionPopup.mapping.label : ""
                     font.family: "monospace"
-                    color: Theme.contentPrimary
                 }
                 Item { Layout.fillWidth: true }
-                Label { text: qsTr("Action:"); color: Theme.contentPrimary }
+                Label { text: qsTr("Action:") }
                 Rectangle {
                     implicitWidth: selectedTitle.implicitWidth + 24
                     implicitHeight: 32

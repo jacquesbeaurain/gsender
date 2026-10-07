@@ -26,8 +26,7 @@ Item {
             anchors.centerIn: parent
             name: "LuQrCode"
             color: Theme.contentSecondary
-            width: 20
-            height: 20
+            size: 20
         }
     }
     TapHandler {
@@ -54,7 +53,6 @@ Item {
                 text: qsTr("Scan QR Code")
                 font.pixelSize: Theme.fontSm
                 font.bold: true
-                color: Theme.contentPrimary
             }
             QrCode {
                 Layout.alignment: Qt.AlignHCenter

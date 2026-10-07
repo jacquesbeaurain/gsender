@@ -46,7 +46,7 @@ ToolPage {
                 }
                 RowLayout {
                     spacing: 12
-                    Label { text: qsTr("Axis to Tune"); font.bold: true; color: Theme.contentPrimary }
+                    Label { text: qsTr("Axis to Tune"); font.bold: true }
                     Repeater {
                         model: ["X", "Y", "Z"]
                         GButton {
@@ -62,7 +62,6 @@ ToolPage {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     font.bold: true
-                    color: Theme.contentPrimary
                     text: qsTr("Whichever axis you'll be tuning, please place it in an initial location so that it'll have space to move to the right (for X), backwards (for Y), and downwards (for Z).")
                 }
                 Panel {
@@ -70,14 +69,14 @@ ToolPage {
                     Layout.fillWidth: true
                     implicitHeight: note.implicitHeight + 16
                     radius: 6
-                    color: "#fef9c3"
-                    border.color: "#fde68a"
+                    color: Theme.tw.yellow[100]
+                    border.color: Theme.tw.amber[200]
                     Label {
                         id: note
                         anchors.fill: parent
                         anchors.margins: 8
                         wrapMode: Text.Wrap
-                        color: "#854d0e"
+                        color: Theme.tw.yellow[800]
                         text: qsTr("Please connect to a device before starting the movement tuning wizard.")
                     }
                 }
@@ -95,13 +94,13 @@ ToolPage {
                 visible: ["mark", "move", "measure"].includes(tool.model.step)
                 Layout.fillWidth: true
                 spacing: 12
-                Label { text: qsTr("Instructions"); font.bold: true; font.pixelSize: Theme.fontLg; color: Theme.contentPrimary }
+                Label { text: qsTr("Instructions"); font.bold: true; font.pixelSize: Theme.fontLg }
                 Panel {
                     Layout.fillWidth: true
                     implicitHeight: instruction.implicitHeight + 24
                     radius: 6
-                    color: Theme.dark ? Theme.surfaceRaised : "#eff6ff"
-                    border.color: Theme.dark ? Theme.outline : "#bfdbfe"
+                    color: Theme.dark ? Theme.surfaceRaised : Theme.tw.blue[50]
+                    border.color: Theme.dark ? Theme.outline : Theme.tw.blue[200]
                     Label {
                         id: instruction
                         objectName: "tuningInstruction"
@@ -109,7 +108,6 @@ ToolPage {
                         anchors.margins: 12
                         wrapMode: Text.Wrap
                         text: tool.model.instruction
-                        color: Theme.contentPrimary
                     }
                 }
                 GridLayout {
@@ -173,7 +171,7 @@ ToolPage {
                     Layout.fillWidth: true
                     implicitHeight: result.implicitHeight + 32
                     radius: 8
-                    color: tool.model.accurate ? "#dcfce7" : "#fef9c3"
+                    color: tool.model.accurate ? Theme.tw.green[100] : Theme.tw.yellow[100]
                     Label {
                         id: result
                         objectName: "tuningResult"
@@ -183,7 +181,7 @@ ToolPage {
                         horizontalAlignment: Text.AlignHCenter
                         textFormat: Text.StyledText
                         text: tool.model.resultText
-                        color: tool.model.accurate ? "#166534" : "#854d0e"
+                        color: tool.model.accurate ? Theme.tw.green[800] : Theme.tw.yellow[800]
                         font.pixelSize: Theme.fontLg
                     }
                 }

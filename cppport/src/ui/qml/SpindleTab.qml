@@ -25,7 +25,7 @@ Item {
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
             spacing: 8
-            Label { text: qsTr("Spindle"); color: Theme.contentPrimary }
+            Label { text: qsTr("Spindle") }
             GSwitch {
                 objectName: "laserModeSwitch"
                 checked: tab.model.laserMode
@@ -35,7 +35,7 @@ Item {
                     checked = Qt.binding(() => tab.model.laserMode)
                 }
             }
-            Label { text: qsTr("Laser"); color: Theme.contentPrimary }
+            Label { text: qsTr("Laser") }
             GSelect {
                 id: spindleSelect
                 objectName: "spindleSelect"
@@ -96,7 +96,6 @@ Item {
             columnSpacing: 8
             Label {
                 text: qsTr("Speed")
-                color: Theme.contentPrimary
                 horizontalAlignment: Text.AlignRight
                 Layout.preferredWidth: 1
                 Layout.fillWidth: true
@@ -126,7 +125,6 @@ Item {
             Label {
                 objectName: "spindleSpeedText"
                 text: tab.model.speedSlider ? qsTr("%1 RPM").arg(Math.round(tab.model.speed)) : qsTr("RPM")
-                color: Theme.contentPrimary
                 Layout.preferredWidth: 1
                 Layout.fillWidth: true
             }
@@ -173,7 +171,6 @@ Item {
             columnSpacing: 8
             Label {
                 text: qsTr("Power")
-                color: Theme.contentPrimary
                 horizontalAlignment: Text.AlignRight
                 Layout.preferredWidth: 1
                 Layout.fillWidth: true
@@ -191,7 +188,6 @@ Item {
             }
             Label {
                 text: Math.round(tab.model.power) + "%"
-                color: Theme.contentPrimary
                 Layout.preferredWidth: 1
                 Layout.fillWidth: true
             }
@@ -200,7 +196,7 @@ Item {
             visible: tab.model.laserMode
             Layout.alignment: Qt.AlignHCenter
             spacing: 8
-            Label { text: qsTr("Test Duration:"); color: Theme.contentPrimary }
+            Label { text: qsTr("Test Duration:") }
             NumberField {
                 objectName: "laserDuration"
                 value: tab.model.duration

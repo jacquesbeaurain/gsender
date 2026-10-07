@@ -41,7 +41,6 @@ Panel {
                     text: root.title
                     font.pixelSize: Theme.fontBase
                     font.weight: Font.DemiBold
-                    color: Theme.contentPrimary
                     Layout.fillWidth: true
                 }
             }

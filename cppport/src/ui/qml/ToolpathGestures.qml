@@ -126,7 +126,7 @@ Item {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
-                strokeColor: "#4ade80"
+                strokeColor: Theme.tw.green[400]
                 strokeWidth: 3
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
@@ -145,7 +145,7 @@ Item {
             width: 4
             height: 4
             radius: 2
-            color: "#4ade80"
+            color: Theme.tw.green[400]
         }
     }
 }
