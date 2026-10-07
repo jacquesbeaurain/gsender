@@ -113,6 +113,7 @@ Item {
             Item {
                 id: runButton
                 objectName: "macro_" + macroItem.modelData.name
+                property string tooltip: macroItem.modelData.description || ""
                 anchors.left: parent.left
                 anchors.right: menuButton.left
                 anchors.top: parent.top
@@ -254,6 +255,7 @@ Item {
             spacing: 8
             GButton {
                 objectName: "macroAdd"
+                tooltip: qsTr("Add a new macro")
                 implicitHeight: 32
                 text: qsTr("Add")
                 iconName: "FaPlus"
@@ -263,6 +265,7 @@ Item {
             }
             GButton {
                 objectName: "macroImport"
+                tooltip: qsTr("Import macros from a file")
                 implicitHeight: 32
                 text: qsTr("Import")
                 iconName: "FaFileImport"
@@ -272,6 +275,7 @@ Item {
             }
             GButton {
                 objectName: "macroExport"
+                tooltip: qsTr("Export macros to a file")
                 implicitHeight: 32
                 text: qsTr("Export")
                 iconName: "FaFileExport"

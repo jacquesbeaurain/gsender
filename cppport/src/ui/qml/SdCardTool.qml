@@ -229,9 +229,7 @@ ToolPage {
                                     font.bold: true
                                     color: Theme.red[500]
                                 }
-                                ToolTip.visible: unusableHover.hovered
-                                ToolTip.text: fileRow.file.problem || ""
-                                HoverHandler { id: unusableHover }
+                                property string tooltip: fileRow.file.problem || ""
                             }
                             Label {
                                 text: fileRow.file.size || ""

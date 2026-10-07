@@ -48,6 +48,42 @@ ApplicationWindow {
             exitPrompt.open()
         }
     }
+    // The mouse's hover feedback: cursors and the controls' `tooltip`s
+    // (HoverTips), shown in upstream's Tooltip.
+    HoverTips {
+        id: hoverTips
+        objectName: "hoverTips"
+        window: window
+        popup: hoverTip
+    }
+    ToolTip {
+        id: hoverTip
+        parent: hoverTips.target
+        visible: hoverTips.shown && parent !== null
+        text: hoverTips.text
+        delay: 0
+        timeout: -1
+        topPadding: 6
+        bottomPadding: 6
+        leftPadding: 12
+        rightPadding: 12
+        // Radix's sideOffset: 4 px from the target, on its `tooltipSide`.
+        x: !parent ? 0 : hoverTips.side === "left" ? -implicitWidth - 4
+                       : hoverTips.side === "right" ? parent.width + 4 : (parent.width - implicitWidth) / 2
+        y: !parent ? 0 : hoverTips.side === "bottom" ? parent.height + 4
+                       : hoverTips.side === "top" ? -implicitHeight - 4 : (parent.height - implicitHeight) / 2
+        contentItem: Label {
+            text: hoverTip.text
+            font.pixelSize: Theme.fontSm
+            color: Theme.dark ? Theme.contentPrimary : "white"
+        }
+        background: Panel {
+            radius: Theme.radiusSmall
+            color: Theme.dark ? Theme.surfaceRaised : Theme.tw.slate[800]
+            border.color: Theme.dark ? Theme.tw.slate[500] : Theme.tw.slate[600]
+        }
+    }
+
     ConfirmDialog {
         id: exitPrompt
         objectName: "exitPrompt"

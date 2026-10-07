@@ -109,6 +109,7 @@ ModalDialog {
             TextArea {
                 id: contentField
                 objectName: "macroContent"
+                property string tooltip: qsTr("Add your g-code here. Use the variables or JavaScript logic to create more complex commands.")
                 font.family: Theme.monoFont
                 font.pixelSize: Theme.fontSm
                 wrapMode: TextEdit.NoWrap

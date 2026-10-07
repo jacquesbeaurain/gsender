@@ -95,6 +95,7 @@ Item {
                             required property var modelData
                             required property int index
                             objectName: "probeRoutine_" + modelData.label
+                            property string tooltip: qsTr("Probe using %1").arg(modelData.id)
                             width: 40   // upstream's w-10 h-[35px]
                             height: 35
                             radius: Theme.radiusSmall
@@ -121,6 +122,8 @@ Item {
             GButton {
                 id: toolButton
                 objectName: "probeTool"
+                tooltip: qsTr("Select tool diameter")
+                tooltipSide: "left"
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(parent.width - 48, 260)
@@ -194,6 +197,8 @@ Item {
                             GButton {
                                 id: addButton
                                 objectName: "probeAddTool"
+                                tooltip: qsTr("Create and use a custom probe diameter")
+                                tooltipSide: "bottom"
                                 text: qsTr("Add")
                                 iconName: "LuPlus"
                                 iconSize: 16

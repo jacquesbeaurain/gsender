@@ -56,7 +56,10 @@ ModalDialog {
                 Layout.fillWidth: true
                 onCommitted: (text) => value = popup.model.startLine(text)
             }
-            Label { text: qsTr("With safe height:") }
+            Label {
+                text: qsTr("With safe height:")
+                property string tooltip: qsTr("Default Value: %1").arg(popup.model.defaultSafeHeight)
+            }
             NumberField {
                 id: height_
                 objectName: "startFromLineHeight"

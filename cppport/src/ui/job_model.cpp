@@ -10,6 +10,8 @@
 #include "gs/util/jsnumber.hpp"
 #include "gs/util/units.hpp"
 
+#include <QDateTime>
+
 #include <algorithm>
 #include <cmath>
 
@@ -107,6 +109,22 @@ QString JobModel::elapsed() const {
 QString JobModel::remaining() const {
     controller::Controller* c = machine_.controller();
     return qstr(util::clockText(c && c->sender().hasProgram() ? c->sender().status().remainingTime : 0.0));
+}
+
+QString JobModel::finishTime() const {
+    controller::Controller* c = machine_.controller();
+    if (!c || !c->sender().hasProgram()) {
+        return QStringLiteral("-");
+    }
+    const auto& status = c->sender().status();
+    if (status.startTime == 0 || !(status.remainingTime > 0)) {
+        return QStringLiteral("-");
+    }
+    // moment's "h:mma": 3:07pm.
+    return QDateTime::currentDateTime()
+        .addSecs(static_cast<qint64>(status.remainingTime))
+        .time()
+        .toString(QStringLiteral("h:mmap"));
 }
 
 QString JobModel::sdFile() const {

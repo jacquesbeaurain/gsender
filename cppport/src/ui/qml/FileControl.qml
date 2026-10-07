@@ -78,6 +78,8 @@ Item {
                         model: control.model.recentFiles
                         delegate: Item {
                             required property var modelData
+                            property string tooltip: modelData.name
+                            property int tooltipDelay: 700
                             width: ListView.view.width
                             height: Theme.touchTarget
                             RowLayout {
@@ -114,6 +116,8 @@ Item {
                 }
                 RowLayout {
                     spacing: 8
+                    property string tooltip: control.model.lastJob.file || ""
+                    property int tooltipDelay: 700
                     Icon { name: "LuFileCode2"; color: Theme.contentMuted; size: 18 }
                     Label {
                         text: control.model.lastJob.file || ""
@@ -155,6 +159,8 @@ Item {
             // The name elides; the extension stays.
             Row {
                 Layout.alignment: Qt.AlignHCenter
+                property string tooltip: control.model.baseName + (control.model.extension ? "." + control.model.extension : "")
+                property int tooltipDelay: 700
                 Label {
                     objectName: "fileName"
                     text: control.model.baseName
@@ -267,6 +273,8 @@ Item {
                     spacing: 6
                     GButton {
                         objectName: "openEditor"
+                        tooltip: qsTr("G-code Editor")
+                        tooltipDelay: 700
                         iconName: "LuPencil"
                         variant: "outline"
                         implicitWidth: Theme.touchTarget
@@ -274,6 +282,8 @@ Item {
                     }
                     GButton {
                         objectName: "openStepThrough"
+                        tooltip: qsTr("G-code Step Through")
+                        tooltipDelay: 700
                         iconName: "LuFootprints"
                         variant: "outline"
                         implicitWidth: Theme.touchTarget
@@ -315,6 +325,7 @@ Item {
             Divider {}
             GButton {
                 objectName: "recentFilesButton"
+                tooltip: qsTr("View Recent Files")
                 variant: "ghost"
                 iconName: "MdKeyboardArrowDown"
                 iconSize: 32
@@ -344,6 +355,7 @@ Item {
             Divider {}
             GButton {
                 objectName: "reloadFile"
+                tooltip: qsTr("Reload File")
                 variant: "ghost"
                 iconName: "FaRedo"
                 implicitWidth: 60
@@ -354,6 +366,7 @@ Item {
             Divider {}
             GButton {
                 objectName: "closeFile"
+                tooltip: qsTr("Close File")
                 variant: "ghost"
                 iconName: "MdClose"
                 iconSize: 24

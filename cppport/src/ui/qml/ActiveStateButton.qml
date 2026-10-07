@@ -12,6 +12,7 @@ Item {
     property alias iconName: button.iconName
     property alias iconSize: button.iconSize
     property alias fontSize: button.fontSize
+    property alias tooltip: button.tooltip
     property bool active: false
     signal clicked()
 

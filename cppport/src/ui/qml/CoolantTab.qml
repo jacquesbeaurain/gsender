@@ -15,6 +15,7 @@ Item {
         spacing: 8
         ActiveStateButton {
             objectName: "coolantMist"
+            tooltip: qsTr("Turn on mist coolant")
             Layout.preferredHeight: 68
             text: qsTr("Mist")
             iconName: "FaShower"
@@ -24,6 +25,7 @@ Item {
         }
         ActiveStateButton {
             objectName: "coolantFlood"
+            tooltip: qsTr("Turn on flood coolant")
             Layout.preferredHeight: 68
             text: qsTr("Flood")
             iconName: "FaWater"
@@ -33,6 +35,7 @@ Item {
         }
         ActiveStateButton {
             objectName: "coolantOff"
+            tooltip: qsTr("Turn off coolant")
             Layout.preferredHeight: 68
             text: qsTr("Off")
             iconName: "FaBan"

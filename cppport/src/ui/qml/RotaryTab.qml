@@ -60,6 +60,7 @@ Item {
             Label { visible: tab.model.grblHal; text: qsTr("4-Axis") }
             GSwitch {
                 objectName: "rotaryModeSwitch"
+                property string tooltip: tab.model.grblHal ? qsTr("Enable 4-axis or Rotary mode") : qsTr("Toggle Rotary mode")
                 checked: tab.model.rotaryMode
                 enabled: tab.model.canSwitch
                 onToggled: {
@@ -76,6 +77,7 @@ Item {
             columnSpacing: 12
             GButton {
                 objectName: "rotarySurfacing"
+                tooltip: qsTr("Open rotary surfacing tool")
                 Layout.fillWidth: true
                 text: qsTr("Rotary Surfacing")
                 fontSize: Theme.fontSm
@@ -84,6 +86,7 @@ Item {
             }
             GButton {
                 objectName: "mountingSetupButton"
+                tooltip: qsTr("Open mounting setup tool")
                 Layout.fillWidth: true
                 text: qsTr("Mounting Setup")
                 fontSize: Theme.fontSm
@@ -92,6 +95,7 @@ Item {
             }
             GButton {
                 objectName: "probeRotaryZ"
+                tooltip: qsTr("Run rotary Z-axis probing")
                 Layout.fillWidth: true
                 variant: "primary"
                 text: qsTr("Probe Rotary Z-Axis")
@@ -101,6 +105,7 @@ Item {
             }
             GButton {
                 objectName: "alignYAxis"
+                tooltip: qsTr("Run rotary Y-axis alignment")
                 Layout.fillWidth: true
                 variant: "primary"
                 text: qsTr("Y-Axis Alignment")

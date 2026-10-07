@@ -36,6 +36,8 @@ class JobModel : public UiModelBase {
     Q_PROPERTY(double percent READ percent NOTIFY progressChanged)
     Q_PROPERTY(QString elapsed READ elapsed NOTIFY progressChanged)    // "0:01:05"
     Q_PROPERTY(QString remaining READ remaining NOTIFY progressChanged)
+    // When the job should end, "h:mma" (ProgressArea's tooltip); "-" before.
+    Q_PROPERTY(QString finishTime READ finishTime NOTIFY progressChanged)
     Q_PROPERTY(QString sdFile READ sdFile NOTIFY progressChanged)      // "" unless the card runs one
     // Start From Line: the job's lines, where it last stopped, the safe
     // height it starts with (workspace units) and its unit.
@@ -69,6 +71,7 @@ public:
     double percent() const;
     QString elapsed() const;
     QString remaining() const;
+    QString finishTime() const;
     QString sdFile() const;
     int totalLines() const;
     int lastLine() const;

@@ -80,6 +80,7 @@ Item {
             }
             GButton {
                 objectName: "consoleCopy"
+                tooltip: qsTr("Copy last 50 messages")
                 variant: "ghost"
                 iconName: "LuCopy"
                 iconSize: 16
@@ -91,6 +92,7 @@ Item {
             }
             GButton {
                 objectName: "consoleClear"
+                tooltip: qsTr("Clear console")
                 variant: "ghost"
                 iconName: "LuEraser"
                 iconSize: 16

@@ -358,3 +358,41 @@ TEST_F(UiTest, TheRailsHelperToggleHidesAndShowsTheHelperOnOffer) {
     tap("helperToggle");
     EXPECT_FALSE(backend_->helperVisible());
 }
+
+// The mouse's hover feedback (HoverTips): a disabled control shows the "not
+// allowed" cursor and its tooltip anyway; an enabled one the hand.
+TEST_F(UiTest, HoveringAControlShowsItsCursorAndTooltip) {
+    connectSimulator();
+    auto* tips = window_->findChild<QObject*>("hoverTips");
+    ASSERT_NE(tips, nullptr);
+    ASSERT_NE(tips->property("window").value<QObject*>(), nullptr);
+    tips->setProperty("delay", 50);
+
+    // Park is disabled until the machine is homed.
+    QQuickItem* park = item("parkButton");
+    ASSERT_NE(park, nullptr);
+    ASSERT_TRUE(waitFor([&] { return park->isVisible(); }));
+    EXPECT_FALSE(park->isEnabled());
+    QTest::mouseMove(window_, centreOf(park));
+    EXPECT_EQ(tips->property("target").value<QObject*>(), park);
+    EXPECT_EQ(tips->property("text").toString(), "Go to Park Location");
+    EXPECT_EQ(window_->contentItem()->cursor().shape(), Qt::ForbiddenCursor);
+    EXPECT_TRUE(waitFor([&] { return tips->property("shown").toBool(); }));
+
+    // Load File is enabled: the hand, on the button itself; leaving Park hides
+    // its tooltip.
+    QQuickItem* loadFile = item("loadFile");
+    ASSERT_NE(loadFile, nullptr);
+    ASSERT_TRUE(loadFile->isEnabled());
+    QTest::mouseMove(window_, centreOf(loadFile));
+    EXPECT_EQ(tips->property("target").value<QObject*>(), loadFile);
+    EXPECT_FALSE(tips->property("shown").toBool());
+    EXPECT_EQ(window_->contentItem()->cursor().shape(), Qt::ArrowCursor);
+    EXPECT_EQ(loadFile->cursor().shape(), Qt::PointingHandCursor);
+    // Hovered, the ghost button takes shadcn's accent fill (and 90%).
+    ASSERT_TRUE(waitFor([&] { return loadFile->property("hovered").toBool(); }));
+    auto* background = loadFile->property("background").value<QQuickItem*>();
+    ASSERT_NE(background, nullptr);
+    EXPECT_EQ(background->property("color").value<QColor>(), QColor("#f3f4f6"));  // gray-100
+    EXPECT_DOUBLE_EQ(loadFile->opacity(), 0.9);
+}

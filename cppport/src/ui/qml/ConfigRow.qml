@@ -177,8 +177,7 @@ Item {
                 size: 28
                 color: resetHover.hovered ? Theme.blue[600] : Theme.contentBody
                 HoverHandler { id: resetHover }
-                ToolTip.visible: resetHover.hovered
-                ToolTip.text: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
+                property string tooltip: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
                 TapHandler { onTapped: row.kind === "eeprom" ? row.model.resetEeprom(row.key) : row.model.resetValue(row.key) }
             }
         }

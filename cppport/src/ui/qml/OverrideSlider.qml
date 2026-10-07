@@ -41,6 +41,7 @@ ColumnLayout {
             spacing: 8
             GButton {
                 objectName: override.objectName + "Reset"
+                tooltip: qsTr("Reset override to 100%")
                 iconName: "FaUndo"
                 iconSize: 14
                 implicitWidth: 39
@@ -118,6 +119,7 @@ ColumnLayout {
             }
             GButton {
                 objectName: override.objectName + "Minus"
+                tooltip: qsTr("Decrease %1 override by %2%").arg(override.title).arg(10)
                 iconName: "FaMinus"
                 iconSize: 14
                 implicitWidth: 39
@@ -127,6 +129,7 @@ ColumnLayout {
             }
             GButton {
                 objectName: override.objectName + "Plus"
+                tooltip: qsTr("Increase %1 override by %2%").arg(override.title).arg(10)
                 iconName: "FaPlus"
                 iconSize: 14
                 implicitWidth: 39

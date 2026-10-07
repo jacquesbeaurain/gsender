@@ -103,6 +103,7 @@ Panel {
             Item { Layout.fillWidth: true }
             GButton {
                 objectName: "editorClose"
+                tooltip: qsTr("Close editor")
                 variant: "ghost"
                 iconName: "LuX"
                 iconSize: 16
@@ -273,9 +274,9 @@ Panel {
                         font.pixelSize: Theme.fontXs
                         color: Theme.contentMuted
                     }
-                    GButton { iconName: "LuChevronUp"; iconSize: 14; enabled: editor.model.matchCount > 0; onClicked: editor.model.previousMatch() }
-                    GButton { objectName: "editorNextMatch"; iconName: "LuChevronDown"; iconSize: 14; enabled: editor.model.matchCount > 0; onClicked: editor.model.nextMatch() }
-                    GButton { iconName: "LuX"; iconSize: 14; onClicked: { searchField.text = ""; searchBox.visible = false } }
+                    GButton { tooltip: qsTr("Previous match (Shift+Enter)"); iconName: "LuChevronUp"; iconSize: 14; enabled: editor.model.matchCount > 0; onClicked: editor.model.previousMatch() }
+                    GButton { objectName: "editorNextMatch"; tooltip: qsTr("Next match (Enter)"); iconName: "LuChevronDown"; iconSize: 14; enabled: editor.model.matchCount > 0; onClicked: editor.model.nextMatch() }
+                    GButton { tooltip: qsTr("Close search"); iconName: "LuX"; iconSize: 14; onClicked: { searchField.text = ""; searchBox.visible = false } }
                 }
             }
             // Jump to line, floating top right.
@@ -318,13 +319,14 @@ Panel {
                         font.pixelSize: Theme.fontXs
                         color: Theme.contentMuted
                     }
-                    GButton { objectName: "editorJumpGo"; iconName: "VscDebugStart"; iconSize: 14; enabled: jumpField.text !== ""; onClicked: jumpBox.jump() }
-                    GButton { iconName: "LuX"; iconSize: 14; onClicked: { jumpField.text = ""; jumpBox.visible = false } }
+                    GButton { objectName: "editorJumpGo"; tooltip: qsTr("Jump To Line"); iconName: "VscDebugStart"; iconSize: 14; enabled: jumpField.text !== ""; onClicked: jumpBox.jump() }
+                    GButton { tooltip: qsTr("Close jump to line"); iconName: "LuX"; iconSize: 14; onClicked: { jumpField.text = ""; jumpBox.visible = false } }
                 }
             }
             // Scroll to top, once away from it.
             GButton {
                 objectName: "editorScrollTop"
+                tooltip: qsTr("Scroll to top")
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.margins: 16
@@ -346,12 +348,14 @@ Panel {
             Item { Layout.fillWidth: true }
             GButton {
                 objectName: "editorJumpButton"
+                tooltip: qsTr("Jump to Line")
                 variant: "outline"
                 iconName: "PiMouseScroll"
                 onClicked: { searchBox.visible = false; jumpBox.visible = !jumpBox.visible; if (jumpBox.visible) jumpField.forceActiveFocus() }
             }
             GButton {
                 objectName: "editorSearchButton"
+                tooltip: qsTr("Search (Ctrl+F / Cmd+F)")
                 variant: "outline"
                 iconName: "LuSearch"
                 iconSize: 16
@@ -359,6 +363,7 @@ Panel {
             }
             GButton {
                 objectName: "editorSelectAll"
+                tooltip: editor.model.selectedCount === editor.model.count && editor.model.count > 0 ? qsTr("Deselect all lines") : qsTr("Select all lines")
                 variant: editor.model.count > 0 && editor.model.selectedCount === editor.model.count ? "primary" : "outline"
                 iconName: "LuCopyCheck"
                 iconSize: 16
@@ -367,6 +372,9 @@ Panel {
             }
             GButton {
                 objectName: "editorCopy"
+                tooltip: editor.model.jobRunning ? qsTr("Copy disabled while job is running")
+                         : editor.model.selectedCount > 0 ? qsTr("Copy %1 selected line(s)").arg(editor.model.selectedCount)
+                         : qsTr("Copy all lines")
                 variant: "outline"
                 iconName: "LuCopy"
                 iconSize: 16
@@ -375,6 +383,8 @@ Panel {
             }
             GButton {
                 objectName: "editorDelete"
+                tooltip: editor.model.jobRunning ? qsTr("Delete disabled while job is running")
+                         : qsTr("Delete %1 selected line(s)").arg(editor.model.selectedCount)
                 variant: "outline"
                 iconName: "LuTrash2"
                 iconSize: 16
@@ -384,6 +394,7 @@ Panel {
             }
             GButton {
                 objectName: "editorRevert"
+                tooltip: editor.model.jobRunning ? qsTr("Revert disabled while job is running") : qsTr("Revert to original content")
                 variant: "outline"
                 iconName: "LuRotateCcw"
                 iconSize: 16
@@ -392,6 +403,7 @@ Panel {
             }
             GButton {
                 objectName: "editorSave"
+                tooltip: editor.model.jobRunning ? qsTr("Save disabled while job is running") : qsTr("Save changes")
                 variant: "primary"
                 iconName: "LuSave"
                 iconSize: 16

@@ -17,8 +17,9 @@ Item {
     id: button
 
     property int corner: 0
-    // Not `enabled`: a disabled item gets no hover, and the tooltip shows
-    // either way.
+    // Upstream's tooltips, the front corners' below them.
+    readonly property string tooltip: tips[corner]
+    readonly property string tooltipSide: atBack ? "top" : "bottom"
     property bool available: true
     signal clicked()
 
@@ -92,9 +93,6 @@ Item {
             }
         }
     }
-    HoverHandler { id: hover }
-    ToolTip.visible: hover.hovered
-    ToolTip.text: tips[corner]
     TapHandler {
         enabled: button.available
         onTapped: button.clicked()

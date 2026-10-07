@@ -68,6 +68,7 @@ Item {
         property string label
         property string iconName
         property bool dividerBefore: true
+        property string tooltip   // HoverTips
         signal clicked()
         implicitWidth: Math.max(64, actionLabel.implicitWidth + 40)
         implicitHeight: 48
@@ -415,6 +416,9 @@ Item {
                     ActionButton {
                         objectName: "configRestoreFirmware"
                         label: qsTr("Defaults")
+                        // RestoreDefaultDialog's (upstream also opens it by itself once the
+                        // profile changes).
+                        tooltip: qsTr("Make sure you click to apply your defaults to your controller")
                         iconName: "GrRevert"
                         enabled: page.model.canRestoreFirmwareDefaults
                         onClicked: page.ask(qsTr("Restore Defaults"),

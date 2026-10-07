@@ -11,6 +11,7 @@ TextField {
     property real value
     property int decimals: 3
     property string suffix
+    property string tooltip   // HoverTips
     // Shown as it is instead of the formatted value (the DRO's own text).
     property var display: undefined
     signal committed(string text)

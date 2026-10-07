@@ -106,6 +106,7 @@ ToolPage {
                                 Layout.fillHeight: true
                                 Panel {
                                     objectName: "shortcutKeys_" + (row.action.id || "")
+                                    property string tooltip: row.action.keys ? qsTr("Edit this shortcut") : qsTr("Assign a shortcut to this action")
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.max(72, keysLabel.implicitWidth + 24)
                                     height: 32

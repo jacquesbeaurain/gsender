@@ -295,6 +295,14 @@ Steps 61-65). The legacy Qt Widgets UI has been retired (Phase 4 complete);
   - A bordered box is a `Panel`. It draws the one-device-pixel hairline;
     set only what differs from its radius, fill and border.
   - A centred modal popup is a `ModalDialog` (set `preferredWidth`).
+  - Tooltips and hover cursors go through `HoverTips` (C++, in Main.qml),
+    not attached `ToolTip`s. A control gets upstream's tooltip from a
+    `tooltip` property (`GButton`, `GSelect` and `NumberField` have one;
+    other items declare `property string tooltip`). It can also set
+    `tooltipSide` and `tooltipDelay` (Radix's bare `TooltipProvider` waits
+    700 ms; the Tooltip component waits 1.5 s, the default). Disabled
+    controls still show their tooltip, with the "not allowed" cursor;
+    enabled buttons and tap items show the hand.
   - Don't restate what the window's palette already gives: a Label's or a
     text field's `Theme.contentPrimary` text, a placeholder's
     `contentMuted`. An `Icon` is `size` square and `contentPrimary` by

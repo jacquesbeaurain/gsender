@@ -191,6 +191,8 @@ qt_add_qml_module(gs_ui
         remote_models.cpp
         remote_models.hpp
         animated_picture_item.cpp
+        hover_tips.cpp
+        hover_tips.hpp
         animated_picture_item.hpp
         nav_cube_item.cpp
         nav_cube_item.hpp

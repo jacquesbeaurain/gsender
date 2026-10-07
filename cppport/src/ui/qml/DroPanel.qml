@@ -78,6 +78,7 @@ Item {
             implicitHeight: 32
             GButton {
                 objectName: "goToButton"
+                tooltip: qsTr("Go To Location")
                 x: parent.width / 2 - 88 - width / 2
                 iconName: "FaPaperPlane"
                 iconSize: 14
@@ -121,8 +122,7 @@ Item {
                 iconSize: 16
                 implicitWidth: 41
                 implicitHeight: 32
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Go to Park Location")
+                tooltip: qsTr("Go to Park Location")
                 enabled: dro.model.canClick && dro.model.homed
                 onClicked: dro.model.park()
             }
@@ -175,6 +175,8 @@ Item {
                     spacing: 4
                     GButton {
                         objectName: "zero" + row.modelData.label
+                        tooltip: qsTr("%1 your %2-axis").arg(dro.model.homingMode ? qsTr("Home") : qsTr("Zero"))
+                                                       .arg(row.modelData.label)
                         variant: dro.model.homingMode ? "alt" : "secondary"
                         text: dro.model.homingMode ? "H" + row.modelData.label : row.modelData.label + "0"
                         mono: true
@@ -215,6 +217,7 @@ Item {
                     }
                     GButton {
                         objectName: "goZero" + row.modelData.label
+                        tooltip: qsTr("Go to %1-axis zero").arg(row.modelData.label)
                         variant: "alt"
                         text: row.modelData.label
                         mono: true
@@ -238,6 +241,8 @@ Item {
             spacing: 8
             GButton {
                 objectName: "zeroAll"
+                tooltip: qsTr("Zero all axes")
+                tooltipSide: "left"
                 text: qsTr("Zero")
                 iconName: "VscTarget"
                 iconSize: 19 * dro.ds
@@ -249,6 +254,8 @@ Item {
             Item { Layout.fillWidth: true }
             Switch {
                 objectName: "homingSwitch"
+                property string tooltip: qsTr("Toggle single axis homing")
+                property string tooltipSide: "bottom"
                 visible: dro.model.singleAxisHoming
                 enabled: dro.model.canClick
                 checked: dro.model.homingMode
@@ -256,6 +263,8 @@ Item {
             }
             GButton {
                 objectName: "homeButton"
+                tooltip: qsTr("Run homing")
+                tooltipSide: "bottom"
                 visible: dro.model.homingEnabled
                 variant: "primary"
                 text: qsTr("Home")
@@ -267,6 +276,8 @@ Item {
             Item { Layout.fillWidth: true }
             GButton {
                 objectName: "goXY"
+                tooltip: qsTr("Go to XY zero")
+                tooltipSide: "bottom"
                 variant: "alt"
                 text: dro.model.rotaryMode ? "XA" : "XY"
                 mono: true

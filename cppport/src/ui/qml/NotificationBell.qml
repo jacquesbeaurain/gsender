@@ -9,6 +9,7 @@ import GSender
 Item {
     id: bell
     objectName: "notificationBell"
+    property string tooltip: qsTr("Notifications")
 
     implicitWidth: Theme.touchTarget
     implicitHeight: Theme.touchTarget

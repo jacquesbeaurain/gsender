@@ -31,6 +31,9 @@ RowLayout {
     ComboBox {
         id: combo
         objectName: "workspaceCombo"
+        property string tooltip: qsTr("Select a workspace")
+        property string tooltipSide: "left"
+        readonly property bool clickable: true
         enabled: selector.model.workspaceEnabled
         model: selector.workspaces
         textRole: "label"

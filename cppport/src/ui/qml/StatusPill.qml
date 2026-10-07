@@ -78,6 +78,7 @@ Item {
     // Machine Information, left of the status.
     Rectangle {
         objectName: "machineInfoButton"
+        property string tooltip: qsTr("Machine Information")
         anchors.right: parent.left
         anchors.rightMargin: 24
         anchors.verticalCenter: parent.verticalCenter
@@ -104,6 +105,7 @@ Item {
     // The lock, right of the status.
     Rectangle {
         objectName: "lockButton"
+        property string tooltip: qsTr("Unlock Machine")
         anchors.left: parent.right
         anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter

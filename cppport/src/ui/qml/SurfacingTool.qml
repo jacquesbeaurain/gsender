@@ -64,6 +64,7 @@ ToolPage {
                                 Rectangle {
                                     required property var modelData
                                     objectName: "surfacingStart_" + modelData.key
+                                    property string tooltip: modelData.tip
                                     x: modelData.x; y: modelData.y
                                     width: 32; height: 32; radius: 16
                                     color: Theme.surfaceRaised
@@ -85,13 +86,14 @@ ToolPage {
                                 spacing: 16
                                 Repeater {
                                     model: [
-                                        { key: "spiral", label: qsTr("Spiral") },
-                                        { key: "zigzag", label: qsTr("Zig-Zag") }
+                                        { key: "spiral", label: qsTr("Spiral"), tip: qsTr("Spiral surfacing pattern") },
+                                        { key: "zigzag", label: qsTr("Zig-Zag"), tip: qsTr("Zig-Zag surfacing pattern") }
                                     ]
                                     Rectangle {
                                         required property var modelData
                                         readonly property bool chosen: tool.o.pattern === modelData.key
                                         objectName: "surfacingPattern_" + modelData.key
+                                        property string tooltip: modelData.tip
                                         width: 64; height: 64; radius: 8
                                         color: chosen ? Theme.tw.blue[50] : "transparent"
                                         border.width: 2
@@ -106,7 +108,7 @@ ToolPage {
                                     }
                                 }
                             }
-                            ToolToggle { model: tool.model; key: "cutDirectionFlipped"; label: qsTr("Flip the cut direction") }
+                            ToolToggle { model: tool.model; key: "cutDirectionFlipped"; label: qsTr("Flip the cut direction"); showDefault: false }
                         }
                     }
 
@@ -136,7 +138,7 @@ ToolPage {
                         label: qsTr("Bit Diameter & Tool Number (optional)")
                         ToolField { model: tool.model; key: "bitDiameter" }
                         Label { text: "&"; color: Theme.contentMuted }
-                        ToolField { model: tool.model; key: "toolNumber"; decimals: 0 }
+                        ToolField { model: tool.model; key: "toolNumber"; decimals: 0; defaultUnit: "" }
                     }
                     ToolFormRow {
                         label: qsTr("Stepover")
@@ -148,7 +150,7 @@ ToolPage {
                     }
                     ToolFormRow {
                         label: qsTr("Spindle RPM")
-                        ToolField { model: tool.model; key: "spindleRPM"; decimals: 0 }
+                        ToolField { model: tool.model; key: "spindleRPM"; decimals: 0; defaultUnit: "RPM" }
                         GSelect {
                             objectName: "surfacing_spindle"
                             model: ["M3", "M4"]

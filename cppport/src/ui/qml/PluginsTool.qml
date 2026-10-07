@@ -191,6 +191,7 @@ ToolPage {
 
                             GSwitch {
                                 objectName: "pluginEnable_" + model.id
+                                property string tooltip: model.enabled ? qsTr("Disable this plugin") : qsTr("Enable this plugin")
                                 checked: model.enabled
                                 onToggled: tool.model.setEnabled(model.id, checked)
                             }

@@ -116,7 +116,7 @@ Rectangle {
             objectName: "view3D"
             size: 36
             icon: "FaCube"
-            tip: qsTr("Go to iso view")
+            tooltip: qsTr("Go to iso view")
             onTapped: toolpath.setView("3d")
         }
         OverlayButton {
@@ -126,7 +126,7 @@ Rectangle {
             active: !Backend.perspective
             activeBorder: 1.5
             icon: active ? "LuSquare" : "LuBox"
-            tip: active ? qsTr("Switch to perspective view") : qsTr("Switch to orthographic view")
+            tooltip: active ? qsTr("Switch to perspective view") : qsTr("Switch to orthographic view")
             onTapped: Backend.togglePerspective()
         }
     }
@@ -137,7 +137,7 @@ Rectangle {
         id: overlayButton
         property real size: 44
         property string icon
-        property string tip
+        property string tooltip
         property bool active: false
         property color accent: Theme.tw.blue[400]
         property real activeBorder: 2
@@ -155,9 +155,6 @@ Rectangle {
             color: overlayButton.active ? overlayButton.accent : "white"
             size: overlayButton.size < 44 ? 16 : 20
         }
-        HoverHandler { id: hover }
-        ToolTip.visible: hover.hovered
-        ToolTip.text: tip
         TapHandler { onTapped: overlayButton.tapped() }
     }
     // Move To Here's and the plugin overlays' accent (rgba(14, 246, 174)).
@@ -172,7 +169,7 @@ Rectangle {
         anchors.horizontalCenter: cubeUtilityRow.horizontalCenter
         active: Backend.liteMode
         icon: "FaFeatherAlt"
-        tip: active ? qsTr("Disable lightweight mode") : qsTr("Enable lightweight mode")
+        tooltip: active ? qsTr("Disable lightweight mode") : qsTr("Enable lightweight mode")
         onTapped: Backend.toggleLiteMode()
     }
 
@@ -188,7 +185,7 @@ Rectangle {
         active: toolpath.moveToHere
         accent: frame.armedAccent
         icon: "LuCrosshair"
-        tip: qsTr("Move To Here: press and hold a spot to move the spindle there")
+        tooltip: qsTr("Move To Here: press and hold a spot to move the spindle there")
         onTapped: toolpath.toggleMoveToHere()
     }
 
@@ -207,7 +204,7 @@ Rectangle {
             active: frame.activeOverlayPluginId === modelData.pluginId
             accent: frame.armedAccent
             icon: "LuCrosshair"
-            tip: modelData.label || modelData.pluginName
+            tooltip: modelData.label || modelData.pluginName
             onTapped: frame.activeOverlayPluginId = active ? "" : modelData.pluginId
         }
     }

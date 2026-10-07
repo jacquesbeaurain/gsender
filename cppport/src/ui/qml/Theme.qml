@@ -118,6 +118,8 @@ QtObject {
     readonly property color secondary: dark ? surfaceRaised : gray[100]   // also the widget cards
     readonly property color muted: dark ? surfaceElevated : gray[100]
     readonly property color border: dark ? outline : gray[200]
+    // A hovered ghost's fill (its text is accent-foreground: contentPrimary).
+    readonly property color accent: dark ? surfaceHover : gray[100]
     readonly property color primary: blue[600]
     readonly property color primaryForeground: "#ffffff"
     // Blue text and icons on a surface (text-blue-600 dark:text-blue-400).

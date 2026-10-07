@@ -7,6 +7,10 @@ import GSender
 ComboBox {
     id: select
 
+    property string tooltip   // HoverTips; a select is a button: the hand
+    property string tooltipSide: "top"
+    readonly property bool clickable: true
+
     implicitHeight: 40
     font.pixelSize: Theme.fontBase
 

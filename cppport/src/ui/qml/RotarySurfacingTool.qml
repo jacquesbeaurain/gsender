@@ -60,7 +60,7 @@ ToolPage {
                         label: qsTr("Bit Diameter & Tool Number (optional)")
                         ToolField { model: tool.model; key: "bitDiameter" }
                         Label { text: "&"; color: Theme.contentMuted }
-                        ToolField { model: tool.model; key: "toolNumber"; decimals: 0 }
+                        ToolField { model: tool.model; key: "toolNumber"; decimals: 0; defaultUnit: "" }
                     }
                     ToolFormRow {
                         label: qsTr("Stepover")
@@ -72,7 +72,7 @@ ToolPage {
                     }
                     ToolFormRow {
                         label: qsTr("Spindle RPM")
-                        ToolField { model: tool.model; key: "spindleRPM"; decimals: 0 }
+                        ToolField { model: tool.model; key: "spindleRPM"; decimals: 0; defaultUnit: "RPM" }
                         ToolToggle { model: tool.model; key: "shouldDwell"; label: qsTr("Delay") }
                     }
                     ToolFormRow {

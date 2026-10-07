@@ -69,6 +69,9 @@ Panel {
             Item { Layout.fillWidth: true }
             Label {
                 objectName: "progressRemaining"
+                // The finish time (upstream's TooltipProvider: 700 ms).
+                property string tooltip: area.model.finishTime
+                property int tooltipDelay: 700
                 text: qsTr("%1 left").arg(area.model.remaining)
                 font.pixelSize: Theme.fontXs
                 color: Theme.contentSecondary

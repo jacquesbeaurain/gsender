@@ -28,6 +28,7 @@ Item {
             Label { text: qsTr("Spindle") }
             GSwitch {
                 objectName: "laserModeSwitch"
+                property string tooltip: qsTr("Enable Spindle or Laser mode")
                 checked: tab.model.laserMode
                 enabled: tab.model.canClick
                 onToggled: {
@@ -39,6 +40,7 @@ Item {
             GSelect {
                 id: spindleSelect
                 objectName: "spindleSelect"
+                tooltip: qsTr("Select a spindle")
                 visible: tab.model.grblHal && tab.model.spindles.length > 0
                 enabled: tab.model.canClick
                 model: tab.model.spindles
@@ -61,6 +63,7 @@ Item {
             spacing: 8
             ActiveStateButton {
                 objectName: "spindleForward"
+                tooltip: qsTr("Run spindle clockwise")
                 Layout.fillWidth: true
                 text: qsTr("Forward")
                 iconName: "FaRedoAlt"
@@ -71,6 +74,7 @@ Item {
             }
             ActiveStateButton {
                 objectName: "spindleReverse"
+                tooltip: qsTr("Run spindle counterclockwise")
                 Layout.fillWidth: true
                 text: qsTr("Reverse")
                 iconName: "FaUndoAlt"
@@ -81,6 +85,7 @@ Item {
             }
             ActiveStateButton {
                 objectName: "spindleStop"
+                tooltip: qsTr("Stop spindle")
                 Layout.fillWidth: true
                 text: qsTr("Stop")
                 iconName: "FaBan"
@@ -102,6 +107,8 @@ Item {
             }
             Slider {
                 objectName: "spindleSpeed"
+                property string tooltip: qsTr("Adjust spindle speed")
+                property string tooltipSide: "bottom"
                 visible: tab.model.speedSlider
                 from: tab.model.speedMin
                 to: tab.model.speedMax
@@ -114,6 +121,7 @@ Item {
             }
             NumberField {
                 objectName: "spindleSpeedInput"
+                tooltip: qsTr("Adjust spindle speed")
                 visible: !tab.model.speedSlider
                 value: tab.model.speed
                 decimals: 0
@@ -137,6 +145,7 @@ Item {
             spacing: 8
             ActiveStateButton {
                 objectName: "laserOn"
+                tooltip: qsTr("Turn on laser")
                 Layout.fillWidth: true
                 text: qsTr("Laser On")
                 iconName: "FaLightbulb"
@@ -147,6 +156,7 @@ Item {
             }
             ActiveStateButton {
                 objectName: "laserTest"
+                tooltip: qsTr("Turn on laser for Test Duration")
                 Layout.fillWidth: true
                 text: qsTr("Laser Test")
                 iconName: "FaSatelliteDish"
@@ -156,6 +166,7 @@ Item {
             }
             ActiveStateButton {
                 objectName: "laserOff"
+                tooltip: qsTr("Turn off laser")
                 Layout.fillWidth: true
                 text: qsTr("Off")
                 iconName: "FaRegLightbulb"
@@ -177,6 +188,7 @@ Item {
             }
             Slider {
                 objectName: "laserPower"
+                property string tooltip: qsTr("Adjust laser power")
                 from: 0
                 to: 100
                 stepSize: 1
@@ -199,6 +211,7 @@ Item {
             Label { text: qsTr("Test Duration:") }
             NumberField {
                 objectName: "laserDuration"
+                tooltip: qsTr("Laser test duration")
                 value: tab.model.duration
                 decimals: 1
                 horizontalAlignment: TextInput.AlignHCenter

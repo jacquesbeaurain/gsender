@@ -12,6 +12,8 @@ WizardStepPage {
     Slider {
         id: speed
         objectName: "autospin-test-speed"
+        property string tooltip: qsTr("Adjust spindle speed")
+        property string tooltipSide: "bottom"
         Layout.fillWidth: true
         from: page.model.spindleMin
         to: page.model.spindleMax
@@ -30,6 +32,7 @@ WizardStepPage {
         spacing: 12
         GButton {
             objectName: "autospin-start"
+            tooltip: qsTr("Run spindle clockwise (M3)")
             variant: "success"
             iconName: "LuPlay"
             text: qsTr("Start")
@@ -41,6 +44,7 @@ WizardStepPage {
         }
         GButton {
             objectName: "autospin-stop"
+            tooltip: qsTr("Stop spindle (M5)")
             variant: "error"
             text: qsTr("Stop")
             enabled: page.model.connected

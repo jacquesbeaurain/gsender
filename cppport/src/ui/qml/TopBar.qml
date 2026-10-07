@@ -57,9 +57,7 @@ Panel {
                 color: remoteState.running ? Theme.green[500] : Theme.contentDisabled
                 width: 24; height: 28
             }
-            HoverHandler { id: remoteHover }
-            ToolTip.visible: remoteHover.hovered
-            ToolTip.text: qsTr("Wireless Control")
+            property string tooltip: qsTr("Wireless Control")
             TapHandler { onTapped: remoteDialog.open() }
             RemoteDialog { id: remoteDialog; model: remoteState }
         }
@@ -79,9 +77,7 @@ Panel {
                     color: (parent.modelData.tool === "shortcuts" ? Backend.shortcutsEnabled : Backend.gamepadConnected) ? Theme.green[500] : Theme.contentMuted
                     width: 28; height: 28
                 }
-                HoverHandler { id: hover }
-                ToolTip.visible: hover.hovered
-                ToolTip.text: modelData.tip
+                property string tooltip: modelData.tip
                 TapHandler { onTapped: Backend.openTool(parent.modelData.tool) }
             }
         }
