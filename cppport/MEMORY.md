@@ -13,6 +13,7 @@
 - Git convention: Jacques wants small, focused commits (one logical change each), not one big commit per PR (said 2026-09-30 on the cleanup PR).
 - CI (added in cleanup PR #7, 2026-09-30): a cppport GitHub workflow builds and tests on Ubuntu only; QML warnings fail the UI tests. Windows/macOS code is not built by CI.
 - Memory tracking (decided 2026-10-06): this file (cppport/MEMORY.md) mirrors the project memory. Every memory change gets its own small commit here, via a PR into devcpp-pfpo06.
+- Workflow (said 2026-10-06): build and test in Release only; Debug only when Jacques asks. Keep test timeouts tight (about 2-3x the expected time); investigate a false hang rather than padding every wait.
 - gh CLI in the local checkout defaults to upstream Sienci-Labs/gsender; always pass `-R jacquesbeaurain/gsender` for PR commands.
 
 ## Where work runs (decided 2026-10-06)
