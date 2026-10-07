@@ -6,7 +6,7 @@ import GSender
 // Add New Task / Edit Task (MaintenanceAddTaskDialog, MaintenanceEditTaskDialog
 // and their MaintenanceTaskForm): the name, the range of hours it is due in,
 // the description; Delete (asked first) when editing.
-Popup {
+ModalDialog {
     id: dialog
     objectName: "maintenanceTaskDialog"
 
@@ -34,18 +34,7 @@ Popup {
             close()
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
-    padding: 24
-    width: Math.min(520, parent ? parent.width - 32 : 520)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
-    }
+    preferredWidth: 520
 
     contentItem: ColumnLayout {
         spacing: 8
@@ -80,7 +69,7 @@ Popup {
             Layout.preferredHeight: 100
             wrapMode: TextEdit.Wrap
             color: Theme.contentPrimary
-            background: Rectangle { radius: Theme.radiusSmall; color: Theme.dark ? Theme.surfaceSunken : "white"; border.color: Theme.outline }
+            background: Rectangle { radius: Theme.radiusSmall; color: Theme.field; border.color: Theme.outline }
         }
         RowLayout {
             Layout.fillWidth: true

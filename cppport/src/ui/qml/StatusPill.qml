@@ -132,11 +132,10 @@ Item {
         anchors.topMargin: 16
         implicitWidth: unlockRow.implicitWidth + 32
         implicitHeight: Theme.touchTarget + 4
-        background: Rectangle {
+        background: Panel {
             radius: height / 2
             color: unlock.pressed ? Theme.red[700] : Theme.red[500]
             border.color: Theme.red[800]
-            border.width: Theme.hairline
         }
         contentItem: Item {
             RowLayout {
@@ -160,16 +159,11 @@ Item {
     }
 
     // confirmUnlockAfterHomingFailure.
-    Popup {
+    ModalDialog {
         id: homingFailure
         objectName: "homingFailure"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        padding: 24
-        width: Math.min(520, parent ? parent.width - 32 : 520)
-        Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle { radius: Theme.radius; color: Theme.dark ? Theme.surfaceElevated : "white" }
+        preferredWidth: 520
+        background: Rectangle { radius: Theme.radius; color: Theme.surfaceElevated }
         contentItem: ColumnLayout {
             spacing: 12
             Label {

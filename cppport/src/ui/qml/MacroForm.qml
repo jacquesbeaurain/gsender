@@ -5,7 +5,7 @@ import GSender
 
 // Add Macro / Edit Macro (features/Macros/MacroForm): the name, the G-code -
 // with the Variables list inserting at the cursor - and the description.
-Popup {
+ModalDialog {
     id: form
     objectName: "macroForm"
 
@@ -35,25 +35,14 @@ Popup {
         close()
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
     focus: true
-    padding: 24
-    width: Math.min(640, parent ? parent.width - 32 : 640)
+    preferredWidth: 640
     height: Math.min(implicitHeight, parent ? parent.height - 32 : implicitHeight)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
-    }
 
     component FieldBox: Rectangle {
         property Item field
         radius: Theme.radiusSmall
-        color: Theme.dark ? Theme.surfaceSunken : "white"
+        color: Theme.field
         border.color: field && field.activeFocus ? Theme.ring : Theme.outline
         border.width: field && field.activeFocus ? 2 : 1
     }

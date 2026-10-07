@@ -15,7 +15,7 @@ AbstractButton {
 
     contentItem: Item {}
     background: Item {
-        Rectangle {
+        Panel {
             id: track
             anchors.verticalCenter: parent.verticalCenter
             width: 44
@@ -23,8 +23,7 @@ AbstractButton {
             radius: 12
             color: toggle.checked ? Theme.blue[600] : (Theme.dark ? Theme.surfaceElevated : Theme.gray[200])
             border.color: Theme.dark && !toggle.checked ? Theme.outline : "transparent"
-            border.width: Theme.hairline
-            Rectangle {
+            Panel {
                 x: toggle.checked ? parent.width - width - 2 : 2
                 anchors.verticalCenter: parent.verticalCenter
                 width: 20
@@ -32,7 +31,6 @@ AbstractButton {
                 radius: 10
                 color: "white"
                 border.color: toggle.checked ? "white" : Theme.gray[300]
-                border.width: Theme.hairline
                 Behavior on x { enabled: !Theme.reducedMotion; NumberAnimation { duration: 150 } }
             }
         }

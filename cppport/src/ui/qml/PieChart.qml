@@ -96,7 +96,7 @@ Item {
                 anchors.fill: parent
                 visible: arc.span > 0
                 ShapePath {
-                    strokeColor: Theme.dark ? Theme.surfaceRaised : "white"
+                    strokeColor: Theme.surfaceRaised
                     strokeWidth: 2
                     fillColor: chart.colorOf(slice.index)
                     startX: pie.width / 2; startY: pie.height / 2
@@ -115,7 +115,7 @@ Item {
             visible: chart.doughnut
             anchors.centerIn: parent
             width: pie.radius; height: width; radius: width / 2
-            color: Theme.dark ? Theme.surfaceRaised : "white"
+            color: Theme.surfaceRaised
         }
         TapHandler {
             onTapped: (point) => {

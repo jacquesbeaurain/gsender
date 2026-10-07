@@ -66,17 +66,14 @@ ToolPage {
                     columnSpacing: 16
                     Repeater {
                         model: tool.model.profiles.length
-                        Rectangle {
+                        Panel {
                             id: card
                             required property int index
                             readonly property var profile: tool.model.profiles[index] || ({})
                             objectName: "gamepadProfile_" + index
                             Layout.fillWidth: true
                             Layout.preferredHeight: 140
-                            radius: Theme.radius
-                            color: cardTap.pressed ? Theme.gray[300] : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
-                            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                            border.width: Theme.hairline
+                            color: cardTap.pressed ? Theme.gray[300] : Theme.secondary
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 16
@@ -240,13 +237,10 @@ ToolPage {
                     text: qsTr("Assign a \"Lockout\" button for gamepad safety, or a \"2nd Action\" button to use like a Function key and give your gamepad double the functions!")
                     color: Theme.contentPrimary
                 }
-                Rectangle {
+                Panel {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    radius: Theme.radius
-                    color: Theme.dark ? Theme.surfaceRaised : "white"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                    border.width: Theme.hairline
+                    border.color: Theme.outline
                     clip: true
                     ColumnLayout {
                         anchors.fill: parent
@@ -255,7 +249,7 @@ ToolPage {
                         Rectangle {
                             Layout.fillWidth: true
                             implicitHeight: 40
-                            color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+                            color: Theme.secondary
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8
@@ -295,11 +289,10 @@ ToolPage {
                                         horizontalAlignment: TextInput.AlignHCenter
                                         text: row.button.label !== undefined ? row.button.label : ""
                                         color: row.down ? "white" : Theme.contentPrimary
-                                        background: Rectangle {
+                                        background: Panel {
                                             radius: Theme.radiusSmall
-                                            color: row.down ? Theme.green[500] : (Theme.dark ? Theme.surfaceSunken : "white")
+                                            color: row.down ? Theme.green[500] : Theme.field
                                             border.color: row.down ? Theme.green[500] : Theme.outline
-                                            border.width: Theme.hairline
                                         }
                                         onEditingFinished: tool.model.setLabel(row.button.value, text)
                                     }
@@ -359,7 +352,7 @@ ToolPage {
                                     anchors.bottom: parent.bottom
                                     width: parent.width
                                     height: 1
-                                    color: Theme.dark ? Theme.outline : Theme.gray[200]
+                                    color: Theme.border
                                 }
                             }
                         }
@@ -374,13 +367,10 @@ ToolPage {
                 Layout.fillHeight: true
                 spacing: 8
                 Label { text: qsTr("Joystick Options"); font.pixelSize: Theme.fontXl; font.bold: true; color: Theme.contentPrimary }
-                Rectangle {
+                Panel {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    radius: Theme.radius
                     color: "transparent"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                    border.width: Theme.hairline
                     Flickable {
                         anchors.fill: parent
                         anchors.margins: 8
@@ -457,11 +447,10 @@ ToolPage {
                                     model: ["None", "X", "Y", "Z", "A"]
                                     currentIndex: Math.max(0, ["", "x", "y", "z", "a"].indexOf(action[field] || ""))
                                     onActivated: (i) => tool.model.setStick(row.stick, row.direction, field, ["", "x", "y", "z", "a"][i])
-                                    background: Rectangle {
+                                    background: Panel {
                                         radius: Theme.radiusSmall
-                                        color: axisBox.active ? Theme.green[500] : (!axisBox.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceSunken : "white"))
+                                        color: axisBox.active ? Theme.green[500] : (!axisBox.enabled ? Theme.surfaceDisabled : Theme.field)
                                         border.color: axisBox.active ? Theme.green[500] : Theme.outline
-                                        border.width: Theme.hairline
                                     }
                                     contentItem: Label {
                                         leftPadding: 8
@@ -581,21 +570,9 @@ ToolPage {
     }
 
     // Add Gamepad Profile (ProfileModal): press a button on the pad.
-    Popup {
+    ModalDialog {
         id: addPopup
         objectName: "gamepadAddPopup"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        padding: 24
-        width: Math.min(460, parent ? parent.width - 32 : 460)
-        Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle {
-            radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceElevated : "white"
-            border.color: Theme.outlineSubtle
-            border.width: Theme.hairline
-        }
         onAboutToShow: {
             tool.model.resetDetection()
             addName.text = ""
@@ -670,7 +647,7 @@ ToolPage {
 
     // Set Gamepad Profile Shortcut (SetShortcut): an action for a button,
     // or the button as the lockout or 2nd-action one.
-    Popup {
+    ModalDialog {
         id: actionPopup
         objectName: "gamepadActionPopup"
 
@@ -695,19 +672,8 @@ ToolPage {
             open()
         }
 
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        padding: 24
         width: parent ? Math.min(1200, parent.width * 0.85) : 900
         height: parent ? Math.min(760, parent.height - 64) : 700
-        Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle {
-            radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceElevated : "white"
-            border.color: Theme.outlineSubtle
-            border.width: Theme.hairline
-        }
 
         contentItem: ColumnLayout {
             spacing: 12
@@ -717,13 +683,11 @@ ToolPage {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 16
-                Rectangle {
+                Panel {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Theme.radiusSmall
                     color: "transparent"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                    border.width: Theme.hairline
                     clip: true
                     Flickable {
                         id: actionList

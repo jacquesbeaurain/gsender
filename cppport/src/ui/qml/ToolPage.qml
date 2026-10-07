@@ -37,7 +37,7 @@ Item {
                 onClicked: page.back()
             }
         }
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.dark ? Theme.outline : Theme.gray[200] }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
         Item {
             id: area
             Layout.fillWidth: true

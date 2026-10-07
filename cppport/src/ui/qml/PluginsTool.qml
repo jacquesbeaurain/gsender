@@ -29,11 +29,8 @@ ToolPage {
                 implicitHeight: 40
                 placeholderText: qsTr("Search plugins...")
                 color: Theme.contentPrimary
-                background: Rectangle {
-                    radius: Theme.radius
-                    color: Theme.dark ? Theme.surfaceRaised : "white"
-                    border.color: searchInput.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
-                    border.width: Theme.hairline
+                background: Panel {
+                    border.color: searchInput.activeFocus ? Theme.blue[500] : Theme.outline
                 }
                 onTextChanged: tool.model.search = text
             }
@@ -70,13 +67,10 @@ ToolPage {
         }
 
         // Main List or Empty State
-        Rectangle {
+        Panel {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: Theme.radius
             color: "transparent"
-            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            border.width: Theme.hairline
             clip: true
 
             // Empty state when no plugins are discovered
@@ -127,16 +121,13 @@ ToolPage {
                 model: tool.model.pluginsModel
                 boundsBehavior: Flickable.StopAtBounds
 
-                delegate: Rectangle {
+                delegate: Panel {
                     id: pluginCard
                     // The Repeater below shadows `model`, so it reads this instead.
                     readonly property var capabilities: model.capabilities
                     width: pluginsList.width
                     implicitHeight: cardContent.implicitHeight + 24
-                    radius: Theme.radius
-                    color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                    border.width: Theme.hairline
+                    color: Theme.surfaceSubtle
 
                     ColumnLayout {
                         id: cardContent

@@ -4,15 +4,13 @@ import GSender
 
 // The Stats page's card (StatCard): a rounded, bordered panel; its children
 // stack in a padded column (Layout.* attached properties apply).
-Rectangle {
+Panel {
     default property alias content: column.data
     property int padding: 8
     property alias spacing: column.spacing
 
     radius: 4
-    color: Theme.dark ? Theme.surfaceRaised : "white"
-    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-    border.width: Theme.hairline
+    border.color: Theme.outline
     implicitHeight: column.implicitHeight + 2 * padding
     implicitWidth: column.implicitWidth + 2 * padding
 

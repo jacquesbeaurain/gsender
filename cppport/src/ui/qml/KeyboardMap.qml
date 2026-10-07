@@ -6,7 +6,7 @@ import GSender
 // The keyboard map (Accessibility's "Show keyboard shortcut map"): the
 // shortcuts that work now, by category, over the bottom of the window; its
 // close button turns the setting off.
-Rectangle {
+Panel {
     id: map
     objectName: "keyboardMap"
 
@@ -26,7 +26,6 @@ Rectangle {
     radius: 12
     color: Qt.rgba(0, 0, 0, 0.9)
     border.color: Qt.rgba(1, 1, 1, 0.2)
-    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent
@@ -89,13 +88,12 @@ Rectangle {
                                     color: Qt.rgba(1, 1, 1, 0.75)
                                     font.pixelSize: Theme.fontSm
                                 }
-                                Rectangle {
+                                Panel {
                                     implicitWidth: keysLabel.implicitWidth + 12
                                     implicitHeight: 22
                                     radius: 4
                                     color: Qt.rgba(1, 1, 1, 0.1)
                                     border.color: Qt.rgba(1, 1, 1, 0.2)
-                                    border.width: Theme.hairline
                                     Label {
                                         id: keysLabel
                                         anchors.centerIn: parent

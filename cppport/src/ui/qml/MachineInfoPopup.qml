@@ -14,11 +14,9 @@ Popup {
 
     padding: 16
     width: 460
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
+    background: Panel {
+        color: Theme.surfaceElevated
         border.color: Theme.outline
-        border.width: Theme.hairline
     }
     contentItem: ColumnLayout {
         spacing: 10

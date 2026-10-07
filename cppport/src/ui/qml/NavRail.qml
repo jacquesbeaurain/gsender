@@ -44,13 +44,11 @@ Item {
             NumberAnimation { to: 0; duration: 500; easing.type: Easing.InQuad }
             onRunningChanged: if (!running) helperToggle.bounce = 0
         }
-        Rectangle {
+        Panel {
             anchors.fill: parent
             radius: 12
             visible: Backend.helperActive
             color: Qt.rgba(0xe6 / 255, 0xc8 / 255, 0xa5 / 255, 0.3)
-            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            border.width: Theme.hairline
         }
         Column {
             anchors.centerIn: parent
@@ -66,7 +64,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Backend.helperActive ? Backend.helperTitle : qsTr("Helper")
                 font.pixelSize: Theme.fontXs
-                color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                color: Theme.contentMuted
                 elide: Text.ElideRight
                 width: Math.min(implicitWidth, helperToggle.width - 4)
             }

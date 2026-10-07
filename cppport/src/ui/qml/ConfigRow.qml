@@ -48,7 +48,7 @@ Item {
         anchors.topMargin: row.first ? 0 : -8
         anchors.bottomMargin: -8
         radius: 8
-        color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+        color: Theme.secondary
     }
     Rectangle {
         visible: row.kind === "subsection"
@@ -67,7 +67,7 @@ Item {
         text: row.entry.label || ""
         font.pixelSize: 24
         color: Theme.primaryText
-        background: Rectangle { color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100] }
+        background: Rectangle { color: Theme.secondary }
     }
 
     // ---- settings and wizards ----
@@ -79,7 +79,7 @@ Item {
         anchors.bottomMargin: row.last ? 0 : -8
         radius: 8
         color: row.entry.changed ? (Theme.dark ? Qt.rgba(0.98, 0.8, 0.08, 0.12) : "#fefce8")
-                                : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
+                                : Theme.secondary
         Rectangle {
             visible: !!row.entry.changed
             y: 8
@@ -146,7 +146,7 @@ Item {
                 text: row.entry.label || ""
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontBase
-                color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+                color: Theme.contentBody
             }
         }
 
@@ -177,7 +177,7 @@ Item {
                 name: "BiReset"
                 width: 28
                 height: 28
-                color: resetHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[700])
+                color: resetHover.hovered ? Theme.blue[600] : Theme.contentBody
                 HoverHandler { id: resetHover }
                 ToolTip.visible: resetHover.hovered
                 ToolTip.text: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
@@ -196,7 +196,7 @@ Item {
             text: row.entry.description || ""
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSm
-            color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+            color: Theme.contentMuted
         }
 
         // A section's wizard.
@@ -255,12 +255,11 @@ Item {
                     readonly property bool on: row.entry.value === modelData
                     objectName: "configValue_" + row.key + "_" + modelData
                     spacing: 8
-                    Rectangle {
+                    Panel {
                         width: 24; height: 24; radius: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        color: option.on ? Theme.robin[500] : (Theme.dark ? Theme.surfaceRaised : "white")
+                        color: option.on ? Theme.robin[500] : Theme.surfaceRaised
                         border.color: option.on ? Theme.robin[500] : Theme.blue[500]
-                        border.width: Theme.hairline
                         Rectangle {
                             visible: option.on
                             anchors.centerIn: parent
@@ -327,12 +326,11 @@ Item {
     }
     Component {
         id: textareaEditor
-        Rectangle {
+        Panel {
             implicitHeight: 110
             radius: Theme.radiusSmall
-            color: Theme.dark ? Theme.surfaceSunken : "white"
+            color: Theme.field
             border.color: area.activeFocus ? Theme.ring : Theme.outline
-            border.width: Theme.hairline
             ScrollView {
                 anchors.fill: parent
                 anchors.margins: 4
@@ -458,13 +456,12 @@ Item {
                 }
                 Label { text: qsTr("Enabled"); color: Theme.contentPrimary }
             }
-            Rectangle {
+            Panel {
                 Layout.fillWidth: true
                 implicitHeight: 80
                 radius: Theme.radiusSmall
-                color: Theme.dark ? Theme.surfaceSunken : "white"
+                color: Theme.field
                 border.color: commands.activeFocus ? Theme.ring : Theme.outline
-                border.width: Theme.hairline
                 ScrollView {
                     anchors.fill: parent
                     anchors.margins: 4
@@ -528,7 +525,7 @@ Item {
             readonly property int value: Number(row.entry.value) || 0
             Repeater {
                 model: row.entry.bits || []
-                Rectangle {
+                Panel {
                     required property string modelData
                     required property int index
                     readonly property bool on: (parent.value >> index) & 1
@@ -541,7 +538,6 @@ Item {
                     opacity: usable && row.model.idle ? 1 : 0.5
                     color: on ? Theme.blue[500] : "transparent"
                     border.color: on ? Theme.blue[500] : Theme.outline
-                    border.width: Theme.hairline
                     Label {
                         id: bitLabel
                         anchors.centerIn: parent

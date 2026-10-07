@@ -60,11 +60,10 @@ Item {
         property color fill
         implicitWidth: 96
         implicitHeight: 44
-        background: Rectangle {
+        background: Panel {
             radius: 4
-            color: button.enabled ? button.fill : (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])
+            color: button.enabled ? button.fill : Theme.buttonDisabled
             border.color: (Theme.dark ? Theme.gray[400] : Theme.gray[600])
-            border.width: Theme.hairline
             opacity: button.pressed ? 0.85 : 1
         }
         // The icon and label sit centred together (upstream's justify-center).

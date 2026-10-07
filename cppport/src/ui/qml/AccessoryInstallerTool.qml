@@ -90,9 +90,9 @@ ToolPage {
                         Layout.preferredWidth: 1
                         implicitHeight: card.implicitHeight + 32
                         radius: 10
-                        color: Theme.dark ? Theme.surfaceRaised : "white"
+                        color: Theme.surfaceRaised
                         border.width: 2
-                        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                        border.color: Theme.border
                         ColumnLayout {
                             id: card
                             x: 16; y: 16
@@ -153,14 +153,12 @@ ToolPage {
                 ].filter(t => t !== "").join("<br>")
             }
             // ValidationBanner: the first failing reason.
-            Rectangle {
+            Panel {
                 visible: tool.failed.length > 0
                 Layout.fillWidth: true
                 implicitHeight: banner.implicitHeight + 20
-                radius: 8
                 color: "#fef9c3"
                 border.color: "#fde68a"
-                border.width: Theme.hairline
                 Label {
                     id: banner
                     objectName: "wizardChecks"

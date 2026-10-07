@@ -6,18 +6,13 @@ import GSender
 // Start From Line (JobControl/StartFromLine): where the job last stopped,
 // the recommendation to resume about 10 lines earlier, the line and the
 // safe height, then Start from Line.
-Popup {
+ModalDialog {
     id: popup
     objectName: "startFromLinePopup"
 
     property JobModel model
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
-    padding: 24
-    width: Math.min(480, parent ? parent.width - 32 : 480)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
+    preferredWidth: 480
 
     onOpened: {
         line.value = model.suggestedStartLine
@@ -26,7 +21,7 @@ Popup {
 
     background: Rectangle {
         radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
+        color: Theme.surfaceElevated
     }
 
     contentItem: ColumnLayout {

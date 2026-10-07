@@ -6,7 +6,7 @@ import GSender
 // Rotary Mounting Setup (features/Rotary/MountingSetup): whether the track
 // lines up, the end mill, the holes and the extension - the illustration
 // following them - then the program that bores the holes as the job.
-Popup {
+ModalDialog {
     id: dialog
     objectName: "mountingSetup"
 
@@ -25,19 +25,9 @@ Popup {
         open()
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
     padding: 20
-    width: Math.min(820, parent ? parent.width - 32 : 820)
+    preferredWidth: 820
     height: Math.min(implicitHeight, parent ? parent.height - 32 : implicitHeight)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
-    }
 
     // A question and its two answers.
     component Choice: RowLayout {

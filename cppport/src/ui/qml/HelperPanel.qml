@@ -12,7 +12,7 @@ Rectangle {
 
     visible: Backend.helperVisible
     radius: Theme.radius
-    color: Theme.dark ? Theme.surfaceElevated : "white"
+    color: Theme.surfaceElevated
     border.color: "#c27924"
     border.width: 2
 

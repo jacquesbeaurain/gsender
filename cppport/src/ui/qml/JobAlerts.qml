@@ -34,7 +34,7 @@ Item {
         padding: 24
         width: Math.min(460, parent ? parent.width - 32 : 460)
         Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle { radius: Theme.radius; color: Theme.dark ? Theme.surfaceElevated : "white" }
+        background: Rectangle { radius: Theme.radius; color: Theme.surfaceElevated }
     }
 
     AlertPopup {

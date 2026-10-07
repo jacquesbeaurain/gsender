@@ -6,7 +6,7 @@ import GSender
 // The job's progress over the visualizer (JobControl/ProgressArea,
 // SDCardProgress): the percentage, a bar, the time left and elapsed; the
 // file the SD card runs.
-Rectangle {
+Panel {
     id: area
     objectName: "progressArea"
 
@@ -16,9 +16,8 @@ Rectangle {
     width: 256
     implicitHeight: content.implicitHeight + 16
     radius: 2
-    color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+    color: Theme.secondary
     border.color: Theme.dark ? Theme.outline : Theme.gray[500]
-    border.width: Theme.hairline
 
     ColumnLayout {
         id: content

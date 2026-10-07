@@ -63,6 +63,10 @@ protected:
         machine_ = std::make_unique<app::Machine>(*loop_, (dir_.path() + "/rc").toStdWString());
         backend_ = std::make_unique<ui::UiBackend>(*machine_);
         ui::UiBackend::setInstance(backend_.get());
+        // GS_TEST_DARK=1: the screenshots in the dark theme.
+        if (qEnvironmentVariableIntValue("GS_TEST_DARK") != 0) {
+            backend_->setDarkMode(true);
+        }
         engine_ = std::make_unique<QQmlApplicationEngine>();
         window_ = ui::loadMainWindow(*engine_);
         ASSERT_NE(window_, nullptr);

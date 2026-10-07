@@ -49,15 +49,13 @@ Item {
         spacing: 8
         Repeater {
             model: area.toasts
-            Rectangle {
+            Panel {
                 required property var modelData
                 objectName: "toast"
                 implicitWidth: 360
                 implicitHeight: row.implicitHeight + 24
-                radius: Theme.radius
-                color: Theme.dark ? Theme.surfaceElevated : "white"
+                color: Theme.surfaceElevated
                 border.color: Theme.outline
-                border.width: Theme.hairline
                 // The type's rail.
                 Rectangle {
                     width: 4

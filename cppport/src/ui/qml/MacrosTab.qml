@@ -76,7 +76,7 @@ Item {
 
     Component {
         id: macroDelegate
-        Rectangle {
+        Panel {
             id: macroItem
             required property var modelData
             readonly property string macroId: modelData.id
@@ -85,10 +85,9 @@ Item {
             height: 48
             radius: Theme.radiusSmall
             opacity: tab.dragId === macroId ? 0.5 : 1
-            color: !tab.model.canRun ? (Theme.dark ? Theme.surfaceRaised : Theme.gray[300])
-                                     : (Theme.dark ? Theme.surfaceRaised : "white")
-            border.color: !tab.model.canRun ? Theme.gray[400] : (Theme.dark ? Theme.outline : Theme.gray[200])
-            border.width: Theme.hairline
+            color: !tab.model.canRun ? Theme.buttonDisabled
+                                     : Theme.surfaceRaised
+            border.color: !tab.model.canRun ? Theme.gray[400] : Theme.border
 
             Timer { id: runTimer; interval: 4000; onTriggered: macroItem.running = false }
 
@@ -293,7 +292,7 @@ Item {
     }
 
     // What is being dragged, under the finger.
-    Rectangle {
+    Panel {
         visible: tab.dragId !== ""
         x: tab.dragAt.x - width / 2
         y: tab.dragAt.y - height / 2
@@ -301,9 +300,8 @@ Item {
         width: column1.width
         height: 48
         radius: Theme.radiusSmall
-        color: Theme.dark ? Theme.surfaceElevated : "white"
+        color: Theme.surfaceElevated
         border.color: Theme.robin[500]
-        border.width: Theme.hairline
         Label {
             anchors.fill: parent
             anchors.leftMargin: 10

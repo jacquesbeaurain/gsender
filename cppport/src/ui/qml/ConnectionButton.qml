@@ -9,7 +9,7 @@ import GSender
 // firmware. Disconnected, a tap lists the ports (PortListings); connected, a
 // red "Disconnect" overlay fades in over it on hover (DisconnectButton), and
 // a tap shows it for a few seconds where there is no hover.
-Rectangle {
+Panel {
     id: button
     objectName: "connectionButton"
 
@@ -19,10 +19,8 @@ Rectangle {
     // upstream's min-w-[180px] h-10: it grows to fit "Connect to CNC".
     implicitWidth: Math.max(180, row.implicitWidth + 32)
     implicitHeight: 40
-    radius: Theme.radius
-    color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+    color: Theme.secondary
     border.color: Theme.dark ? Theme.outline : Theme.gray[400]
-    border.width: Theme.hairline
 
     // The glow behind it until connected (a blue-300 to blue-800 gradient,
     // upstream blurs it; stronger on hover).
@@ -101,7 +99,7 @@ Rectangle {
                 objectName: "connectionFirmware"
                 text: Backend.firmwareLabel
                 font.pixelSize: Theme.fontSm
-                color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                color: Theme.contentMuted
                 padding: 0
                 Layout.alignment: Qt.AlignRight
                 Layout.preferredHeight: 20
@@ -198,7 +196,7 @@ Rectangle {
                     Label {
                         text: entry.detail
                         font.pixelSize: Theme.fontSm
-                        color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                        color: Theme.contentMuted
                         Layout.alignment: Qt.AlignRight
                     }
                 }
@@ -220,11 +218,9 @@ Rectangle {
             }
         }
 
-        background: Rectangle {
+        background: Panel {
             radius: Theme.radiusSmall
-            color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.outline
-            border.width: Theme.hairline
         }
 
         contentItem: ColumnLayout {

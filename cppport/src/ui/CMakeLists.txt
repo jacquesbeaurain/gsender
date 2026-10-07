@@ -20,6 +20,8 @@ qt_add_qml_module(gs_ui
         qml/Theme.qml
         qml/Icon.qml
         qml/Card.qml
+        qml/Panel.qml
+        qml/ModalDialog.qml
         qml/TopBar.qml
         qml/ConnectionButton.qml
         qml/StatusPill.qml

@@ -104,14 +104,14 @@ Item {
                             text: modelData.label
                             font.pixelSize: Theme.fontSm   // upstream's text-sm
                             font.weight: Font.DemiBold
-                            color: parent.selected ? (Theme.dark ? Theme.blue[400] : Theme.blue[600])
+                            color: parent.selected ? Theme.primaryText
                                                    : (Theme.dark ? Theme.contentSecondary : Theme.gray[600])
                         }
                         Rectangle {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: 2
-                            color: parent.selected ? (Theme.dark ? Theme.blue[400] : Theme.blue[600]) : "transparent"
+                            color: parent.selected ? Theme.primaryText : "transparent"
                         }
                         TapHandler { onTapped: tools.select(modelData.key, parent) }
                     }

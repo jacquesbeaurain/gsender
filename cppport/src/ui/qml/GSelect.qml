@@ -10,11 +10,10 @@ ComboBox {
     implicitHeight: 40
     font.pixelSize: Theme.fontBase
 
-    background: Rectangle {
+    background: Panel {
         radius: 6
-        color: !select.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceRaised : "white")
-        border.color: select.visualFocus || select.popup.visible ? Theme.ring : (Theme.dark ? Theme.outline : Theme.gray[300])
-        border.width: Theme.hairline
+        color: !select.enabled ? Theme.surfaceDisabled : Theme.surfaceRaised
+        border.color: select.visualFocus || select.popup.visible ? Theme.ring : Theme.outline
     }
     indicator: Icon {
         x: select.width - width - 12
@@ -61,11 +60,10 @@ ComboBox {
             currentIndex: select.highlightedIndex
             ScrollIndicator.vertical: ScrollIndicator {}
         }
-        background: Rectangle {
+        background: Panel {
             radius: 6
-            color: Theme.dark ? Theme.surfaceElevated : "white"
-            border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-            border.width: Theme.hairline
+            color: Theme.surfaceElevated
+            border.color: Theme.outline
         }
     }
 }

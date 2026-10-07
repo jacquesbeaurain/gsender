@@ -7,23 +7,17 @@ import GSender
 // light - green once the pin has triggered, which the routine waits for
 // unless the settings skip the check or it is confirmed by hand - and Start
 // Probe.
-Popup {
+ModalDialog {
     id: dialog
     objectName: "runProbe"
 
     property ProbeModel model
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
     padding: 16
-    width: Math.min(650, parent ? parent.width - 32 : 650)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
+    preferredWidth: 650
+    background: Panel {
+        color: Theme.muted
         border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
     }
 
     contentItem: ColumnLayout {

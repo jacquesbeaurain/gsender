@@ -47,13 +47,11 @@ Item {
                 spacing: 4
                 model: page.model.tasks
                 ScrollBar.vertical: GScrollBar {}
-                delegate: Rectangle {
+                delegate: Panel {
                     required property var modelData
                     width: ListView.view.width
                     implicitHeight: Math.max(64, taskRow.implicitHeight + 16)
                     color: "transparent"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                    border.width: Theme.hairline
                     radius: 4
                     RowLayout {
                         id: taskRow

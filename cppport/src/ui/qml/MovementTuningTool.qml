@@ -65,14 +65,13 @@ ToolPage {
                     color: Theme.contentPrimary
                     text: qsTr("Whichever axis you'll be tuning, please place it in an initial location so that it'll have space to move to the right (for X), backwards (for Y), and downwards (for Z).")
                 }
-                Rectangle {
+                Panel {
                     visible: !tool.model.connected
                     Layout.fillWidth: true
                     implicitHeight: note.implicitHeight + 16
                     radius: 6
                     color: "#fef9c3"
                     border.color: "#fde68a"
-                    border.width: Theme.hairline
                     Label {
                         id: note
                         anchors.fill: parent
@@ -97,13 +96,12 @@ ToolPage {
                 Layout.fillWidth: true
                 spacing: 12
                 Label { text: qsTr("Instructions"); font.bold: true; font.pixelSize: Theme.fontLg; color: Theme.contentPrimary }
-                Rectangle {
+                Panel {
                     Layout.fillWidth: true
                     implicitHeight: instruction.implicitHeight + 24
                     radius: 6
                     color: Theme.dark ? Theme.surfaceRaised : "#eff6ff"
                     border.color: Theme.dark ? Theme.outline : "#bfdbfe"
-                    border.width: Theme.hairline
                     Label {
                         id: instruction
                         objectName: "tuningInstruction"

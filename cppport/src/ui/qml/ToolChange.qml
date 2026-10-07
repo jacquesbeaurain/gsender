@@ -68,14 +68,14 @@ Item {
         height: 32
         radius: 4
         color: "transparent"
-        border.color: Theme.dark ? Theme.outline : Theme.gray[300]
+        border.color: Theme.outline
         border.width: Theme.hairline
         Icon { anchors.centerIn: parent; name: parent.iconName; color: Theme.contentMuted; width: 14; height: 14 }
         TapHandler { onTapped: parent.tapped() }
     }
 
     // Minimised: a pill at the top of the visualizer.
-    Rectangle {
+    Panel {
         objectName: "toolChangePill"
         visible: root.model.active && root.minimized
         x: (root.width * 0.67 - width) / 2
@@ -85,7 +85,6 @@ Item {
         radius: height / 2
         color: Theme.dark ? Theme.surfaceElevated : Qt.rgba(1, 1, 1, 0.9)
         border.color: Theme.outline
-        border.width: Theme.hairline
         RowLayout {
             id: pillRow
             anchors.centerIn: parent
@@ -98,7 +97,7 @@ Item {
     }
 
     // The wizard.
-    Rectangle {
+    Panel {
         id: panel
         objectName: "toolChangeWizard"
         visible: root.model.active && !root.minimized
@@ -106,11 +105,8 @@ Item {
         height: Math.min(500, root.height - 80)
         x: (root.width * 0.67 - width) / 2
         y: (root.height - height) / 2
-        radius: Theme.radius
         clip: true
-        color: Theme.dark ? Theme.surfaceRaised : "white"
         border.color: Theme.outline
-        border.width: Theme.hairline
 
         // Blocks what is beneath it.
         TapHandler {}
@@ -124,7 +120,7 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
-                color: Theme.dark ? Theme.surfaceBase : Theme.gray[100]
+                color: Theme.surfaceBase
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 12
@@ -152,7 +148,7 @@ Item {
                 Rectangle {
                     Layout.preferredWidth: 230
                     Layout.fillHeight: true
-                    color: Theme.dark ? Theme.surfaceBase : Theme.gray[50]
+                    color: Theme.surfaceBar
                     Flickable {
                         anchors.fill: parent
                         contentHeight: stepColumn.implicitHeight
@@ -273,16 +269,14 @@ Item {
                             }
                         }
                         // Install New Tool.
-                        Rectangle {
+                        Panel {
                             objectName: "toolBanner"
                             visible: !!root.model.current.toolBanner && root.model.toolLabel !== ""
                             Layout.alignment: Qt.AlignHCenter
                             Layout.preferredWidth: 320
                             implicitHeight: bannerColumn.implicitHeight + 24
-                            radius: 8
                             color: Theme.dark ? "#0d2518" : "#ecfdf5"
                             border.color: "#6ee7b7"
-                            border.width: Theme.hairline
                             Column {
                                 id: bannerColumn
                                 anchors.centerIn: parent
@@ -359,7 +353,7 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 60
-                color: Theme.dark ? Theme.surfaceBase : Theme.gray[50]
+                color: Theme.surfaceBar
                 Rectangle { width: parent.width; height: 1; color: Theme.outlineSubtle }
                 RowLayout {
                     anchors.fill: parent

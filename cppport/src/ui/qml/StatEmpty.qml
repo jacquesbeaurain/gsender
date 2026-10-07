@@ -14,11 +14,11 @@ ColumnLayout {
         name: parent.icon
         width: 60
         height: 60
-        color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+        color: Theme.contentBody
     }
     Label {
         Layout.alignment: Qt.AlignHCenter
         text: parent.text
-        color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+        color: Theme.contentBody
     }
 }

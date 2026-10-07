@@ -54,13 +54,11 @@ ColumnLayout {
                 color: "#1e40af"
             }
         }
-        Rectangle {
+        Panel {
             Layout.fillWidth: true
             implicitHeight: code.implicitHeight + 16
             radius: 6
             color: Theme.dark ? Theme.surfaceSunken : Theme.gray[50]
-            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            border.width: Theme.hairline
             Column {
                 id: code
                 objectName: "commandPreview"
@@ -148,7 +146,7 @@ ColumnLayout {
         Layout.fillWidth: true
         implicitHeight: link.implicitHeight + 20
         radius: 8
-        color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
+        color: Theme.surfaceSubtle
         Label {
             id: link
             anchors.fill: parent

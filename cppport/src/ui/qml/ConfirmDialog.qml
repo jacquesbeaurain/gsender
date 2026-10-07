@@ -5,7 +5,7 @@ import GSender
 
 // An AlertDialog: title, question, Cancel and the action. open() it;
 // `accepted` fires on the action.
-Popup {
+ModalDialog {
     id: dialog
 
     property string title
@@ -16,21 +16,7 @@ Popup {
     signal accepted()
     signal rejected()  // Cancel (not closing it otherwise)
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
     focus: true
-    padding: 24
-    width: Math.min(460, parent ? parent.width - 32 : 460)
-
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
-    }
 
     contentItem: ColumnLayout {
         spacing: 12

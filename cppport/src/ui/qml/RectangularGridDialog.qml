@@ -9,7 +9,7 @@ import GSender
 // the probe is parked, the run with its progress and Stop; the port's
 // Manual points, probed where the operator jogs to; the probe circuit's
 // light as the run step has it; and the points saved as one CSV.
-Popup {
+ModalDialog {
     id: dialog
     objectName: "rectangularGrid"
 
@@ -24,19 +24,13 @@ Popup {
         open()
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
     // Never closed out from under a live capture: Stop is the way out.
     closePolicy: model.running ? Popup.NoAutoClose : Popup.CloseOnEscape | Popup.CloseOnPressOutside
     padding: 16
-    width: Math.min(780, parent ? parent.width - 32 : 780)
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
+    preferredWidth: 780
+    background: Panel {
+        color: Theme.muted
         border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
     }
 
     readonly property bool canStart: probe && probe.circuitChecked && model.canClick && !model.running
@@ -132,13 +126,11 @@ Popup {
                 font.bold: true
                 color: Theme.dark ? Theme.contentPrimary : Theme.robin[700]
             }
-            Rectangle {
+            Panel {
                 implicitWidth: modes.implicitWidth + 4
                 implicitHeight: modes.implicitHeight + 4
                 radius: Theme.radiusSmall
-                color: Theme.dark ? Theme.surfaceRaised : "white"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                border.width: Theme.hairline
+                border.color: Theme.outline
                 Row {
                     id: modes
                     anchors.centerIn: parent

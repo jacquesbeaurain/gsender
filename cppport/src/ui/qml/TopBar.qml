@@ -5,15 +5,14 @@ import GSender
 
 // The top bar (workspace/TopBar): the connection at the left, the machine
 // state hanging from the middle, the status icons at the right.
-Rectangle {
+Panel {
     id: bar
     objectName: "topBar"
+    radius: 0
 
     // Upstream's h-14, and h-12 below the xl breakpoint.
     implicitHeight: Window.window && Window.window.width <= 1280 ? 48 : 56
-    color: Theme.topBar
-    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-    border.width: Theme.hairline
+    color: Theme.surfaceBar
 
     // The gSender logo (40 px) and the connection button after it.
     Image {

@@ -101,7 +101,7 @@ ColumnLayout {
                         color: Theme.dark ? Theme.contentPrimary : Theme.robin[500]
                         background: Rectangle {   // upstream's input: white (raised, outlined in dark)
                             radius: 4
-                            color: Theme.dark ? Theme.surfaceRaised : "white"
+                            color: Theme.surfaceRaised
                             border.color: parent.activeFocus ? Theme.ring : (Theme.dark ? Theme.outline : "transparent")
                             border.width: Theme.hairline
                         }
@@ -123,13 +123,10 @@ ColumnLayout {
         }
         Item { Layout.fillWidth: true }
         // The presets (SpeedSelector).
-        Rectangle {
+        Panel {
             implicitWidth: 92
             implicitHeight: presets.implicitHeight
-            radius: 8
-            color: Theme.dark ? Theme.surfaceRaised : "white"
             border.color: Theme.outlineSubtle
-            border.width: Theme.hairline
             ColumnLayout {
                 id: presets
                 anchors.fill: parent

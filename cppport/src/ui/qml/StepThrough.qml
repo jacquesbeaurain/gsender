@@ -10,7 +10,7 @@ import GSender
 // and the status (position, modals - those the line changed marked - and
 // hiding the lines already run). Landscape: three columns; portrait: the
 // visualizer on top.
-Popup {
+ModalDialog {
     id: dialog
     objectName: "stepThrough"
 
@@ -22,20 +22,10 @@ Popup {
         open()
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
     width: parent ? parent.width * 0.92 : 1200
     height: parent ? parent.height * 0.9 : 800
-    modal: true
     padding: 16
     onClosed: model.stopPlaying()
-    Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
-    }
 
     component SectionTitle: Label {
         font.pixelSize: Theme.fontXs
@@ -44,8 +34,8 @@ Popup {
     }
     component Panel: Rectangle {
         radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
-        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+        color: Theme.surfaceSubtle
+        border.color: Theme.border
         border.width: Theme.hairline
     }
 
@@ -242,7 +232,7 @@ Popup {
                     }
                 }
                 // The whole current line, refreshed at rest.
-                Rectangle {
+                Panel {
                     id: readout
                     objectName: "stepLineReadout"
                     readonly property bool idle: !dialog.model.playing && !scrubber.pressed
@@ -250,11 +240,8 @@ Popup {
                     property string lineText: ""
                     Layout.fillWidth: true
                     Layout.preferredHeight: Math.min(96, readoutRow.implicitHeight + 16)
-                    radius: Theme.radius
                     opacity: idle ? 1 : 0.5
-                    color: Theme.dark ? Theme.surfaceSunken : "white"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                    border.width: Theme.hairline
+                    color: Theme.field
                     function refresh() {
                         if (idle) {
                             number = dialog.model.line
@@ -325,9 +312,9 @@ Popup {
                             height: Math.max(52, cardRow.implicitHeight + 12)
                             radius: 6
                             opacity: tool.hidden ? 0.5 : 1
-                            color: Theme.dark ? Theme.surfaceElevated : "white"
+                            color: Theme.surfaceElevated
                             border.width: active ? 2 : 1
-                            border.color: active ? tool.color : (Theme.dark ? Theme.outline : Theme.gray[300])
+                            border.color: active ? tool.color : Theme.outline
                             Rectangle { width: 4; height: parent.height; radius: 2; color: card.tool.color || "transparent" }
                             TapHandler { onTapped: dialog.model.goToLine(card.tool.startLine) }
                             RowLayout {
@@ -370,12 +357,11 @@ Popup {
                                     color: Theme.contentMuted
                                 }
                                 // The eye: shown or hidden.
-                                Rectangle {
+                                Panel {
                                     objectName: "stepToolEye_" + card.index
                                     width: Theme.touchTarget; height: 32; radius: 4
                                     color: card.tool.hidden ? "transparent" : (card.tool.color || "transparent")
-                                    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                                    border.width: Theme.hairline
+                                    border.color: Theme.outline
                                     Icon {
                                         anchors.centerIn: parent
                                         name: card.tool.hidden ? "LuEyeOff" : "LuEye"
@@ -461,13 +447,10 @@ Popup {
                         enabled: dialog.model.total > 0 && dialog.model.line !== 1
                         onClicked: dialog.model.reset()
                     }
-                    Rectangle {
+                    Panel {
                         Layout.fillWidth: true
                         implicitHeight: speedRow.implicitHeight + 8
-                        radius: Theme.radius
                         color: "transparent"
-                        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                        border.width: Theme.hairline
                         RowLayout {
                             id: speedRow
                             anchors.fill: parent
@@ -526,15 +509,14 @@ Popup {
                     columnSpacing: 4
                     Repeater {
                         model: dialog.model.modals.length
-                        Rectangle {
+                        Panel {
                             required property int index
                             readonly property var modal: dialog.model.modals[index] || ({})
                             Layout.fillWidth: true
                             implicitHeight: modalColumn.implicitHeight + 6
                             radius: 3
                             color: modal.changed ? Qt.rgba(0x3b / 255, 0x82 / 255, 0xf6 / 255, 0.2) : "transparent"
-                            border.color: modal.changed ? "#3b82f6" : (Theme.dark ? Theme.outline : Theme.gray[300])
-                            border.width: Theme.hairline
+                            border.color: modal.changed ? "#3b82f6" : Theme.outline
                             Column {
                                 id: modalColumn
                                 anchors.centerIn: parent

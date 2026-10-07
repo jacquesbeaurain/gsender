@@ -68,9 +68,9 @@ Item {
                     Layout.preferredWidth: control.model.recentFiles.length > 0 ? 320 : 96
                     Layout.fillHeight: true
                     radius: 12
-                    color: Theme.dark ? Theme.surfaceRaised : "white"
+                    color: Theme.surfaceRaised
                     border.width: 2
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    border.color: Theme.border
                     clip: true
                     ListView {
                         objectName: "recentFiles"
@@ -251,13 +251,13 @@ Item {
                                 (text, c) => cells.push({ text: text, bold: r === 0 || c === 0, first: c === 0 })))
                             return cells
                         }
-                        Rectangle {
+                        Panel {
+                            radius: 0
                             required property var modelData
                             width: modelData.first ? 24 : 64
                             height: 22
                             color: "transparent"
-                            border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                            border.width: Theme.hairline
+                            border.color: Theme.outline
                             Label {
                                 anchors.centerIn: parent
                                 text: parent.modelData.text
@@ -298,7 +298,7 @@ Item {
         width: buttons.implicitWidth + 4
         height: 42
         radius: Theme.radiusSmall
-        color: Theme.dark ? Theme.surfaceRaised : "white"
+        color: Theme.surfaceRaised
         border.color: Theme.blue[500]
         border.width: 2
         clip: true
@@ -307,7 +307,7 @@ Item {
             anchors.fill: parent
             anchors.margins: 2
             spacing: 0
-            component Divider: Rectangle { width: 2; Layout.fillHeight: true; color: Theme.dark ? Theme.outline : Theme.gray[300] }
+            component Divider: Rectangle { width: 2; Layout.fillHeight: true; color: Theme.outline }
             GButton {
                 objectName: "loadFile"
                 variant: "ghost"

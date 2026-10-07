@@ -79,15 +79,13 @@ Item {
             Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
-            Rectangle {
+            Panel {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: -3
                 implicitWidth: routines.implicitWidth + 4
                 implicitHeight: routines.implicitHeight + 4
                 radius: Theme.radiusSmall
-                color: Theme.dark ? Theme.surfaceRaised : "white"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                border.width: Theme.hairline
+                border.color: Theme.outline
                 Row {
                     id: routines
                     anchors.centerIn: parent
@@ -140,11 +138,10 @@ Item {
                     width: Math.max(toolButton.width, 240)
                     padding: 4
                     margins: 8  // kept inside the window: above the button near the bottom
-                    background: Rectangle {
+                    background: Panel {
                         radius: Theme.radiusSmall
-                        color: Theme.dark ? Theme.surfaceElevated : "white"
+                        color: Theme.surfaceElevated
                         border.color: Theme.outline
-                        border.width: Theme.hairline
                     }
                     contentItem: ColumnLayout {
                         spacing: 4
@@ -282,12 +279,11 @@ Item {
                     Repeater {
                         // Top left, top right, bottom left, bottom right.
                         model: [1, 2, 0, 3]
-                        Rectangle {
+                        Panel {
                             required property int modelData
                             width: 8; height: 8; radius: 4
                             color: modelData === tab.model.corner ? Theme.blue[500] : "transparent"
                             border.color: Theme.contentMuted
-                            border.width: Theme.hairline
                         }
                     }
                 }

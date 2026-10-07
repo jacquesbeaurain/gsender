@@ -25,14 +25,10 @@ ToolPage {
         RowLayout {
             Layout.fillWidth: true
             spacing: 16
-            Rectangle {
+            Panel {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
                 implicitHeight: 64
-                radius: Theme.radius
-                color: Theme.dark ? Theme.surfaceRaised : "white"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 16
@@ -57,14 +53,10 @@ ToolPage {
                     }
                 }
             }
-            Rectangle {
+            Panel {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
                 implicitHeight: 64
-                radius: Theme.radius
-                color: Theme.dark ? Theme.surfaceRaised : "white"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 12
@@ -128,8 +120,8 @@ ToolPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceRaised : "white"
-            border.color: dropArea.containsDrag ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[200])
+            color: Theme.surfaceRaised
+            border.color: dropArea.containsDrag ? Theme.blue[500] : Theme.border
             border.width: dropArea.containsDrag ? 2 : 1
             clip: true
 
@@ -179,7 +171,7 @@ ToolPage {
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
+                    color: Theme.muted
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 16
@@ -299,22 +291,11 @@ ToolPage {
 
     // UploadModal: files browsed for or dropped in, each with its size and
     // a remove button; Upload sends them all.
-    Popup {
+    ModalDialog {
         id: uploadModal
         objectName: "sdUploadModal"
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        padding: 24
-        width: Math.min(480, parent ? parent.width - 32 : 480)
+        preferredWidth: 480
         onClosed: tool.model.clearPending()
-        Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle {
-            radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceElevated : "white"
-            border.color: Theme.outlineSubtle
-            border.width: Theme.hairline
-        }
         contentItem: ColumnLayout {
             spacing: 12
             Label { text: qsTr("Upload Files"); font.pixelSize: Theme.fontLg; font.bold: true; color: Theme.contentPrimary }

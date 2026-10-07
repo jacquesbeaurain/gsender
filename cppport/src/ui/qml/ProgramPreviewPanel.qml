@@ -5,7 +5,7 @@ import GSender
 
 // A tool's generated program: the Visualizer Preview and G-Code tabs (the
 // second once there is a program, with its line count).
-Rectangle {
+Panel {
     id: panel
 
     property string program
@@ -16,8 +16,6 @@ Rectangle {
 
     radius: Theme.radiusSmall
     color: "transparent"
-    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent
@@ -35,7 +33,7 @@ Rectangle {
                     Layout.fillWidth: true
                     height: Theme.touchTarget
                     enabled: index === 0 || panel.lines > 0
-                    color: panel.tab === index ? (Theme.dark ? Theme.surfaceRaised : "white") : (Theme.dark ? Theme.surfaceBase : Theme.gray[100])
+                    color: panel.tab === index ? Theme.surfaceRaised : Theme.surfaceBase
                     Label {
                         anchors.centerIn: parent
                         text: modelData

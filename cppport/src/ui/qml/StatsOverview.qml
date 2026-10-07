@@ -38,7 +38,7 @@ Flickable {
         spacing: 6
         Label {
             text: parent.label
-            color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+            color: Theme.contentBody
             font.pixelSize: Theme.fontBase
         }
         Item {
@@ -51,7 +51,7 @@ Flickable {
                 clip: true
                 Repeater {
                     model: Math.ceil(parent.width / 4)
-                    Rectangle { width: 2; height: 2; color: Theme.dark ? Theme.outline : Theme.gray[300] }
+                    Rectangle { width: 2; height: 2; color: Theme.outline }
                 }
             }
         }
@@ -163,14 +163,13 @@ Flickable {
                                     Layout.fillWidth: true
                                 }
                                 Label { text: modelData.duration; color: Theme.contentSecondary; font.pixelSize: Theme.fontSm }
-                                Rectangle {
+                                Panel {
                                     readonly property color tone: modelData.complete ? Theme.green[500] : Theme.red[500]
                                     implicitWidth: Math.max(76, status.implicitWidth + 12)
                                     implicitHeight: 22
                                     radius: 11
                                     color: Qt.rgba(tone.r, tone.g, tone.b, 0.2)
                                     border.color: tone
-                                    border.width: Theme.hairline
                                     Label {
                                         id: status
                                         anchors.centerIn: parent
@@ -269,8 +268,8 @@ Flickable {
                     Layout.fillWidth: true
                     implicitHeight: linkRow.implicitHeight + 24
                     radius: 4
-                    color: Theme.dark ? Theme.surfaceRaised : "white"
-                    border.color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    color: Theme.surfaceRaised
+                    border.color: Theme.border
                     border.width: 2
                     Rectangle { width: parent.width; height: 2; color: Theme.blue[500] }
                     RowLayout {
@@ -322,7 +321,7 @@ Flickable {
                     Layout.preferredHeight: 160
                     verticalAlignment: Text.AlignVCenter
                     text: qsTr("No Alarms or Errors recorded. Hooray!")
-                    color: Theme.dark ? Theme.contentPrimary : Theme.gray[700]
+                    color: Theme.contentBody
                 }
                 Repeater {
                     model: page.model.alarmPreview

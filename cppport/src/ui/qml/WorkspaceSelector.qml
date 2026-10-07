@@ -56,12 +56,11 @@ RowLayout {
             font.pixelSize: Theme.fontSm
             verticalAlignment: Text.AlignVCenter
         }
-        background: Rectangle {
+        background: Panel {
             radius: 4
             color: !combo.enabled ? (Theme.dark ? Theme.surfaceDisabled : Theme.gray[300])
-                 : Theme.dark ? Theme.surfaceRaised : "white"
+                 : Theme.surfaceRaised
             border.color: Theme.dark ? selector.workspaces[selector.current].color : Theme.gray[300]
-            border.width: Theme.hairline
         }
         delegate: ItemDelegate {
             required property var modelData

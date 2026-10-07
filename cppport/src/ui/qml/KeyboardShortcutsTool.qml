@@ -49,13 +49,10 @@ ToolPage {
         }
 
         // The table.
-        Rectangle {
+        Panel {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: Theme.radius
             color: "transparent"
-            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            border.width: Theme.hairline
             clip: true
             ColumnLayout {
                 anchors.fill: parent
@@ -64,7 +61,7 @@ ToolPage {
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 40
-                    color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+                    color: Theme.secondary
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 16
@@ -93,7 +90,7 @@ ToolPage {
                         objectName: "shortcutRow_" + (action.id || "")
                         width: table.width
                         implicitHeight: 52
-                        color: index % 2 ? (Theme.dark ? Theme.surfaceRaised : Theme.gray[50]) : "transparent"
+                        color: index % 2 ? Theme.surfaceSubtle : "transparent"
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
@@ -108,15 +105,14 @@ ToolPage {
                             Item {
                                 Layout.preferredWidth: 200
                                 Layout.fillHeight: true
-                                Rectangle {
+                                Panel {
                                     objectName: "shortcutKeys_" + (row.action.id || "")
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.max(72, keysLabel.implicitWidth + 24)
                                     height: 32
                                     radius: 4
-                                    color: keysTap.pressed ? Theme.gray[300] : (Theme.dark ? Theme.surfaceElevated : "white")
-                                    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                                    border.width: Theme.hairline
+                                    color: keysTap.pressed ? Theme.gray[300] : Theme.surfaceElevated
+                                    border.color: Theme.outline
                                     Label {
                                         id: keysLabel
                                         anchors.centerIn: parent
@@ -158,7 +154,7 @@ ToolPage {
     }
 
     // Recording an action's keys.
-    Popup {
+    ModalDialog {
         id: keyEditor
         objectName: "shortcutEditor"
 
@@ -175,19 +171,7 @@ ToolPage {
             open()
         }
 
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        padding: 24
-        width: Math.min(460, parent ? parent.width - 32 : 460)
         onOpened: capture.forceActiveFocus()
-        Overlay.modal: Rectangle { color: Qt.rgba(0, 0, 0, 0.5) }
-        background: Rectangle {
-            radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceElevated : "white"
-            border.color: Theme.outlineSubtle
-            border.width: Theme.hairline
-        }
 
         contentItem: ColumnLayout {
             spacing: 12

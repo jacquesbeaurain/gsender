@@ -7,7 +7,7 @@ import GSender
 // render.action): a + to add one, else its title with Edit and
 // Remove. Green while the button runs it (pressed, with or without the
 // 2nd-action button as it needs).
-Rectangle {
+Panel {
     id: cell
 
     property string actionId
@@ -22,8 +22,7 @@ Rectangle {
     implicitHeight: 44
     radius: Theme.radiusSmall
     color: highlighted ? Theme.green[500] : "transparent"
-    border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-    border.width: Theme.hairline
+    border.color: Theme.outline
 
     // None yet: the +.
     Item {

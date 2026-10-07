@@ -25,7 +25,7 @@ Item {
         gradient: Gradient {
             orientation: Gradient.Horizontal
             GradientStop { position: 0.4; color: Theme.dark ? Qt.rgba(59 / 255, 130 / 255, 246 / 255, 0.2) : Qt.rgba(121 / 255, 170 / 255, 216 / 255, 0.3) }
-            GradientStop { position: 1.0; color: Theme.dark ? Theme.surfaceRaised : "white" }
+            GradientStop { position: 1.0; color: Theme.surfaceRaised }
         }
         // The page side stays open.
         Rectangle {
@@ -35,7 +35,7 @@ Item {
             anchors.topMargin: 2
             anchors.bottomMargin: 2
             width: 2
-            color: Theme.dark ? Theme.surfaceRaised : "white"
+            color: Theme.surfaceRaised
         }
     }
     // The rail's edge beside the entries that are not shown.
@@ -54,7 +54,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: link.icon !== ""
             name: link.icon
-            color: link.active ? Theme.blue[600] : (Theme.dark ? Theme.contentMuted : Theme.gray[600])
+            color: link.active ? Theme.blue[600] : Theme.contentMuted
             width: 24
             height: 24
         }

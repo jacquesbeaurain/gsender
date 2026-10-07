@@ -49,7 +49,7 @@ Item {
         confirm.open()
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceRaised : "white" }
+    Rectangle { anchors.fill: parent; color: Theme.surfaceRaised }
 
     // upstream's max-xl: the page is in its compact sizes.
     readonly property bool compact: Window.window && Window.window.width <= 1280
@@ -71,7 +71,7 @@ Item {
         signal clicked()
         implicitWidth: Math.max(64, actionLabel.implicitWidth + 40)
         implicitHeight: 48
-        Rectangle { visible: action.dividerBefore; width: 1; height: parent.height; color: Theme.dark ? Theme.outline : Theme.gray[200] }
+        Rectangle { visible: action.dividerBefore; width: 1; height: parent.height; color: Theme.border }
         Rectangle {
             anchors.fill: parent
             color: actionTap.pressed || actionHover.hovered ? (Theme.dark ? Theme.surfaceHover : Theme.gray[50]) : "transparent"
@@ -85,14 +85,14 @@ Item {
                 name: action.iconName
                 width: 20
                 height: 20
-                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])) : Theme.gray[400]
+                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : Theme.contentSoft) : Theme.gray[400]
             }
             Label {
                 id: actionLabel
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: action.label
                 font.pixelSize: Theme.fontSm
-                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])) : Theme.gray[400]
+                color: action.enabled ? (actionHover.hovered ? Theme.blue[600] : Theme.contentSoft) : Theme.gray[400]
             }
         }
         HoverHandler { id: actionHover }
@@ -105,12 +105,10 @@ Item {
 
         // The sections (Menu): an icon and the name, spread over the height;
         // the EEPROM tab has none.
-        Rectangle {
+        Panel {
+            radius: 0
             Layout.preferredWidth: 203
             Layout.fillHeight: true
-            color: Theme.dark ? Theme.surfaceRaised : "white"
-            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-            border.width: Theme.hairline
             Column {
                 id: menu
                 anchors.fill: parent
@@ -135,7 +133,7 @@ Item {
                                 name: page.sectionIcons[sectionItem.modelData] || "FaCog"
                                 width: page.compact ? 20 : 24
                                 height: width
-                                color: sectionItem.current ? Theme.primaryText : (sectionHover.hovered ? Theme.blue[600] : (Theme.dark ? Theme.contentPrimary : Theme.gray[600]))
+                                color: sectionItem.current ? Theme.primaryText : (sectionHover.hovered ? Theme.blue[600] : Theme.contentSoft)
                             }
                             Label {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -157,12 +155,10 @@ Item {
             spacing: 0
 
             // Search, the modified filter, the application's preferences.
-            Rectangle {
+            Panel {
+                radius: 0
                 Layout.fillWidth: true
                 implicitHeight: 73
-                color: Theme.dark ? Theme.surfaceRaised : "white"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                border.width: Theme.hairline
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: page.compact ? 20 : 96
@@ -181,11 +177,9 @@ Item {
                             placeholderText: qsTr("Search Config")
                             color: Theme.contentPrimary
                             onTextChanged: page.model.search = text
-                            background: Rectangle {
-                                radius: 8
+                            background: Panel {
                                 color: Theme.dark ? Theme.surfaceElevated : Theme.gray[50]
-                                border.color: searchField.activeFocus ? Theme.blue[500] : (Theme.dark ? Theme.outline : Theme.gray[300])
-                                border.width: Theme.hairline
+                                border.color: searchField.activeFocus ? Theme.blue[500] : Theme.outline
                             }
                         }
                         Icon {
@@ -197,14 +191,12 @@ Item {
                             color: Theme.contentMuted
                         }
                     }
-                    Rectangle {
+                    Panel {
                         objectName: "configSearchClear"
                         Layout.preferredWidth: clearLabel.implicitWidth + 20
                         Layout.preferredHeight: 41
-                        radius: 8
                         color: Theme.robin[400]
                         border.color: Theme.blue[400]
-                        border.width: Theme.hairline
                         Label { id: clearLabel; anchors.centerIn: parent; text: qsTr("Clear"); color: "white"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold }
                         TapHandler { onTapped: searchField.text = "" }
                     }
@@ -229,20 +221,18 @@ Item {
                     Item {
                         Layout.preferredWidth: prefs.implicitWidth + 2
                         Layout.preferredHeight: 66
-                        Rectangle {
+                        Panel {
                             anchors.fill: parent
                             anchors.topMargin: 9
                             radius: 4
                             color: "transparent"
-                            border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                            border.width: Theme.hairline
                         }
                         Rectangle {   // the legend interrupts the border
                             x: 10
                             width: legend.implicitWidth + 8
                             height: legend.implicitHeight
-                            color: Theme.dark ? Theme.surfaceRaised : "white"
-                            Label { id: legend; anchors.centerIn: parent; text: qsTr("gSender Preferences"); color: Theme.dark ? Theme.contentPrimary : Theme.gray[600] }
+                            color: Theme.surfaceRaised
+                            Label { id: legend; anchors.centerIn: parent; text: qsTr("gSender Preferences"); color: Theme.contentSoft }
                         }
                         Row {
                             id: prefs
@@ -278,12 +268,11 @@ Item {
             }
 
             // All Config | EEPROM.
-            Rectangle {
+            Panel {
+                radius: 0
                 Layout.fillWidth: true
                 implicitHeight: 37
-                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                border.width: Theme.hairline
+                color: Theme.muted
                 Row {
                     anchors.fill: parent
                     Repeater {
@@ -299,7 +288,7 @@ Item {
                                 visible: tabItem.current
                                 anchors.fill: parent
                                 anchors.margins: 3
-                                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[100]
+                                color: Theme.muted
                             }
                             Label {
                                 anchors.centerIn: parent
@@ -343,14 +332,12 @@ Item {
                     width: list.width - list.leftMargin - list.rightMargin
                     height: page.model.connected ? 0 : 68
                     visible: !page.model.connected
-                    Rectangle {
+                    Panel {
                         objectName: "configNotConnected"
                         anchors.fill: parent
                         anchors.bottomMargin: 16
-                        radius: 8
                         color: "#fefce8"   // the notice keeps its light colours in dark mode
                         border.color: "#fde047"
-                        border.width: Theme.hairline
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
@@ -401,18 +388,15 @@ Item {
         anchors.bottomMargin: page.compact ? 16 : 32
         width: barRow.implicitWidth + 32
         height: 64
-        color: Theme.dark ? Theme.surfaceRaised : "white"
+        color: Theme.surfaceRaised
         RowLayout {
             id: barRow
             anchors.centerIn: parent
             spacing: 16
-            Rectangle {
+            Panel {
                 implicitHeight: 48
                 implicitWidth: profileRow.implicitWidth + 2
-                radius: 8
                 color: "transparent"
-                border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                border.width: Theme.hairline
                 RowLayout {
                     id: profileRow
                     anchors.centerIn: parent
@@ -475,7 +459,7 @@ Item {
                 radius: 6
                 color: "transparent"
                 border.width: 3
-                border.color: active ? Theme.green[600] : (Theme.dark ? Theme.outline : Theme.gray[300])
+                border.color: active ? Theme.green[600] : Theme.outline
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 3

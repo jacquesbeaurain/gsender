@@ -63,7 +63,7 @@ Item {
         function onToolRequested(name) { tools.open(name) }
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceBase : "white" }
+    Rectangle { anchors.fill: parent; color: Theme.background }
 
     // The cards: the heading stays, the cards scroll under it (upstream's
     // py-4 px-8 page, and a scroll area that ends 64 px short of the bottom).
@@ -83,7 +83,7 @@ Item {
             wrapMode: Text.Wrap
             text: qsTr("Tools are plugins that can be installed and used to extend the functionality of gSender. Some are built in to gSender, some are third party plugins.")
             font.pixelSize: Theme.fontSm
-            color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+            color: Theme.contentMuted
         }
         Flickable {
             id: flickable
@@ -102,17 +102,14 @@ Item {
                 columnSpacing: 16
                 Repeater {
                     model: tools.allCards
-                    Rectangle {
+                    Panel {
                         required property var modelData
                         objectName: "toolCard_" + modelData.key
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
                         Layout.preferredHeight: 224
-                        radius: Theme.radius
                         color: cardTap.pressed || cardHover.hovered ? (Theme.dark ? Theme.surfaceHover : Theme.gray[300])
-                                                                    : (Theme.dark ? Theme.surfaceRaised : Theme.gray[100])
-                        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-                        border.width: Theme.hairline
+                                                                    : Theme.secondary
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 16
@@ -137,7 +134,7 @@ Item {
                                     wrapMode: Text.Wrap
                                     text: modelData.description
                                     font.pixelSize: Theme.fontSm
-                                    color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+                                    color: Theme.contentMuted
                                 }
                             }
                             Icon {

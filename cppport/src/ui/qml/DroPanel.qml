@@ -59,7 +59,7 @@ Item {
             text: dro.model.units
             font.pixelSize: Theme.fontXs
             font.weight: Font.DemiBold
-            color: Theme.dark ? Theme.contentMuted : Theme.gray[600]
+            color: Theme.contentMuted
         }
         TapHandler { onTapped: dro.model.toggleUnits() }
     }
@@ -167,7 +167,7 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     height: 1
-                    color: Theme.dark ? Theme.outline : Theme.gray[200]
+                    color: Theme.border
                 }
 
                 RowLayout {
@@ -197,11 +197,10 @@ Item {
                         font.bold: true
                         font.family: Theme.monoFont
                         color: Theme.primaryText
-                        background: Rectangle {
+                        background: Panel {
                             radius: 4
-                            color: parent.activeFocus ? (Theme.dark ? Theme.surfaceSunken : "white") : "transparent"
+                            color: parent.activeFocus ? Theme.field : "transparent"
                             border.color: parent.activeFocus ? Theme.ring : "transparent"
-                            border.width: Theme.hairline
                         }
                         onCommitted: (value) => dro.model.setWorkPosition(row.modelData.axis, value)
                     }

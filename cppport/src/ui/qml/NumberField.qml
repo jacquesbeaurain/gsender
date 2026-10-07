@@ -37,7 +37,7 @@ TextField {
 
     background: Rectangle {
         radius: Theme.radiusSmall
-        color: !field.enabled ? Theme.surfaceDisabled : (Theme.dark ? Theme.surfaceRaised : "white")
+        color: !field.enabled ? Theme.surfaceDisabled : Theme.surfaceRaised
         border.color: field.activeFocus ? Theme.ring : Theme.outline
         border.width: field.activeFocus ? 2 : 1
     }

@@ -8,7 +8,7 @@ import GSender
 // unreachable - and the port at the left; the phone's QR code and the
 // address to type at the right. Saving applies at once (upstream saved and
 // restarted the application).
-Popup {
+ModalDialog {
     id: dialog
     objectName: "remoteDialog"
 
@@ -28,18 +28,15 @@ Popup {
         dirty = false
     }
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    width: Math.min(760, parent ? parent.width - 32 : 760)
+    preferredWidth: 760
     padding: 20
-    modal: true
     onOpened: load()
 
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceElevated : "white"
+    // The Basic style's dim, not the other dialogs' black.
+    Overlay.modal: Rectangle { color: Qt.alpha(dialog.palette.shadow, 0.5) }
+    background: Panel {
+        color: Theme.surfaceElevated
         border.color: Theme.outline
-        border.width: Theme.hairline
     }
 
     // For "Copy": QML has no clipboard of its own.

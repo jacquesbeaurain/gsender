@@ -8,7 +8,7 @@ import GSender
 // for a range) - with the job's progress while it runs (read-only then),
 // search (Ctrl+F) and jump to line floating top right, scroll to top; below,
 // Jump, Search, Select all, Copy, Delete, Revert and Save.
-Rectangle {
+Panel {
     id: editor
     objectName: "gcodeEditor"
 
@@ -38,9 +38,7 @@ Rectangle {
 
     visible: false
     radius: Theme.radiusSmall
-    color: Theme.dark ? Theme.surfaceRaised : "white"
     border.color: Theme.dark ? Theme.outline : "transparent"
-    border.width: Theme.hairline
 
     component Chip: Rectangle {
         property alias text: chipLabel.text
@@ -112,13 +110,13 @@ Rectangle {
                 onClicked: editor.close()
             }
         }
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.dark ? Theme.outline : Theme.gray[300] }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline }
 
         // The lines.
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
+            color: Theme.secondary
             clip: true
 
             ListView {
@@ -247,7 +245,7 @@ Rectangle {
             }
 
             // Search, floating top right.
-            Rectangle {
+            Panel {
                 id: searchBox
                 objectName: "editorSearchBox"
                 visible: false
@@ -257,9 +255,8 @@ Rectangle {
                 width: searchRow.implicitWidth + 16
                 height: searchRow.implicitHeight + 16
                 radius: 4
-                color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
-                border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                border.width: Theme.hairline
+                color: Theme.secondary
+                border.color: Theme.outline
                 RowLayout {
                     id: searchRow
                     anchors.centerIn: parent
@@ -286,7 +283,7 @@ Rectangle {
                 }
             }
             // Jump to line, floating top right.
-            Rectangle {
+            Panel {
                 id: jumpBox
                 objectName: "editorJumpBox"
                 visible: false
@@ -296,9 +293,8 @@ Rectangle {
                 width: jumpRow.implicitWidth + 16
                 height: jumpRow.implicitHeight + 16
                 radius: 4
-                color: Theme.dark ? Theme.surfaceRaised : Theme.gray[100]
-                border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-                border.width: Theme.hairline
+                color: Theme.secondary
+                border.color: Theme.outline
                 function jump() {
                     const row = editor.model.jumpRow(jumpField.text)
                     if (row >= 0) {
@@ -345,7 +341,7 @@ Rectangle {
                 onClicked: list.positionViewAtBeginning()
             }
         }
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.dark ? Theme.outline : Theme.gray[300] }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline }
 
         // The actions.
         RowLayout {

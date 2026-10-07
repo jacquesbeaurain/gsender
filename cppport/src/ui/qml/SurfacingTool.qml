@@ -66,7 +66,7 @@ ToolPage {
                                     objectName: "surfacingStart_" + modelData.key
                                     x: modelData.x; y: modelData.y
                                     width: 32; height: 32; radius: 16
-                                    color: Theme.dark ? Theme.surfaceRaised : "white"
+                                    color: Theme.surfaceRaised
                                     border.width: 2
                                     border.color: Theme.blue[500]
                                     Rectangle {

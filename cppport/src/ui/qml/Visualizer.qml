@@ -58,7 +58,7 @@ Rectangle {
     }
 
     // Accessibility's G-code summary, shown visually (AccessibilityAnnouncer).
-    Rectangle {
+    Panel {
         objectName: "jobSummary"
         visible: Backend.jobSummary !== ""
         anchors.left: parent.left
@@ -67,9 +67,7 @@ Rectangle {
         width: Math.min(560, workspaceSelector.x - 16)
         height: summaryColumn.implicitHeight + 24
         radius: Theme.radiusSmall
-        color: Theme.surfaceRaised
         border.color: Theme.outlineSubtle
-        border.width: Theme.hairline
         Rectangle { width: 4; height: parent.height; radius: 2; color: Theme.primary }
         ColumnLayout {
             id: summaryColumn
@@ -115,7 +113,7 @@ Rectangle {
         spacing: 8
 
         // Iso View
-        Rectangle {
+        Panel {
             id: btnIso
             objectName: "view3D"
             width: 36
@@ -123,7 +121,6 @@ Rectangle {
             radius: 18
             color: Qt.rgba(12/255, 16/255, 20/255, 0.75)
             border.color: Qt.rgba(156/255, 163/255, 175/255, 0.4)
-            border.width: Theme.hairline
 
             Icon {
                 anchors.centerIn: parent
@@ -275,7 +272,7 @@ Rectangle {
     Repeater {
         id: visualizerOverlays
         model: visualizerPluginsModel.count >= 0 ? visualizerPluginsModel.contributions("visualizer-overlay") : []
-        Rectangle {
+        Panel {
             required property var modelData
             visible: frame.activeOverlayPluginId === modelData.pluginId
             anchors.right: parent.right
@@ -283,10 +280,7 @@ Rectangle {
             anchors.bottom: parent.bottom
             anchors.margins: 16
             width: 320
-            radius: Theme.radius
-            color: Theme.dark ? Theme.surfaceRaised : "white"
-            border.color: Theme.dark ? Theme.outline : Theme.gray[300]
-            border.width: Theme.hairline
+            border.color: Theme.outline
             clip: true
             z: 20
 

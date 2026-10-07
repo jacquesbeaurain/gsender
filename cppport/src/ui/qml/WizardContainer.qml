@@ -5,7 +5,7 @@ import GSender
 
 // Reusable container for multi-step wizards providing standard title bar,
 // step breadcrumbs/progress dots, and navigation action footer.
-Rectangle {
+Panel {
     id: root
 
     property string title: ""
@@ -21,10 +21,7 @@ Rectangle {
     signal restartClicked()
     signal cancelClicked()
 
-    radius: Theme.radius
-    color: Theme.dark ? Theme.surfaceRaised : "white"
     border.color: Theme.outline
-    border.width: Theme.hairline
 
     ColumnLayout {
         anchors.fill: parent
@@ -34,7 +31,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 48
-            color: Theme.dark ? Theme.surfaceBase : Theme.gray[100]
+            color: Theme.surfaceBase
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 16
@@ -61,7 +58,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 56
-            color: Theme.dark ? Theme.surfaceBase : Theme.gray[50]
+            color: Theme.surfaceBar
             Rectangle { width: parent.width; height: 1; color: Theme.outlineSubtle }
             RowLayout {
                 anchors.fill: parent

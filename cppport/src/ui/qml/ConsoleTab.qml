@@ -102,13 +102,12 @@ Item {
         }
 
         // The lines.
-        Rectangle {
+        Panel {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: 4
             color: Theme.consoleColors.surface
             border.color: Theme.consoleColors.border
-            border.width: Theme.hairline
             clip: true
 
             ListView {
@@ -207,11 +206,10 @@ Item {
                 color: Theme.contentPrimary
                 placeholderTextColor: Theme.contentMuted
                 enabled: tab.model.connected
-                background: Rectangle {
+                background: Panel {
                     radius: Theme.radiusSmall
-                    color: Theme.dark ? Theme.surfaceSunken : "white"
+                    color: Theme.field
                     border.color: input.activeFocus ? Theme.ring : Theme.outline
-                    border.width: Theme.hairline
                 }
                 function execute() {
                     if (tab.model.submit(text))
@@ -251,7 +249,7 @@ Item {
         objectName: "consoleDisconnected"
         anchors.fill: parent
         radius: Theme.radius
-        color: Theme.dark ? Theme.surfaceRaised : Theme.gray[50]
+        color: Theme.surfaceSubtle
         visible: !tab.model.connected
         ColumnLayout {
             anchors.centerIn: parent

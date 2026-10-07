@@ -21,7 +21,7 @@ Item {
             current = name
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.dark ? Theme.surfaceBase : Theme.gray[50] }
+    Rectangle { anchors.fill: parent; color: Theme.surfaceBar }
 
     // The scroll area ends short of the window's bottom and its scrollbar sits
     // 32 px in (upstream's fixed-content-area).
@@ -59,7 +59,7 @@ Item {
     }
 
     // StatMenu.
-    Rectangle {
+    Panel {
         objectName: "statMenu"
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 16
@@ -68,9 +68,7 @@ Item {
         width: menuRow.implicitWidth + 8
         height: menuRow.implicitHeight + 8
         radius: Theme.radiusSmall
-        color: Theme.dark ? Theme.surfaceElevated : "white"
-        border.color: Theme.dark ? Theme.outline : Theme.gray[200]
-        border.width: Theme.hairline
+        color: Theme.surfaceElevated
         Row {
             id: menuRow
             anchors.centerIn: parent
@@ -97,7 +95,7 @@ Item {
                         text: modelData.label
                         font.pixelSize: Theme.fontSm
                         font.weight: Font.DemiBold
-                        color: parent.active ? Theme.primaryText : (Theme.dark ? Theme.contentPrimary : Theme.gray[600])
+                        color: parent.active ? Theme.primaryText : Theme.contentSoft
                     }
                     TapHandler { onTapped: stats.current = modelData.key }
                 }

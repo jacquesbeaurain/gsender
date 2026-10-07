@@ -13,7 +13,7 @@ ApplicationWindow {
     height: 800
     visible: true
     title: qsTr("gSender")
-    color: Theme.dark ? Theme.surfaceBase : "white"
+    color: Theme.background
 
     font.pixelSize: Theme.fontBase
 
@@ -21,13 +21,13 @@ ApplicationWindow {
     // would otherwise follow the operating system's light or dark setting:
     // set them from the app's own theme.
     palette {
-        window: Theme.dark ? Theme.surfaceBase : "white"
+        window: Theme.background
         windowText: Theme.contentPrimary
-        base: Theme.dark ? Theme.surfaceSunken : "white"
+        base: Theme.field
         alternateBase: Theme.surfaceRaised
         text: Theme.contentPrimary
         placeholderText: Theme.contentMuted
-        button: Theme.dark ? Theme.surfaceRaised : "white"
+        button: Theme.surfaceRaised
         buttonText: Theme.contentPrimary
         highlight: Theme.blue[500]
         highlightedText: "white"

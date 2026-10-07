@@ -86,9 +86,12 @@ QtObject {
     readonly property color outline: dark ? "#59687B" : gray[300]
     readonly property color outlineStrong: dark ? "#72849D" : gray[400]
     readonly property color outlineDisabled: dark ? "#3A444F" : gray[200]
-    // shadcn primitives.
+    // shadcn primitives (index.css: the same names, light and dark).
     readonly property color background: dark ? surfaceBase : "#ffffff"
     readonly property color card: dark ? surfaceRaised : "#ffffff"
+    readonly property color secondary: dark ? surfaceRaised : gray[100]   // also the widget cards
+    readonly property color muted: dark ? surfaceElevated : gray[100]
+    readonly property color border: dark ? outline : gray[200]
     readonly property color primary: blue[600]
     readonly property color primaryForeground: "#ffffff"
     // Blue text and icons on a surface (text-blue-600 dark:text-blue-400).
@@ -96,11 +99,21 @@ QtObject {
     readonly property color destructive: red[500]
     readonly property color ring: blue[500]
 
-    // The top bar (bg-gray-50 / surface-base) and the widget cards
-    // (Widget.Content: bg-gray-100 border-gray-300 / surface-raised outline).
-    readonly property color topBar: dark ? surfaceBase : gray[50]
-    readonly property color widget: dark ? surfaceRaised : gray[100]
-    readonly property color widgetBorder: dark ? outline : gray[300]
+    // The pairs upstream's components spell out (bg-gray-50 dark:bg-dark...),
+    // named for where they recur.
+    // A text box's fill: white, sunken in dark.
+    readonly property color field: dark ? surfaceSunken : "#ffffff"
+    // Bars and page grounds a shade off white: the top bar, the wizards'
+    // header and footer, the Stats page.
+    readonly property color surfaceBar: dark ? surfaceBase : gray[50]
+    // Rows and list items a shade off white (striped rows, notifications).
+    readonly property color surfaceSubtle: dark ? surfaceRaised : gray[50]
+    // A disabled button's fill.
+    readonly property color buttonDisabled: dark ? surfaceRaised : gray[300]
+    // Grey text that is white in dark: menus and secondary buttons
+    // (text-gray-600), Stats and Config body text (text-gray-700).
+    readonly property color contentSoft: dark ? contentPrimary : gray[600]
+    readonly property color contentBody: dark ? contentPrimary : gray[700]
 
     // Sizes: upstream's rem scale (1rem = 16px) and the touch targets it
     // keeps on its buttons (min-h-11 = 44px).
