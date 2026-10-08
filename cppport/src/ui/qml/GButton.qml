@@ -108,7 +108,8 @@ AbstractButton {
                 color: button.textColor
                 font.pixelSize: button.fontSize
                 font.family: button.mono ? Theme.monoFont : font.family
-                font.bold: button.bold
+                // shadcn's font-medium (Chromium draws Segoe UI's Semibold for it).
+                font.weight: button.bold ? Font.Bold : Font.DemiBold
                 anchors.verticalCenter: parent.verticalCenter
             }
         }

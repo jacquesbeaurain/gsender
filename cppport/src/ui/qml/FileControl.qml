@@ -48,7 +48,7 @@ Item {
         // Without a file: the recent files and the last job.
         RowLayout {
             anchors.fill: parent
-            anchors.topMargin: 38
+            anchors.topMargin: -2
             spacing: 24
             visible: !control.model.loaded
             ColumnLayout {
@@ -56,16 +56,18 @@ Item {
                 Layout.fillHeight: true
                 Layout.preferredWidth: 3
                 Layout.maximumWidth: 16777215   // a layout's maximum is its non-filling children's
-                // Upstream centres the heading over the list, which is only as wide
-                // as it needs (a small empty box without recent files).
+                // Upstream's heading (ml-6) over the list (ml-2, h-28, h-[6.5rem] at
+                // 1280): as wide as the column, or a small box without recent files.
                 Label {
                     text: qsTr("Recent Files")
-                    Layout.alignment: Qt.AlignHCenter
+                    Layout.leftMargin: 21
                 }
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: control.model.recentFiles.length > 0 ? 320 : 96
-                    Layout.fillHeight: true
+                Panel {
+                    Layout.leftMargin: 5
+                    Layout.fillWidth: control.model.recentFiles.length > 0
+                    Layout.preferredWidth: 96
+                    Layout.preferredHeight: Window.window && Window.window.width <= 1280 ? 104 : 112
+                    Layout.alignment: Qt.AlignTop
                     radius: 12
                     color: Theme.surfaceRaised
                     border.width: 2
@@ -74,19 +76,27 @@ Item {
                     ListView {
                         objectName: "recentFiles"
                         anchors.fill: parent
-                        anchors.margins: 4
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 16
                         model: control.model.recentFiles
                         delegate: Item {
                             required property var modelData
+                            required property int index
                             property string tooltip: modelData.name
                             property int tooltipDelay: 700
                             width: ListView.view.width
-                            height: Theme.touchTarget
+                            height: 41   // py-2 around the text, and divide-y's line
+                            Rectangle {
+                                visible: index > 0
+                                width: parent.width
+                                height: 1
+                                color: Theme.border
+                            }
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 6
-                                spacing: 6
-                                Icon { name: "LiaFileUploadSolid"; size: 24 }
+                                anchors.topMargin: 1
+                                spacing: 4
+                                Icon { name: "LiaFileUploadSolid"; size: 24; Layout.preferredWidth: 30; fillMode: Image.Pad; horizontalAlignment: Image.AlignLeft }
                                 Label {
                                     text: parent.parent.modelData.name
                                     elide: Text.ElideRight
@@ -106,7 +116,8 @@ Item {
                 }
             }
             ColumnLayout {
-                visible: control.model.lastJob.file !== undefined
+                // Upstream's 2fr column stays, empty, without a last job.
+                opacity: control.model.lastJob.file !== undefined ? 1 : 0
                 Layout.preferredWidth: 2
                 Layout.fillWidth: true
                 spacing: 12
@@ -312,7 +323,7 @@ Item {
             anchors.fill: parent
             anchors.margins: 2
             spacing: 0
-            component Divider: Rectangle { width: 2; Layout.fillHeight: true; color: Theme.outline }
+            component Divider: Rectangle { width: 2; Layout.fillHeight: true; color: Theme.blue[500] }
             GButton {
                 objectName: "loadFile"
                 variant: "ghost"
