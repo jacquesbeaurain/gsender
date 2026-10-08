@@ -42,6 +42,11 @@ Item {
 
         // upstream's grid-cols-[5fr_3fr]
         ColumnLayout {
+            id: grid5
+            // The grid's column is as wide as its widest item, which the plate
+            // button and the routines' box both fill (w-full in a grid).
+            readonly property real contentWidth: Math.max(routinesPanel.routinesWidth,
+                                                          tab.model.plateSwitcher ? plateButton.naturalWidth : 0)
             Layout.alignment: Qt.AlignTop
             Layout.preferredWidth: (tab.width - 8) * 5 / 8
             Layout.maximumWidth: (tab.width - 8) * 5 / 8
@@ -56,8 +61,13 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
             GButton {
+                id: plateButton
+                readonly property real naturalWidth: Math.max(Theme.touchTarget, contentItem.implicitWidth + 24)
                 anchors.centerIn: parent
+                width: grid5.contentWidth
+                implicitHeight: 32   // size="sm"
                 objectName: "probePlate"
+                tooltip: qsTr("Change Probe Type")
                 text: tab.model.plateType
                 fontSize: Theme.fontSm
                 onClicked: plateMenu.popup(this, 0, height)
@@ -80,15 +90,20 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
             Panel {
+                id: routinesPanel
+                readonly property real routinesWidth: routines.implicitWidth + 4
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: -3
-                implicitWidth: routines.implicitWidth + 4
+                implicitWidth: grid5.contentWidth
                 implicitHeight: routines.implicitHeight + 4
                 radius: Theme.radiusSmall
                 border.color: Theme.outline
                 Row {
                     id: routines
-                    anchors.centerIn: parent
+                    // flex: the routines start at the left (a lone Z does not centre).
+                    anchors.left: parent.left
+                    anchors.leftMargin: 2
+                    anchors.verticalCenter: parent.verticalCenter
                     Repeater {
                         model: tab.model.commands
                         Rectangle {
