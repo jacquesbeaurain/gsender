@@ -30,6 +30,7 @@ public:
 
     /** Adds a directory path to search for installed plugins. */
     void addSearchPath(const QString& path);
+    const QStringList& searchPaths() const noexcept { return searchPaths_; }
 
     /** Scans all registered search paths for plugin manifests. */
     void scanPlugins();

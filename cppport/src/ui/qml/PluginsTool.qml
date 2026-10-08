@@ -17,6 +17,26 @@ ToolPage {
         anchors.fill: parent
         spacing: 12
 
+        // Plugins directory: a link that opens it (PluginManager).
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            Label { text: qsTr("Plugins directory:"); color: Theme.contentBody; font.pixelSize: Theme.fontSm }
+            Label {
+                objectName: "pluginsDirLink"
+                property string tooltip: qsTr("Open this folder in your file manager")
+                readonly property bool clickable: true
+                Layout.fillWidth: true
+                text: tool.model.pluginsDir
+                elide: Text.ElideMiddle
+                font.family: Theme.monoFont
+                font.pixelSize: Theme.fontXs
+                font.underline: true
+                color: Theme.primaryText
+                TapHandler { onTapped: tool.model.openPluginsDir() }
+            }
+        }
+
         // Action & Filter Bar
         RowLayout {
             Layout.fillWidth: true

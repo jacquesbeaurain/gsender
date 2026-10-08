@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import GSender
 
@@ -68,7 +69,7 @@ ToolPage {
                         anchors.rightMargin: 16
                         spacing: 12
                         Label { text: qsTr("Action"); font.bold: true; Layout.fillWidth: true }
-                        Label { text: qsTr("Shortcut"); font.bold: true; Layout.preferredWidth: 200 }
+                        Label { text: qsTr("Shortcut"); font.bold: true; Layout.preferredWidth: 240 }
                         Label { text: qsTr("Category"); font.bold: true; Layout.preferredWidth: 160 }
                         Label { text: qsTr("Active"); font.bold: true; Layout.preferredWidth: 60 }
                     }
@@ -101,15 +102,16 @@ ToolPage {
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
-                            Item {
-                                Layout.preferredWidth: 200
+                            RowLayout {
+                                Layout.preferredWidth: 240
+                                Layout.minimumWidth: 240
+                                Layout.maximumWidth: 240
                                 Layout.fillHeight: true
+                                spacing: 4
                                 Panel {
                                     objectName: "shortcutKeys_" + (row.action.id || "")
-                                    property string tooltip: row.action.keys ? qsTr("Edit this shortcut") : qsTr("Assign a shortcut to this action")
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.max(72, keysLabel.implicitWidth + 24)
-                                    height: 32
+                                    Layout.preferredWidth: Math.max(72, keysLabel.implicitWidth + 24)
+                                    Layout.preferredHeight: 32
                                     radius: 4
                                     color: keysTap.pressed ? Theme.gray[300] : Theme.surfaceElevated
                                     border.color: Theme.outline
@@ -122,6 +124,47 @@ ToolPage {
                                         color: row.action.keys ? Theme.contentPrimary : Theme.contentMuted
                                     }
                                     TapHandler { id: keysTap; onTapped: keyEditor.edit(row.action.id, row.action.title) }
+                                }
+                                Item { Layout.fillWidth: true }
+                                // Upstream's row buttons: Edit and Delete, or Assign.
+                                GButton {
+                                    objectName: "shortcutEdit_" + (row.action.id || "")
+                                    visible: !!row.action.keys
+                                    variant: "ghost"
+                                    iconName: "LuPencil"
+                                    iconSize: 24
+                                    iconColor: Theme.primaryText
+                                    implicitWidth: 40
+                                    implicitHeight: 32
+                                    tooltip: qsTr("Edit this shortcut")
+                                    onClicked: keyEditor.edit(row.action.id, row.action.title)
+                                }
+                                GButton {
+                                    objectName: "shortcutDelete_" + (row.action.id || "")
+                                    visible: !!row.action.keys
+                                    variant: "ghost"
+                                    iconName: "LuTrash"
+                                    iconSize: 24
+                                    iconColor: Theme.red[500]
+                                    implicitWidth: 40
+                                    implicitHeight: 32
+                                    tooltip: qsTr("Delete this shortcut")
+                                    onClicked: {
+                                        tool.model.clearKeys(row.action.id)
+                                        Backend.notify(qsTr("Shortcut Cleared"), "success")
+                                    }
+                                }
+                                GButton {
+                                    objectName: "shortcutAssign_" + (row.action.id || "")
+                                    visible: !row.action.keys
+                                    variant: "ghost"
+                                    iconName: "LuPlus"
+                                    iconSize: 24
+                                    iconColor: Theme.primaryText
+                                    implicitWidth: 40
+                                    implicitHeight: 32
+                                    tooltip: qsTr("Assign a shortcut to this action")
+                                    onClicked: keyEditor.edit(row.action.id, row.action.title)
                                 }
                             }
                             Label {
@@ -143,6 +186,57 @@ ToolPage {
                             }
                         }
                     }
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 16
+            GButton {
+                objectName: "shortcutsImport"
+                text: qsTr("Import")
+                iconName: "LuDownload"
+                iconSize: 16
+                tooltip: qsTr("Import shortcuts from a file")
+                onClicked: importDialog.open()
+            }
+            GButton {
+                objectName: "shortcutsExport"
+                text: qsTr("Export")
+                iconName: "LuUpload"
+                iconSize: 16
+                tooltip: qsTr("Export shortcuts to a file")
+                onClicked: exportDialog.open()
+            }
+            Item { Layout.fillWidth: true }
+            GButton {
+                objectName: "shortcutsEnableAll"
+                text: qsTr("Enable All")
+                iconName: "LuToggleRight"
+                iconSize: 16
+                enabled: !tool.model.allActive
+                tooltip: qsTr("Enable all shortcuts")
+                onClicked: tool.model.setAllActive(true)
+            }
+            GButton {
+                objectName: "shortcutsDisableAll"
+                text: qsTr("Disable All")
+                iconName: "LuToggleLeft"
+                iconSize: 16
+                enabled: !tool.model.noneActive
+                tooltip: qsTr("Disable all shortcuts")
+                onClicked: tool.model.setAllActive(false)
+            }
+            GButton {
+                objectName: "shortcutsPrint"
+                text: qsTr("Print")
+                iconName: "LuPrinter"
+                iconSize: 16
+                tooltip: qsTr("Print shortcuts")
+                onClicked: {
+                    const failure = tool.model.print()
+                    if (failure)
+                        Backend.notify(failure, "error")
                 }
             }
         }
@@ -256,6 +350,26 @@ ToolPage {
                     }
                 }
             }
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+        fileMode: FileDialog.SaveFile
+        nameFilters: [qsTr("JSON (*.json)")]
+        defaultSuffix: "json"
+        onAccepted: {
+            const failure = tool.model.exportTo(selectedFile)
+            Backend.notify(failure || qsTr("Shortcuts exported successfully!"), failure ? "error" : "success")
+        }
+    }
+    FileDialog {
+        id: importDialog
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("JSON (*.json)")]
+        onAccepted: {
+            const failure = tool.model.importFrom(selectedFile)
+            Backend.notify(failure || qsTr("Shortcuts imported successfully!"), failure ? "error" : "success")
         }
     }
 

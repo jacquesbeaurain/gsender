@@ -5,6 +5,7 @@
 // another active action uses are refused; changes are saved as they are
 // made (upstream's page), keeping only what differs from the defaults.
 
+#include <QUrl>
 #include "app_settings.hpp"
 #include "shortcuts.hpp"
 
@@ -34,6 +35,10 @@ class ShortcutsModel : public UiModelBase {
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
     // Each {id, title, keys (as the platform writes them), category, active}.
     Q_PROPERTY(QVariantList rows READ rows NOTIFY changed)
+    // Every action on / off (the toolbar's Enable All and Disable All are
+    // disabled when they would change nothing).
+    Q_PROPERTY(bool allActive READ allActive NOTIFY changed)
+    Q_PROPERTY(bool noneActive READ noneActive NOTIFY changed)
 
 public:
     explicit ShortcutsModel(QObject* parent = nullptr);
@@ -53,6 +58,8 @@ public:
         bool active = false;
     };
     QVariantList rows() const;
+    bool allActive() const;
+    bool noneActive() const;
 
     // A key press as a shortcut (portable text, e.g. "Shift+Right"); empty
     // for a modifier alone.
@@ -65,6 +72,19 @@ public:
     Q_INVOKABLE QString setKeys(const QString& id, const QString& keys);
     Q_INVOKABLE void setActive(const QString& id, bool active);
     Q_INVOKABLE void resetAll();
+    Q_INVOKABLE void setAllActive(bool active);
+    // Delete this shortcut: its keys cleared (the action stays listed).
+    Q_INVOKABLE void clearKeys(const QString& id);
+    // Export and Import (gsender-shortcuts-<date>.json, upstream's format:
+    // {version, exportDate, shortcuts: {id: {cmd, title, keys, isActive,
+    // category}}}); "" on success, else the failure. Import merges what
+    // matches an action.
+    Q_INVOKABLE QString exportTo(const QUrl& file) const;
+    Q_INVOKABLE QString importFrom(const QUrl& file);
+    Q_INVOKABLE QString exportFileName() const;
+    // Print: the active shortcuts by category as a page in the browser,
+    // which prints it; "" or the failure.
+    Q_INVOKABLE QString print() const;
 
 
 private:

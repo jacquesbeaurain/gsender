@@ -68,6 +68,13 @@ const icons = [
     // The SD card (features/SDCard, lucide-react).
     ['lu', 'LuRefreshCw'],
     ['lu', 'LuUpload'],
+    // Keyboard shortcuts' toolbar and the plugin folder button.
+    ['lu', 'LuDownload'],
+    ['lu', 'LuToggleRight'],
+    ['lu', 'LuToggleLeft'],
+    ['lu', 'LuPrinter'],
+    ['lu', 'LuFolderOpen'],
+    ['fa6', 'FaMicrochip'],
     ['lu', 'LuHardDrive'],
     ['lu', 'LuFile'],
     ['io5', 'IoPlayOutline'],

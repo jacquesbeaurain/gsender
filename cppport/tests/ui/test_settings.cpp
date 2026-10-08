@@ -55,6 +55,49 @@ TEST_F(UiTest, TheShortcutsToolRebindsAndResetsTheKeys) {
     EXPECT_EQ(shortcuts->manager().actionFor(QKeyCombination(Qt::ShiftModifier, Qt::Key_Right)), "JOG_X_P");
 }
 
+// The toolbar under the shortcuts: Delete, Disable All / Enable All, and an
+// Export that Import reads back.
+TEST_F(UiTest, TheShortcutsToolbarDeletesTogglesAllAndRoundTripsAFile) {
+    tap("navTools");
+    ASSERT_TRUE(waitFor([&] { return item("toolCard_shortcuts") && item("toolCard_shortcuts")->isVisible(); }));
+    tap("toolCard_shortcuts");
+    ASSERT_TRUE(waitFor([&] { return item("keyboardShortcutsTool") && item("keyboardShortcutsTool")->isVisible(); }));
+    QObject* model = item("keyboardShortcutsTool")->property("model").value<QObject*>();
+    ASSERT_NE(model, nullptr);
+
+    // Enable All has nothing to do at first; Disable All switches every action off.
+    EXPECT_FALSE(item("shortcutsEnableAll")->isEnabled());
+    ASSERT_TRUE(item("shortcutsDisableAll")->isEnabled());
+    tap("shortcutsDisableAll");
+    EXPECT_TRUE(model->property("noneActive").toBool());
+    EXPECT_TRUE(item("shortcutsEnableAll")->isEnabled());
+    EXPECT_FALSE(item("shortcutsDisableAll")->isEnabled());
+
+    // Export, then Enable All, then Import: back to everything off.
+    const QUrl file = QUrl::fromLocalFile(dir_.path() + "/shortcuts.json");
+    QString failure;
+    QMetaObject::invokeMethod(model, "exportTo", Q_RETURN_ARG(QString, failure), Q_ARG(QUrl, file));
+    EXPECT_TRUE(failure.isEmpty()) << failure.toStdString();
+    tap("shortcutsEnableAll");
+    EXPECT_TRUE(model->property("allActive").toBool());
+    QMetaObject::invokeMethod(model, "importFrom", Q_RETURN_ARG(QString, failure), Q_ARG(QUrl, file));
+    EXPECT_TRUE(failure.isEmpty()) << failure.toStdString();
+    EXPECT_TRUE(model->property("noneActive").toBool());
+    QMetaObject::invokeMethod(model, "importFrom", Q_RETURN_ARG(QString, failure),
+                              Q_ARG(QUrl, QUrl::fromLocalFile(dir_.path() + "/missing.json")));
+    EXPECT_FALSE(failure.isEmpty());
+
+    // Delete clears a shortcut's keys; the action stays.
+    tap("shortcutsEnableAll");
+    item("shortcutsSearch")->forceActiveFocus();
+    type("jog x");
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    ASSERT_TRUE(waitFor([&] { return item("shortcutDelete_JOG_X_P") && item("shortcutDelete_JOG_X_P")->isVisible(); }));
+    tap("shortcutDelete_JOG_X_P");
+    EXPECT_EQ(machine_->settings().shortcuts.at("JOG_X_P").keys, "");
+    ASSERT_TRUE(waitFor([&] { return item("shortcutAssign_JOG_X_P") && item("shortcutAssign_JOG_X_P")->isVisible(); }));
+}
+
 TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     tap("navConfig");
     ASSERT_TRUE(waitFor([&] { return item("configPage") && item("configPage")->isVisible(); }));

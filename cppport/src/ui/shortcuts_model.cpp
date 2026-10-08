@@ -3,8 +3,21 @@
 #include "backend.hpp"
 #include "machine.hpp"
 
+#include <QDate>
+#include <QDateTime>
+#include <QDesktopServices>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QLocale>
+#include <QMap>
+#include <QStandardPaths>
+#include <QTemporaryFile>
+#include <QUrl>
+
+#include <algorithm>
 
 namespace gs::ui {
 namespace {
@@ -161,6 +174,110 @@ void ShortcutsModel::resetAll() {
     settings.shortcutsEnabled = true;
     machine_.setSettings(settings);
     Q_EMIT changed();
+}
+
+bool ShortcutsModel::allActive() const {
+    return std::all_of(actions_.begin(), actions_.end(), [this](const app::ShortcutAction& a) { return isActive(a.id); });
+}
+
+bool ShortcutsModel::noneActive() const {
+    return std::none_of(actions_.begin(), actions_.end(), [this](const app::ShortcutAction& a) { return isActive(a.id); });
+}
+
+void ShortcutsModel::setAllActive(bool active) {
+    for (const app::ShortcutAction& action : actions_) {
+        edits_[action.id.toStdString()] = app::ShortcutBinding{keys(action.id).toStdString(), active};
+    }
+    save();
+}
+
+void ShortcutsModel::clearKeys(const QString& id) {
+    edits_[id.toStdString()] = app::ShortcutBinding{std::string(), isActive(id)};
+    save();
+}
+
+QString ShortcutsModel::exportFileName() const {
+    return QStringLiteral("gsender-shortcuts-%1.json").arg(QDate::currentDate().toString(Qt::ISODate));
+}
+
+QString ShortcutsModel::exportTo(const QUrl& file) const {
+    QJsonObject shortcuts;
+    for (const app::ShortcutAction& action : actions_) {
+        shortcuts[action.id] = QJsonObject{{"cmd", action.id},
+                                           {"title", action.title},
+                                           {"keys", keys(action.id).toLower()},
+                                           {"isActive", isActive(action.id)},
+                                           {"category", action.category}};
+    }
+    const QJsonObject root{{"version", "1.0"},
+                           {"exportDate", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+                           {"shortcuts", shortcuts}};
+    QFile out(file.toLocalFile());
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return tr("Failed to export shortcuts.");
+    }
+    out.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    return {};
+}
+
+QString ShortcutsModel::importFrom(const QUrl& file) {
+    QFile in(file.toLocalFile());
+    const QJsonDocument document = in.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(in.readAll()) : QJsonDocument();
+    const QJsonValue shortcuts = document.object().value("shortcuts");
+    if (!shortcuts.isObject()) {
+        return tr("Failed to import shortcuts. Please check the file format.");
+    }
+    const QJsonObject list = shortcuts.toObject();
+    for (auto it = list.begin(); it != list.end(); ++it) {
+        const QString id = it.key();
+        if (!app::findShortcutAction(actions_, id) || !it.value().isObject()) {
+            continue;
+        }
+        const QJsonObject entry = it.value().toObject();
+        QString text = keys(id);
+        if (entry.contains("keys")) {
+            const QKeySequence sequence = parse(entry.value("keys").toString());
+            text = sequence.isEmpty() ? QString() : QKeySequence(sequence[0]).toString(QKeySequence::PortableText);
+        }
+        edits_[id.toStdString()] = app::ShortcutBinding{
+            text.toStdString(), entry.contains("isActive") ? entry.value("isActive").toBool() : isActive(id)};
+    }
+    save();
+    return {};
+}
+
+QString ShortcutsModel::print() const {
+    QMap<QString, QStringList> byCategory;
+    for (const app::ShortcutAction& action : actions_) {
+        const QString text = keys(action.id);
+        if (isActive(action.id) && !text.isEmpty()) {
+            byCategory[action.category] << QStringLiteral("<div class=\"shortcut\"><span>%1</span><code>%2</code></div>")
+                                               .arg(action.title.toHtmlEscaped(), nativeKeys(text).toHtmlEscaped());
+        }
+    }
+    QString body = QStringLiteral("<h1>gSender Keyboard Shortcuts</h1><p>Generated on %1</p>")
+                       .arg(QLocale().toString(QDate::currentDate()));
+    for (auto it = byCategory.begin(); it != byCategory.end(); ++it) {
+        body += QStringLiteral("<h2>%1</h2><div class=\"shortcuts\">%2</div>")
+                    .arg(it.key().toHtmlEscaped(), it.value().join(QString()));
+    }
+    const QString page = QStringLiteral(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>gSender Keyboard Shortcuts</title><style>"
+        "body{font-family:system-ui,Segoe UI,sans-serif;padding:20px;color:#111}h1{font-size:22px}h2{font-size:15px;"
+        "background:#f3f4f6;padding:6px 10px;border-radius:4px}.shortcuts{display:grid;grid-template-columns:repeat("
+        "auto-fill,minmax(280px,1fr));gap:8px}.shortcut{display:flex;justify-content:space-between;padding:6px 8px;"
+        "border:1px solid #eaeaea;border-radius:3px;background:#fafafa;font-size:12px}code{background:#f1f5f9;"
+        "padding:2px 6px;border-radius:3px;border:1px solid #e2e8f0;font-weight:600}</style></head><body>%1"
+        "<script>window.onload=function(){window.print()}</script></body></html>").arg(body);
+    QTemporaryFile temp(QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/gsender-shortcuts-XXXXXX.html");
+    temp.setAutoRemove(false);
+    if (!temp.open()) {
+        return tr("Unable to create print document.");
+    }
+    temp.write(page.toUtf8());
+    temp.close();
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(temp.fileName())) ? QString()
+                                                                           : tr("Failed to print shortcuts.");
 }
 
 void ShortcutsModel::save() {

@@ -125,21 +125,6 @@ Item {
             Layout.maximumWidth: row.innerWidth * 0.215
             Layout.alignment: Qt.AlignVCenter
             spacing: 8
-            Rectangle {
-                visible: row.kind === "eeprom"
-                implicitWidth: keyLabel.implicitWidth + 10
-                implicitHeight: 20
-                radius: 4
-                color: Theme.dark ? Theme.surfaceElevated : Theme.gray[200]
-                Label {
-                    id: keyLabel
-                    anchors.centerIn: parent
-                    text: row.key
-                    font.family: "monospace"
-                    font.pixelSize: Theme.fontXs
-                    color: Theme.contentSecondary
-                }
-            }
             Label {
                 Layout.fillWidth: true
                 text: row.entry.label || ""
@@ -180,6 +165,17 @@ Item {
                 property string tooltip: row.entry.defaultText ? qsTr("Reset to default value (%1)").arg(row.entry.defaultText) : qsTr("Reset to default value")
                 TapHandler { onTapped: row.kind === "eeprom" ? row.model.resetEeprom(row.key) : row.model.resetValue(row.key) }
             }
+            // Upstream's FaMicrochip: this one lives in the machine's EEPROM.
+            Icon {
+                objectName: "configChip_" + row.key
+                visible: row.kind === "eeprom"
+                property string tooltip: qsTr("Machine setting")
+                x: 43
+                anchors.verticalCenter: parent.verticalCenter
+                name: "FaMicrochip"
+                size: 36
+                color: Theme.robin[500]
+            }
         }
 
         // What it does.
@@ -190,7 +186,9 @@ Item {
             Layout.leftMargin: row.innerWidth * 0.08 - 20   // it starts 60% along
             Layout.minimumWidth: 0
             Layout.alignment: Qt.AlignVCenter
-            text: row.entry.description || ""
+            // An EEPROM setting names itself and its default at the end.
+            text: (row.entry.description || "")
+                  + (row.kind === "eeprom" ? " (" + row.key + (row.entry.defaultText ? ", " + qsTr("Default") + " " + row.entry.defaultText : "") + ")" : "")
             wrapMode: Text.Wrap
             font.pixelSize: Theme.fontSm
             color: Theme.contentMuted
@@ -511,40 +509,63 @@ Item {
     }
     Component {
         id: eepromBits
-        // BitfieldInput / ExclusiveBitfieldInput / AxisMaskInput: the bits
-        // chosen, their sum the value.
-        Flow {
+        // BitfieldInput / ExclusiveBitfieldInput / AxisMaskInput: a switch for
+        // each bit, their sum the value shown under them.
+        Item {
+        implicitHeight: bitColumn.implicitHeight
+        ColumnLayout {
+            id: bitColumn
             objectName: "configValue_" + row.key
-            spacing: 6
+            spacing: 8
+            width: 158   // the switches end with the boxes and selects
             readonly property int value: Number(row.entry.value) || 0
             Repeater {
                 model: row.entry.bits || []
-                Panel {
+                RowLayout {
                     required property string modelData
                     required property int index
                     readonly property bool on: (parent.value >> index) & 1
                     // Exclusive: the other bits only count with the first set.
                     readonly property bool usable: row.entry.editor !== "exclusiveBits" || index === 0 || (parent.value & 1)
-                    objectName: "configBit_" + row.key + "_" + index
-                    implicitWidth: bitLabel.implicitWidth + 20
-                    implicitHeight: 32
-                    radius: 16
-                    opacity: usable && row.model.idle ? 1 : 0.5
-                    color: on ? Theme.blue[500] : "transparent"
-                    border.color: on ? Theme.blue[500] : Theme.outline
+                    Layout.fillWidth: true
                     Label {
-                        id: bitLabel
-                        anchors.centerIn: parent
-                        text: modelData
+                        text: modelData + ":"
                         font.pixelSize: Theme.fontSm
-                        color: parent.on ? "white" : Theme.contentPrimary
+                        color: Theme.contentBody
+                        Layout.fillWidth: true
                     }
-                    TapHandler {
+                    GSwitch {
+                        objectName: "configBit_" + row.key + "_" + index
+                        checked: parent.on
                         enabled: parent.usable && row.model.idle
-                        onTapped: row.model.toggleEepromBit(row.key, parent.index)
+                        onToggled: {
+                            row.model.toggleEepromBit(row.key, index)
+                            checked = Qt.binding(() => parent.on)
+                        }
                     }
                 }
             }
+            RowLayout {
+                spacing: 8
+                Label { text: qsTr("Value:"); font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.contentMuted }
+                Panel {
+                    implicitWidth: valueLabel.implicitWidth + 20
+                    implicitHeight: 24
+                    radius: 12
+                    color: Theme.secondary
+                    border.color: Theme.outline
+                    Label {
+                        id: valueLabel
+                        objectName: "configBitValue_" + row.key
+                        anchors.centerIn: parent
+                        text: bitColumn.value
+                        font.pixelSize: Theme.fontSm
+                        font.weight: Font.DemiBold
+                        color: Theme.contentMuted
+                    }
+                }
+            }
+        }
         }
     }
     Component {

@@ -1,9 +1,12 @@
 #include "plugins_model.hpp"
+
+#include <QDesktopServices>
+#include <QDir>
+#include <QUrl>
 #include "plugin_qml_context.hpp"
 
 #include "machine.hpp"
-#include <QDir>
-#include <QUrl>
+
 #include <algorithm>
 
 namespace gs::ui {
@@ -61,6 +64,20 @@ void PluginsModel::setFilter(const QString& filter) {
     filter_ = filter;
     Q_EMIT filterChanged();
     refresh();
+}
+
+QString PluginsModel::pluginsDir() const {
+    const QStringList& paths = machine_.pluginService().searchPaths();
+    return paths.isEmpty() ? QString() : QDir::toNativeSeparators(paths.first());
+}
+
+bool PluginsModel::openPluginsDir() const {
+    const QString dir = pluginsDir();
+    if (dir.isEmpty()) {
+        return false;
+    }
+    QDir().mkpath(dir);
+    return QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
 }
 
 void PluginsModel::scan() {

@@ -51,6 +51,8 @@ class PluginsModel : public UiModelBase {
     // "plugin:<id>:<route>".
     Q_PROPERTY(QVariantList toolCards READ toolCards NOTIFY pluginsChanged)
     Q_PROPERTY(QVariantList toolTabs READ toolTabs NOTIFY pluginsChanged)
+    // Where the plugins live (the first search path), shown on the page.
+    Q_PROPERTY(QString pluginsDir READ pluginsDir CONSTANT)
 
 public:
     explicit PluginsModel(QObject* parent = nullptr);
@@ -68,8 +70,11 @@ public:
     StructListModelBase* pluginsModel() { return &listModel_; }
     QVariantList toolCards() const;
     QVariantList toolTabs() const;
+    QString pluginsDir() const;
 
     Q_INVOKABLE void scan();
+    // Open the plugins folder in the file manager.
+    Q_INVOKABLE bool openPluginsDir() const;
     Q_INVOKABLE void setEnabled(const QString& id, bool enabled);
     Q_INVOKABLE bool isEnabled(const QString& id) const;
     Q_INVOKABLE QVariantMap getPlugin(const QString& id) const;
