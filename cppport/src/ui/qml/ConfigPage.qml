@@ -429,7 +429,10 @@ Item {
                         objectName: "configFlash"
                         label: qsTr("Flash")
                         iconName: "PiLightning"
-                        enabled: false   // firmware flashing is not in this port
+                        // Only the simulators can be flashed.
+                        enabled: flashDialog.model.available
+                        tooltip: enabled ? "" : qsTr("Firmware flashing is only available on the simulated boards")
+                        onClicked: flashDialog.open()
                     }
                     ActionButton {
                         objectName: "configEepromImport"
@@ -484,6 +487,7 @@ Item {
         property var then: null
         onAccepted: if (then) then()
     }
+    FlashDialog { id: flashDialog }
     FileDialog {
         id: settingsExport
         title: qsTr("Export Settings")

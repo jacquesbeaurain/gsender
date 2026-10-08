@@ -17,8 +17,8 @@ constexpr double kInch = 25.4;
 
 // Grbl 1.1 defaults for a small router; $22=1 enables homing (the simulated
 // board starts unlocked, as if built without HOMING_INIT_LOCK).
-const std::vector<std::pair<std::string, std::string>>& defaultSettings() {
-    static const std::vector<std::pair<std::string, std::string>> settings{
+const GrblSimulator::Settings& grblDefaults() {
+    static const GrblSimulator::Settings settings{
         {"$0", "10"},        {"$1", "25"},         {"$2", "0"},          {"$3", "0"},          {"$4", "0"},
         {"$5", "0"},         {"$6", "0"},          {"$10", "1"},         {"$11", "0.010"},     {"$12", "0.002"},
         {"$13", "0"},        {"$20", "0"},         {"$21", "0"},         {"$22", "1"},         {"$23", "0"},
@@ -29,6 +29,65 @@ const std::vector<std::pair<std::string, std::string>>& defaultSettings() {
     };
     return settings;
 }
+
+// What a grblHAL board describes of its settings ($ES, $ESH): the group, the
+// name, the unit, the data type (0 switch, 1 bit field, 2 exclusive bit
+// field, 3 a choice, 4 axis mask, 6 a number), the format (the bits' or
+// choices' names), the help and the default. Only the ones this simulator
+// takes beyond Grbl's, and a few Grbl ones grblHAL names itself.
+struct HalSetting {
+    int id;
+    int group;
+    const char* name;
+    const char* unit;
+    int type;
+    const char* format;
+    const char* details;
+    const char* value;
+};
+constexpr HalSetting kHalSettings[] = {
+    {10, 1, "Status report options", "", 1,
+     "Position in machine coordinate,Buffer state,Line numbers,Feed & speed,Pin state,Work coordinate offset,"
+     "Overrides,Probe coordinates,Buffer sync on WCO change,Parser state,Alarm substatus,Run substatus,Enable when homing",
+     "Specifies optional data included in status reports.", "1"},
+    {22, 5, "Homing cycle", "", 1,
+     "Enable,Enable single axis commands,Homing on startup required,Set machine origin to 0,Two switches shared one input pin,"
+     "Allow manual homing,Override locks,Keep homed status on reset",
+     "Enables homing cycle. Requires limit switches on all axes.", "1"},
+    {32, 4, "Mode of operation", "", 3, "Normal,Laser mode,Lathe mode",
+     "Normal mode, laser mode (spindle power follows the speed) or lathe mode.", "0"},
+    {33, 4, "Spindle PWM frequency", "Hz", 6, "", "Spindle PWM frequency.", "5000.000"},
+    {340, 4, "Spindle at speed tolerance", "percent", 6, "",
+     "Spindle at speed tolerance as percentage of programmed speed. Set to 0 to disable.", "0.000"},
+    {341, 7, "Tool change mode", "", 3,
+     "Normal,Manual touch off,Manual touch off @ G59.3,Automatic touch off @ G59.3,Ignore M6",
+     "Specifies the tool change mode.", "0"},
+    {342, 7, "Tool change probing distance", "mm", 6, "",
+     "Maximum probing distance for automatic or manual touch off.", "30.000"},
+};
+constexpr std::pair<int, const char*> kHalGroups[] = {{1, "General"}, {2, "Control signals"}, {3, "Limits"},
+                                                      {4, "Spindle"}, {5, "Homing"},          {6, "Stepper"},
+                                                      {7, "Tool change"}};
+
+}  // namespace
+
+GrblSimulator::Settings GrblSimulator::defaultSettings(bool grblHal) {
+    Settings settings = grblDefaults();
+    if (grblHal) {
+        for (const HalSetting& s : kHalSettings) {
+            const std::string key = "$" + std::to_string(s.id);
+            if (std::none_of(settings.begin(), settings.end(), [&key](const auto& e) { return e.first == key; })) {
+                settings.emplace_back(key, s.value);
+            }
+        }
+        std::sort(settings.begin(), settings.end(), [](const auto& a, const auto& b) {
+            return std::stoi(a.first.substr(1)) < std::stoi(b.first.substr(1));
+        });
+    }
+    return settings;
+}
+
+namespace {
 
 std::string fixed3(double value) {
     return js::toFixed(value, 3);
@@ -94,7 +153,7 @@ std::vector<Solid> touchPlateOnCorner(int corner, double cornerX, double cornerY
 }
 
 GrblSimulator::GrblSimulator(runtime::EventLoop& loop)
-    : loop_(loop), timers_(loop), settings_(defaultSettings()) {}
+    : loop_(loop), timers_(loop), settings_(defaultSettings(false)) {}
 
 GrblSimulator::~GrblSimulator() {
     alive_.reset();
@@ -436,6 +495,27 @@ void GrblSimulator::executeSystem(const std::string& line) {
     }
     if (command == "$SLP") {
         emitText("ok\r\n[MSG:Sleeping]\r\n");
+        return;
+    }
+    // $RST=$ (settings), $RST=# (offsets and stored positions) or $RST=* (both).
+    if (command.starts_with("$RST=")) {
+        const std::string what = command.substr(5);
+        if (what != "$" && what != "#" && what != "*") {
+            emitText("error:3\r\n");
+            return;
+        }
+        if (what != "#") {
+            settings_ = defaultSettings(grblHal_);
+        }
+        if (what != "$") {
+            wcsOffsets_ = {};
+            g28_ = {};
+            g30_ = {};
+            g92_ = {};
+        }
+        // Grbl restarts after restoring: the message, ok, the banner again.
+        emitText("[MSG:Restoring defaults]\r\nok\r\n");
+        realtime(0x18);
         return;
     }
     // $n=value - the firmware reads the line without its spaces
@@ -997,8 +1077,34 @@ std::string sdName(std::string_view path) {
 }  // namespace
 
 bool GrblSimulator::executeGrblHal(const std::string& command, const std::string& line) {
-    // The extended queries: nothing to describe.
-    static constexpr std::string_view kEmpty[] = {"$ES", "$ESH", "$EG", "$EA", "$EE", "$SPINDLES", "$SPINDLESH"};
+    if (command == "$ES") {
+        std::string out;
+        for (const HalSetting& h : kHalSettings) {
+            out += "[SETTING:" + std::to_string(h.id) + "|" + std::to_string(h.group) + "|" + h.name + "|" + h.unit +
+                   "|" + std::to_string(h.type) + "|" + h.format + "]\r\n";
+        }
+        emitText(out + "ok\r\n");
+        return true;
+    }
+    if (command == "$ESH") {
+        std::string out = "\"$-Code\"\t\"Name\"\t\"Units\"\t\"Datatype\"\t\"Format\"\t\"Description\"\r\n";
+        for (const HalSetting& h : kHalSettings) {
+            out += std::to_string(h.id) + "\t" + h.name + "\t" + h.unit + "\t" + std::to_string(h.type) + "\t" +
+                   h.format + "\t" + h.details + "\r\n";
+        }
+        emitText(out + "ok\r\n");
+        return true;
+    }
+    if (command == "$EG") {
+        std::string out;
+        for (const auto& [id, label] : kHalGroups) {
+            out += "[SETTINGGROUP:" + std::to_string(id) + "|0|" + label + "]\r\n";
+        }
+        emitText(out + "ok\r\n");
+        return true;
+    }
+    // The other extended queries: nothing to describe.
+    static constexpr std::string_view kEmpty[] = {"$EA", "$EE", "$SPINDLES", "$SPINDLESH"};
     if (std::find(std::begin(kEmpty), std::end(kEmpty), command) != std::end(kEmpty) || command == "$FM") {
         emitText("ok\r\n");
         return true;

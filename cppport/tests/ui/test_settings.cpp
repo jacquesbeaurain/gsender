@@ -98,6 +98,36 @@ TEST_F(UiTest, TheShortcutsToolbarDeletesTogglesAllAndRoundTripsAFile) {
     ASSERT_TRUE(waitFor([&] { return item("shortcutAssign_JOG_X_P") && item("shortcutAssign_JOG_X_P")->isVisible(); }));
 }
 
+// Config > Flash: only the simulated boards can be flashed - the machine is
+// disconnected, the progress runs, and the log asks to reconnect.
+TEST_F(UiTest, FlashingASimulatedBoardDisconnectsRunsAndAsksToReconnect) {
+    tap("navConfig");
+    ASSERT_TRUE(waitFor([&] { return item("configFlash") && item("configFlash")->isVisible(); }));
+    EXPECT_FALSE(item("configFlash")->isEnabled());  // no simulator offered
+    backend_->setSimulatorEnabled(true);
+    ASSERT_TRUE(waitFor([&] { return item("configFlash")->isEnabled(); }));
+    connectSimulator();
+
+    tap("configFlash");
+    ASSERT_TRUE(waitFor([&] { return item("flashYes") && item("flashYes")->isVisible(); }));
+    screenshot("ui_flash");
+    auto* model = item("configPage")->findChild<QObject*>("flashDialog")->property("model").value<QObject*>();
+    ASSERT_NE(model, nullptr);
+    model->setProperty("tickMs", 1);
+    ASSERT_TRUE(item("flashYes")->isEnabled());  // grbl: a port is enough
+    tap("flashYes");
+    ASSERT_TRUE(waitFor([&] { return !machine_->isConnected(); }));
+    EXPECT_FALSE(item("flashYes")->isVisible());
+    ASSERT_TRUE(waitFor([&] { return model->property("state").toInt() == 2; }, 10000));  // Complete
+    EXPECT_EQ(model->property("progress").toInt(), 100);
+    const QVariantList log = model->property("log").toList();
+    ASSERT_FALSE(log.isEmpty());
+    EXPECT_EQ(log.first().toMap().value("content").toString(), "Flash completed, please reconnect to your device.");
+    ASSERT_TRUE(waitFor([&] { return item("flashClose") && item("flashClose")->isVisible(); }));
+    screenshot("ui_flash_done");
+    tap("flashClose");
+}
+
 TEST_F(UiTest, TheConfigPageStagesAndAppliesSettingsAndTheBoards) {
     tap("navConfig");
     ASSERT_TRUE(waitFor([&] { return item("configPage") && item("configPage")->isVisible(); }));

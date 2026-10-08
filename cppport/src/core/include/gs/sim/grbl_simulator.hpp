@@ -99,12 +99,28 @@ public:
     // A grblHAL board instead of Grbl 1.1 (set before open()): its banner and
     // $I (with the SD card and YMODEM options), complete reports on 0x87,
     // the homed state (H:) in the status, any numbered setting taken, $REBOOT
-    // as a reset and the extended queries answered empty - and an SD card:
+    // as a reset, the extended setting queries answered ($ES, $ESH, $EG) and
+    // the other extended ones empty - and an SD card:
     // $FM, the $F / $F+ listings, $FD= deletes, $F= runs (reported as SD: in
     // the status while they last, their lines unanswered) and YMODEM
     // uploads.
-    void setGrblHal(bool grblHal) { grblHal_ = grblHal; }
+    void setGrblHal(bool grblHal) {
+        if (grblHal != grblHal_) {
+            grblHal_ = grblHal;
+            settings_ = defaultSettings(grblHal);
+        }
+    }
     bool isGrblHal() const noexcept { return grblHal_; }
+
+    // ---- the EEPROM ----
+    // The settings ($0=..., in $$'s order). The board keeps them across power
+    // cycles: the owner takes them on close() and gives them to the next
+    // simulator; $RST=$ (or $RST=*) puts the defaults back. grblHAL's carry
+    // more ($33, $340-$342) and describe themselves ($ES, $ESH, $EG).
+    using Settings = std::vector<std::pair<std::string, std::string>>;
+    static Settings defaultSettings(bool grblHal);
+    const Settings& settings() const noexcept { return settings_; }
+    void setSettings(Settings settings) { settings_ = std::move(settings); }
     // The card's files by name (no leading "/").
     const std::map<std::string, std::string>& sdFiles() const noexcept { return sdFiles_; }
     void putSdFile(const std::string& name, std::string data) { sdFiles_[name] = std::move(data); }
@@ -216,7 +232,7 @@ private:
     double speed_ = 1.0;
     bool reportAfterDwell_ = false;
     std::array<int, 3> overrides_{100, 100, 100};
-    std::vector<std::pair<std::string, std::string>> settings_;
+    Settings settings_;
 
     bool grblHal_ = false;
     bool homed_ = false;  // grblHAL's H:, since the last full homing

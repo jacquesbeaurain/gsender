@@ -390,6 +390,12 @@ private:
     std::unique_ptr<transport::AsioLink> link_;
     std::unique_ptr<transport::FtpUploader> ftp_;  // SD card uploads to networked grblHAL
     std::unique_ptr<sim::GrblSimulator> simulator_;
+    // The simulated boards' EEPROM, kept across connections and runs
+    // (simulator-eeprom.json beside the configuration): {"Grbl": {"$0": "10",
+    // ...}, "grblHAL": {...}}.
+    std::filesystem::path simulatorStore_;
+    void loadSimulatorSettings();
+    void saveSimulatorSettings();
     std::unique_ptr<controller::Session> session_;
     QString port_;
     int baudRate_ = 115200;

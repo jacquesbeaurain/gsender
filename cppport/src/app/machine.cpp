@@ -28,11 +28,16 @@
 #include <QDir>
 #include <QKeySequence>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QThreadPool>
 #include <QTimer>
 #include <QCoreApplication>
+#include <algorithm>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 #include <boost/json.hpp>
 
@@ -193,6 +198,7 @@ Machine::Machine(QtEventLoop& loop, std::filesystem::path configFile, QObject* p
     config_.onError = [this](const std::string& message) {
         Q_EMIT errorReported(tr("Configuration"), QString::fromStdString(message));
     };
+    simulatorStore_ = configDir / "simulator-eeprom.json";
     config_.load(std::move(configFile));
     settings_ = loadAppSettings(config_);
     *preferences_ = settings_.preferences;
@@ -299,6 +305,7 @@ void Machine::connectTo(const QString& port, int baudRate, int networkPort) {
     if (isSimulatorPort(port)) {
         simulator_ = std::make_unique<sim::GrblSimulator>(loop_);
         simulator_->setGrblHal(port == kSimulatorHalPort);
+        loadSimulatorSettings();
         simulator_->setReportAfterDwell(true);
         startSession(*simulator_);
         simulator_->onData = [this](std::string_view bytes) {
@@ -367,11 +374,61 @@ void Machine::teardown() {
         link_.reset();
     }
     if (simulator_) {
+        saveSimulatorSettings();
         simulator_->close();
         simulator_.reset();
     }
     connecting_ = false;
     spindles_.clear();
+}
+
+void Machine::loadSimulatorSettings() {
+    QFile file(QString::fromStdWString(simulatorStore_.wstring()));
+    if (!simulator_ || !file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    const QJsonObject board = QJsonDocument::fromJson(file.readAll())
+                                  .object()
+                                  .value(simulator_->isGrblHal() ? "grblHAL" : "Grbl")
+                                  .toObject();
+    if (board.isEmpty()) {
+        return;
+    }
+    // Over the defaults: a setting the file lacks (an older one) keeps its default.
+    sim::GrblSimulator::Settings settings = simulator_->settings();
+    for (auto& [key, value] : settings) {
+        if (board.contains(QString::fromStdString(key))) {
+            value = board.value(QString::fromStdString(key)).toString().toStdString();
+        }
+    }
+    for (auto it = board.begin(); it != board.end(); ++it) {
+        const std::string key = it.key().toStdString();
+        if (simulator_->isGrblHal() &&
+            std::none_of(settings.begin(), settings.end(), [&key](const auto& e) { return e.first == key; })) {
+            settings.emplace_back(key, it.value().toString().toStdString());
+        }
+    }
+    simulator_->setSettings(std::move(settings));
+}
+
+void Machine::saveSimulatorSettings() {
+    if (!simulator_ || simulatorStore_.empty()) {
+        return;
+    }
+    QFile file(QString::fromStdWString(simulatorStore_.wstring()));
+    QJsonObject root;
+    if (file.open(QIODevice::ReadOnly)) {
+        root = QJsonDocument::fromJson(file.readAll()).object();
+        file.close();
+    }
+    QJsonObject board;
+    for (const auto& [key, value] : simulator_->settings()) {
+        board[QString::fromStdString(key)] = QString::fromStdString(value);
+    }
+    root[simulator_->isGrblHal() ? "grblHAL" : "Grbl"] = board;
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    }
 }
 
 runtime::EventLoop& Machine::eventLoop() noexcept {

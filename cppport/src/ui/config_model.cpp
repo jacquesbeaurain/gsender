@@ -157,6 +157,7 @@ QVariantMap ConfigModel::eepromRow(const std::string& name, const QString& secti
     if (own != settings.descriptions.end()) {
         unit = qstr(own->second.unit);
         description = qstr(own->second.description);
+        details = qstr(own->second.details);   // $ESH's text
         dataType = own->second.dataType;
         kind = dataType;
         for (const std::string& entry : own->second.format) {

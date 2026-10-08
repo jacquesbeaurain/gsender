@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -283,6 +284,63 @@ TEST(GrblHalSimulator, TakesItsSettingsReportsHomingAndReboots) {
     const std::string reboot = send("$REBOOT\n");
     EXPECT_TRUE(reboot.starts_with("ok\r\n")) << reboot;
     EXPECT_NE(reboot.find("GrblHAL 1.1f"), std::string::npos);
+}
+
+// The EEPROM: restored by $RST, carried to the next board, and - on grblHAL -
+// described by $ES, $ESH and $EG.
+TEST(SimulatorEeprom, ResetsKeepsAndDescribesItsSettings) {
+    runtime::ManualEventLoop loop;
+    std::string output;
+    const auto make = [&](bool hal, const GrblSimulator::Settings* saved) {
+        auto sim = std::make_unique<GrblSimulator>(loop);
+        sim->setGrblHal(hal);
+        if (saved) {
+            sim->setSettings(*saved);
+        }
+        sim->onData = [&](std::string_view bytes) { output += bytes; };
+        sim->open();
+        loop.advance(100);
+        return sim;
+    };
+    const auto send = [&](GrblSimulator& sim, std::string_view text) {
+        output.clear();
+        sim.send(text, controller::SendKind::Write);
+        loop.advance(0);
+        return output;
+    };
+
+    // A written setting goes to the next board; $RST=$ puts the defaults back.
+    auto board = make(false, nullptr);
+    EXPECT_EQ(send(*board, "$110=2500\n"), "ok\r\n");
+    const GrblSimulator::Settings kept = board->settings();
+    board = make(false, &kept);
+    EXPECT_NE(send(*board, "$$\n").find("$110=2500\r\n"), std::string::npos);
+    EXPECT_EQ(send(*board, "$RST=x\n"), "error:3\r\n");
+    const std::string restored = send(*board, "$RST=$\n");
+    EXPECT_TRUE(restored.starts_with("[MSG:Restoring defaults]\r\nok\r\n")) << restored;
+    loop.advance(100);
+    EXPECT_NE(send(*board, "$$\n").find("$110=4000.000\r\n"), std::string::npos);
+
+    // $RST=# clears the offsets and leaves the settings.
+    send(*board, "$110=2500\n");
+    send(*board, "G10 L2 P1 X5\n");
+    EXPECT_DOUBLE_EQ(board->workOffset()[0], 5.0);
+    send(*board, "$RST=#\n");
+    loop.advance(100);
+    EXPECT_DOUBLE_EQ(board->workOffset()[0], 0.0);
+    EXPECT_NE(send(*board, "$$\n").find("$110=2500\r\n"), std::string::npos);
+
+    // grblHAL: more settings, and the descriptions of them.
+    auto hal = make(true, nullptr);
+    const std::string all = send(*hal, "$$\n");
+    EXPECT_NE(all.find("$341=0\r\n"), std::string::npos);
+    EXPECT_NE(all.find("$33=5000.000\r\n"), std::string::npos);
+    const std::string described = send(*hal, "$ES\n");
+    EXPECT_NE(described.find("[SETTING:341|7|Tool change mode||3|Normal,Manual touch off,"), std::string::npos) << described;
+    EXPECT_NE(described.find("[SETTING:33|4|Spindle PWM frequency|Hz|6|]"), std::string::npos);
+    EXPECT_TRUE(described.ends_with("ok\r\n"));
+    EXPECT_NE(send(*hal, "$ESH\n").find("340\tSpindle at speed tolerance\tpercent\t6\t\t"), std::string::npos);
+    EXPECT_NE(send(*hal, "$EG\n").find("[SETTINGGROUP:7|0|Tool change]\r\n"), std::string::npos);
 }
 
 TEST(EndToEnd, AJobRunsToCompletionOnTheSimulatedBoard) {

@@ -2330,3 +2330,26 @@ machine is idle, with the notices upstream shows.
 - The plugin overlay buttons (also crosshairs) stack above this one.
 - Tests: `UiTest.MoveToHereArmsTheTopViewAndRapidsToTheHeldSpot`,
   `GoToLocation.MoveToHereRetractsThenRapidsToXY`.
+
+## Step 75 — The simulators' EEPROM, and a simulated Flash (`GrblSimulator`, `src/ui/flash_model`)
+
+The built-in boards now behave more like a board with an EEPROM:
+
+- Settings are kept: `Machine` saves them when a simulator closes and gives
+  them to the next one (`simulator-eeprom.json` beside the configuration,
+  one table each for Grbl and grblHAL), so a reconnect - or a restart -
+  keeps what Config saved.
+- `$RST=$` (settings), `$RST=#` (offsets and stored positions) and `$RST=*`
+  (both) answer `[MSG:Restoring defaults]` and `ok`, then restart the board.
+- A grblHAL simulator describes seven settings as the real board does
+  (`$ES`, `$ESH`, `$EG`): a bit field ($10, $22), choices ($32, $341),
+  numbers with units ($33 Hz, $340 percent, $342 mm), in groups. They show
+  with the board's own names, units and help; the Config EEPROM rows use
+  `$ESH`'s text for a setting the board describes.
+- Flash (Config > Flash) is the upstream dialog (port, controller type,
+  firmware file, the warning, progress, the flash log), enabled only while
+  the simulators are offered (`--simulator`): the machine is disconnected,
+  the log and progress run in `FlashModel`, and it ends asking to reconnect.
+  Flashing a real board (avrdude, DFU, UF2) is not ported.
+- Tests: `SimulatorEeprom.ResetsKeepsAndDescribesItsSettings`,
+  `UiTest.FlashingASimulatedBoardDisconnectsRunsAndAsksToReconnect`.

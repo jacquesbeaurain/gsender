@@ -21,6 +21,7 @@ qt_add_qml_module(gs_ui
         qml/Icon.qml
         qml/Card.qml
         qml/Panel.qml
+        qml/FlashDialog.qml
         qml/ModalDialog.qml
         qml/TopBar.qml
         qml/ConnectionButton.qml
@@ -191,6 +192,8 @@ qt_add_qml_module(gs_ui
         remote_models.cpp
         remote_models.hpp
         animated_picture_item.cpp
+        flash_model.cpp
+        flash_model.hpp
         hover_tips.cpp
         hover_tips.hpp
         animated_picture_item.hpp
